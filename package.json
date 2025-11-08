@@ -4,12 +4,15 @@
   "version": "0.0.0",
   "type": "module",
   "engines": {
-    "node": ">=20 <=24"
+    "node": ">=20 <=25"
   },
   "scripts": {
+    "predev": "node check-node.js",
+    "predev:all": "node check-node.js",
     "dev": "vite",
     "dev:server": "cd server && npm run dev",
     "dev:all": "npm run dev:server & npm run dev",
+    "stop": "lsof -ti:3001,5173 | xargs kill -9 2>/dev/null || true",
     "build": "npm run build:server && vite build",
     "build:server": "cd server && npm install",
     "test": "cd server && npm test",

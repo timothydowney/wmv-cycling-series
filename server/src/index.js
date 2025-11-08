@@ -94,11 +94,24 @@ CREATE TABLE IF NOT EXISTS results (
   UNIQUE(week_id, participant_id)
 );
 
+CREATE TABLE IF NOT EXISTS participant_tokens (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  participant_id INTEGER NOT NULL UNIQUE,
+  access_token TEXT NOT NULL,
+  refresh_token TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  scope TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(participant_id) REFERENCES participants(id) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_activities_week_participant ON activities(week_id, participant_id);
 CREATE INDEX IF NOT EXISTS idx_activities_status ON activities(validation_status);
 CREATE INDEX IF NOT EXISTS idx_segment_efforts_activity ON segment_efforts(activity_id);
 CREATE INDEX IF NOT EXISTS idx_results_week ON results(week_id);
 CREATE INDEX IF NOT EXISTS idx_results_participant ON results(participant_id);
+CREATE INDEX IF NOT EXISTS idx_participant_tokens_participant ON participant_tokens(participant_id);
 `);
 
 // Seed test data

@@ -7,12 +7,13 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
+    "predev": "node check-node.js",
     "dev": "NODE_ENV=development nodemon src/index.js",
     "test": "NODE_ENV=test jest --coverage",
     "test:watch": "NODE_ENV=test jest --watch"
   },
   "engines": {
-    "node": ">=20 <=24"
+    "node": ">=20 <=25"
   },
   "dependencies": {
     "better-sqlite3": "^12.4.1",
