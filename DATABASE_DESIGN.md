@@ -3,6 +3,8 @@
 ## Overview
 This document describes the SQLite database schema for tracking weekly cycling competition results based on Strava activities.
 
+**Scale:** Designed for <100 participants. SQLite is perfect for this - simple, fast, no separate database server needed.
+
 ## Schema Version 2.0 (Updated for Activity Tracking)
 
 ### Tables

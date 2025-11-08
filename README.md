@@ -1,6 +1,8 @@
 # Strava NCC Scrape
 
-This project is a web application to track participants and points for **Western Mass Velo**'s weekly cycling competition. It calculates scores, displays weekly and season-long leaderboards, and integrates with the Strava API to validate activity submissions.
+Western Mass Velo's weekly cycling competition tracker. Calculates scores based on segment times, displays weekly and season leaderboards, and will integrate with Strava API for automatic activity tracking.
+
+**Club Scale:** Designed for <100 participants - uses SQLite and simple architecture. No need for complex infrastructure!
 
 ## Competition Overview
 
@@ -43,31 +45,42 @@ Season winner = most total points across all weeks.
 
 ### Prerequisites
 
-- **Node.js v20-24** (required for better-sqlite3 native module)
-  - **Recommended:** Node.js v20 LTS
+- **Node.js v20-25** (required for better-sqlite3 native module)
+  - **Recommended:** Node.js v24 LTS
   - See `.nvmrc` in the project root
   
-**IMPORTANT: Using the correct Node.js version**
+**⚠️ IMPORTANT: Using the correct Node.js version**
 
-This project requires Node.js 20-24. If you have Node.js 25+ installed, you have several options:
+This project requires Node.js 20-25. The app will check your version automatically and show an error if incorrect.
 
-1. **Using nvm (Node Version Manager)** - Recommended if you already have it:
-   ```bash
-   nvm install 20
-   nvm use 20
-   ```
+**Check your current version:**
+```bash
+node --version
+```
 
-2. **Using npx with a specific Node version** - Works with any Node.js installation:
-   ```bash
-   # Use npx to run commands with Node 20
-   npx -p node@20 npm install
-   npx -p node@20 npm run dev:server
-   npx -p node@20 npm test
-   ```
+**If you need Node 24 (recommended), use nvm:**
+```bash
+nvm use 24
+# OR if you don't have Node 24 installed yet:
+nvm install 24 && nvm use 24
+```
 
-3. **Install Node.js 20 LTS** from [nodejs.org](https://nodejs.org/)
+**Don't have nvm? Install it or use npx:**
+```bash
+# Install nvm: https://github.com/nvm-sh/nvm#installing-and-updating
+# OR use npx to run with Node 24:
+npx -p node@24 npm install
+npx -p node@24 npm run dev:all
+```
 
-After ensuring you're on the correct Node version, proceed with the installation steps below.
+**To make nvm automatic in this project directory:**
+```bash
+# Add this to your ~/.bashrc or ~/.zshrc
+# It will auto-switch to Node 24 when you cd into this project
+echo 'export NVM_DIR="$HOME/.nvm"' >> ~/.bashrc
+echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"' >> ~/.bashrc
+echo 'nvm use 2>/dev/null' >> ~/.bashrc
+```
 
 - npm (comes with Node.js)
 
@@ -79,20 +92,23 @@ npm install
 ```
 This automatically installs both frontend and backend dependencies via `postinstall` hook.
 
-#### Set up Strava Credentials (optional for now)
-- Create a file named `strava-credentials.json` in the `public` directory.
-- This file should contain your Strava application's Client ID and Client Secret:
-  ```json
-  {
-    "clientId": "YOUR_CLIENT_ID",
-    "clientSecret": "YOUR_CLIENT_SECRET"
-  }
-  ```
-- **Note:** This file is ignored by git to prevent credentials from being committed.
+#### Configure backend environment
+**Required for Strava OAuth integration:**
 
-#### Configure backend environment (optional)
-- Copy `server/.env.example` to `server/.env` if you want to customize settings
-- Default values work for local development
+1. Copy the example environment file:
+   ```bash
+   cp server/.env.example server/.env
+   ```
+
+2. Edit `server/.env` and add your Strava credentials:
+   ```bash
+   STRAVA_CLIENT_ID=170916
+   STRAVA_CLIENT_SECRET=your_secret_here
+   ```
+
+3. Get credentials from [Strava API Settings](https://www.strava.com/settings/api) if needed
+
+**Note:** `.env` files are automatically excluded from git to keep secrets safe.
 
 ### Running the Application
 
