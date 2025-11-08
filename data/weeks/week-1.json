@@ -1,0 +1,11 @@
+{
+  "week_name": "Week 1: Lookout Mtn",
+  "date": "2025-11-14",
+  "segment_id": 1,
+  "laps": 1,
+  "results": [
+    { "participant_id": 1, "time": "00:25:10" },
+    { "participant_id": 2, "time": "00:26:45" },
+    { "participant_id": 3, "time": "00:24:45" }
+  ]
+}

@@ -1,0 +1,91 @@
+import { useState, useEffect } from 'react';
+import './App.css';
+import WeeklyLeaderboard from './components/WeeklyLeaderboard';
+import SeasonLeaderboard from './components/SeasonLeaderboard';
+import WeekSelector from './components/WeekSelector';
+import { getWeeks, getWeekLeaderboard, Week, LeaderboardEntry } from './api';
+
+function App() {
+  const [weeks, setWeeks] = useState<Week[]>([]);
+  const [selectedWeekId, setSelectedWeekId] = useState<number | null>(null);
+  const [selectedWeek, setSelectedWeek] = useState<Week | null>(null);
+  const [weekLeaderboard, setWeekLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchWeeks = async () => {
+      try {
+        setLoading(true);
+        const weeksData = await getWeeks();
+        setWeeks(weeksData);
+        if (weeksData.length > 0) {
+          setSelectedWeekId(weeksData[0].id);
+        }
+      } catch (err) {
+        setError('Failed to load weeks. Make sure the backend server is running on port 3001.');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchWeeks();
+  }, []);
+
+  useEffect(() => {
+    const fetchLeaderboard = async () => {
+      if (selectedWeekId === null) return;
+
+      try {
+        const leaderboardData = await getWeekLeaderboard(selectedWeekId);
+        setSelectedWeek(leaderboardData.week);
+        setWeekLeaderboard(leaderboardData.leaderboard);
+      } catch (err) {
+        setError('Failed to load leaderboard');
+        console.error(err);
+      }
+    };
+
+    fetchLeaderboard();
+  }, [selectedWeekId]);
+
+  if (loading) {
+    return (
+      <div className="app">
+        <h1>Western Mass Velo - Tuesday Competition</h1>
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="app">
+        <h1>Western Mass Velo - Tuesday Competition</h1>
+        <div className="error">{error}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="app">
+      <h1>Western Mass Velo - Tuesday Competition</h1>
+
+      <WeekSelector 
+        weeks={weeks} 
+        selectedWeekId={selectedWeekId}
+        setSelectedWeekId={setSelectedWeekId}
+      />
+
+      <WeeklyLeaderboard 
+        week={selectedWeek}
+        leaderboard={weekLeaderboard}
+      />
+
+      <SeasonLeaderboard />
+    </div>
+  );
+}
+
+export default App;
