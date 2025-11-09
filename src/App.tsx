@@ -3,7 +3,8 @@ import './App.css';
 import WeeklyLeaderboard from './components/WeeklyLeaderboard';
 import SeasonLeaderboard from './components/SeasonLeaderboard';
 import WeekSelector from './components/WeekSelector';
-import { getWeeks, getWeekLeaderboard, Week, LeaderboardEntry } from './api';
+import StravaConnect from './components/StravaConnect';
+import { getWeeks, getWeekLeaderboard, Week, LeaderboardEntry, AuthStatus } from './api';
 
 function App() {
   const [weeks, setWeeks] = useState<Week[]>([]);
@@ -12,6 +13,7 @@ function App() {
   const [weekLeaderboard, setWeekLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
 
   useEffect(() => {
     const fetchWeeks = async () => {
@@ -70,7 +72,12 @@ function App() {
 
   return (
     <div className="app">
-      <h1>Western Mass Velo - Tuesday Competition</h1>
+      <header className="app-header">
+        <h1>Western Mass Velo - Tuesday Competition</h1>
+        <div className="auth-status">
+          <StravaConnect onAuthChange={setAuthStatus} />
+        </div>
+      </header>
 
       <WeekSelector 
         weeks={weeks} 
@@ -84,6 +91,14 @@ function App() {
       />
 
       <SeasonLeaderboard />
+
+      <footer className="app-footer">
+        <img 
+          src="/assets/strava/powered_by_strava.svg" 
+          alt="Powered by Strava"
+          className="strava-attribution"
+        />
+      </footer>
     </div>
   );
 }

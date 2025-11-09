@@ -44,6 +44,18 @@ export interface SeasonStanding {
   weeks_completed: number;
 }
 
+export interface Participant {
+  id: number;
+  name: string;
+  strava_athlete_id: number;
+  is_connected: number;
+}
+
+export interface AuthStatus {
+  authenticated: boolean;
+  participant: Participant | null;
+}
+
 export const api = {
   async getSeasons(): Promise<Season[]> {
     const response = await fetch(`${API_BASE_URL}/seasons`);
@@ -85,6 +97,27 @@ export const api = {
     if (!response.ok) throw new Error('Failed to fetch leaderboard');
     return response.json();
   },
+
+  async getAuthStatus(): Promise<AuthStatus> {
+    const response = await fetch(`${API_BASE_URL}/auth/status`, {
+      credentials: 'include' // Important: include cookies for session
+    });
+    if (!response.ok) throw new Error('Failed to fetch auth status');
+    return response.json();
+  },
+
+  async disconnect(): Promise<{ success: boolean; message: string }> {
+    const response = await fetch(`${API_BASE_URL}/auth/disconnect`, {
+      method: 'POST',
+      credentials: 'include' // Important: include cookies for session
+    });
+    if (!response.ok) throw new Error('Failed to disconnect');
+    return response.json();
+  },
+
+  getConnectUrl(): string {
+    return `${API_BASE_URL}/auth/strava`;
+  },
 };
 
 // Named exports for convenience (used by components)
@@ -110,4 +143,16 @@ export async function getWeekLeaderboard(id: number): Promise<WeekLeaderboard> {
 
 export async function getSeasonLeaderboard(seasonId?: number): Promise<SeasonStanding[]> {
   return api.getSeasonLeaderboard(seasonId);
+}
+
+export async function getAuthStatus(): Promise<AuthStatus> {
+  return api.getAuthStatus();
+}
+
+export async function disconnect(): Promise<{ success: boolean; message: string }> {
+  return api.disconnect();
+}
+
+export function getConnectUrl(): string {
+  return api.getConnectUrl();
 }
