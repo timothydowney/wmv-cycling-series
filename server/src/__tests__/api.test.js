@@ -67,6 +67,49 @@ describe('WMV Backend API', () => {
     });
   });
 
+  describe('Seasons', () => {
+    test('GET /seasons returns array', async () => {
+      const response = await request(app).get('/seasons');
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body)).toBe(true);
+      expect(response.body.length).toBeGreaterThan(0);
+    });
+
+    test('GET /seasons includes active season', async () => {
+      const response = await request(app).get('/seasons');
+      const activeSeason = response.body.find(s => s.is_active === 1);
+      expect(activeSeason).toBeDefined();
+      expect(activeSeason).toHaveProperty('name');
+      expect(activeSeason).toHaveProperty('start_date');
+      expect(activeSeason).toHaveProperty('end_date');
+    });
+
+    test('GET /seasons/:id returns season details', async () => {
+      const response = await request(app).get('/seasons/1');
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('id', 1);
+      expect(response.body).toHaveProperty('name');
+    });
+
+    test('GET /seasons/:id returns 404 for invalid ID', async () => {
+      const response = await request(app).get('/seasons/999');
+      expect(response.status).toBe(404);
+      expect(response.body).toHaveProperty('error');
+    });
+
+    test('GET /seasons/:id/leaderboard returns season-specific leaderboard', async () => {
+      const response = await request(app).get('/seasons/1/leaderboard');
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('season');
+      expect(response.body).toHaveProperty('leaderboard');
+      expect(Array.isArray(response.body.leaderboard)).toBe(true);
+      if (response.body.leaderboard.length > 0) {
+        expect(response.body.leaderboard[0]).toHaveProperty('total_points');
+        expect(response.body.leaderboard[0]).toHaveProperty('weeks_completed');
+      }
+    });
+  });
+
   describe('Weeks', () => {
     test('GET /weeks returns array with time windows', async () => {
       const response = await request(app).get('/weeks');
@@ -74,6 +117,7 @@ describe('WMV Backend API', () => {
       expect(Array.isArray(response.body)).toBe(true);
       expect(response.body[0]).toHaveProperty('start_time');
       expect(response.body[0]).toHaveProperty('end_time');
+      expect(response.body[0]).toHaveProperty('season_id');
     });
 
     test('GET /weeks/:id returns week details', async () => {
@@ -159,6 +203,7 @@ describe('WMV Backend API', () => {
         week_name: 'Test Week',
         date: '2025-12-03',
         segment_id: 1,
+        season_id: 1,
         required_laps: 2
       };
 
@@ -170,6 +215,7 @@ describe('WMV Backend API', () => {
       expect(response.status).toBe(201);
       expect(response.body).toHaveProperty('id');
       expect(response.body.week_name).toBe('Test Week');
+      expect(response.body.season_id).toBe(1);
       expect(response.body.start_time).toBe('2025-12-03T00:00:00Z');
       expect(response.body.end_time).toBe('2025-12-03T22:00:00Z');
 
@@ -181,6 +227,7 @@ describe('WMV Backend API', () => {
         week_name: 'Early Bird Week',
         date: '2025-12-10',
         segment_id: 2,
+        season_id: 1,
         required_laps: 1,
         start_time: '2025-12-10T06:00:00Z',
         end_time: '2025-12-10T12:00:00Z'
@@ -211,6 +258,7 @@ describe('WMV Backend API', () => {
         week_name: 'Invalid Segment Week',
         date: '2025-12-17',
         segment_id: 999,
+        season_id: 1,
         required_laps: 1
       };
 
@@ -265,6 +313,124 @@ describe('WMV Backend API', () => {
     });
   });
 
+  describe('Admin - Season Management', () => {
+    let createdSeasonId;
+    let newActiveSeasonId;
+
+    afterAll(async () => {
+      // Restore season 1 as active after tests to not interfere with other tests
+      if (newActiveSeasonId) {
+        await request(app).delete(`/admin/seasons/${newActiveSeasonId}`).catch(() => {});
+      }
+      await request(app)
+        .put('/admin/seasons/1')
+        .send({ is_active: 1 })
+        .set('Content-Type', 'application/json');
+    });
+
+    test('POST /admin/seasons creates new season', async () => {
+      const newSeason = {
+        name: 'Test Season 2026',
+        start_date: '2026-01-01',
+        end_date: '2026-12-31',
+        is_active: 0
+      };
+
+      const response = await request(app)
+        .post('/admin/seasons')
+        .send(newSeason)
+        .set('Content-Type', 'application/json');
+
+      expect(response.status).toBe(201);
+      expect(response.body).toHaveProperty('id');
+      expect(response.body.name).toBe('Test Season 2026');
+      expect(response.body.is_active).toBe(0);
+
+      createdSeasonId = response.body.id;
+    });
+
+    test('POST /admin/seasons deactivates other seasons when creating active season', async () => {
+      const newSeason = {
+        name: 'New Active Season',
+        start_date: '2027-01-01',
+        end_date: '2027-12-31',
+        is_active: 1
+      };
+
+      const response = await request(app)
+        .post('/admin/seasons')
+        .send(newSeason)
+        .set('Content-Type', 'application/json');
+
+      expect(response.status).toBe(201);
+      expect(response.body.is_active).toBe(1);
+      
+      // Store ID for cleanup
+      newActiveSeasonId = response.body.id;
+
+      // Check that all other seasons are now inactive
+      const allSeasons = await request(app).get('/seasons');
+      const activeSeasons = allSeasons.body.filter(s => s.is_active === 1);
+      expect(activeSeasons.length).toBe(1);
+      expect(activeSeasons[0].id).toBe(response.body.id);
+    });
+
+    test('POST /admin/seasons validates required fields', async () => {
+      const response = await request(app)
+        .post('/admin/seasons')
+        .send({ name: 'Incomplete Season' })
+        .set('Content-Type', 'application/json');
+
+      expect(response.status).toBe(400);
+      expect(response.body).toHaveProperty('error');
+    });
+
+    test('PUT /admin/seasons/:id updates season', async () => {
+      const response = await request(app)
+        .put(`/admin/seasons/${createdSeasonId}`)
+        .send({
+          name: 'Updated Test Season',
+          end_date: '2026-11-30'
+        })
+        .set('Content-Type', 'application/json');
+
+      expect(response.status).toBe(200);
+      expect(response.body.name).toBe('Updated Test Season');
+      expect(response.body.end_date).toBe('2026-11-30');
+    });
+
+    test('PUT /admin/seasons/:id returns 404 for invalid ID', async () => {
+      const response = await request(app)
+        .put('/admin/seasons/999')
+        .send({ name: 'Nonexistent' })
+        .set('Content-Type', 'application/json');
+
+      expect(response.status).toBe(404);
+    });
+
+    test('DELETE /admin/seasons/:id prevents deletion if season has weeks', async () => {
+      // Season 1 has weeks from seed data
+      const response = await request(app).delete('/admin/seasons/1');
+      expect(response.status).toBe(400);
+      expect(response.body.error).toMatch(/cannot delete season with existing weeks/i);
+    });
+
+    test('DELETE /admin/seasons/:id deletes season without weeks', async () => {
+      const response = await request(app).delete(`/admin/seasons/${createdSeasonId}`);
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('message');
+
+      // Verify it's actually deleted
+      const getResponse = await request(app).get(`/admin/seasons/${createdSeasonId}`);
+      expect(getResponse.status).toBe(404);
+    });
+
+    test('DELETE /admin/seasons/:id returns 404 for invalid ID', async () => {
+      const response = await request(app).delete('/admin/seasons/999');
+      expect(response.status).toBe(404);
+    });
+  });
+
   describe('Activity Submission - Time Window Validation', () => {
     let testWeekId;
 
@@ -276,6 +442,7 @@ describe('WMV Backend API', () => {
           week_name: 'Validation Test Week',
           date: '2025-12-15',
           segment_id: 1,
+          season_id: 1,
           required_laps: 1,
           start_time: '2025-12-15T08:00:00Z',
           end_time: '2025-12-15T18:00:00Z'

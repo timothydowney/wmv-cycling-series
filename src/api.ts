@@ -1,8 +1,17 @@
 // Backend API client
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
+export interface Season {
+  id: number;
+  name: string;
+  start_date: string;
+  end_date: string;
+  is_active: boolean;
+}
+
 export interface Week {
   id: number;
+  season_id: number;
   week_name: string;
   date: string;
   segment_id: number;
@@ -36,6 +45,29 @@ export interface SeasonStanding {
 }
 
 export const api = {
+  async getSeasons(): Promise<Season[]> {
+    const response = await fetch(`${API_BASE_URL}/seasons`);
+    if (!response.ok) throw new Error('Failed to fetch seasons');
+    return response.json();
+  },
+
+  async getSeason(id: number): Promise<Season> {
+    const response = await fetch(`${API_BASE_URL}/seasons/${id}`);
+    if (!response.ok) throw new Error('Failed to fetch season');
+    return response.json();
+  },
+
+  async getSeasonLeaderboard(seasonId?: number): Promise<SeasonStanding[]> {
+    const url = seasonId 
+      ? `${API_BASE_URL}/seasons/${seasonId}/leaderboard`
+      : `${API_BASE_URL}/season/leaderboard`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to fetch season leaderboard');
+    const data = await response.json();
+    // Handle both formats: direct array or {season, leaderboard}
+    return Array.isArray(data) ? data : data.leaderboard;
+  },
+
   async getWeeks(): Promise<Week[]> {
     const response = await fetch(`${API_BASE_URL}/weeks`);
     if (!response.ok) throw new Error('Failed to fetch weeks');
@@ -53,15 +85,17 @@ export const api = {
     if (!response.ok) throw new Error('Failed to fetch leaderboard');
     return response.json();
   },
-
-  async getSeasonLeaderboard(): Promise<SeasonStanding[]> {
-    const response = await fetch(`${API_BASE_URL}/season/leaderboard`);
-    if (!response.ok) throw new Error('Failed to fetch season leaderboard');
-    return response.json();
-  },
 };
 
 // Named exports for convenience (used by components)
+export async function getSeasons(): Promise<Season[]> {
+  return api.getSeasons();
+}
+
+export async function getSeason(id: number): Promise<Season> {
+  return api.getSeason(id);
+}
+
 export async function getWeeks(): Promise<Week[]> {
   return api.getWeeks();
 }
@@ -74,6 +108,6 @@ export async function getWeekLeaderboard(id: number): Promise<WeekLeaderboard> {
   return api.getWeekLeaderboard(id);
 }
 
-export async function getSeasonLeaderboard(): Promise<SeasonStanding[]> {
-  return api.getSeasonLeaderboard();
+export async function getSeasonLeaderboard(seasonId?: number): Promise<SeasonStanding[]> {
+  return api.getSeasonLeaderboard(seasonId);
 }

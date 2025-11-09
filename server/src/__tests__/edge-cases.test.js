@@ -31,6 +31,7 @@ describe('Edge Cases and Error Handling', () => {
           week_name: 'Bad Segment Week',
           date: '2025-12-20',
           segment_id: 99999,
+          season_id: 1,
           required_laps: 1
         })
         .set('Content-Type', 'application/json');
@@ -46,6 +47,7 @@ describe('Edge Cases and Error Handling', () => {
           week_name: 'Zero Laps Week',
           date: '2025-12-25',
           segment_id: 1,
+          season_id: 1,
           required_laps: 0
         })
         .set('Content-Type', 'application/json');
@@ -66,6 +68,7 @@ describe('Edge Cases and Error Handling', () => {
           week_name: 'Century Week',
           date: '2025-12-26',
           segment_id: 1,
+          season_id: 1,
           required_laps: 100
         })
         .set('Content-Type', 'application/json');
@@ -88,6 +91,7 @@ describe('Edge Cases and Error Handling', () => {
           week_name: 'Update Test Week',
           date: '2026-01-06',
           segment_id: 1,
+          season_id: 1,
           required_laps: 2
         })
         .set('Content-Type', 'application/json');
@@ -216,6 +220,7 @@ describe('Edge Cases and Error Handling', () => {
             week_name: 'Midnight Test',
             date: '2026-01-15',
             segment_id: 1,
+            season_id: 1,
             required_laps: 1
           })
           .set('Content-Type', 'application/json');
@@ -248,6 +253,7 @@ describe('Edge Cases and Error Handling', () => {
             week_name: 'Before Midnight Test',
             date: '2026-01-15',
             segment_id: 1,
+            season_id: 1,
             required_laps: 1
           })
           .set('Content-Type', 'application/json');

@@ -132,13 +132,28 @@ For local development, Strava API credentials (Client ID and Client Secret) are 
     *   Allow admin to manually validate/reject submissions.
     *   Export/import functionality for backup.
 
-10. **Production Deployment (Future):**
+10. **CI/CD & Deployment Pipeline:**
+    *   Set up GitHub Actions for automated testing and building
+    *   Configure CI workflow:
+        - Run tests on every push/PR
+        - Build frontend and backend
+        - Lint code
+        - Check Node version compatibility
+    *   Configure CD workflow:
+        - Trigger on merge to `main` branch
+        - Deploy to Railway.app automatically
+        - Set environment variables in Railway
+        - Run database migrations if needed
+    *   See **Deployment Workflow** section below for details
+
+11. **Production Deployment (Future):**
     *   Configure production database.
-    *   Set up environment variables.
+    *   Set up environment variables in Railway.
     *   Build and deploy frontend.
     *   Deploy backend API.
-    *   Set up SSL/HTTPS.
+    *   Set up SSL/HTTPS (automatic with Railway).
     *   Configure production Strava OAuth callback URLs.
+    *   Connect Railway to GitHub for auto-deploy.
 
 ---
 
@@ -359,15 +374,79 @@ SESSION_SECRET=<generate-random-string>
 
 ---
 
+## Deployment Workflow (GitHub Actions + Railway)
+
+### CI/CD Pipeline Strategy
+
+**Continuous Integration (CI) - On every push/PR:**
+- Run backend tests (`npm test`)
+- Build frontend (`npm run build`)
+- Lint code
+- Verify Node version compatibility
+
+**Continuous Deployment (CD) - On merge to `main`:**
+- Railway auto-deploys from `main` branch
+- Zero-downtime deployment
+
+### GitHub Actions CI Workflow
+
+Create `.github/workflows/ci.yml`:
+
+```yaml
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20, 24]
+    
+    steps:
+    - uses: actions/checkout@v3
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+    - run: npm install
+    - run: npm test
+    - run: npm run build
+    - run: npm run lint
+```
+
+### Railway Deployment
+
+Railway integrates directly with GitHub:
+1. Connect repo to Railway
+2. Railway watches `main` branch
+3. On merge → Railway auto-deploys
+4. Configure in Railway dashboard
+
+### Development Workflow
+
+```
+feature branch → PR → CI tests → merge to main → Railway deploys
+```
+
+---
+
 ### Next Steps for Deployment
 
 1. ✅ Finish OAuth implementation locally
 2. ✅ Test thoroughly with real Strava accounts
-3. Choose hosting platform (recommend Railway.app)
-4. Create account, connect GitHub repo
-5. Set environment variables in platform dashboard
-6. Deploy and test production OAuth flow
-7. Update DNS if using custom domain (optional)
-8. Set up weekly database backups
-9. Announce to Western Mass Velo club!
+3. **Set up GitHub Actions CI** (create `.github/workflows/ci.yml`)
+4. Create Railway account, connect GitHub repo
+5. Set environment variables in Railway dashboard
+6. Railway auto-deploys from `main`
+7. Test production OAuth flow
+8. Update DNS if using custom domain (optional)
+9. Set up weekly database backups
+10. Configure branch protection (require CI to pass before merge)
+11. Announce to Western Mass Velo club!
 
