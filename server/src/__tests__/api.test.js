@@ -586,6 +586,35 @@ describe('WMV Backend API', () => {
       expect(chris.weeks_completed).toBe(2);
     });
 
+    test('Tim appears in season leaderboard despite skipping Week 1', async () => {
+      const response = await request(app).get('/season/leaderboard');
+      const tim = response.body.find(p => p.name === 'Tim');
+
+      expect(tim).toBeDefined();
+      expect(tim.total_points).toBe(2); // 0 points week 1 (skipped) + 2 points week 2
+      expect(tim.weeks_completed).toBe(1); // Only competed in 1 week
+    });
+
+    test('Tim does NOT appear in Week 1 leaderboard (skipped)', async () => {
+      const response = await request(app).get('/weeks/1/leaderboard');
+      const leaderboard = response.body.leaderboard;
+      const timInWeek1 = leaderboard.find(p => p.name === 'Tim');
+
+      expect(leaderboard.length).toBe(3); // Only 3 participants
+      expect(timInWeek1).toBeUndefined(); // Tim should not be in Week 1
+    });
+
+    test('Tim DOES appear in Week 2 leaderboard', async () => {
+      const response = await request(app).get('/weeks/2/leaderboard');
+      const leaderboard = response.body.leaderboard;
+      const timInWeek2 = leaderboard.find(p => p.name === 'Tim');
+
+      expect(leaderboard.length).toBe(4); // All 4 participants
+      expect(timInWeek2).toBeDefined();
+      expect(timInWeek2.rank).toBe(3); // 3rd place in Week 2
+      expect(timInWeek2.points).toBe(2); // 2 base points (4-3+1)
+    });
+
     test('PR bonus is visible in leaderboard response', async () => {
       const response = await request(app).get('/weeks/1/leaderboard');
       const entry = response.body.leaderboard[0];
