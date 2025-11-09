@@ -3,6 +3,18 @@ const path = require('path');
 const fs = require('fs');
 const Database = require('better-sqlite3');
 
+// Mock strava-v3 library to prevent network calls
+jest.mock('strava-v3', () => ({
+  config: jest.fn(),
+  client: jest.fn().mockImplementation(() => ({
+    activities: { get: jest.fn() }
+  })),
+  oauth: {
+    refreshToken: jest.fn(),
+    getToken: jest.fn()
+  }
+}));
+
 // Set test database path before requiring app
 const TEST_DB_PATH = path.join(__dirname, '..', '..', 'data', 'test.db');
 process.env.DATABASE_PATH = TEST_DB_PATH;

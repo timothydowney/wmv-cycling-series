@@ -4,8 +4,18 @@ const dotenv = require('dotenv');
 const path = require('path');
 const Database = require('better-sqlite3');
 const session = require('express-session');
+const strava = require('strava-v3');
 
 dotenv.config();
+
+// Configure strava-v3 with credentials from environment (skip if not set for tests)
+if (process.env.STRAVA_CLIENT_ID && process.env.STRAVA_CLIENT_SECRET) {
+  strava.config({
+    client_id: process.env.STRAVA_CLIENT_ID,
+    client_secret: process.env.STRAVA_CLIENT_SECRET,
+    redirect_uri: process.env.STRAVA_REDIRECT_URI
+  });
+}
 
 const PORT = process.env.PORT || 3001;
 const CLIENT_BASE_URL = process.env.CLIENT_BASE_URL || 'http://localhost:5173';
@@ -418,45 +428,70 @@ async function getValidAccessToken(participantId) {
   if (tokenRecord.expires_at < (now + 3600)) {
     console.log(`Token expiring soon for participant ${participantId}, refreshing...`);
     
-    // Request new access token using refresh token
-    const refreshResponse = await fetch('https://www.strava.com/oauth/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: process.env.STRAVA_CLIENT_ID,
-        client_secret: process.env.STRAVA_CLIENT_SECRET,
-        grant_type: 'refresh_token',
-        refresh_token: tokenRecord.refresh_token
-      })
-    });
-    
-    if (!refreshResponse.ok) {
-      const error = await refreshResponse.text();
-      throw new Error(`Failed to refresh token: ${error}`);
+    try {
+      // Use strava-v3 to refresh the token
+      const newTokenData = await strava.oauth.refreshToken(tokenRecord.refresh_token);
+      
+      // Update database with NEW tokens (both access and refresh tokens change!)
+      db.prepare(`
+        UPDATE participant_tokens 
+        SET access_token = ?,
+            refresh_token = ?,
+            expires_at = ?,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE participant_id = ?
+      `).run(
+        newTokenData.access_token,
+        newTokenData.refresh_token,
+        newTokenData.expires_at,
+        participantId
+      );
+      
+      return newTokenData.access_token;
+    } catch (error) {
+      throw new Error(`Failed to refresh token: ${error.message}`);
     }
-    
-    const newTokenData = await refreshResponse.json();
-    
-    // Update database with NEW tokens (both access and refresh tokens change!)
-    db.prepare(`
-      UPDATE participant_tokens 
-      SET access_token = ?,
-          refresh_token = ?,
-          expires_at = ?,
-          updated_at = CURRENT_TIMESTAMP
-      WHERE participant_id = ?
-    `).run(
-      newTokenData.access_token,
-      newTokenData.refresh_token,
-      newTokenData.expires_at,
-      participantId
-    );
-    
-    return newTokenData.access_token;
   }
   
   // Token still valid, return it
   return tokenRecord.access_token;
+}
+
+/**
+ * Fetch activity details from Strava API using strava-v3
+ * @param {string} activityId - Strava activity ID
+ * @param {string} accessToken - Valid Strava access token
+ * @returns {Promise<Object>} Activity data from Strava
+ */
+async function fetchStravaActivity(activityId, accessToken) {
+  try {
+    // Create a client with the user's access token
+    const client = new strava.client(accessToken);
+    
+    // Fetch the activity
+    const activity = await client.activities.get({ id: activityId });
+    
+    return activity;
+  } catch (error) {
+    // Handle strava-v3 specific errors
+    if (error.statusCode === 404) {
+      throw new Error('Activity not found on Strava');
+    } else if (error.statusCode === 401) {
+      throw new Error('Invalid or expired Strava token');
+    }
+    throw new Error(`Strava API error: ${error.message}`);
+  }
+}
+
+/**
+ * Extract activity ID from Strava URL
+ * @param {string} url - Strava activity URL
+ * @returns {string|null} Activity ID or null if invalid
+ */
+function extractActivityId(url) {
+  // Matches: https://www.strava.com/activities/12345678
+  const match = url.match(/strava\.com\/activities\/(\d+)/);
+  return match ? match[1] : null;
 }
 
 // ========================================
@@ -488,26 +523,10 @@ app.get('/auth/strava/callback', async (req, res) => {
   }
   
   try {
-    // Exchange authorization code for tokens
+    // Exchange authorization code for tokens using strava-v3
     console.log('Exchanging OAuth code for tokens...');
-    const tokenResponse = await fetch('https://www.strava.com/oauth/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: process.env.STRAVA_CLIENT_ID,
-        client_secret: process.env.STRAVA_CLIENT_SECRET,
-        code: code,
-        grant_type: 'authorization_code'
-      })
-    });
+    const tokenData = await strava.oauth.getToken(code);
     
-    if (!tokenResponse.ok) {
-      const error = await tokenResponse.text();
-      console.error('Failed to exchange code for tokens:', error);
-      return res.redirect(`${CLIENT_BASE_URL}?error=token_exchange_failed`);
-    }
-    
-    const tokenData = await tokenResponse.json();
     const stravaAthleteId = tokenData.athlete.id;
     const athleteName = `${tokenData.athlete.firstname} ${tokenData.athlete.lastname}`;
     
@@ -676,7 +695,13 @@ app.get('/weeks/:id', (req, res) => {
 
 app.get('/weeks/:id/leaderboard', (req, res) => {
   const weekId = parseInt(req.params.id, 10);
-  const week = db.prepare('SELECT id, season_id, week_name, date, segment_id, required_laps, start_time, end_time FROM weeks WHERE id = ?').get(weekId);
+  const week = db.prepare(`
+    SELECT w.id, w.season_id, w.week_name, w.date, w.segment_id, w.required_laps, w.start_time, w.end_time,
+           s.name as segment_name, s.strava_segment_id
+    FROM weeks w
+    LEFT JOIN segments s ON w.segment_id = s.id
+    WHERE w.id = ?
+  `).get(weekId);
   if (!week) return res.status(404).json({ error: 'Week not found' });
 
   const results = db.prepare(`
@@ -1063,51 +1088,169 @@ app.delete('/admin/weeks/:id', (req, res) => {
   }
 });
 
-// Future endpoint for activity submission
-app.post('/weeks/:id/submit-activity', (req, res) => {
+// Activity submission endpoint
+app.post('/weeks/:id/submit-activity', async (req, res) => {
   const weekId = parseInt(req.params.id, 10);
-  const { participant_id, strava_activity_id, activity_url, activity_date } = req.body;
+  const { activity_url } = req.body;
 
-  // Validate required fields
-  if (!participant_id || !strava_activity_id || !activity_url || !activity_date) {
-    return res.status(400).json({ 
-      error: 'Missing required fields',
-      required: ['participant_id', 'strava_activity_id', 'activity_url', 'activity_date']
+  try {
+    // Get participant from session
+    const participantId = req.session?.participantId;
+    if (!participantId) {
+      return res.status(401).json({ 
+        error: 'Not authenticated',
+        message: 'You must connect your Strava account first'
+      });
+    }
+
+    // Validate activity URL
+    if (!activity_url) {
+      return res.status(400).json({ 
+        error: 'Missing activity URL',
+        message: 'Please provide a Strava activity URL'
+      });
+    }
+
+    // Extract activity ID from URL
+    const activityId = extractActivityId(activity_url);
+    if (!activityId) {
+      return res.status(400).json({ 
+        error: 'Invalid activity URL',
+        message: 'URL must be in format: https://www.strava.com/activities/12345678'
+      });
+    }
+
+    // Get week details
+    const week = db.prepare(`
+      SELECT w.*, s.name as segment_name, s.strava_segment_id 
+      FROM weeks w
+      JOIN segments s ON w.segment_id = s.id
+      WHERE w.id = ?
+    `).get(weekId);
+
+    if (!week) {
+      return res.status(404).json({ error: 'Week not found' });
+    }
+
+    // Get valid access token for this participant
+    let accessToken;
+    try {
+      accessToken = await getValidAccessToken(participantId);
+    } catch (error) {
+      return res.status(401).json({ 
+        error: 'Strava not connected',
+        message: 'Please reconnect your Strava account',
+        details: error.message
+      });
+    }
+
+    // Fetch activity from Strava API
+    let activity;
+    try {
+      activity = await fetchStravaActivity(activityId, accessToken);
+    } catch (error) {
+      return res.status(400).json({ 
+        error: 'Failed to fetch activity',
+        message: error.message
+      });
+    }
+
+    // Validate activity date matches week's Tuesday
+    const activityDate = activity.start_date_local.split('T')[0]; // YYYY-MM-DD
+    if (activityDate !== week.date) {
+      return res.status(400).json({ 
+        error: 'Activity date mismatch',
+        message: `Activity must be from ${week.date}, but this activity is from ${activityDate}`
+      });
+    }
+
+    // Validate time window if specified
+    if (week.start_time && week.end_time) {
+      const timeValidation = validateActivityTimeWindow(activity.start_date_local, week);
+      if (!timeValidation.valid) {
+        return res.status(400).json({ 
+          error: 'Activity outside time window',
+          message: timeValidation.message
+        });
+      }
+    }
+
+    // Find segment efforts for the required segment
+    const segmentEfforts = (activity.segment_efforts || []).filter(
+      effort => effort.segment.id.toString() === week.strava_segment_id.toString()
+    );
+
+    if (segmentEfforts.length === 0) {
+      return res.status(400).json({ 
+        error: 'Segment not found',
+        message: `This activity does not contain the required segment: ${week.segment_name}`
+      });
+    }
+
+    // Validate required laps
+    if (segmentEfforts.length < week.required_laps) {
+      return res.status(400).json({ 
+        error: 'Not enough laps',
+        message: `This week requires ${week.required_laps} laps, but activity only has ${segmentEfforts.length}`
+      });
+    }
+
+    // Check if activity already submitted
+    const existingActivity = db.prepare(`
+      SELECT id FROM activities 
+      WHERE week_id = ? AND participant_id = ?
+    `).get(weekId, participantId);
+
+    if (existingActivity) {
+      // Delete existing submission to replace it
+      db.prepare('DELETE FROM segment_efforts WHERE activity_id = ?').run(existingActivity.id);
+      db.prepare('DELETE FROM activities WHERE id = ?').run(existingActivity.id);
+    }
+
+    // Store activity
+    const activityResult = db.prepare(`
+      INSERT INTO activities (week_id, participant_id, strava_activity_id, activity_url, activity_date)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(weekId, participantId, activityId, activity_url, activityDate);
+
+    const activityDbId = activityResult.lastInsertRowid;
+
+    // Store segment efforts (take required number of laps)
+    for (let i = 0; i < week.required_laps; i++) {
+      const effort = segmentEfforts[i];
+      db.prepare(`
+        INSERT INTO segment_efforts (activity_id, segment_id, effort_index, elapsed_seconds, pr_achieved)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(
+        activityDbId,
+        week.segment_id,
+        i,
+        effort.elapsed_time,
+        effort.pr_rank ? 1 : 0  // pr_achieved if pr_rank exists
+      );
+    }
+
+    // Recalculate leaderboard for this week
+    calculateWeekResults(weekId);
+
+    res.json({ 
+      message: 'Activity submitted successfully',
+      activity: {
+        id: activityDbId,
+        strava_activity_id: activityId,
+        date: activityDate,
+        laps: week.required_laps,
+        segment: week.segment_name
+      }
+    });
+
+  } catch (error) {
+    console.error('Activity submission error:', error);
+    res.status(500).json({ 
+      error: 'Failed to submit activity',
+      details: error.message
     });
   }
-
-  // Get week details
-  const week = db.prepare(`
-    SELECT id, week_name, date, segment_id, required_laps, start_time, end_time 
-    FROM weeks WHERE id = ?
-  `).get(weekId);
-
-  if (!week) {
-    return res.status(404).json({ error: 'Week not found' });
-  }
-
-  // Validate time window
-  const timeValidation = validateActivityTimeWindow(activity_date, week);
-  if (!timeValidation.valid) {
-    return res.status(400).json({ 
-      error: 'Activity outside time window',
-      details: timeValidation.message
-    });
-  }
-
-  // TODO: Implement full Strava API integration:
-  // 1. Fetch activity details from Strava API
-  // 2. Extract segment efforts for the required segment
-  // 3. Validate required_laps count
-  // 4. Store activity and segment_efforts
-  // 5. Recalculate week results
-
-  res.status(501).json({ 
-    error: 'Not fully implemented yet',
-    message: 'Time window validation passed, but Strava API integration needed',
-    validation: timeValidation,
-    week: week
-  });
 });
 
 // Export for testing

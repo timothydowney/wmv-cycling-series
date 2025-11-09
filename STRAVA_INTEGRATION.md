@@ -355,64 +355,220 @@ A: Yes, delete their row from `participant_tokens` table. They can also revoke f
 **Q: What if someone's token expires and refresh fails?**
 A: They'll need to re-authorize (e.g., if they revoked access on Strava side). Show "Reconnect Strava" button.
 
-## Activity Submission Workflow
+## Activity Collection Workflow
 
-### Option A: Self-Service Submission (Recommended for MVP)
-Participants manually submit their Strava activity URL for each week:
+### Current Implementation: Admin Batch Fetch
 
-1. After completing Tuesday's ride, participant goes to app
-2. Finds current week's objective
-3. Pastes their Strava activity URL: `https://www.strava.com/activities/16352338782`
-4. Click "Submit Activity"
-5. Backend:
-   - Extracts activity ID from URL
-   - Uses participant's stored token to fetch activity details
-   - Validates date, segment, laps
-   - Stores activity and segment efforts
-   - Calculates leaderboard
+**This is the primary workflow.** Manual participant submission has been deprecated in favor of admin-triggered batch collection.
+
+**How it works:**
+
+1. **Participants connect once** - OAuth flow stores tokens in `participant_tokens` table
+2. **Participants ride on event day** - Complete their activities as normal (no app interaction needed)
+3. **Admin triggers fetch** - At end of event day, admin clicks "Fetch Results" button
+4. **System processes all participants** - For each connected participant:
+   - Fetches activities from event day using stored tokens
+   - Filters to activities containing required segment
+   - Identifies best qualifying activity (required reps + fastest time)
+   - Stores activity and segment efforts in database
+5. **Leaderboard updates** - Automatically recalculated with new results
+
+**Endpoint: `POST /admin/weeks/:id/fetch-results`**
+
+```javascript
+app.post('/admin/weeks/:id/fetch-results', async (req, res) => {
+  const weekId = req.params.id;
+  
+  // Get week details
+  const week = db.prepare('SELECT * FROM weeks WHERE id = ?').get(weekId);
+  if (!week) return res.status(404).json({ error: 'Week not found' });
+  
+  // Get all connected participants
+  const participants = db.prepare(`
+    SELECT p.id, p.name, p.strava_athlete_id, pt.access_token
+    FROM participants p
+    JOIN participant_tokens pt ON p.id = pt.participant_id
+    WHERE pt.access_token IS NOT NULL
+  `).all();
+  
+  const results = [];
+  
+  for (const participant of participants) {
+    try {
+      // Get valid token (auto-refreshes if needed)
+      const accessToken = await getValidAccessToken(participant.id);
+      
+      // Fetch activities from event day
+      const activities = await fetchActivitiesOnDay(
+        accessToken,
+        week.start_time,
+        week.end_time
+      );
+      
+      // Find best qualifying activity
+      const bestActivity = await findBestQualifyingActivity(
+        activities,
+        week.segment_id,
+        week.required_laps,
+        accessToken
+      );
+      
+      if (bestActivity) {
+        // Store activity and efforts
+        storeActivityAndEfforts(participant.id, weekId, bestActivity);
+        results.push({
+          participant_id: participant.id,
+          participant_name: participant.name,
+          activity_found: true,
+          activity_id: bestActivity.id,
+          total_time: bestActivity.totalTime,
+          segment_efforts: bestActivity.segmentEfforts.length
+        });
+      } else {
+        results.push({
+          participant_id: participant.id,
+          participant_name: participant.name,
+          activity_found: false,
+          reason: 'No qualifying activities on event day'
+        });
+      }
+    } catch (error) {
+      results.push({
+        participant_id: participant.id,
+        participant_name: participant.name,
+        activity_found: false,
+        reason: error.message
+      });
+    }
+  }
+  
+  // Recalculate leaderboard
+  calculateWeekResults(weekId);
+  
+  res.json({
+    message: 'Results fetched successfully',
+    week_id: weekId,
+    participants_processed: participants.length,
+    results_found: results.filter(r => r.activity_found).length,
+    summary: results
+  });
+});
+```
+
+**Helper Function: Fetch Activities on Day**
+
+```javascript
+async function fetchActivitiesOnDay(accessToken, startTime, endTime) {
+  const strava = new strava.client(accessToken);
+  
+  // Convert to Unix timestamps
+  const after = Math.floor(new Date(startTime).getTime() / 1000);
+  const before = Math.floor(new Date(endTime).getTime() / 1000);
+  
+  const activities = await strava.athlete.listActivities({
+    after: after,
+    before: before,
+    per_page: 100 // Should be plenty for one day
+  });
+  
+  return activities;
+}
+```
+
+**Helper Function: Find Best Qualifying Activity**
+
+```javascript
+async function findBestQualifyingActivity(activities, segmentId, requiredLaps, accessToken) {
+  const strava = new strava.client(accessToken);
+  let bestActivity = null;
+  let bestTime = Infinity;
+  
+  for (const activity of activities) {
+    // Fetch full activity details (includes segment efforts)
+    const fullActivity = await strava.activities.get({ id: activity.id });
+    
+    // Filter to segment efforts matching our segment
+    const matchingEfforts = fullActivity.segment_efforts.filter(
+      effort => effort.segment.id === segmentId
+    );
+    
+    // Check if activity has required number of repetitions
+    if (matchingEfforts.length >= requiredLaps) {
+      // Calculate total time (sum of fastest N laps if more than required)
+      const sortedEfforts = matchingEfforts
+        .sort((a, b) => a.elapsed_time - b.elapsed_time)
+        .slice(0, requiredLaps);
+      
+      const totalTime = sortedEfforts.reduce((sum, e) => sum + e.elapsed_time, 0);
+      
+      if (totalTime < bestTime) {
+        bestTime = totalTime;
+        bestActivity = {
+          id: fullActivity.id,
+          totalTime: totalTime,
+          segmentEfforts: sortedEfforts
+        };
+      }
+    }
+  }
+  
+  return bestActivity;
+}
+```
+
+**Activity Matching Rules:**
+
+1. **Time Window**: Only activities between `start_time` and `end_time`
+2. **Segment Filter**: Activity must contain efforts on required segment
+3. **Repetition Requirement**: Must have at least `required_laps` segment efforts **in the same activity**
+   - 2 laps in one activity = qualifies
+   - 1 lap each in two separate activities = does NOT qualify
+4. **Best Selection**: If multiple qualifying activities, select the one with fastest total time
+5. **Re-fetch Handling**: Safe to re-fetch; updates to current best activity
 
 **Pros:**
-- Simple UX - one URL per week
-- Clear what's being submitted
-- Works for virtual and outdoor rides
+- One-time OAuth setup for participants (no weekly logins)
+- No manual submission burden on participants
+- Batch processing ensures everyone is processed consistently
+- Admin has full control over when results are collected
+- Handles multiple attempts (selects best)
 
 **Cons:**
-- Requires manual submission
-- Participants might forget
+- Requires manual admin action at end of day
+- Not real-time (future: webhooks will solve this)
 
-### Option B: Auto-Detection (Future Enhancement)
-Automatically detect activities on Tuesday that match segment:
+### Future Enhancement: Event-Based Webhooks
 
-1. Cron job runs every Tuesday evening
-2. For each participant:
-   - Get valid token
-   - Fetch activities from Tuesday (using `after` and `before` timestamps)
-   - Search for activities containing the week's segment
-   - Auto-validate and submit
-3. Send notification if successful or if action needed
+**Goal:** Eliminate manual admin fetch step
 
-**Pros:**
-- Zero effort for participants
-- Can't forget to submit
+Strava offers webhook subscriptions for activity events:
+- `activity.create` - Fired when participant completes a ride
+- `activity.update` - Fired if they edit the activity
+- `activity.delete` - Fired if they delete it
 
-**Cons:**
-- More complex
-- Needs webhook or polling
-- Risk of wrong activity being selected
+**Webhook Flow:**
+1. Subscribe to Strava webhooks for activity events
+2. When participant completes ride, Strava POSTs to your webhook endpoint
+3. Your app immediately fetches and validates the activity
+4. Results update in real-time (no admin action needed)
 
-### Option C: Hybrid
-- Auto-detection runs as default
-- Participants can manually override/submit different activity
-- Admin can manually approve/reject
+**Implementation:** See [Strava Webhook Events Guide](https://developers.strava.com/docs/webhooks/)
+
+**Roadmap:** Implement after admin fetch workflow is stable
+
+### Deprecated: Manual Submission
+
+The `POST /weeks/:id/submit-activity` endpoint (manual URL submission) is being phased out. It may remain as a fallback for edge cases but is not the primary workflow.
 
 ## Required Strava API Scopes
 
-### For Activity Submission
+### For Activity Collection
 ```
-activity:read          # Read activity details
-activity:read_all      # Access private activities (if needed)
-profile:read_all       # Read athlete profile
+activity:read          # Read activity details and segment efforts
+profile:read_all       # Read athlete profile to link participant
 ```
+
+Note: We do NOT need `activity:read_all` (private activities) unless participants have private activities they want counted. Start with `activity:read` (public + followers only).
 
 ### Scope Request URL
 ```
@@ -426,36 +582,43 @@ https://www.strava.com/oauth/authorize?
 
 ## Implementation Checklist
 
-### Phase 1: OAuth Setup (Multi-User Authentication)
-- [ ] **Environment variables**: Add `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_REDIRECT_URI` to `.env`
-- [ ] **Database migration**: Add `participant_tokens` table to schema (see SQL above)
-- [ ] **Route: `/auth/strava`**: Redirect to Strava OAuth authorize URL
-- [ ] **Route: `/auth/strava/callback`**: Exchange code for tokens
-- [ ] **Token refresh utility**: `getValidAccessToken(participantId)` function
-- [ ] **Session management**: Store `participantId` in session/cookies
-- [ ] **Frontend**: "Connect with Strava" button + connection status display
-- [ ] **Error handling**: Handle denied authorization, expired tokens, network errors
+### Phase 1: OAuth Setup (Multi-User Authentication) ✅ COMPLETE
+- [x] **Environment variables**: `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_REDIRECT_URI` in `.env`
+- [x] **Database migration**: `participant_tokens` table created
+- [x] **Route: `/auth/strava`**: Redirects to Strava OAuth authorize URL
+- [x] **Route: `/auth/strava/callback`**: Exchanges code for tokens
+- [x] **Token refresh utility**: `getValidAccessToken(participantId)` function
+- [x] **Session management**: Stores `participantId` in session cookies
+- [x] **Frontend**: "Connect with Strava" button + connection status display
+- [x] **Error handling**: Handles denied authorization, expired tokens
+- [x] **Testing**: Manually tested with real Strava account, OAuth flow works
 
-**Testing:** Use your own Strava account to connect/disconnect, verify tokens stored in database
+### Phase 2: Admin Batch Fetch ⏳ IN PROGRESS
+- [ ] **Route: `POST /admin/weeks/:id/fetch-results`**: Batch fetch all participants
+- [ ] **Helper: `fetchActivitiesOnDay(token, start, end)`**: Get activities in time window
+- [ ] **Helper: `findBestQualifyingActivity()`**: Find best activity with required reps
+- [ ] **Activity validation**: Time window, segment, repetition count
+- [ ] **Database storage**: Store best activity per participant
+- [ ] **Leaderboard recalculation**: Auto-update after fetch
+- [ ] **Progress indicator**: UI shows fetch status
+- [ ] **Error handling**: Handle API failures, missing tokens gracefully
+- [ ] **Re-fetch logic**: Safe to fetch multiple times, updates to best
 
-### Phase 2: Activity Submission & Validation
-- [ ] **Route: `POST /weeks/:id/submit-activity`**: Accept Strava activity URL
-- [ ] **Activity ID extraction**: Parse `strava.com/activities/12345` → `12345`
-- [ ] **Fetch from Strava**: `GET /activities/{id}` with participant's access token
-- [ ] **Date validation**: Ensure `start_date_local` matches week's Tuesday
-- [ ] **Segment effort extraction**: Find matching `strava_segment_id` in `segment_efforts[]`
-- [ ] **Lap count verification**: Ensure participant completed required laps
-- [ ] **Database storage**: Insert into `activities`, `segment_efforts`, and `results` tables
-- [ ] **Leaderboard recalculation**: Update scores and rankings
+**Testing:** Create test week, have multiple test users complete rides, trigger fetch, verify correct activities selected
 
-**Testing:** Submit real Strava activity URLs from test rides, verify leaderboard updates correctly
+### Phase 3: Admin UI ⏳ NEXT
+- [ ] **Week creation form**: Segment ID input, date picker, time window, reps
+- [ ] **"Fetch Results" button**: On week detail page
+- [ ] **Participant dashboard**: View all connected participants
+- [ ] **Results summary**: Show what was found after fetch
+- [ ] **Segment ID validation**: Verify segment exists via Strava API (optional)
 
-### Phase 3: Frontend Integration
-- [ ] **Login/auth flow**: Check session, show "Connect" or "Connected as {name}"
-- [ ] **Weekly submission UI**: Input for Strava URL, submit button
-- [ ] **Real-time validation feedback**: "Activity submitted successfully!" or error messages
-- [ ] **Leaderboard links**: Make activity URLs clickable to view on Strava
-- [ ] **Connection status page**: Show which participants are connected
+### Phase 4: Future Enhancements 📋 BACKLOG
+- [ ] **Strava webhooks**: Real-time activity collection (eliminate manual fetch)
+- [ ] **Segment search UI**: Search Strava for segments, select from results
+- [ ] **Email notifications**: Notify participants when results are posted
+- [ ] **Activity audit log**: Show history of what was fetched/processed
+- [ ] **Manual overrides**: Admin can exclude activities or adjust points
 - [ ] **Disconnect button**: Allow users to revoke access
 
 **Testing:** Full end-to-end flow from connection to submission to leaderboard display

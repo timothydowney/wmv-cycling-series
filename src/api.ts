@@ -18,6 +18,8 @@ export interface Week {
   required_laps: number;
   start_time: string;
   end_time: string;
+  segment_name?: string;
+  strava_segment_id?: string;
 }
 
 export interface LeaderboardEntry {
@@ -54,6 +56,21 @@ export interface Participant {
 export interface AuthStatus {
   authenticated: boolean;
   participant: Participant | null;
+}
+
+export interface ActivitySubmission {
+  activity_url: string;
+}
+
+export interface SubmissionResponse {
+  message: string;
+  activity: {
+    id: number;
+    strava_activity_id: string;
+    date: string;
+    laps: number;
+    segment: string;
+  };
 }
 
 export const api = {
@@ -115,6 +132,24 @@ export const api = {
     return response.json();
   },
 
+  async submitActivity(weekId: number, data: ActivitySubmission): Promise<SubmissionResponse> {
+    const response = await fetch(`${API_BASE_URL}/weeks/${weekId}/submit-activity`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include', // Important: include cookies for session
+      body: JSON.stringify(data),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || error.error || 'Failed to submit activity');
+    }
+    
+    return response.json();
+  },
+
   getConnectUrl(): string {
     return `${API_BASE_URL}/auth/strava`;
   },
@@ -151,6 +186,10 @@ export async function getAuthStatus(): Promise<AuthStatus> {
 
 export async function disconnect(): Promise<{ success: boolean; message: string }> {
   return api.disconnect();
+}
+
+export async function submitActivity(weekId: number, data: ActivitySubmission): Promise<SubmissionResponse> {
+  return api.submitActivity(weekId, data);
 }
 
 export function getConnectUrl(): string {
