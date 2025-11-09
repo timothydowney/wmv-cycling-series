@@ -2,6 +2,18 @@ const request = require('supertest');
 const express = require('express');
 const session = require('express-session');
 
+// Mock strava-v3 library to prevent network calls
+jest.mock('strava-v3', () => ({
+  config: jest.fn(),
+  client: jest.fn().mockImplementation(() => ({
+    activities: { get: jest.fn() }
+  })),
+  oauth: {
+    refreshToken: jest.fn(),
+    getToken: jest.fn()
+  }
+}));
+
 // Mock the app (we'll need to refactor index.js to export app for testing)
 // For now, we'll test the endpoints that don't require full OAuth flow
 

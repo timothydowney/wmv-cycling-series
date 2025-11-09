@@ -52,14 +52,15 @@ CREATE TABLE weeks (
 - Enforced during activity submission validation
 
 #### `activities` (NEW)
-Stores submitted Strava activities for validation and tracking.
+Stores Strava activities for each participant per week. When admin triggers batch fetch, this table is populated with the best qualifying activity for each participant.
+
 ```sql
 CREATE TABLE activities (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   week_id INTEGER NOT NULL,
   participant_id INTEGER NOT NULL,
   strava_activity_id INTEGER NOT NULL,  -- Strava's activity ID
-  activity_url TEXT NOT NULL,  -- Full Strava URL submitted by participant
+  activity_url TEXT NOT NULL,  -- Full Strava URL
   activity_date TEXT NOT NULL,  -- ISO 8601 date from Strava
   validation_status TEXT DEFAULT 'pending',  -- pending, valid, invalid
   validation_message TEXT,  -- Error/success message
@@ -67,9 +68,15 @@ CREATE TABLE activities (
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY(week_id) REFERENCES weeks(id),
   FOREIGN KEY(participant_id) REFERENCES participants(id),
-  UNIQUE(week_id, participant_id)  -- One submission per participant per week
+  UNIQUE(week_id, participant_id)  -- One activity per participant per week (best activity)
 );
 ```
+
+**Admin Fetch Behavior:**
+- When admin triggers `POST /admin/weeks/:id/fetch-results`, the system finds the **best qualifying activity** for each participant on the event day
+- If an activity already exists for a participant in this week, it is replaced with the current best activity (via REPLACE INTO or DELETE + INSERT)
+- This allows safe re-fetching if participants complete additional attempts after initial fetch
+- Only the best activity (fastest total time with required reps) is stored per participant per week
 
 #### `segment_efforts` (NEW)
 Stores individual segment efforts extracted from activities.
@@ -122,16 +129,37 @@ CREATE TABLE results (
 
 ## Data Flow
 
-### Activity Submission & Validation
-1. Participant submits Strava activity URL for a specific week
-2. Backend extracts activity ID from URL
-3. Backend fetches activity details via Strava API
-4. Validation checks:
-   - Activity date matches week's designated Tuesday
+### Admin Batch Fetch Workflow (Primary)
+1. Admin triggers `POST /admin/weeks/:id/fetch-results` at end of event day
+2. System retrieves all connected participants (those with OAuth tokens)
+3. For each participant:
+   - Fetch activities from event day (using time window)
+   - Filter to activities containing required segment
+   - Identify activities with required number of segment repetitions
+   - Select best qualifying activity (fastest total time)
+   - Store activity record or replace existing one
+   - Extract and store segment efforts
+   - Calculate total time (sum of required laps)
+4. Recalculate leaderboard rankings and points
+5. Return summary of results found
+
+**Re-fetch Handling:**
+- Safe to fetch multiple times for same week
+- System updates to current best activity if participant has completed additional attempts
+- Previous activity is replaced (due to `UNIQUE(week_id, participant_id)` constraint)
+
+### Activity Validation (Deprecated - Manual Submission)
+Note: Manual submission via `POST /weeks/:id/submit-activity` is deprecated in favor of admin batch fetch.
+
+1. ~~Participant submits Strava activity URL for a specific week~~
+2. ~~Backend extracts activity ID from URL~~
+3. ~~Backend fetches activity details via Strava API~~
+4. Validation checks (same for both manual and batch fetch):
+   - Activity date within time window (start_time to end_time)
    - Activity contains segment efforts for the week's segment
    - Number of segment efforts >= required laps
 5. Store activity record with validation status
-6. If valid, extract segment efforts and store each lap
+6. Extract segment efforts and store each lap
 7. Calculate total time (sum of required laps)
 8. Store result for leaderboard
 

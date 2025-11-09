@@ -4,6 +4,7 @@ import WeeklyLeaderboard from './components/WeeklyLeaderboard';
 import SeasonLeaderboard from './components/SeasonLeaderboard';
 import WeekSelector from './components/WeekSelector';
 import StravaConnect from './components/StravaConnect';
+import ActivitySubmission from './components/ActivitySubmission';
 import { getWeeks, getWeekLeaderboard, Week, LeaderboardEntry, AuthStatus } from './api';
 
 function App() {
@@ -52,6 +53,19 @@ function App() {
     fetchLeaderboard();
   }, [selectedWeekId]);
 
+  // Function to refresh the leaderboard after submission
+  const refreshLeaderboard = async () => {
+    if (selectedWeekId === null) return;
+
+    try {
+      const leaderboardData = await getWeekLeaderboard(selectedWeekId);
+      setSelectedWeek(leaderboardData.week);
+      setWeekLeaderboard(leaderboardData.leaderboard);
+    } catch (err) {
+      console.error('Failed to refresh leaderboard:', err);
+    }
+  };
+
   if (loading) {
     return (
       <div className="app">
@@ -84,6 +98,16 @@ function App() {
         selectedWeekId={selectedWeekId}
         setSelectedWeekId={setSelectedWeekId}
       />
+
+      {authStatus?.authenticated && selectedWeek && (
+        <ActivitySubmission 
+          weekId={selectedWeek.id}
+          weekName={selectedWeek.week_name}
+          segmentName={selectedWeek.segment_name || 'Unknown Segment'} 
+          requiredLaps={selectedWeek.required_laps}
+          onSubmitSuccess={refreshLeaderboard}
+        />
+      )}
 
       <WeeklyLeaderboard 
         week={selectedWeek}

@@ -5,32 +5,52 @@ This plan outlines the steps to build the Strava Competition Tracker application
 ## Competition Rules & Scoring
 
 ### Weekly Competition Format
-- **Frequency:** Every Tuesday
-- **Objective:** Each week defines a specific Strava segment and required number of laps
-- **Completion Requirement:** Participants must complete the objective on the designated Tuesday
-- **Activity Tracking:** Each participant submits their Strava activity URL for validation
+- **Frequency:** Weekly events (typically Tuesday)
+- **Setup:** Administrator configures each week with:
+  - Event date and time window
+  - Strava segment ID (with description for participants)
+  - Required number of repetitions
+- **Participant Flow:**
+  1. Participants connect to Strava **once** via OAuth (no weekly re-authentication)
+  2. Participants perform their rides on the scheduled day
+  3. **No manual submission required** - activities are fetched automatically
+- **Activity Collection:**
+  - **Current:** Admin triggers batch fetch at end of event day (clicks "Fetch Results" button)
+  - **Future:** Event-based system using Strava webhooks (automatic)
+  - System fetches all connected participants' activities from event day
 
 ### Scoring System
-1. **Completion:** Participant must ride the designated segment the required number of times within a single activity on the correct Tuesday
-2. **Time Calculation:** Total time = sum of all segment efforts for that activity (e.g., if 2 laps required, sum both lap times)
-3. **Ranking:** Participants are sorted by total time (fastest to slowest)
-4. **Base Points:** Each participant receives **1 point for every other participant they beat**
+1. **Completion:** Participant must ride the designated segment the required number of times **within a single activity** on the correct day
+2. **Best Attempt Counts:** If multiple qualifying activities exist on the same day, the **best single activity** is used
+   - A qualifying activity contains the required number of segment repetitions
+   - Non-qualifying activities (insufficient repetitions) are ignored
+   - Activities spanning multiple segment efforts across different Strava activities do NOT count
+   - Example: If 2 laps required, we need 2 segment efforts in ONE activity, not 1+1 from two separate rides
+3. **Time Calculation:** Total time = sum of all segment efforts within the best qualifying activity
+4. **Ranking:** Participants are sorted by total time (fastest to slowest)
+5. **Base Points:** Each participant receives **1 point for every other participant they beat**
    - Example: If 4 participants complete the objective and you finish 2nd, you beat 2 people = 2 base points
    - First place beats everyone else, last place beats no one (0 base points)
-5. **PR Bonus:** If a participant sets a Personal Record (PR) on any segment effort during the week's activity, they receive **+1 bonus point**
+6. **PR Bonus:** If a participant sets a Personal Record (PR) on any segment effort during the week's activity, they receive **+1 bonus point**
    - Determined from Strava API response (pr_rank field)
    - Applies even if you finish last in the competition
-6. **Total Points:** Base points + PR bonus points
-7. **Season Leaderboard:** Sum of total points across all weeks
+7. **Total Points:** Base points + PR bonus points
+8. **Season Leaderboard:** Sum of total points across all weeks
 
 ### Data Requirements
-- **Week Definition:** Segment ID, date (Tuesday), number of required laps
-- **Activity Submission:** Strava activity URL from each participant
+- **Week Definition:** Segment ID, date, time window (midnight to 10pm default), required repetitions, description
+- **Participant Registration:** One-time OAuth connection grants ongoing access
+- **Activity Collection:** Admin-triggered batch fetch retrieves all participants' activities from event day
+- **Activity Matching:**
+  - Find all activities on the event day within time window
+  - Filter to activities containing the required segment
+  - Identify activities with required number of segment repetitions
+  - Select the single best qualifying activity (fastest total time)
 - **Validation:**
-  - Activity date matches week's Tuesday
-  - Activity contains the required segment
-  - Segment was completed the required number of times
-  - Extract and sum segment effort times
+  - Activity date matches event day and time window
+  - Activity contains required segment with sufficient repetitions
+  - All segment efforts are within the same activity
+  - Extract and sum segment effort times from best qualifying activity
 
 ## Credential Management
 
@@ -111,14 +131,6 @@ For local development, Strava API credentials (Client ID and Client Secret) are 
     *   ✅ Integrated into App header
     *   ✅ "Powered by Strava" footer attribution
     
-    **Next Steps for Strava Integration:**
-    *   ⏳ Activity submission endpoint: `POST /weeks/:id/submit-activity`
-    *   ⏳ Extract activity ID from Strava URL
-    *   ⏳ Fetch activity details via Strava API
-    *   ⏳ Validate activity date, segment, and laps
-    *   ⏳ Store activities and segment efforts
-    *   ⏳ Recalculate leaderboard after submission
-    
     **Testing:**
     *   ✅ All 84 backend tests passing
     *   ✅ Frontend builds successfully
@@ -132,45 +144,88 @@ For local development, Strava API credentials (Client ID and Client Secret) are 
     - Security best practices
     - FAQ for participants
 
+8.  **Activity Collection & Results (⏳ In Progress):**
+    
+    **Participant Registration:**
+    *   ✅ OAuth connection flow (one-time setup per participant)
+    *   ✅ Token storage and automatic refresh
+    *   ✅ `GET /auth/status` - Check connection status
+    *   ⏳ Participant UI showing connection status clearly
+    *   ⏳ Admin dashboard to view all connected participants
+    
+    **Admin Batch Fetch System:**
+    *   ⏳ `POST /admin/weeks/:id/fetch-results` - Fetch all participants' activities for a week
+    *   ⏳ For each connected participant:
+        - Fetch activities from event day (using time window)
+        - Filter to activities containing required segment
+        - Identify best qualifying activity (required reps + fastest time)
+        - Store activity and segment efforts in database
+    *   ⏳ Activity matching logic:
+        - Multiple activities on same day → select best
+        - Insufficient repetitions → skip activity
+        - Re-fetch updates to best activity if already processed
+    *   ⏳ Progress indicator/results summary after fetch
+    *   ⏳ Automatic leaderboard recalculation after fetch
+    
+    **Admin Week Management:**
+    *   ✅ `POST /admin/weeks` - Create week with segment ID
+    *   ✅ `PUT /admin/weeks/:id` - Update week
+    *   ✅ `DELETE /admin/weeks/:id` - Delete week
+    *   ⏳ Admin UI for creating/editing weeks
+    *   ⏳ Segment ID validation (verify segment exists via Strava API)
+    *   ⏳ Segment search/selection UI (future enhancement)
+    
+    **Future Automation:**
+    *   📋 Event-based system using Strava webhooks
+    *   📋 Auto-fetch when participants complete activities
+    *   📋 Email notifications to participants
+    *   📋 Cron job for Tuesday evening auto-fetch
+    
+    **Documentation:**
+    *   ✅ `STRAVA_INTEGRATION.md` - OAuth and API integration
+    *   ⏳ Update `ADMIN_GUIDE.md` with batch fetch workflow
+    *   ⏳ Create `PARTICIPANT_GUIDE.md` for users
 
+9.  **Production Deployment (⏳ After Activity Collection):**
+    *   ⏳ Set up Railway.app hosting
+    *   ⏳ Configure environment variables
+    *   ⏳ Set up persistent session store (Redis or database-backed sessions)
+    *   ⏳ Configure production domain and HTTPS
+    *   ⏳ Update Strava OAuth redirect URIs for production
+    *   ⏳ Set up database backup strategy
+    *   ⏳ GitHub Actions CI/CD pipeline (see workflow section below)
+    *   ⏳ Manual testing with real Strava accounts in production
 
-8.  **Frontend - Activity Submission & Display (⏳ Next):**
-    *   ✅ Wire frontend to backend API endpoints (read-only complete).
-    *   ✅ "Connect with Strava" OAuth flow integrated.
-    *   ⏳ Create UI for participants to submit Strava activity URLs.
-    *   ⏳ Display validation status and errors.
-    *   ⏳ Show connection status for each participant.
-    *   ⏳ Real-time leaderboard updates after submissions.
+9.  **Production Deployment (⏳ Next):**
+    *   ⏳ Set up Railway.app hosting
+    *   ⏳ Configure environment variables
+    *   ⏳ Set up persistent session store (Redis or database-backed sessions)
+    *   ⏳ Configure production domain and HTTPS
+    *   ⏳ Update Strava OAuth redirect URIs for production
+    *   ⏳ Set up database backup strategy
+    *   ⏳ GitHub Actions CI/CD pipeline (see workflow section below)
+    *   ⏳ Manual testing with real Strava accounts in production
 
-9.  **Admin UI Tools:**
-    *   Create forms for adding/editing participants.
-    *   Create forms for adding/editing segments.
-    *   Create form to set up new week (segment, date, laps, time window).
-    *   Allow admin to manually validate/reject submissions.
-    *   Export/import functionality for backup.
+10. **Admin UI Tools (Future):**
+    *   ⏳ Week creation form (segment ID, date, time window, repetitions, description)
+    *   ⏳ Segment ID validation and preview
+    *   ⏳ "Fetch Results" button on week detail page
+    *   ⏳ Participant connection status dashboard
+    *   ⏳ Week management (edit, delete, duplicate)
+    *   📋 Segment search/selection UI (search Strava for segments)
+    *   📋 Participant management (add, remove, view history)
+    *   📋 Activity review/audit log (see what was fetched)
+    *   📋 Manual override (exclude activities, adjust points)
+    *   📋 Export/import functionality for backup
 
-10. **CI/CD & Deployment Pipeline:**
-    *   Set up GitHub Actions for automated testing and building
-    *   Configure CI workflow:
-        - Run tests on every push/PR
-        - Build frontend and backend
-        - Lint code
-        - Check Node version compatibility
-    *   Configure CD workflow:
-        - Trigger on merge to `main` branch
-        - Deploy to Railway.app automatically
-        - Set environment variables in Railway
-        - Run database migrations if needed
-    *   See **Deployment Workflow** section below for details
-
-11. **Production Deployment (Future):**
-    *   Configure production database.
-    *   Set up environment variables in Railway.
-    *   Build and deploy frontend.
-    *   Deploy backend API.
-    *   Set up SSL/HTTPS (automatic with Railway).
-    *   Configure production Strava OAuth callback URLs.
-    *   Connect Railway to GitHub for auto-deploy.
+11. **Auto-Detection & Enhancements (Future):**
+    *   📋 Strava webhook integration (activity.create events)
+    *   📋 Real-time activity processing as participants complete rides
+    *   📋 Cron job fallback for Tuesday evening batch processing
+    *   📋 Email notifications to participants (results posted, standings)
+    *   📋 Mobile-responsive design improvements
+    *   📋 Activity submission history per participant
+    *   📋 Personal stats dashboard for participants
 
 ---
 
