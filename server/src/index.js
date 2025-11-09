@@ -3,6 +3,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
 const Database = require('better-sqlite3');
+const session = require('express-session');
 
 dotenv.config();
 
@@ -17,6 +18,18 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+
+// Session configuration for OAuth
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+    httpOnly: true,
+    maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+  }
+}));
 
 // Initialize DB
 const db = new Database(DB_PATH);
@@ -380,6 +393,216 @@ function calculateWeekResults(weekId) {
 
 // Seed on startup
 seedTestData();
+
+// ========================================
+// UTILITY FUNCTIONS
+// ========================================
+
+/**
+ * Get a valid access token for a participant, refreshing if needed
+ * @param {number} participantId - The participant's database ID
+ * @returns {Promise<string>} Valid access token
+ */
+async function getValidAccessToken(participantId) {
+  const tokenRecord = db.prepare(`
+    SELECT * FROM participant_tokens WHERE participant_id = ?
+  `).get(participantId);
+  
+  if (!tokenRecord) {
+    throw new Error('Participant not connected to Strava');
+  }
+  
+  const now = Math.floor(Date.now() / 1000);  // Current Unix timestamp
+  
+  // Token expires in less than 1 hour? Refresh it proactively
+  if (tokenRecord.expires_at < (now + 3600)) {
+    console.log(`Token expiring soon for participant ${participantId}, refreshing...`);
+    
+    // Request new access token using refresh token
+    const refreshResponse = await fetch('https://www.strava.com/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_id: process.env.STRAVA_CLIENT_ID,
+        client_secret: process.env.STRAVA_CLIENT_SECRET,
+        grant_type: 'refresh_token',
+        refresh_token: tokenRecord.refresh_token
+      })
+    });
+    
+    if (!refreshResponse.ok) {
+      const error = await refreshResponse.text();
+      throw new Error(`Failed to refresh token: ${error}`);
+    }
+    
+    const newTokenData = await refreshResponse.json();
+    
+    // Update database with NEW tokens (both access and refresh tokens change!)
+    db.prepare(`
+      UPDATE participant_tokens 
+      SET access_token = ?,
+          refresh_token = ?,
+          expires_at = ?,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE participant_id = ?
+    `).run(
+      newTokenData.access_token,
+      newTokenData.refresh_token,
+      newTokenData.expires_at,
+      participantId
+    );
+    
+    return newTokenData.access_token;
+  }
+  
+  // Token still valid, return it
+  return tokenRecord.access_token;
+}
+
+// ========================================
+// AUTHENTICATION ROUTES
+// ========================================
+
+// GET /auth/strava - Initiate OAuth flow
+app.get('/auth/strava', (req, res) => {
+  const stravaAuthUrl = 'https://www.strava.com/oauth/authorize?' + 
+    new URLSearchParams({
+      client_id: process.env.STRAVA_CLIENT_ID,
+      redirect_uri: process.env.STRAVA_REDIRECT_URI,
+      response_type: 'code',
+      approval_prompt: 'auto',  // 'force' to always show consent screen
+      scope: 'activity:read,profile:read_all'
+    });
+  
+  console.log('Redirecting to Strava OAuth:', stravaAuthUrl);
+  res.redirect(stravaAuthUrl);
+});
+
+// GET /auth/strava/callback - Handle OAuth callback
+app.get('/auth/strava/callback', async (req, res) => {
+  const { code, scope } = req.query;
+  
+  if (!code) {
+    console.error('OAuth callback missing authorization code');
+    return res.redirect(`${CLIENT_BASE_URL}?error=authorization_denied`);
+  }
+  
+  try {
+    // Exchange authorization code for tokens
+    console.log('Exchanging OAuth code for tokens...');
+    const tokenResponse = await fetch('https://www.strava.com/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_id: process.env.STRAVA_CLIENT_ID,
+        client_secret: process.env.STRAVA_CLIENT_SECRET,
+        code: code,
+        grant_type: 'authorization_code'
+      })
+    });
+    
+    if (!tokenResponse.ok) {
+      const error = await tokenResponse.text();
+      console.error('Failed to exchange code for tokens:', error);
+      return res.redirect(`${CLIENT_BASE_URL}?error=token_exchange_failed`);
+    }
+    
+    const tokenData = await tokenResponse.json();
+    const stravaAthleteId = tokenData.athlete.id;
+    const athleteName = `${tokenData.athlete.firstname} ${tokenData.athlete.lastname}`;
+    
+    console.log(`OAuth successful for Strava athlete ${stravaAthleteId} (${athleteName})`);
+    
+    // Find or create participant in database
+    let participant = db.prepare(`
+      SELECT * FROM participants WHERE strava_athlete_id = ?
+    `).get(stravaAthleteId);
+    
+    if (!participant) {
+      console.log(`Creating new participant: ${athleteName}`);
+      const result = db.prepare(`
+        INSERT INTO participants (name, strava_athlete_id)
+        VALUES (?, ?)
+      `).run(athleteName, stravaAthleteId);
+      
+      participant = { id: result.lastInsertRowid, name: athleteName };
+    }
+    
+    // Store tokens for this participant
+    db.prepare(`
+      INSERT OR REPLACE INTO participant_tokens 
+      (participant_id, access_token, refresh_token, expires_at, scope)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(
+      participant.id,
+      tokenData.access_token,
+      tokenData.refresh_token,
+      tokenData.expires_at,
+      scope || tokenData.scope
+    );
+    
+    console.log(`Tokens stored for participant ${participant.id}`);
+    
+    // Store session
+    req.session.participantId = participant.id;
+    req.session.athleteName = tokenData.athlete.firstname;
+    req.session.stravaAthleteId = stravaAthleteId;
+    
+    // Redirect to dashboard
+    res.redirect(`${CLIENT_BASE_URL}?connected=true`);
+  } catch (error) {
+    console.error('OAuth callback error:', error);
+    res.redirect(`${CLIENT_BASE_URL}?error=server_error`);
+  }
+});
+
+// GET /auth/status - Check authentication status
+app.get('/auth/status', (req, res) => {
+  if (req.session.participantId) {
+    const participant = db.prepare(`
+      SELECT p.id, p.name, p.strava_athlete_id,
+             CASE WHEN pt.participant_id IS NOT NULL THEN 1 ELSE 0 END as is_connected
+      FROM participants p
+      LEFT JOIN participant_tokens pt ON p.id = pt.participant_id
+      WHERE p.id = ?
+    `).get(req.session.participantId);
+    
+    res.json({
+      authenticated: true,
+      participant: participant
+    });
+  } else {
+    res.json({
+      authenticated: false,
+      participant: null
+    });
+  }
+});
+
+// POST /auth/disconnect - Disconnect Strava account
+app.post('/auth/disconnect', (req, res) => {
+  if (!req.session.participantId) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  
+  const participantId = req.session.participantId;
+  
+  // Delete tokens from database
+  db.prepare('DELETE FROM participant_tokens WHERE participant_id = ?').run(participantId);
+  
+  // Destroy session
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Session destruction error:', err);
+      return res.status(500).json({ error: 'Failed to disconnect' });
+    }
+    res.json({ success: true, message: 'Disconnected from Strava' });
+  });
+});
+
+// ========================================
+// PUBLIC ROUTES
+// ========================================
 
 // Routes
 app.get('/health', (req, res) => {
