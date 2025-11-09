@@ -11,18 +11,19 @@ Western Mass Velo's weekly cycling competition tracker. Calculates scores based 
 - **What:** Complete a designated Strava segment a specified number of times
 - **How:** Participants submit their Strava activity URL for that Tuesday
 - **Scoring:**
-  - **Base points:** Earn 1 point for every participant you beat (based on total time)
+  - **Base points:** Earn 1 point for every participant you beat (based on total time) **PLUS 1 point for competing**
   - **PR Bonus:** Earn +1 bonus point if you set a Personal Record on the segment
 
 ### Scoring Example
 If 4 participants complete Week 1's objective:
-- **1st place** (fastest time): beats 3 others = **3 base points**
+- **1st place** (fastest time): beats 3 others + competed = **4 base points**
+  - If they set a PR: **5 total points** (4 base + 1 PR bonus)
+- **2nd place**: beats 2 others + competed = **3 base points** 
   - If they set a PR: **4 total points** (3 base + 1 PR bonus)
-- **2nd place**: beats 2 others = **2 base points** 
-  - If they set a PR: **3 total points** (2 base + 1 PR bonus)
-- **3rd place**: beats 1 other = **1 base point**
-- **4th place** (slowest): beats 0 = **0 base points**
-  - Even last place can earn **1 point** if they set a PR!
+- **3rd place**: beats 1 other + competed = **2 base points**
+- **4th place** (slowest): beats 0 + competed = **1 base point**
+  - Even last place can earn **2 points** if they set a PR!
+- **Did not compete**: **0 points** (rewards participation)
 
 Season winner = most total points across all weeks.
 

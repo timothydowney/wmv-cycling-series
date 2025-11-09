@@ -536,11 +536,11 @@ describe('WMV Backend API', () => {
       const leaderboard = response.body.leaderboard;
 
       expect(leaderboard.length).toBe(3);
-      expect(leaderboard[0].points).toBe(3); // 1st place: 2 base + 1 PR bonus
+      expect(leaderboard[0].points).toBe(4); // 1st place: 3 base + 1 PR bonus (Matt)
       expect(leaderboard[0].pr_bonus_points).toBe(1); // Matt got a PR
-      expect(leaderboard[1].points).toBe(1); // 2nd place: 1 base + 0 PR bonus
+      expect(leaderboard[1].points).toBe(2); // 2nd place: 2 base + 0 PR bonus (Jonny)
       expect(leaderboard[1].pr_bonus_points).toBe(0);
-      expect(leaderboard[2].points).toBe(0); // 3rd place: 0 base + 0 PR bonus
+      expect(leaderboard[2].points).toBe(1); // 3rd place: 1 base + 0 PR bonus (Chris)
       expect(leaderboard[2].pr_bonus_points).toBe(0);
     });
 
@@ -549,40 +549,40 @@ describe('WMV Backend API', () => {
       const leaderboard = response.body.leaderboard;
 
       expect(leaderboard.length).toBe(4);
-      expect(leaderboard[0].points).toBe(4); // 1st place: 3 base + 1 PR bonus (Matt)
+      expect(leaderboard[0].points).toBe(5); // 1st place: 4 base + 1 PR bonus (Matt)
       expect(leaderboard[0].pr_bonus_points).toBe(1);
-      expect(leaderboard[1].points).toBe(3); // 2nd place: 2 base + 1 PR bonus (Jonny)
+      expect(leaderboard[1].points).toBe(4); // 2nd place: 3 base + 1 PR bonus (Jonny)
       expect(leaderboard[1].pr_bonus_points).toBe(1);
-      expect(leaderboard[2].points).toBe(1); // 3rd place: 1 base + 0 PR bonus (Tim)
+      expect(leaderboard[2].points).toBe(2); // 3rd place: 2 base + 0 PR bonus (Tim)
       expect(leaderboard[2].pr_bonus_points).toBe(0);
-      expect(leaderboard[3].points).toBe(0); // 4th place: 0 base + 0 PR bonus (Chris)
+      expect(leaderboard[3].points).toBe(1); // 4th place: 1 base + 0 PR bonus (Chris)
       expect(leaderboard[3].pr_bonus_points).toBe(0);
     });
 
-    test('Matt leads season with 7 points (including PR bonuses)', async () => {
+    test('Matt leads season with 9 points (including PR bonuses)', async () => {
       const response = await request(app).get('/season/leaderboard');
       const matt = response.body.find(p => p.name === 'Matt');
 
       expect(matt).toBeDefined();
-      expect(matt.total_points).toBe(7); // 3 points week 1 + 4 points week 2
+      expect(matt.total_points).toBe(9); // 4 points week 1 + 5 points week 2
       expect(matt.weeks_completed).toBe(2);
     });
 
-    test('Jonny has 4 points with PR bonus in week 2', async () => {
+    test('Jonny has 6 points with PR bonus in week 2', async () => {
       const response = await request(app).get('/season/leaderboard');
       const jonny = response.body.find(p => p.name === 'Jonny');
 
       expect(jonny).toBeDefined();
-      expect(jonny.total_points).toBe(4); // 1 point week 1 + 3 points week 2
+      expect(jonny.total_points).toBe(6); // 2 points week 1 + 4 points week 2
       expect(jonny.weeks_completed).toBe(2);
     });
 
-    test('Chris has 0 points (finished last both weeks, no PRs)', async () => {
+    test('Chris has 2 points (finished last both weeks, no PRs, but competed)', async () => {
       const response = await request(app).get('/season/leaderboard');
       const chris = response.body.find(p => p.name === 'Chris');
 
       expect(chris).toBeDefined();
-      expect(chris.total_points).toBe(0); // 0 points both weeks
+      expect(chris.total_points).toBe(2); // 1 point week 1 + 1 point week 2
       expect(chris.weeks_completed).toBe(2);
     });
 

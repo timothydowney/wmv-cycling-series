@@ -350,7 +350,7 @@ function calculateWeekResults(weekId) {
   // Delete existing results for this week
   db.prepare('DELETE FROM results WHERE week_id = ?').run(weekId);
 
-  // Insert new results with correct scoring: points = number of people you beat + PR bonus
+  // Insert new results with correct scoring: points = (number of people you beat + 1 for competing) + PR bonus
   const insertResult = db.prepare(`
     INSERT INTO results (week_id, participant_id, activity_id, total_time_seconds, rank, points, pr_bonus_points)
     VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -359,7 +359,7 @@ function calculateWeekResults(weekId) {
   db.transaction(() => {
     activities.forEach((activity, index) => {
       const rank = index + 1;
-      const basePoints = totalParticipants - rank; // Beat everyone ranked below you
+      const basePoints = (totalParticipants - rank) + 1; // Beat everyone ranked below you + 1 for competing
       const prBonus = activity.achieved_pr ? 1 : 0; // +1 point if any PR was achieved
       const totalPoints = basePoints + prBonus;
       

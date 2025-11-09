@@ -109,7 +109,14 @@ CREATE TABLE results (
 );
 ```
 **Points Calculation:**
-- `base_points = total_participants - rank`
+- `base_points = (total_participants - rank) + 1`
+  - This awards 1 point for each participant you beat, PLUS 1 point for competing
+  - Example with 4 participants:
+    - 1st place: (4 - 1) + 1 = 4 points (beat 3 people + competed)
+    - 2nd place: (4 - 2) + 1 = 3 points (beat 2 people + competed)
+    - 3rd place: (4 - 3) + 1 = 2 points (beat 1 person + competed)
+    - 4th place: (4 - 4) + 1 = 1 point (beat 0 people + competed)
+  - Someone who doesn't compete gets 0 points
 - `pr_bonus_points = 1 if any segment effort has pr_achieved = 1, else 0`
 - `points = base_points + pr_bonus_points`
 
@@ -132,9 +139,10 @@ CREATE TABLE results (
 1. Query all valid results for a week
 2. Sort by `total_time_seconds` ASC
 3. Assign rank (1 = fastest)
-4. Calculate base points: `base_points = (total_participants - rank)`
-   - 1st place: total - 1 = beats everyone
-   - Last place: total - total = 0 = beats no one
+4. Calculate base points: `base_points = (total_participants - rank) + 1`
+   - 1st place: (total - 1) + 1 = total points (beats everyone + competed)
+   - Last place: (total - total) + 1 = 1 point (beats no one + competed)
+   - Non-competitor: 0 points (didn't compete)
 5. Check for PR bonus: if any segment effort has `pr_achieved = 1`, add 1 bonus point
 6. Total points = base_points + pr_bonus_points
 7. Update results table with rank, points, and pr_bonus_points
