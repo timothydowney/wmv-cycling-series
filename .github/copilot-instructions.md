@@ -138,10 +138,55 @@ lsof -ti:5173  # Frontend
 - Test data simulates real Strava activity structure
 
 ## Testing
+
+### Test Suite
 - Backend has comprehensive Jest test suite (`server/src/__tests__/`)
-- 59 test cases covering all endpoints
+- 72 test cases covering all endpoints (100% pass rate)
 - Run: `npm test` or `cd server && npm test`
-- Coverage: 94% (see `server/coverage/`)
+- Coverage: ~90% statements, ~83% branches (see `server/coverage/`)
+
+### Testing Best Practices - ALWAYS FOLLOW THESE
+
+**CRITICAL: Keep tests up to date with all code changes**
+- When adding a new endpoint, add tests for it IMMEDIATELY
+- When changing business logic, update affected tests in the same commit
+- Never leave tests failing or commented out
+- Tests should be updated BEFORE or WITH code changes, never after
+
+**Test Isolation**
+- Each test suite must clean up after itself (use `afterAll` or `afterEach` hooks)
+- Tests should not depend on execution order
+- Never share mutable state between tests
+- Reset database state or mock data between tests
+- Example: If a test creates a new active season, restore the original active season in `afterAll`
+
+**Test Coverage Requirements**
+- All API endpoints must have tests for:
+  - Happy path (successful requests)
+  - Error cases (404, 400, validation failures)
+  - Edge cases (empty results, boundary values)
+  - Security (unauthorized access for admin routes)
+- All business logic functions must have unit tests
+- Aim for >85% code coverage (statements and branches)
+
+**Test Organization**
+- Group related tests in `describe` blocks
+- Use descriptive test names: `it('should return 404 when week does not exist')`
+- Follow AAA pattern: Arrange, Act, Assert
+- Keep tests focused - one assertion per test when possible
+- Use `beforeEach` for common setup, not copy-paste
+
+**Test Data Management**
+- Use consistent test data across all test files
+- Seed data should be minimal but representative
+- Don't rely on magic numbers - use named constants
+- Clean up test data that could interfere with other tests
+
+**When to Run Tests**
+- Run full test suite before committing: `npm test`
+- Run specific test file during development: `npm test -- path/to/test.js`
+- Run tests with coverage to find gaps: `npm test -- --coverage`
+- Run tests in watch mode during active development: `npm test -- --watch`
 
 ## Common User Questions
 

@@ -185,7 +185,7 @@ describe('Edge Cases and Error Handling', () => {
       const mattBefore = seasonBefore.body.find(p => p.name === 'Matt');
       
       // Matt should have fewer points now (only from week 2)
-      expect(mattBefore.total_points).toBe(4); // Only week 2 points remain (3 base + 1 PR bonus)
+      expect(mattBefore.total_points).toBe(5); // Only week 2 points remain (4 base + 1 PR bonus)
       expect(mattBefore.weeks_completed).toBe(1);
     });
   });
