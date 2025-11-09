@@ -821,13 +821,25 @@ app.get('/seasons/:id/leaderboard', (req, res) => {
 // ========================================
 
 app.get('/weeks', (req, res) => {
-  const rows = db.prepare('SELECT id, season_id, week_name, date, segment_id, required_laps, start_time, end_time FROM weeks ORDER BY date DESC').all();
+  const rows = db.prepare(`
+    SELECT w.id, w.season_id, w.week_name, w.date, w.segment_id, w.required_laps, 
+           w.start_time, w.end_time, s.name as segment_name, s.strava_segment_id
+    FROM weeks w
+    LEFT JOIN segments s ON w.segment_id = s.id
+    ORDER BY w.date DESC
+  `).all();
   res.json(rows);
 });
 
 app.get('/weeks/:id', (req, res) => {
   const weekId = parseInt(req.params.id, 10);
-  const week = db.prepare('SELECT id, season_id, week_name, date, segment_id, required_laps, start_time, end_time FROM weeks WHERE id = ?').get(weekId);
+  const week = db.prepare(`
+    SELECT w.id, w.season_id, w.week_name, w.date, w.segment_id, w.required_laps, 
+           w.start_time, w.end_time, s.name as segment_name, s.strava_segment_id
+    FROM weeks w
+    LEFT JOIN segments s ON w.segment_id = s.id
+    WHERE w.id = ?
+  `).get(weekId);
   if (!week) return res.status(404).json({ error: 'Week not found' });
   res.json(week);
 });
@@ -1068,45 +1080,110 @@ app.delete('/admin/seasons/:id', (req, res) => {
 
 // Create a new week
 app.post('/admin/weeks', (req, res) => {
-  const { season_id, week_name, date, segment_id, required_laps, start_time, end_time } = req.body;
+  console.log('POST /admin/weeks - Request body:', JSON.stringify(req.body, null, 2));
+  
+  const { season_id, week_name, date, segment_id, segment_name, required_laps, start_time, end_time } = req.body;
+
+  // Auto-select active season if not provided
+  let finalSeasonId = season_id;
+  if (!finalSeasonId) {
+    const activeSeason = db.prepare('SELECT id FROM seasons WHERE is_active = 1 LIMIT 1').get();
+    if (!activeSeason) {
+      console.error('No active season found');
+      return res.status(400).json({ 
+        error: 'No active season found',
+        message: 'Please create an active season first or provide season_id'
+      });
+    }
+    finalSeasonId = activeSeason.id;
+    console.log('Using active season:', finalSeasonId);
+  }
+
+  // Extract date from start_time if not provided
+  let finalDate = date;
+  if (!finalDate && start_time) {
+    finalDate = start_time.split('T')[0];
+    console.log('Extracted date from start_time:', finalDate);
+  }
 
   // Validate required fields
-  if (!season_id || !week_name || !date || !segment_id || !required_laps) {
+  if (!week_name || !finalDate || !segment_id || !required_laps) {
+    console.error('Missing required fields:', { week_name, finalDate, segment_id, required_laps });
     return res.status(400).json({ 
       error: 'Missing required fields',
-      required: ['season_id', 'week_name', 'date', 'segment_id', 'required_laps']
+      required: ['week_name', 'date (or start_time)', 'segment_id', 'required_laps'],
+      received: { week_name, date: finalDate, segment_id, required_laps }
     });
   }
 
   // Validate season exists
-  const season = db.prepare('SELECT id FROM seasons WHERE id = ?').get(season_id);
+  const season = db.prepare('SELECT id FROM seasons WHERE id = ?').get(finalSeasonId);
   if (!season) {
+    console.error('Invalid season_id:', finalSeasonId);
     return res.status(400).json({ error: 'Invalid season_id' });
   }
 
   // Default time window: midnight to 10pm on event date
-  const defaultStartTime = start_time || `${date}T00:00:00Z`;
-  const defaultEndTime = end_time || `${date}T22:00:00Z`;
+  const defaultStartTime = start_time || `${finalDate}T00:00:00Z`;
+  const defaultEndTime = end_time || `${finalDate}T22:00:00Z`;
 
-  // Validate segment exists
-  const segment = db.prepare('SELECT id FROM segments WHERE id = ?').get(segment_id);
-  if (!segment) {
-    return res.status(400).json({ error: 'Invalid segment_id' });
+  // Create or get segment
+  let finalSegmentId = segment_id;
+  if (segment_name) {
+    // Check if segment exists, create if not
+    let segment = db.prepare('SELECT id FROM segments WHERE strava_segment_id = ?').get(segment_id.toString());
+    if (!segment) {
+      console.log('Creating new segment:', segment_id, segment_name);
+      const segmentResult = db.prepare(`
+        INSERT INTO segments (strava_segment_id, name)
+        VALUES (?, ?)
+      `).run(segment_id.toString(), segment_name);
+      finalSegmentId = segmentResult.lastInsertRowid;
+      console.log('Created segment with id:', finalSegmentId);
+    } else {
+      finalSegmentId = segment.id;
+      console.log('Using existing segment:', finalSegmentId);
+    }
+  } else {
+    // Validate segment exists
+    const segment = db.prepare('SELECT id FROM segments WHERE id = ?').get(segment_id);
+    if (!segment) {
+      console.error('Invalid segment_id:', segment_id);
+      return res.status(400).json({ 
+        error: 'Invalid segment_id',
+        message: 'Segment does not exist. Please provide segment_name to create it.'
+      });
+    }
   }
 
   try {
+    console.log('Inserting week:', { 
+      season_id: finalSeasonId, 
+      week_name, 
+      date: finalDate, 
+      segment_id: finalSegmentId, 
+      required_laps, 
+      start_time: defaultStartTime, 
+      end_time: defaultEndTime 
+    });
+    
     const result = db.prepare(`
       INSERT INTO weeks (season_id, week_name, date, segment_id, required_laps, start_time, end_time)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(season_id, week_name, date, segment_id, required_laps, defaultStartTime, defaultEndTime);
+    `).run(finalSeasonId, week_name, finalDate, finalSegmentId, required_laps, defaultStartTime, defaultEndTime);
 
     const newWeek = db.prepare(`
-      SELECT id, season_id, week_name, date, segment_id, required_laps, start_time, end_time
-      FROM weeks WHERE id = ?
+      SELECT w.id, w.season_id, w.week_name, w.date, w.segment_id, w.required_laps, 
+             w.start_time, w.end_time, s.name as segment_name
+      FROM weeks w
+      LEFT JOIN segments s ON w.segment_id = s.id
+      WHERE w.id = ?
     `).get(result.lastInsertRowid);
 
+    console.log('Week created successfully:', newWeek);
     res.status(201).json(newWeek);
   } catch (error) {
+    console.error('Failed to create week:', error);
     res.status(500).json({ error: 'Failed to create week', details: error.message });
   }
 });
@@ -1355,11 +1432,10 @@ app.get('/admin/participants', (req, res) => {
         p.id,
         p.name,
         p.strava_athlete_id,
-        p.is_connected,
-        CASE WHEN ot.access_token IS NOT NULL THEN 1 ELSE 0 END as has_token,
-        ot.expires_at as token_expires_at
+        CASE WHEN pt.access_token IS NOT NULL THEN 1 ELSE 0 END as has_token,
+        pt.expires_at as token_expires_at
       FROM participants p
-      LEFT JOIN oauth_tokens ot ON p.id = ot.participant_id
+      LEFT JOIN participant_tokens pt ON p.id = pt.participant_id
       ORDER BY p.name
     `).all();
     
