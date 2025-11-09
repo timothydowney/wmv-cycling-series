@@ -5,7 +5,10 @@ import SeasonLeaderboard from './components/SeasonLeaderboard';
 import WeekSelector from './components/WeekSelector';
 import NavBar from './components/NavBar';
 import AdminPanel from './components/AdminPanel';
+import ParticipantStatus from './components/ParticipantStatus';
 import { getWeeks, getWeekLeaderboard, Week, LeaderboardEntry } from './api';
+
+type ViewMode = 'leaderboard' | 'admin' | 'participants';
 
 function App() {
   const [weeks, setWeeks] = useState<Week[]>([]);
@@ -14,7 +17,7 @@ function App() {
   const [weekLeaderboard, setWeekLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('leaderboard');
 
   useEffect(() => {
     const fetchWeeks = async () => {
@@ -56,7 +59,12 @@ function App() {
   if (loading) {
     return (
       <>
-        <NavBar onAdminPanelToggle={() => setIsAdminPanelOpen(!isAdminPanelOpen)} isAdminPanelOpen={isAdminPanelOpen} />
+        <NavBar 
+          onAdminPanelToggle={() => setViewMode(viewMode === 'admin' ? 'leaderboard' : 'admin')} 
+          isAdminPanelOpen={viewMode === 'admin'}
+          onParticipantsClick={() => setViewMode('participants')}
+          onLeaderboardClick={() => setViewMode('leaderboard')}
+        />
         <div className="app app-content">
           <p>Loading...</p>
         </div>
@@ -67,7 +75,12 @@ function App() {
   if (error) {
     return (
       <>
-        <NavBar onAdminPanelToggle={() => setIsAdminPanelOpen(!isAdminPanelOpen)} isAdminPanelOpen={isAdminPanelOpen} />
+        <NavBar 
+          onAdminPanelToggle={() => setViewMode(viewMode === 'admin' ? 'leaderboard' : 'admin')} 
+          isAdminPanelOpen={viewMode === 'admin'}
+          onParticipantsClick={() => setViewMode('participants')}
+          onLeaderboardClick={() => setViewMode('leaderboard')}
+        />
         <div className="app app-content">
           <div className="error">{error}</div>
         </div>
@@ -77,11 +90,21 @@ function App() {
 
   return (
     <>
-      <NavBar onAdminPanelToggle={() => setIsAdminPanelOpen(!isAdminPanelOpen)} isAdminPanelOpen={isAdminPanelOpen} />
+      <NavBar 
+        onAdminPanelToggle={() => setViewMode(viewMode === 'admin' ? 'leaderboard' : 'admin')} 
+        isAdminPanelOpen={viewMode === 'admin'}
+        onParticipantsClick={() => setViewMode('participants')}
+        onLeaderboardClick={() => setViewMode('leaderboard')}
+      />
       
       <div className="app app-content">
-        {isAdminPanelOpen ? (
+        {viewMode === 'admin' ? (
           <AdminPanel />
+        ) : viewMode === 'participants' ? (
+          <div>
+            <h1 style={{ marginBottom: '2rem' }}>Participant Status</h1>
+            <ParticipantStatus />
+          </div>
         ) : (
           <>
             <WeekSelector 

@@ -1,72 +1,23 @@
 .admin-panel {
-  margin: 2rem 0;
-  padding: 1rem;
-  background: #f5f5f5;
-  border: 2px solid #fc4c02;
-  border-radius: 8px;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
 .admin-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid var(--wmv-orange, #f56004);
 }
 
-.admin-header h2 {
+.admin-header h1 {
+  margin: 0 0 0.5rem 0;
+  font-size: 2rem;
+  color: var(--wmv-text-dark, #333);
+}
+
+.admin-subtitle {
   margin: 0;
-  color: #fc4c02;
-  font-size: 1.5rem;
-}
-
-.admin-toggle {
-  background: #fc4c02;
-  color: white;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-.admin-toggle:hover {
-  background: #e34402;
-}
-
-.admin-content {
-  margin-top: 1rem;
-}
-
-.admin-tabs {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-  border-bottom: 2px solid #ddd;
-}
-
-.tab-button {
-  padding: 0.75rem 1.5rem;
-  background: white;
-  border: none;
-  border-bottom: 3px solid transparent;
-  cursor: pointer;
+  color: var(--wmv-text-light, #666);
   font-size: 1rem;
-  color: #333;
-  transition: all 0.2s;
-}
-
-.tab-button:hover {
-  background: #f9f9f9;
-}
-
-.tab-button.active {
-  border-bottom-color: #fc4c02;
-  color: #fc4c02;
-  font-weight: bold;
-}
-
-.admin-panel-body {
-  background: white;
-  padding: 1.5rem;
-  border-radius: 4px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
