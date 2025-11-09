@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const path = require('path');
 const Database = require('better-sqlite3');
 const session = require('express-session');
+const SqliteStore = require('better-sqlite3-session-store')(session);
 const strava = require('strava-v3');
 
 dotenv.config();
@@ -25,18 +26,26 @@ const app = express();
 // Enable CORS for local development - allow both localhost and 127.0.0.1
 app.use(cors({ 
   origin: [CLIENT_BASE_URL, 'http://localhost:5173', 'http://127.0.0.1:5173'],
-  credentials: true
+  credentials: true // Important: allow cookies to be sent
 }));
 app.use(express.json());
 
 // Session configuration for OAuth
 app.use(session({
+  store: new SqliteStore({
+    client: new Database(path.join(__dirname, '..', 'data', 'sessions.db')),
+    expired: {
+      clear: true,
+      intervalMs: 900000 // Clear expired sessions every 15 minutes
+    }
+  }),
   secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
   resave: false,
   saveUninitialized: false,
   cookie: {
     secure: process.env.NODE_ENV === 'production', // HTTPS only in production
     httpOnly: true,
+    sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax', // More permissive in dev
     maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
   }
 }));
@@ -1498,6 +1507,79 @@ app.post('/weeks/:id/submit-activity', async (req, res) => {
     console.error('Activity submission error:', error);
     res.status(500).json({ 
       error: 'Failed to submit activity',
+      details: error.message
+    });
+  }
+});
+
+// ========================================
+// UTILITY ENDPOINTS (Development/Admin)
+// ========================================
+
+// GET /utils/inspect-activity/:id - Inspect a Strava activity and extract segment info
+app.get('/utils/inspect-activity/:activityId', async (req, res) => {
+  const activityId = req.params.activityId;
+  
+  try {
+    // Get participant from session
+    const participantId = req.session?.participantId;
+    if (!participantId) {
+      return res.status(401).json({ 
+        error: 'Not authenticated',
+        message: 'You must connect your Strava account first'
+      });
+    }
+    
+    // Get valid access token
+    let accessToken;
+    try {
+      accessToken = await getValidAccessToken(participantId);
+    } catch (error) {
+      return res.status(401).json({ 
+        error: 'Strava not connected',
+        message: 'Please reconnect your Strava account',
+        details: error.message
+      });
+    }
+    
+    // Fetch activity details
+    const activity = await fetchStravaActivity(activityId, accessToken);
+    
+    // Helper to format seconds as MM:SS
+    const formatTime = (seconds) => {
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+    
+    // Extract segment information
+    const segments = (activity.segment_efforts || []).map(effort => ({
+      segment_id: effort.segment.id,
+      segment_name: effort.segment.name,
+      segment_url: `https://www.strava.com/segments/${effort.segment.id}`,
+      effort_time: effort.elapsed_time,
+      effort_time_formatted: formatTime(effort.elapsed_time),
+      pr_rank: effort.pr_rank || null,
+      is_pr: !!effort.pr_rank
+    }));
+    
+    // Return activity summary with segment details
+    res.json({
+      activity_id: activity.id,
+      activity_name: activity.name,
+      activity_url: `https://www.strava.com/activities/${activity.id}`,
+      activity_date: activity.start_date_local.split('T')[0],
+      activity_time: activity.start_date_local.split('T')[1],
+      distance: activity.distance,
+      total_segments: segments.length,
+      segments: segments,
+      usage_hint: 'Copy the segment_id from the segment you want to use for a week'
+    });
+    
+  } catch (error) {
+    console.error('Activity inspection error:', error);
+    res.status(500).json({ 
+      error: 'Failed to inspect activity',
       details: error.message
     });
   }
