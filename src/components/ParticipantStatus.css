@@ -1,0 +1,105 @@
+.participant-status {
+  width: 100%;
+}
+
+.status-summary {
+  background: #e8f5e9;
+  padding: 1rem;
+  border-radius: 4px;
+  margin-bottom: 1.5rem;
+  border-left: 4px solid #4caf50;
+}
+
+.status-summary h3 {
+  margin-top: 0;
+  color: #2e7d32;
+}
+
+.status-summary p {
+  margin-bottom: 0;
+  font-size: 1.1rem;
+}
+
+.status-summary strong {
+  color: #fc4c02;
+}
+
+.participants-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1.5rem;
+}
+
+.participants-table th,
+.participants-table td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+.participants-table th {
+  background: #fc4c02;
+  color: white;
+  font-weight: bold;
+}
+
+.participants-table tr.connected {
+  background: #f1f8f4;
+}
+
+.participants-table tr.disconnected {
+  background: #fff3e0;
+}
+
+.participants-table tbody tr:hover {
+  opacity: 0.9;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: bold;
+}
+
+.status-badge.connected {
+  background: #4caf50;
+  color: white;
+}
+
+.status-badge.disconnected {
+  background: #ff9800;
+  color: white;
+}
+
+.help-text {
+  background: #f5f5f5;
+  padding: 1rem;
+  border-radius: 4px;
+  border-left: 4px solid #2196f3;
+}
+
+.help-text h4 {
+  margin-top: 0;
+  color: #1976d2;
+}
+
+.help-text p {
+  margin-bottom: 0.5rem;
+  color: #555;
+}
+
+.help-text p:last-child {
+  margin-bottom: 0;
+}
+
+.participant-status.error {
+  color: #d32f2f;
+  padding: 1rem;
+  background: #ffebee;
+  border-radius: 4px;
+  border-left: 4px solid #d32f2f;
+}

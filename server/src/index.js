@@ -1347,6 +1347,32 @@ app.post('/admin/weeks/:id/fetch-results', async (req, res) => {
   }
 });
 
+// Get all participants with connection status (admin endpoint)
+app.get('/admin/participants', (req, res) => {
+  try {
+    const participants = db.prepare(`
+      SELECT 
+        p.id,
+        p.name,
+        p.strava_athlete_id,
+        p.is_connected,
+        CASE WHEN ot.access_token IS NOT NULL THEN 1 ELSE 0 END as has_token,
+        ot.expires_at as token_expires_at
+      FROM participants p
+      LEFT JOIN oauth_tokens ot ON p.id = ot.participant_id
+      ORDER BY p.name
+    `).all();
+    
+    res.json(participants);
+  } catch (error) {
+    console.error('Failed to get participants:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch participants',
+      details: error.message
+    });
+  }
+});
+
 // Activity submission endpoint
 app.post('/weeks/:id/submit-activity', async (req, res) => {
   const weekId = parseInt(req.params.id, 10);
