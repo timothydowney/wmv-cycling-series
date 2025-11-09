@@ -34,7 +34,11 @@ function WeekManager() {
   const fetchWeeks = async () => {
     try {
       const data = await getWeeks();
-      setWeeks(data);
+      // Sort weeks by end_time ascending (oldest first, so Week 1 appears at top)
+      const sortedWeeks = [...data].sort((a, b) => 
+        new Date(a.end_time).getTime() - new Date(b.end_time).getTime()
+      );
+      setWeeks(sortedWeeks);
     } catch (err) {
       console.error('Failed to fetch weeks:', err);
     }
@@ -205,6 +209,61 @@ function WeekManager() {
         </div>
       )}
 
+      <div className="weeks-list">
+        <h3>Competition Schedule</h3>
+        {weeks.length === 0 ? (
+          <p className="no-weeks">No weeks created yet. Create your first week below.</p>
+        ) : (
+          <table className="weeks-table">
+            <thead>
+              <tr>
+                <th>Week #</th>
+                <th>Name</th>
+                <th>Segment</th>
+                <th>Laps</th>
+                <th>Start</th>
+                <th>End</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {weeks.map((week, index) => (
+                <tr key={week.id}>
+                  <td>{index + 1}</td>
+                  <td>{week.week_name}</td>
+                  <td>{week.segment_name || 'Unknown Segment'}</td>
+                  <td>{week.required_laps}</td>
+                  <td>{new Date(week.start_time).toLocaleString()}</td>
+                  <td>{new Date(week.end_time).toLocaleString()}</td>
+                  <td>
+                    <div className="action-buttons">
+                      <button 
+                        className="edit-btn"
+                        onClick={() => handleEdit(week)}
+                      >
+                        Edit
+                      </button>
+                      <button 
+                        className="fetch-btn"
+                        onClick={() => handleFetchResults(week.id)}
+                      >
+                        Fetch Results
+                      </button>
+                      <button 
+                        className="delete-btn"
+                        onClick={() => handleDelete(week.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
       {!isCreating && (
         <button 
           className="create-button"
@@ -320,59 +379,6 @@ function WeekManager() {
           </form>
         </div>
       )}
-
-      <div className="weeks-list">
-        <h3>Existing Weeks</h3>
-        {weeks.length === 0 ? (
-          <p className="no-weeks">No weeks created yet.</p>
-        ) : (
-          <table className="weeks-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Segment</th>
-                <th>Laps</th>
-                <th>Start</th>
-                <th>End</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {weeks.map(week => (
-                <tr key={week.id}>
-                  <td>{week.week_name}</td>
-                  <td>{week.segment_name || 'Unknown Segment'}</td>
-                  <td>{week.required_laps}</td>
-                  <td>{new Date(week.start_time).toLocaleString()}</td>
-                  <td>{new Date(week.end_time).toLocaleString()}</td>
-                  <td>
-                    <div className="action-buttons">
-                      <button 
-                        className="edit-btn"
-                        onClick={() => handleEdit(week)}
-                      >
-                        Edit
-                      </button>
-                      <button 
-                        className="fetch-btn"
-                        onClick={() => handleFetchResults(week.id)}
-                      >
-                        Fetch Results
-                      </button>
-                      <button 
-                        className="delete-btn"
-                        onClick={() => handleDelete(week.id)}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
     </div>
   );
 }
