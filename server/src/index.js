@@ -494,6 +494,136 @@ function extractActivityId(url) {
   return match ? match[1] : null;
 }
 
+/**
+ * Fetch activities from Strava within a time window
+ * @param {string} accessToken - Valid Strava access token
+ * @param {string} startTime - ISO 8601 start time
+ * @param {string} endTime - ISO 8601 end time
+ * @returns {Promise<Array>} Activities from Strava
+ */
+async function fetchActivitiesOnDay(accessToken, startTime, endTime) {
+  try {
+    const client = new strava.client(accessToken);
+    
+    // Convert to Unix timestamps
+    const after = Math.floor(new Date(startTime).getTime() / 1000);
+    const before = Math.floor(new Date(endTime).getTime() / 1000);
+    
+    const activities = await client.athlete.listActivities({
+      after: after,
+      before: before,
+      per_page: 100 // Should be plenty for one day
+    });
+    
+    return activities || [];
+  } catch (error) {
+    throw new Error(`Failed to fetch activities: ${error.message}`);
+  }
+}
+
+/**
+ * Find the best qualifying activity with required segment repetitions
+ * @param {Array} activities - List of activities from Strava
+ * @param {number} segmentId - Strava segment ID to look for
+ * @param {number} requiredLaps - Required number of repetitions
+ * @param {string} accessToken - Valid Strava access token
+ * @returns {Promise<Object|null>} Best activity or null if none qualify
+ */
+async function findBestQualifyingActivity(activities, segmentId, requiredLaps, accessToken) {
+  const client = new strava.client(accessToken);
+  let bestActivity = null;
+  let bestTime = Infinity;
+  
+  for (const activity of activities) {
+    try {
+      // Fetch full activity details (includes segment efforts)
+      const fullActivity = await client.activities.get({ id: activity.id });
+      
+      // Filter to segment efforts matching our segment
+      const matchingEfforts = (fullActivity.segment_efforts || []).filter(
+        effort => effort.segment.id.toString() === segmentId.toString()
+      );
+      
+      // Check if activity has required number of repetitions
+      if (matchingEfforts.length >= requiredLaps) {
+        // Calculate total time (sum of fastest N laps if more than required)
+        const sortedEfforts = matchingEfforts
+          .sort((a, b) => a.elapsed_time - b.elapsed_time)
+          .slice(0, requiredLaps);
+        
+        const totalTime = sortedEfforts.reduce((sum, e) => sum + e.elapsed_time, 0);
+        
+        if (totalTime < bestTime) {
+          bestTime = totalTime;
+          bestActivity = {
+            id: fullActivity.id,
+            start_date_local: fullActivity.start_date_local,
+            totalTime: totalTime,
+            segmentEfforts: sortedEfforts,
+            activity_url: `https://www.strava.com/activities/${fullActivity.id}`
+          };
+        }
+      }
+    } catch (error) {
+      console.error(`Failed to fetch activity ${activity.id}:`, error.message);
+      // Continue to next activity
+    }
+  }
+  
+  return bestActivity;
+}
+
+/**
+ * Store activity and segment efforts in database (replaces existing if present)
+ * @param {number} participantId - Participant ID
+ * @param {number} weekId - Week ID
+ * @param {Object} activityData - Activity data with segmentEfforts
+ * @param {number} segmentDbId - Database segment ID (not Strava ID)
+ */
+function storeActivityAndEfforts(participantId, weekId, activityData, segmentDbId) {
+  // Delete existing activity for this participant/week if exists
+  const existing = db.prepare(`
+    SELECT id FROM activities WHERE week_id = ? AND participant_id = ?
+  `).get(weekId, participantId);
+  
+  if (existing) {
+    db.prepare('DELETE FROM segment_efforts WHERE activity_id = ?').run(existing.id);
+    db.prepare('DELETE FROM activities WHERE id = ?').run(existing.id);
+  }
+  
+  // Extract date from start_date_local
+  const activityDate = activityData.start_date_local.split('T')[0];
+  
+  // Store new activity
+  const activityResult = db.prepare(`
+    INSERT INTO activities (week_id, participant_id, strava_activity_id, activity_url, activity_date, validation_status)
+    VALUES (?, ?, ?, ?, ?, 'valid')
+  `).run(weekId, participantId, activityData.id, activityData.activity_url, activityDate);
+  
+  const activityDbId = activityResult.lastInsertRowid;
+  
+  // Store segment efforts
+  for (let i = 0; i < activityData.segmentEfforts.length; i++) {
+    const effort = activityData.segmentEfforts[i];
+    db.prepare(`
+      INSERT INTO segment_efforts (activity_id, segment_id, effort_index, elapsed_seconds, pr_achieved)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(
+      activityDbId,
+      segmentDbId,
+      i,
+      effort.elapsed_time,
+      effort.pr_rank ? 1 : 0
+    );
+  }
+  
+  // Store result
+  db.prepare(`
+    INSERT OR REPLACE INTO results (week_id, participant_id, activity_id, total_time_seconds)
+    VALUES (?, ?, ?, ?)
+  `).run(weekId, participantId, activityDbId, activityData.totalTime);
+}
+
 // ========================================
 // AUTHENTICATION ROUTES
 // ========================================
@@ -1085,6 +1215,126 @@ app.delete('/admin/weeks/:id', (req, res) => {
     res.json({ message: 'Week deleted successfully', weekId });
   } catch (error) {
     res.status(500).json({ error: 'Failed to delete week', details: error.message });
+  }
+});
+
+// Admin batch fetch results for a week
+app.post('/admin/weeks/:id/fetch-results', async (req, res) => {
+  const weekId = parseInt(req.params.id, 10);
+  
+  try {
+    // Get week details including segment info
+    const week = db.prepare(`
+      SELECT w.*, s.strava_segment_id 
+      FROM weeks w
+      JOIN segments s ON w.segment_id = s.id
+      WHERE w.id = ?
+    `).get(weekId);
+    
+    if (!week) {
+      return res.status(404).json({ error: 'Week not found' });
+    }
+    
+    // Get all connected participants (those with valid tokens)
+    const participants = db.prepare(`
+      SELECT p.id, p.name, p.strava_athlete_id, pt.access_token
+      FROM participants p
+      JOIN participant_tokens pt ON p.id = pt.participant_id
+      WHERE pt.access_token IS NOT NULL
+    `).all();
+    
+    if (participants.length === 0) {
+      return res.json({
+        message: 'No participants connected',
+        week_id: weekId,
+        participants_processed: 0,
+        results_found: 0,
+        summary: []
+      });
+    }
+    
+    const results = [];
+    
+    // Process each participant
+    for (const participant of participants) {
+      try {
+        console.log(`Fetching activities for ${participant.name} (ID: ${participant.id})`);
+        
+        // Get valid token (auto-refreshes if needed)
+        const accessToken = await getValidAccessToken(participant.id);
+        
+        // Fetch activities from event day
+        const activities = await fetchActivitiesOnDay(
+          accessToken,
+          week.start_time,
+          week.end_time
+        );
+        
+        console.log(`Found ${activities.length} activities for ${participant.name}`);
+        
+        // Find best qualifying activity
+        const bestActivity = await findBestQualifyingActivity(
+          activities,
+          week.strava_segment_id,
+          week.required_laps,
+          accessToken
+        );
+        
+        if (bestActivity) {
+          console.log(`Best activity for ${participant.name}: ${bestActivity.id} (${bestActivity.totalTime}s)`);
+          
+          // Store activity and efforts
+          storeActivityAndEfforts(participant.id, weekId, bestActivity, week.segment_id);
+          
+          results.push({
+            participant_id: participant.id,
+            participant_name: participant.name,
+            activity_found: true,
+            activity_id: bestActivity.id,
+            activity_url: bestActivity.activity_url,
+            total_time: bestActivity.totalTime,
+            segment_efforts: bestActivity.segmentEfforts.length
+          });
+        } else {
+          console.log(`No qualifying activities for ${participant.name}`);
+          results.push({
+            participant_id: participant.id,
+            participant_name: participant.name,
+            activity_found: false,
+            reason: 'No qualifying activities on event day'
+          });
+        }
+      } catch (error) {
+        console.error(`Error processing ${participant.name}:`, error.message);
+        results.push({
+          participant_id: participant.id,
+          participant_name: participant.name,
+          activity_found: false,
+          reason: error.message
+        });
+      }
+    }
+    
+    // Recalculate leaderboard for this week
+    calculateWeekResults(weekId);
+    
+    console.log(`Fetch results complete for week ${weekId}: ${results.filter(r => r.activity_found).length}/${participants.length} activities found`);
+    
+    res.json({
+      message: 'Results fetched successfully',
+      week_id: weekId,
+      week_name: week.week_name,
+      participants_processed: participants.length,
+      results_found: results.filter(r => r.activity_found).length,
+      summary: results
+    });
+    
+  } catch (error) {
+    console.error('Batch fetch error:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch results',
+      details: error.message
+    });
   }
 });
 
