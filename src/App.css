@@ -1,7 +1,6 @@
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
+  margin: 0;
+  padding: 0;
 }
 
 .app {
@@ -10,22 +9,10 @@
   gap: 2rem;
 }
 
-.app-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 1rem;
-  border-bottom: 2px solid #333;
-  margin-bottom: 1rem;
-}
-
-.app-header h1 {
-  margin: 0;
-  flex: 1;
-}
-
-.auth-status {
-  flex-shrink: 0;
+.app-content {
+  max-width: 1280px;
+  margin: 80px auto 0;
+  padding: 2rem;
 }
 
 .app-footer {
@@ -47,20 +34,20 @@ table {
   width: 100%;
   border-collapse: collapse;
   margin-bottom: 2em;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 th, td {
-  border: 1px solid #555;
-  padding: 0.5em;
+  border: 1px solid var(--wmv-border, #e0e0e0);
+  padding: 0.75em;
   text-align: left;
 }
 
 th {
-  background-color: #333;
-}
-
-div {
-  margin-bottom: 2em;
+  background-color: var(--wmv-orange, #f56004);
+  color: white;
+  font-weight: 600;
 }
 
 .error {

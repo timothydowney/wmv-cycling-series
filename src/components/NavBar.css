@@ -1,0 +1,233 @@
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: white;
+  border-bottom: 2px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 20px;
+  z-index: 1000;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.navbar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.navbar-logo {
+  height: 40px;
+  width: auto;
+}
+
+.navbar-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+}
+
+/* Strava Status Icon - Using Strava Brand Colors */
+.strava-status-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #f5f5f5;
+  cursor: default;
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.status-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.status-icon.strava-connected {
+  color: #FC5200; /* Strava Orange */
+  stroke-width: 2.5;
+}
+
+.status-icon.strava-disconnected {
+  color: #999;
+  stroke-width: 2;
+}
+
+/* Hamburger Menu Button */
+.menu-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.menu-button:hover {
+  background-color: #f5f5f5;
+}
+
+.menu-button svg {
+  width: 24px;
+  height: 24px;
+  stroke: #333;
+}
+
+/* Dropdown Menu */
+.menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: transparent;
+  z-index: 999;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 50px;
+  right: 0;
+  width: 280px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  z-index: 1001;
+}
+
+.menu-section {
+  padding: 8px 0;
+}
+
+.menu-divider {
+  height: 1px;
+  background: #e0e0e0;
+  margin: 0;
+}
+
+/* Profile Header */
+.menu-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+}
+
+.profile-pic {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.profile-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-name {
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-status {
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.strava-connected-text {
+  color: #FC5200; /* Strava Orange */
+  font-weight: 500;
+}
+
+/* Menu Items */
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: #333;
+  text-align: left;
+  transition: background-color 0.2s;
+}
+
+.menu-item:hover:not(.disabled) {
+  background-color: #f5f5f5;
+}
+
+.menu-item.disabled {
+  cursor: default;
+  color: #999;
+}
+
+/* Strava Connect Button in Menu */
+.menu-item.strava-connect-menu-item {
+  padding: 16px;
+  justify-content: center;
+  background: none;
+  border: none;
+}
+
+.menu-item.strava-connect-menu-item:hover {
+  background-color: transparent;
+}
+
+.menu-item.strava-connect-menu-item .strava-connect-button {
+  height: 48px;
+  width: auto;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.menu-item.strava-connect-menu-item .strava-connect-button:hover {
+  opacity: 0.9;
+}
+
+.menu-item.danger {
+  color: #f44336;
+}
+
+.menu-item.danger:hover {
+  background-color: #ffebee;
+}
+
+.menu-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+/* App content spacing */
+.app-content {
+  margin-top: 60px;
+  padding: 20px;
+}

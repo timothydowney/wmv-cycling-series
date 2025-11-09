@@ -6,6 +6,7 @@ const Database = require('better-sqlite3');
 const session = require('express-session');
 const SqliteStore = require('better-sqlite3-session-store')(session);
 const strava = require('strava-v3');
+const { getSegmentDetails, getSegmentsFromActivity, getStarredSegments } = require('./segment-utils');
 
 dotenv.config();
 
@@ -1683,6 +1684,118 @@ app.get('/utils/inspect-activity/:activityId', async (req, res) => {
     res.status(500).json({ 
       error: 'Failed to inspect activity',
       details: error.message
+    });
+  }
+});
+
+// GET /admin/segment/:id - Get detailed information about a specific Strava segment
+app.get('/admin/segment/:id', async (req, res) => {
+  const segmentId = req.params.id;
+  
+  try {
+    // Get authenticated user's token
+    const participantId = req.session?.participantId;
+    if (!participantId) {
+      return res.status(401).json({ 
+        error: 'Not authenticated',
+        message: 'You must connect your Strava account first'
+      });
+    }
+
+    const token = await getValidAccessToken(participantId);
+    if (!token) {
+      return res.status(401).json({ 
+        error: 'No valid token',
+        message: 'Please reconnect your Strava account'
+      });
+    }
+
+    console.log(`[GET /admin/segment/${segmentId}] Using token for participant ${participantId}`);
+    console.log(`[GET /admin/segment/${segmentId}] Token starts with: ${token.substring(0, 20)}...`);
+
+    const segmentDetails = await getSegmentDetails(segmentId, token);
+    res.json(segmentDetails);
+  } catch (error) {
+    console.error('Error getting segment details:', error);
+    res.status(500).json({ 
+      error: 'Failed to get segment details',
+      message: error.message
+    });
+  }
+});
+
+// GET /admin/activity/:id/segments - Get all segments from a specific activity
+app.get('/admin/activity/:id/segments', async (req, res) => {
+  const activityId = req.params.id;
+  
+  try {
+    // Get authenticated user's token
+    const participantId = req.session?.participantId;
+    if (!participantId) {
+      return res.status(401).json({ 
+        error: 'Not authenticated',
+        message: 'You must connect your Strava account first'
+      });
+    }
+
+    const token = await getValidAccessToken(participantId);
+    if (!token) {
+      return res.status(401).json({ 
+        error: 'No valid token',
+        message: 'Please reconnect your Strava account'
+      });
+    }
+
+    const segments = await getSegmentsFromActivity(activityId, token);
+    res.json({
+      activity_id: activityId,
+      segment_count: segments.length,
+      segments: segments
+    });
+  } catch (error) {
+    console.error('Error getting activity segments:', error);
+    res.status(500).json({ 
+      error: 'Failed to get activity segments',
+      message: error.message
+    });
+  }
+});
+
+// GET /admin/segments/starred - Get authenticated user's starred segments
+app.get('/admin/segments/starred', async (req, res) => {
+  try {
+    // Get authenticated user's token
+    const participantId = req.session?.participantId;
+    if (!participantId) {
+      return res.status(401).json({ 
+        error: 'Not authenticated',
+        message: 'You must connect your Strava account first'
+      });
+    }
+
+    const token = await getValidAccessToken(participantId);
+    if (!token) {
+      return res.status(401).json({ 
+        error: 'No valid token',
+        message: 'Please reconnect your Strava account'
+      });
+    }
+
+    console.log(`[GET /admin/segments/starred] Fetching starred segments`);
+
+    const segments = await getStarredSegments(token);
+    
+    console.log(`[GET /admin/segments/starred] Found ${segments.length} starred segments`);
+    
+    res.json({
+      count: segments.length,
+      segments: segments
+    });
+  } catch (error) {
+    console.error('Error fetching starred segments:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch starred segments',
+      message: error.message
     });
   }
 });

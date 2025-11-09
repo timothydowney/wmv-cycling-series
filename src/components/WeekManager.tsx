@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import './WeekManager.css';
 import { getWeeks, Week } from '../api';
+import SegmentFinder from './SegmentFinder';
+import SegmentSearch from './SegmentSearch';
 
 interface WeekFormData {
   week_name: string;
@@ -186,6 +188,15 @@ function WeekManager() {
     });
   };
 
+  const handleSegmentSelect = (segmentId: number, segmentName: string) => {
+    console.log('Segment selected:', segmentId, segmentName);
+    setFormData(prev => ({
+      ...prev,
+      segment_id: segmentId,
+      segment_name: segmentName
+    }));
+  };
+
   return (
     <div className="week-manager">
       {message && (
@@ -204,8 +215,13 @@ function WeekManager() {
       )}
 
       {isCreating && (
-        <form className="week-form" onSubmit={handleSubmit}>
-          <h3>{editingWeekId ? 'Edit Week' : 'Create New Week'}</h3>
+        <div className="week-creation-area">
+          <SegmentSearch onSegmentSelect={handleSegmentSelect} />
+          
+          <SegmentFinder />
+          
+          <form className="week-form" onSubmit={handleSubmit}>
+            <h3>{editingWeekId ? 'Edit Week' : 'Create New Week'}</h3>
           
           <div className="form-row">
             <div className="form-group">
@@ -300,8 +316,9 @@ function WeekManager() {
             <button type="button" className="cancel-button" onClick={cancelEdit}>
               Cancel
             </button>
-          </div>
-        </form>
+            </div>
+          </form>
+        </div>
       )}
 
       <div className="weeks-list">

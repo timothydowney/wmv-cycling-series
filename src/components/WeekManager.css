@@ -37,6 +37,12 @@
   background: #e34402;
 }
 
+.week-creation-area {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
 .week-form {
   background: #f9f9f9;
   padding: 1.5rem;
