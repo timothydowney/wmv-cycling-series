@@ -3,7 +3,7 @@ import './App.css';
 import WeeklyLeaderboard from './components/WeeklyLeaderboard';
 import SeasonLeaderboard from './components/SeasonLeaderboard';
 import WeekSelector from './components/WeekSelector';
-import StravaConnect from './components/StravaConnect';
+import NavBar from './components/NavBar';
 import AdminPanel from './components/AdminPanel';
 import { getWeeks, getWeekLeaderboard, Week, LeaderboardEntry } from './api';
 
@@ -14,6 +14,7 @@ function App() {
   const [weekLeaderboard, setWeekLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
 
   useEffect(() => {
     const fetchWeeks = async () => {
@@ -54,54 +55,59 @@ function App() {
 
   if (loading) {
     return (
-      <div className="app">
-        <h1>Western Mass Velo - Tuesday Competition</h1>
-        <p>Loading...</p>
-      </div>
+      <>
+        <NavBar onAdminPanelToggle={() => setIsAdminPanelOpen(!isAdminPanelOpen)} isAdminPanelOpen={isAdminPanelOpen} />
+        <div className="app app-content">
+          <p>Loading...</p>
+        </div>
+      </>
     );
   }
 
   if (error) {
     return (
-      <div className="app">
-        <h1>Western Mass Velo - Tuesday Competition</h1>
-        <div className="error">{error}</div>
-      </div>
+      <>
+        <NavBar onAdminPanelToggle={() => setIsAdminPanelOpen(!isAdminPanelOpen)} isAdminPanelOpen={isAdminPanelOpen} />
+        <div className="app app-content">
+          <div className="error">{error}</div>
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <h1>Western Mass Velo - Tuesday Competition</h1>
-        <div className="auth-status">
-          <StravaConnect />
-        </div>
-      </header>
+    <>
+      <NavBar onAdminPanelToggle={() => setIsAdminPanelOpen(!isAdminPanelOpen)} isAdminPanelOpen={isAdminPanelOpen} />
+      
+      <div className="app app-content">
+        {isAdminPanelOpen ? (
+          <AdminPanel />
+        ) : (
+          <>
+            <WeekSelector 
+              weeks={weeks} 
+              selectedWeekId={selectedWeekId}
+              setSelectedWeekId={setSelectedWeekId}
+            />
 
-      <AdminPanel />
+            <WeeklyLeaderboard 
+              week={selectedWeek}
+              leaderboard={weekLeaderboard}
+            />
 
-      <WeekSelector 
-        weeks={weeks} 
-        selectedWeekId={selectedWeekId}
-        setSelectedWeekId={setSelectedWeekId}
-      />
+            <SeasonLeaderboard />
 
-      <WeeklyLeaderboard 
-        week={selectedWeek}
-        leaderboard={weekLeaderboard}
-      />
-
-      <SeasonLeaderboard />
-
-      <footer className="app-footer">
-        <img 
-          src="/assets/strava/powered_by_strava.svg" 
-          alt="Powered by Strava"
-          className="strava-attribution"
-        />
-      </footer>
-    </div>
+            <footer className="app-footer">
+              <img 
+                src="/assets/strava/powered_by_strava.svg" 
+                alt="Powered by Strava"
+                className="strava-attribution"
+              />
+            </footer>
+          </>
+        )}
+      </div>
+    </>
   );
 }
 

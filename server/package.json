@@ -10,7 +10,9 @@
     "predev": "node check-node.js",
     "dev": "NODE_ENV=development nodemon src/index.js",
     "test": "NODE_ENV=test jest --coverage",
-    "test:watch": "NODE_ENV=test jest --watch"
+    "test:watch": "NODE_ENV=test jest --watch",
+    "export:season": "node scripts/export-season-data.js",
+    "import:season": "node scripts/import-season-data.js"
   },
   "engines": {
     "node": ">=20 <=25"
