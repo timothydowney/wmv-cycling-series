@@ -78,35 +78,52 @@ For local development, Strava API credentials (Client ID and Client Secret) are 
     *   ✅ Comprehensive documentation (README, ADMIN_GUIDE, DATABASE_DESIGN, STRAVA_INTEGRATION).
     *   ✅ Copilot instructions for future development.
     *   ✅ Initial git commit with clean repository.
+    *   ✅ Comprehensive test suite (75 tests, 100% pass rate).
+    *   ✅ Scoring updated: points = (participants beaten + 1 for competing) + PR bonus.
+    *   ✅ Seasons support: Multiple seasons with historical records.
+    *   ✅ Test isolation: Proper cleanup hooks for test independence.
 
-7.  **Strava Integration - OAuth & Activity Validation (🔜 Next):**
+7.  **Strava Integration - OAuth & Branding (✅ Complete):**
     
-    **Multi-User OAuth Setup:**
-    *   ✅ Strava app already registered (Client ID: 170916)
-    *   Add environment variables (`STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_REDIRECT_URI`)
-    *   Create `participant_tokens` table for per-user token storage
-    *   Implement `GET /auth/strava` route (redirect to Strava authorization)
-    *   Implement `GET /auth/strava/callback` route (exchange code for tokens)
-    *   Build `getValidAccessToken(participantId)` utility with token refresh logic
-    *   Add session management to track logged-in participants
-    *   Frontend: "Connect with Strava" button + connection status indicator
+    **OAuth Backend:**
+    *   ✅ Strava app registered (Client ID: 170916)
+    *   ✅ Environment variables configured (.env file)
+    *   ✅ `participant_tokens` table created for per-user token storage
+    *   ✅ `GET /auth/strava` route (redirects to Strava authorization)
+    *   ✅ `GET /auth/strava/callback` route (exchanges code for tokens, creates session)
+    *   ✅ `GET /auth/status` route (returns connection status)
+    *   ✅ `POST /auth/disconnect` route (revokes connection)
+    *   ✅ `getValidAccessToken(participantId)` utility with proactive token refresh (1 hour before expiry)
+    *   ✅ Session management with express-session (30-day cookies)
     
-    **Activity Submission & Validation:**
-    *   Create `POST /weeks/:id/submit-activity` endpoint (accepts Strava URL)
-    *   Extract activity ID from URL pattern `strava.com/activities/12345`
-    *   Fetch activity details via Strava API using participant's access token
-    *   Validate activity date matches week's Tuesday time window
-    *   Extract segment efforts for the designated `strava_segment_id`
-    *   Validate participant completed required number of laps
-    *   Calculate total time (sum of effort times)
-    *   Store validated activity in `activities`, `segment_efforts`, and `results` tables
-    *   Recalculate leaderboard and update scores
+    **Strava Branding Assets:**
+    *   ✅ Official "Connect with Strava" buttons (orange & white, 48px height)
+    *   ✅ "Powered by Strava" attribution logo
+    *   ✅ Brand compliance documentation (STRAVA_BRANDING.md)
+    *   ✅ CSS utilities with Strava orange (#FC5200)
+    
+    **Frontend OAuth UI:**
+    *   ✅ StravaConnect component with OAuth flow
+    *   ✅ Shows "Connect with Strava" button when not authenticated
+    *   ✅ Shows "Connected as [Name]" with disconnect when authenticated
+    *   ✅ OAuth callback handling (success/error URL params)
+    *   ✅ Loading and error states
+    *   ✅ Integrated into App header
+    *   ✅ "Powered by Strava" footer attribution
+    
+    **Next Steps for Strava Integration:**
+    *   ⏳ Activity submission endpoint: `POST /weeks/:id/submit-activity`
+    *   ⏳ Extract activity ID from Strava URL
+    *   ⏳ Fetch activity details via Strava API
+    *   ⏳ Validate activity date, segment, and laps
+    *   ⏳ Store activities and segment efforts
+    *   ⏳ Recalculate leaderboard after submission
     
     **Testing:**
-    *   Test OAuth flow with personal Strava account
-    *   Submit real Strava activity URLs from test rides
-    *   Verify token refresh works automatically
-    *   Confirm leaderboard updates correctly
+    *   ✅ All 84 backend tests passing
+    *   ✅ Frontend builds successfully
+    *   ⏳ Manual OAuth testing with real Strava account
+    *   ⏳ Integration tests for OAuth endpoints
     
     **Documentation:** See `STRAVA_INTEGRATION.md` for complete implementation details, including:
     - Multi-user authorization workflow
@@ -117,13 +134,13 @@ For local development, Strava API credentials (Client ID and Client Secret) are 
 
 
 
-8.  **Frontend - Activity Submission & Display:**
-    *   Wire frontend to backend API endpoints (partially done - read-only).
-    *   Add "Connect with Strava" OAuth flow.
-    *   Create UI for participants to submit Strava activity URLs.
-    *   Display validation status and errors.
-    *   Show connection status for each participant.
-    *   Real-time leaderboard updates after submissions.
+8.  **Frontend - Activity Submission & Display (⏳ Next):**
+    *   ✅ Wire frontend to backend API endpoints (read-only complete).
+    *   ✅ "Connect with Strava" OAuth flow integrated.
+    *   ⏳ Create UI for participants to submit Strava activity URLs.
+    *   ⏳ Display validation status and errors.
+    *   ⏳ Show connection status for each participant.
+    *   ⏳ Real-time leaderboard updates after submissions.
 
 9.  **Admin UI Tools:**
     *   Create forms for adding/editing participants.
