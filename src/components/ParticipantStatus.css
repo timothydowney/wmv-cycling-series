@@ -18,6 +18,7 @@
 .status-summary p {
   margin-bottom: 0;
   font-size: 1.1rem;
+  color: #333;
 }
 
 .status-summary strong {
@@ -37,6 +38,7 @@
   padding: 0.75rem;
   text-align: left;
   border-bottom: 1px solid #ddd;
+  color: #333;
 }
 
 .participants-table th {

@@ -51,6 +51,8 @@ function WeekManager() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log('Submitting week form data:', formData);
+    
     try {
       const url = editingWeekId 
         ? `http://localhost:3001/admin/weeks/${editingWeekId}`
@@ -67,9 +69,13 @@ function WeekManager() {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to save week');
+        console.error('Server error response:', error);
+        throw new Error(error.message || error.error || JSON.stringify(error));
       }
 
+      const result = await response.json();
+      console.log('Week saved successfully:', result);
+      
       setMessage({ 
         type: 'success', 
         text: editingWeekId ? 'Week updated successfully!' : 'Week created successfully!' 
@@ -318,10 +324,7 @@ function WeekManager() {
               {weeks.map(week => (
                 <tr key={week.id}>
                   <td>{week.week_name}</td>
-                  <td>
-                    {week.segment_name}<br/>
-                    <small>ID: {week.segment_id}</small>
-                  </td>
+                  <td>{week.segment_name || 'Unknown Segment'}</td>
                   <td>{week.required_laps}</td>
                   <td>{new Date(week.start_time).toLocaleString()}</td>
                   <td>{new Date(week.end_time).toLocaleString()}</td>
