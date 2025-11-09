@@ -1,0 +1,360 @@
+import { useState, useEffect } from 'react';
+import './WeekManager.css';
+import { getWeeks, Week } from '../api';
+
+interface WeekFormData {
+  week_name: string;
+  segment_id: number;
+  segment_name: string;
+  required_laps: number;
+  start_time: string; // ISO 8601 format
+  end_time: string;   // ISO 8601 format
+}
+
+function WeekManager() {
+  const [weeks, setWeeks] = useState<Week[]>([]);
+  const [isCreating, setIsCreating] = useState(false);
+  const [editingWeekId, setEditingWeekId] = useState<number | null>(null);
+  const [formData, setFormData] = useState<WeekFormData>({
+    week_name: '',
+    segment_id: 0,
+    segment_name: '',
+    required_laps: 1,
+    start_time: '',
+    end_time: ''
+  });
+  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+  useEffect(() => {
+    fetchWeeks();
+  }, []);
+
+  const fetchWeeks = async () => {
+    try {
+      const data = await getWeeks();
+      setWeeks(data);
+    } catch (err) {
+      console.error('Failed to fetch weeks:', err);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: name === 'segment_id' || name === 'required_laps' 
+        ? parseInt(value) || 0
+        : value
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      const url = editingWeekId 
+        ? `http://localhost:3001/admin/weeks/${editingWeekId}`
+        : 'http://localhost:3001/admin/weeks';
+      
+      const method = editingWeekId ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(formData)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to save week');
+      }
+
+      setMessage({ 
+        type: 'success', 
+        text: editingWeekId ? 'Week updated successfully!' : 'Week created successfully!' 
+      });
+      
+      // Reset form
+      setIsCreating(false);
+      setEditingWeekId(null);
+      setFormData({
+        week_name: '',
+        segment_id: 0,
+        segment_name: '',
+        required_laps: 1,
+        start_time: '',
+        end_time: ''
+      });
+      
+      // Refresh weeks list
+      await fetchWeeks();
+      
+      // Clear message after 3 seconds
+      setTimeout(() => setMessage(null), 3000);
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message });
+      setTimeout(() => setMessage(null), 5000);
+    }
+  };
+
+  const handleEdit = (week: Week) => {
+    setFormData({
+      week_name: week.week_name,
+      segment_id: week.segment_id,
+      segment_name: week.segment_name || '',
+      required_laps: week.required_laps,
+      start_time: week.start_time,
+      end_time: week.end_time
+    });
+    setEditingWeekId(week.id);
+    setIsCreating(true);
+  };
+
+  const handleDelete = async (weekId: number) => {
+    if (!confirm('Are you sure you want to delete this week? This will also delete all associated results.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:3001/admin/weeks/${weekId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to delete week');
+      }
+
+      setMessage({ type: 'success', text: 'Week deleted successfully!' });
+      await fetchWeeks();
+      setTimeout(() => setMessage(null), 3000);
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message });
+      setTimeout(() => setMessage(null), 5000);
+    }
+  };
+
+  const handleFetchResults = async (weekId: number) => {
+    if (!confirm('This will fetch activities from all connected participants. Continue?')) {
+      return;
+    }
+
+    setMessage({ type: 'success', text: 'Fetching results... this may take a moment.' });
+
+    try {
+      const response = await fetch(`http://localhost:3001/admin/weeks/${weekId}/fetch-results`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to fetch results');
+      }
+
+      const result = await response.json();
+      setMessage({ 
+        type: 'success', 
+        text: `Fetched results for ${result.participants_processed} participants. Found ${result.results_found} qualifying activities.` 
+      });
+      
+      setTimeout(() => setMessage(null), 5000);
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message });
+      setTimeout(() => setMessage(null), 5000);
+    }
+  };
+
+  const cancelEdit = () => {
+    setIsCreating(false);
+    setEditingWeekId(null);
+    setFormData({
+      week_name: '',
+      segment_id: 0,
+      segment_name: '',
+      required_laps: 1,
+      start_time: '',
+      end_time: ''
+    });
+  };
+
+  return (
+    <div className="week-manager">
+      {message && (
+        <div className={`message ${message.type}`}>
+          {message.text}
+        </div>
+      )}
+
+      {!isCreating && (
+        <button 
+          className="create-button"
+          onClick={() => setIsCreating(true)}
+        >
+          + Create New Week
+        </button>
+      )}
+
+      {isCreating && (
+        <form className="week-form" onSubmit={handleSubmit}>
+          <h3>{editingWeekId ? 'Edit Week' : 'Create New Week'}</h3>
+          
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="week_name">Week Name</label>
+              <input
+                type="text"
+                id="week_name"
+                name="week_name"
+                value={formData.week_name}
+                onChange={handleInputChange}
+                required
+                placeholder="e.g., Week 1: Box Hill KOM Challenge"
+              />
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="segment_id">Segment ID</label>
+              <input
+                type="number"
+                id="segment_id"
+                name="segment_id"
+                value={formData.segment_id || ''}
+                onChange={handleInputChange}
+                required
+                placeholder="From Strava segment URL"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="segment_name">Segment Name</label>
+              <input
+                type="text"
+                id="segment_name"
+                name="segment_name"
+                value={formData.segment_name}
+                onChange={handleInputChange}
+                required
+                placeholder="e.g., Box Hill KOM"
+              />
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="required_laps">Required Laps</label>
+              <input
+                type="number"
+                id="required_laps"
+                name="required_laps"
+                value={formData.required_laps}
+                onChange={handleInputChange}
+                required
+                min="1"
+              />
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="start_time">Start Time (ISO 8601)</label>
+              <input
+                type="datetime-local"
+                id="start_time"
+                name="start_time"
+                value={formData.start_time}
+                onChange={handleInputChange}
+                required
+              />
+              <small>Event start time in your local timezone</small>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="end_time">End Time (ISO 8601)</label>
+              <input
+                type="datetime-local"
+                id="end_time"
+                name="end_time"
+                value={formData.end_time}
+                onChange={handleInputChange}
+                required
+              />
+              <small>Event end time in your local timezone</small>
+            </div>
+          </div>
+
+          <div className="form-actions">
+            <button type="submit" className="submit-button">
+              {editingWeekId ? 'Update Week' : 'Create Week'}
+            </button>
+            <button type="button" className="cancel-button" onClick={cancelEdit}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+
+      <div className="weeks-list">
+        <h3>Existing Weeks</h3>
+        {weeks.length === 0 ? (
+          <p className="no-weeks">No weeks created yet.</p>
+        ) : (
+          <table className="weeks-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Segment</th>
+                <th>Laps</th>
+                <th>Start</th>
+                <th>End</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {weeks.map(week => (
+                <tr key={week.id}>
+                  <td>{week.week_name}</td>
+                  <td>
+                    {week.segment_name}<br/>
+                    <small>ID: {week.segment_id}</small>
+                  </td>
+                  <td>{week.required_laps}</td>
+                  <td>{new Date(week.start_time).toLocaleString()}</td>
+                  <td>{new Date(week.end_time).toLocaleString()}</td>
+                  <td>
+                    <div className="action-buttons">
+                      <button 
+                        className="edit-btn"
+                        onClick={() => handleEdit(week)}
+                      >
+                        Edit
+                      </button>
+                      <button 
+                        className="fetch-btn"
+                        onClick={() => handleFetchResults(week.id)}
+                      >
+                        Fetch Results
+                      </button>
+                      <button 
+                        className="delete-btn"
+                        onClick={() => handleDelete(week.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default WeekManager;

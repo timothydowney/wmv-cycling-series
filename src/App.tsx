@@ -4,6 +4,7 @@ import WeeklyLeaderboard from './components/WeeklyLeaderboard';
 import SeasonLeaderboard from './components/SeasonLeaderboard';
 import WeekSelector from './components/WeekSelector';
 import StravaConnect from './components/StravaConnect';
+import AdminPanel from './components/AdminPanel';
 import { getWeeks, getWeekLeaderboard, Week, LeaderboardEntry } from './api';
 
 function App() {
@@ -77,6 +78,8 @@ function App() {
           <StravaConnect />
         </div>
       </header>
+
+      <AdminPanel />
 
       <WeekSelector 
         weeks={weeks} 
