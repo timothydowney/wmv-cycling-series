@@ -1,0 +1,19 @@
+<!-- 
+  "Powered by Strava" Logo (Orange)
+  Source: Strava Brand Guidelines - developers.strava.com/guidelines/
+  Use this for attribution on pages showing Strava data
+  Do not modify, alter, or animate
+-->
+<svg width="120" height="32" viewBox="0 0 120 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Strava Logo Icon -->
+  <g transform="translate(2, 6)">
+    <path d="M10 0L5 10h3.33l1.67-3.33L11.67 10H15L10 0z" fill="#FC5200"/>
+    <path d="M11.67 11.67l-1.67 3.33-1.67-3.33H5.83l4.17 8.33 4.17-8.33h-2.5z" fill="#FC5200"/>
+  </g>
+  
+  <!-- "Powered by Strava" Text -->
+  <text x="28" y="21" font-family="Arial, sans-serif" font-size="11" font-weight="400" fill="#333">
+    Powered by 
+    <tspan font-weight="600" fill="#FC5200">Strava</tspan>
+  </text>
+</svg>

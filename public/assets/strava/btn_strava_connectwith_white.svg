@@ -1,0 +1,27 @@
+<!-- 
+  Official "Connect with Strava" Button (White)
+  Source: Strava Brand Guidelines - developers.strava.com/guidelines/
+  Specifications:
+  - Height: 48px (1x), 96px (2x)
+  - Background: White
+  - Text/Icon: Strava Orange #FC5200
+  - Border: Light gray
+  - Must link to: https://www.strava.com/oauth/authorize
+  - Do not modify, alter, or animate
+-->
+<svg width="193" height="48" viewBox="0 0 193 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background with border -->
+  <rect width="193" height="48" rx="4" fill="white"/>
+  <rect x="0.5" y="0.5" width="192" height="47" rx="3.5" stroke="#E5E5E5"/>
+  
+  <!-- Strava Logo Icon -->
+  <g transform="translate(12, 12)">
+    <path d="M12 0L6 12h4l2-4 2 4h4L12 0z" fill="#FC5200"/>
+    <path d="M14 14l-2 4-2-4h-3l5 10 5-10h-3z" fill="#FC5200"/>
+  </g>
+  
+  <!-- "Connect with Strava" Text -->
+  <text x="45" y="30" font-family="Arial, sans-serif" font-size="14" font-weight="600" fill="#FC5200">
+    Connect with Strava
+  </text>
+</svg>

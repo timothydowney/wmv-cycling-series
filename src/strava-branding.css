@@ -1,0 +1,103 @@
+/* 
+ * Strava Branding Constants
+ * Source: Strava Brand Guidelines - developers.strava.com/guidelines/
+ * 
+ * Use these CSS variables to maintain brand consistency
+ */
+
+:root {
+  /* Strava Official Colors */
+  --strava-orange: #FC5200;
+  --strava-orange-hover: #E04A00;
+  --strava-orange-light: #FF6A1A;
+  
+  /* Strava Button Dimensions */
+  --strava-button-height: 48px;
+  --strava-button-height-2x: 96px;
+  
+  /* Spacing and Typography */
+  --strava-link-weight: 600;
+}
+
+/* Strava Connect Button */
+.strava-connect-button {
+  display: inline-block;
+  height: var(--strava-button-height);
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.strava-connect-button:hover {
+  opacity: 0.9;
+}
+
+.strava-connect-button:active {
+  opacity: 0.8;
+}
+
+/* Strava Activity Link */
+.strava-link {
+  color: var(--strava-orange);
+  font-weight: var(--strava-link-weight);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.strava-link:hover {
+  color: var(--strava-orange-hover);
+  text-decoration: underline;
+}
+
+/* Connected Status Indicator */
+.strava-connected {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--strava-orange);
+  font-weight: var(--strava-link-weight);
+}
+
+.strava-connected::before {
+  content: "✓";
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: var(--strava-orange);
+  color: white;
+  text-align: center;
+  line-height: 20px;
+  font-size: 14px;
+}
+
+/* Powered by Strava Logo Container */
+.strava-attribution {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 0;
+  opacity: 0.8;
+}
+
+.strava-attribution img {
+  height: 32px;
+  width: auto;
+}
+
+/* Disconnect Button */
+.strava-disconnect-button {
+  background: transparent;
+  border: 1px solid #ddd;
+  color: #666;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.strava-disconnect-button:hover {
+  background-color: #f5f5f5;
+  border-color: #999;
+  color: #333;
+}
