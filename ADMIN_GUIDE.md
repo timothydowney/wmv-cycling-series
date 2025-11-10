@@ -1,8 +1,8 @@
 # Admin Guide
 
-## Managing Weekly Competitions
+## Purpose
 
-This guide covers how to manage the weekly competition schedule and collect participant results.
+How to configure weeks, manage segments, and collect results.
 
 ## Workflow Overview
 
@@ -19,6 +19,24 @@ This guide covers how to manage the weekly competition schedule and collect part
    - Leaderboard automatically updates
 
 4. **Future:** Event-based webhooks will eliminate manual fetch step
+
+## Segment Management
+
+Use the "Manage Segments" admin page to:
+
+1. Paste a Strava segment URL (or ID)
+2. Automatic validation calls the backend which fetches from Strava (requires at least one connected participant token)
+3. If valid and not already stored, the "Add to Database" button enables
+4. Segment metadata cached: name, distance (m), average grade (%), location (city/state/country)
+5. The segment list shows all stored segments as cards (click name to open Strava)
+6. "Refresh Metadata" updates all stored segments (batch validates and upserts metadata)
+
+Why cache? Reduces Strava API calls and speeds up week creation/autocomplete.
+
+Edge cases handled:
+- Invalid URL or ID → error message shown inline
+- Segment already in DB → add button disabled with notice
+- Average grade null from Strava → displayed as "—" (guarded in UI)
 
 ## Participant Management
 
@@ -290,11 +308,7 @@ The system uses these rules to find the best activity:
 
 ## Time Window Validation
 
-When fetching results, activities must be within the configured time window.
-
-## Time Window Validation
-
-When fetching results, activities must be within the configured time window.
+When fetching results, activities must be within the configured time window (default midnight–22:00 UTC unless overridden). Activities outside window are ignored.
 
 **Default window:** Midnight to 10pm on event day
 - `start_time`: `2025-11-19T00:00:00Z`

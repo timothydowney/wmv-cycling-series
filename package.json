@@ -6,6 +6,7 @@
   "engines": {
     "node": ">=24 <25"
   },
+  "license": "MIT",
   "scripts": {
     "predev": "node check-node.js",
     "predev:all": "node check-node.js",
@@ -18,7 +19,9 @@
     "build:server": "cd server && npm install",
     "test": "cd server && npm test",
     "test:watch": "cd server && npm run test:watch",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint": "eslint src --ext ts,tsx",
+    "lint:fix": "eslint src --ext ts,tsx --fix",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "preview": "vite preview",
     "postinstall": "cd server && npm install"
   },
@@ -35,6 +38,7 @@
     "@vitejs/plugin-react": "^4.0.3",
     "concurrently": "^9.2.1",
     "eslint": "^8.45.0",
+    "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.3",
     "typescript": "^5.0.2",
