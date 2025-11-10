@@ -1,7 +1,3 @@
-const request = require('supertest');
-const express = require('express');
-const session = require('express-session');
-
 // Mock strava-v3 library to prevent network calls
 jest.mock('strava-v3', () => ({
   config: jest.fn(),

@@ -11,6 +11,9 @@
     "dev": "NODE_ENV=development nodemon src/index.js",
     "test": "NODE_ENV=test jest --coverage --runInBand",
     "test:watch": "NODE_ENV=test jest --watch",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "audit": "npm audit || true",
     "seed": "node scripts/seed.js",
     "export:season": "node scripts/export-season-data.js",
     "import:season": "node scripts/import-season-data.js"
@@ -28,6 +31,7 @@
     "strava-v3": "^2.2.1"
   },
   "devDependencies": {
+    "eslint": "^8.45.0",
     "jest": "^30.2.0",
     "nodemon": "^3.1.10",
     "supertest": "^7.1.4"

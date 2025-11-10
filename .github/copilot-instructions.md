@@ -52,7 +52,7 @@ This is a React + TypeScript frontend with Node.js Express backend application f
 - This properly kills nodemon, vite, and all child processes
 - `Ctrl+C` on `npm run dev:all` should work, but use `npm run stop` if it doesn't
 
-#### 4. Database Issues
+#### 5. Database Issues
 - SQLite database is at `server/data/wmv.db`
 - Auto-seeds test data on first run
 - Test data includes 2 weeks, 4 participants, 2 segments
@@ -117,10 +117,9 @@ npm run build  # Builds both backend and frontend
 
 ### Read These First When Starting
 1. `README.md` - General overview and setup
-2. `PLAN.md` - Development roadmap and milestones
-3. `DATABASE_DESIGN.md` - Complete database schema and queries
+2. `docs/DATABASE_DESIGN.md` - Complete database schema and queries
+3. `docs/STRAVA_INTEGRATION.md` - OAuth flow and API integration plans
 4. `ADMIN_GUIDE.md` - How to manage weekly competitions
-5. `STRAVA_INTEGRATION.md` - OAuth flow and API integration plans
 
 ### Key Configuration Files
 - `.nvmrc` - Node version (24)
@@ -158,8 +157,8 @@ lsof -ti:5173  # Frontend
 ### Test Suite
 - Backend has comprehensive Jest test suite (`server/src/__tests__/`)
 - 72 test cases covering all endpoints (100% pass rate)
-- Run: `npm test` or `cd server && npm test`
-- Coverage: ~90% statements, ~83% branches (see `server/coverage/`)
+- Coverage: ~90% statements, ~83% branches
+- Run tests with: `npm test` (runs from root, executes server tests with coverage)
 
 ### Testing Best Practices - ALWAYS FOLLOW THESE
 
@@ -204,6 +203,89 @@ lsof -ti:5173  # Frontend
 - Run tests with coverage to find gaps: `npm test -- --coverage`
 - Run tests in watch mode during active development: `npm test -- --watch`
 
+## Pre-Commit Checks
+
+### All-in-One Command
+```bash
+npm run check  # Runs EVERYTHING before committing
+```
+
+This single command runs in sequence:
+1. **npm audit** - Checks for security vulnerabilities (frontend + backend)
+2. **typecheck** - TypeScript type checking on frontend
+3. **lint** - ESLint on both frontend (ts/tsx) and backend (js)
+4. **build** - Builds both frontend and backend
+5. **test** - Runs full test suite with coverage
+
+### Individual Pre-Commit Commands
+
+**Security & Audit:**
+```bash
+npm audit                  # Check both frontend and backend for vulnerabilities
+npm audit:fix             # Auto-fix vulnerabilities (review changes after)
+```
+
+**Code Quality:**
+```bash
+npm run lint              # Lint both frontend and backend
+npm run lint:fix          # Auto-fix most linting issues
+npm run typecheck         # TypeScript type checking (frontend only)
+```
+
+**Build & Test:**
+```bash
+npm run build             # Build both frontend and backend
+npm test                  # Run full backend test suite with coverage
+cd server && npm run test:watch  # Backend tests in watch mode during development
+```
+
+### When to Run Checks
+
+**Before committing:**
+```bash
+npm run check  # ALWAYS do this before git commit
+```
+
+**If checks fail:**
+1. **Audit failures** → Run `npm audit:fix`, review what changed
+2. **Type errors** → Fix the TypeScript issues manually
+3. **Lint failures** → Run `npm run lint:fix` to auto-fix
+4. **Build failures** → Check console output for detailed errors
+5. **Test failures** → Review test output and fix code or tests
+
+**During active development:**
+- Terminal 1: `npm run dev:all` (run dev servers)
+- Terminal 2: `cd server && npm run test:watch` (run backend tests in watch mode)
+- Periodically: `npm run check` (full validation)
+
+### ESLint Rules
+
+**Frontend (React/TypeScript):**
+- Inherits recommended ESLint + React plugin rules
+- React hooks best practices enforced
+- JSX formatting rules
+
+**Backend (Node.js/CommonJS):**
+- 2-space indentation
+- Single quotes for strings
+- Semicolons required
+- No unused variables (prefix with `_` to ignore)
+- Prefer `const` over `let` or `var`
+- Strict equality (`===`, `!==`)
+- No `var` keyword (use `const`/`let`)
+- Console.warn/error allowed, console.log discouraged in production
+
+### CI/CD Integration
+
+The GitHub Actions CI workflow runs the same checks automatically on every push and PR:
+1. Audits dependencies (frontend + backend)
+2. Typechecks frontend
+3. Lints frontend and backend
+4. Builds both
+5. Runs all tests
+
+**If CI fails**, fix locally using commands above, then push again.
+
 ## Common User Questions
 
 **Q: Why do I need Node 24 and not 25?**
@@ -223,12 +305,24 @@ A: Frontend (Vite dev server) provides hot reload. Backend (Express) serves API.
 
 ## When Helping Users
 
-1. **Always check Node version first** if there are build errors
-2. **Recommend `npm run dev:all`** as the primary way to run the app
-3. **Check both servers are running** if there are network/CORS errors
-4. **Reference the markdown docs** - they contain detailed information
-5. **Don't overcomplicate** - the setup is simple when using the right commands
-6. **Remember this is a work in progress** - Strava integration is planned but not done
+### Quick Diagnosis
+1. **Build errors?** → Check Node version first: `node --version` (must be 24.x)
+2. **CORS/network errors?** → Verify both servers running: `lsof -ti:3001` and `lsof -ti:5173`
+3. **Port conflicts?** → Run `npm run stop` to cleanup stuck processes
+4. **Tests failing?** → Ensure Node 24.x, then run: `npm install && npm test`
+
+### Implementation Guidelines
+- **New endpoints** → Add tests in `server/src/__tests__/` BEFORE or WITH the code
+- **Database changes** → Update schema in `server/src/index.js`, add migration if needed
+- **Frontend components** → Keep in `src/components/`, use existing patterns
+- **API integration** → Use `src/api.ts` client, add types to `src/types.ts`
+- **Before pushing** → Run `npm run check` (catches 99% of issues)
+
+### Key Workflow
+- **Development:** `npm run dev:all` (backend + frontend together)
+- **Testing during dev:** Parallel terminals: one with `npm run dev:all`, one with `cd server && npm run test:watch`
+- **Before commit:** `npm run check` (audits, types, lints, builds, tests)
+- **Stuck processes:** `npm run stop` (safe cleanup)
 
 ## Project Status (as of November 2025)
 - ✅ Backend API fully functional with test data

@@ -1,7 +1,6 @@
 const request = require('supertest');
 const path = require('path');
 const fs = require('fs');
-const Database = require('better-sqlite3');
 
 // Mock strava-v3 library to prevent network calls
 jest.mock('strava-v3', () => ({
@@ -36,7 +35,7 @@ describe('WMV Backend API', () => {
   const TEST_ATHLETE_2 = 1001002; // Test Athlete 2
   const TEST_ATHLETE_3 = 1001003; // Test Athlete 3
   
-  let testWeekId1, testWeekId2, testActivityId1, testActivityId2;
+  let testWeekId1, testActivityId1, testActivityId2;
 
   beforeAll(() => {
     // Clear all data - ensure clean slate for tests
@@ -85,7 +84,7 @@ describe('WMV Backend API', () => {
     );
     testWeekId1 = week1Result.lastInsertRowid;
 
-    const week2Result = db.prepare(`
+    db.prepare(`
       INSERT INTO weeks (season_id, week_name, date, segment_id, required_laps, start_time, end_time)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(
@@ -93,7 +92,6 @@ describe('WMV Backend API', () => {
       TEST_SEGMENT_2, 2,
       '2025-11-12T00:00:00Z', '2025-11-12T22:00:00Z'
     );
-    testWeekId2 = week2Result.lastInsertRowid;
 
     // Create test activities and results for Week 1
     const activity1 = db.prepare(`

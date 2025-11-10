@@ -30,11 +30,10 @@ const { app, db } = require('../index');
 const strava = require('strava-v3');
 
 describe('Activity Submission API', () => {
-  let sessionCookie;
-  let testStravaAthleteId = 12345678;
+  const testStravaAthleteId = 12345678;
   let testWeekId;
   let testSeasonId;
-  let testSegmentId = 99887766; // Made-up Strava segment ID for testing
+  const testSegmentId = 99887766; // Made-up Strava segment ID for testing
 
   beforeAll(() => {
     // Clear any seeded data - tests should be self-contained
