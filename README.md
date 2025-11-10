@@ -113,14 +113,19 @@ This automatically installs both frontend and backend dependencies via `postinst
 
 ### Running the Application
 
-#### Recommended: Run both frontend and backend together
+#### Start both servers (recommended)
 ```bash
 npm run dev:all
 ```
 
-This single command starts both the backend (port 3001) and frontend (port 5173) servers. The frontend will be available at `http://localhost:5173`.
+This single command starts both the backend (port 3001) and frontend (port 5173) servers using `concurrently`. 
+- Color-coded output: backend in blue, frontend in green
+- Both servers run in the same terminal
+- Frontend will be available at `http://localhost:5173`
 
-**Note:** The `dev:all` command runs both servers in the same terminal. If you need to stop them, press `Ctrl+C` once to stop both.
+**To stop both servers:**
+- Press `Ctrl+C` once to stop both processes
+- Or run: `npm run stop` (or `npm run cleanup`) to kill any lingering processes
 
 #### Alternative: Run separately in different terminals
 
@@ -138,6 +143,13 @@ The backend will run on `http://localhost:3001`
 npm run dev
 ```
 The frontend will run on `http://localhost:5173`
+
+#### Clean up processes
+If processes get stuck or you need to kill everything:
+```bash
+npm run stop
+# This kills nodemon, vite, and anything on ports 3001/5173
+```
 
 ### Building for Production
 

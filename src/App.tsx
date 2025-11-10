@@ -39,6 +39,26 @@ function App() {
     fetchWeeks();
   }, []);
 
+  // Refresh weeks when switching back to leaderboard view
+  useEffect(() => {
+    const refreshWeeks = async () => {
+      if (viewMode === 'leaderboard') {
+        try {
+          const weeksData = await getWeeks();
+          setWeeks(weeksData);
+          // If no week is selected but we have weeks, select the first one
+          if (selectedWeekId === null && weeksData.length > 0) {
+            setSelectedWeekId(weeksData[0].id);
+          }
+        } catch (err) {
+          console.error('Failed to refresh weeks:', err);
+        }
+      }
+    };
+
+    refreshWeeks();
+  }, [viewMode]); // Refresh when viewMode changes
+
   useEffect(() => {
     const fetchLeaderboard = async () => {
       if (selectedWeekId === null) return;

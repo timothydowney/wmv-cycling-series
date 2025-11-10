@@ -18,14 +18,19 @@ This is a React + TypeScript frontend with Node.js Express backend application f
 
 #### IMPORTANT: Always use `npm run dev:all`
 - **Primary command:** `npm run dev:all` - starts BOTH backend and frontend
-- This runs both servers in ONE terminal (uses `&` to background the backend)
+- Uses `concurrently` to run both servers with color-coded output (backend=blue, frontend=green)
 - Backend runs on `http://localhost:3001`
 - Frontend runs on `http://localhost:5173`
-- To stop: Press `Ctrl+C` once (stops both)
+- **To stop:** Press `Ctrl+C` once (stops both) OR run `npm run stop`
+
+#### Cleanup Command
+- **Use `npm run stop` or `npm run cleanup`** to kill all dev processes
+- Kills nodemon, vite, and anything on ports 3001/5173
+- Run this if processes get stuck or you get "port already in use" errors
 
 #### Alternative (if user insists on separate terminals)
-- Terminal 1: `cd server && npm start` (backend)
-- Terminal 2: `npm run dev` (frontend)
+- Terminal 1: `cd server && npm run dev` (backend with nodemon)
+- Terminal 2: `npm run dev` (frontend with vite)
 
 ### Common Issues & Solutions
 
@@ -40,8 +45,13 @@ This is a React + TypeScript frontend with Node.js Express backend application f
 - Then run: `cd server && npm rebuild better-sqlite3`
 
 #### 3. Port Already in Use
-- Backend uses port 3001, frontend uses 5173
-- Kill processes: `lsof -ti:3001 | xargs kill -9` or `lsof -ti:5173 | xargs kill -9`
+- **Solution:** Run `npm run stop` to cleanup all processes
+- Or manually: `lsof -ti:3001 | xargs kill -9` or `lsof -ti:5173 | xargs kill -9`
+
+#### 4. Processes Not Dying
+- **Solution:** Always use `npm run stop` to cleanup
+- This properly kills nodemon, vite, and all child processes
+- `Ctrl+C` on `npm run dev:all` should work, but use `npm run stop` if it doesn't
 
 #### 4. Database Issues
 - SQLite database is at `server/data/wmv.db`
@@ -84,7 +94,14 @@ npm install  # Installs both frontend and backend dependencies
 
 ### Running for Development
 ```bash
-npm run dev:all  # PREFERRED - runs both servers
+npm run dev:all  # PREFERRED - runs both servers with concurrently
+```
+
+### Stopping Servers
+```bash
+# Press Ctrl+C to stop both servers
+# OR if processes get stuck:
+npm run stop  # Kills all dev processes and clears ports
 ```
 
 ### Running Tests

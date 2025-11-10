@@ -46,6 +46,7 @@ function WeekManager() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+    
     setFormData(prev => ({
       ...prev,
       [name]: name === 'segment_id' || name === 'required_laps' 
@@ -328,10 +329,6 @@ function WeekManager() {
 
       {isCreating && (
         <div className="week-creation-area">
-          <SegmentSearch onSegmentSelect={handleSegmentSelect} />
-          
-          <SegmentFinder />
-          
           <form className="week-form" onSubmit={handleSubmit}>
             <h3>{editingWeekId ? 'Edit Week' : 'Create New Week'}</h3>
           
@@ -403,7 +400,41 @@ function WeekManager() {
 
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="start_time">Start Time (ISO 8601)</label>
+              <label htmlFor="event_date">Event Date</label>
+              <input
+                type="date"
+                id="event_date"
+                onChange={(e) => {
+                  if (!e.target.value) return;
+                  
+                  const formatDateTimeLocal = (date: Date): string => {
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const hours = String(date.getHours()).padStart(2, '0');
+                    const minutes = String(date.getMinutes()).padStart(2, '0');
+                    return `${year}-${month}-${day}T${hours}:${minutes}`;
+                  };
+                  
+                  // Parse selected date
+                  const [year, month, day] = e.target.value.split('-').map(Number);
+                  const startDate = new Date(year, month - 1, day, 0, 0, 0); // Midnight
+                  const endDate = new Date(year, month - 1, day, 22, 0, 0); // 10pm
+                  
+                  setFormData(prev => ({
+                    ...prev,
+                    start_time: formatDateTimeLocal(startDate),
+                    end_time: formatDateTimeLocal(endDate)
+                  }));
+                }}
+              />
+              <small>Pick a date to auto-set start/end times below</small>
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="start_time">Start Time</label>
               <input
                 type="datetime-local"
                 id="start_time"
@@ -412,11 +443,11 @@ function WeekManager() {
                 onChange={handleInputChange}
                 required
               />
-              <small>Event start time in your local timezone</small>
+              <small>Defaults to midnight (editable)</small>
             </div>
 
             <div className="form-group">
-              <label htmlFor="end_time">End Time (ISO 8601)</label>
+              <label htmlFor="end_time">End Time</label>
               <input
                 type="datetime-local"
                 id="end_time"
@@ -425,7 +456,7 @@ function WeekManager() {
                 onChange={handleInputChange}
                 required
               />
-              <small>Event end time in your local timezone</small>
+              <small>Defaults to 10pm (editable)</small>
             </div>
           </div>
 
@@ -438,6 +469,10 @@ function WeekManager() {
             </button>
             </div>
           </form>
+          
+          <SegmentSearch onSegmentSelect={handleSegmentSelect} />
+          
+          <SegmentFinder />
         </div>
       )}
     </div>
