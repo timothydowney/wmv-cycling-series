@@ -481,6 +481,18 @@ function storeActivityAndEfforts(stravaAthleteId, weekId, activityData, stravaSe
 }
 
 // ========================================
+// STATIC FILE SERVING (Frontend)
+// ========================================
+
+// Serve built frontend from dist/ directory
+app.use(express.static(path.join(__dirname, '../../dist')));
+
+// Fallback to index.html for React Router SPA
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../dist/index.html'));
+});
+
+// ========================================
 // AUTHENTICATION ROUTES
 // ========================================
 

@@ -42,3 +42,23 @@ jobs:
 
       - name: Test (backend)
         run: npm test
+
+  deploy:
+    needs: build-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy to Railway
+        run: |
+          echo "Railway deployment configured!"
+          echo "Connect your Railway project in the dashboard:"
+          echo "1. Go to https://railway.app"
+          echo "2. Create new project"
+          echo "3. Connect GitHub repo"
+          echo "4. Railway will auto-deploy on push to main"
+        shell: bash
+
+```
