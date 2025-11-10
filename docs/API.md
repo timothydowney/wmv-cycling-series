@@ -15,24 +15,31 @@ All responses are JSON.
 - GET /weeks/:id/activities — activities ingested for that week
 - GET /activities/:id/efforts — efforts that make up an activity
 
-### Example: GET /weeks/:id/leaderboard
+### GET /weeks/:id/leaderboard
 
-Response
+Response shape:
 ```
 {
-  "week": { "id": 1, "week_name": "Hill Climb Week", "date": "2025-06-03", ... },
+  "week": {
+    "id": number,
+    "week_name": string,
+    "date": "YYYY-MM-DD",
+    "segment_id": number,
+    "required_laps": number,
+    "start_time": "ISO8601",
+    "end_time": "ISO8601"
+  },
   "leaderboard": [
     {
-      "participant_id": 1,
-      "name": "Rider One",
-      "total_time_sec": 842,
-      "rank": 1,
-      "base_points": 3,
+      "participant_id": number,
+      "name": string,
+      "total_time_sec": number,
+      "rank": number,
+      "base_points": number,
       "participation": 1,
-      "pr_bonus": 1,
-      "total_points": 5
-    },
-    ...
+      "pr_bonus": 0|1,
+      "total_points": number
+    }
   ]
 }
 ```
@@ -58,6 +65,33 @@ Segments
 Activity submission (in-progress)
 - POST /weeks/:id/submit-activity — validate a Strava activity URL against the week (requires auth)
 
-Notes
-- Admin endpoints assume an authenticated admin context (add auth later for production). For development/testing, use as-is.
-- Full schema and relationships are in DATABASE_DESIGN.md
+## Error responses
+
+Errors follow a simple pattern:
+```
+{
+  "error": string,      // short code or description
+  "message": string,    // human-friendly detail
+  "details": object?    // optional structured fields
+}
+```
+
+Common cases:
+- 400 Invalid input (missing required fields, invalid segment_id)
+- 401 Not authenticated (OAuth-protected endpoints)
+- 404 Resource not found (week/segment/activity absent)
+- 500 Unexpected server failure
+
+## Auth notes
+
+Sessions use cookies (express-session). `GET /auth/status` returns participant context.
+Future hardening: add admin flag/role; currently admin endpoints are open in dev.
+
+## Rate limiting
+
+No internal rate limit yet; rely on Strava’s API limits for validation calls. Segment metadata cached to reduce calls.
+
+## Related docs
+
+- See `SCORING.md` for points calculation
+- See `DATABASE_DESIGN.md` for table relationships

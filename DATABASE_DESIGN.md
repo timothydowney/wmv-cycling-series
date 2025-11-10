@@ -21,12 +21,17 @@ CREATE TABLE participants (
 ```
 
 #### `segments`
-Stores Strava segments used in weekly competitions.
+Stores Strava segments used in weekly competitions + cached metadata.
 ```sql
 CREATE TABLE segments (
   id INTEGER PRIMARY KEY,
   name TEXT NOT NULL,
   strava_segment_id INTEGER NOT NULL UNIQUE,
+  distance INTEGER,            -- meters (nullable until first refresh)
+  average_grade REAL,          -- percentage (nullable)
+  city TEXT,
+  state TEXT,
+  country TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 ```
@@ -195,7 +200,7 @@ ORDER BY total_points DESC;
 - No activity tracking
 - No validation history
 
-### Migration Steps (v1.0 → v2.1)
+### Migration Steps (v1.0 → v2.2)
 1. Add new tables: `activities`, `segment_efforts`
 2. Alter `participants` to add `strava_athlete_id`
 3. Alter `weeks` to:
@@ -203,8 +208,9 @@ ORDER BY total_points DESC;
    - Add `start_time` (NOT NULL, default: `{date}T00:00:00Z`)
    - Add `end_time` (NOT NULL, default: `{date}T22:00:00Z`)
 4. Alter `results` to add: `activity_id`, `total_time_seconds`, `rank`, `points`, `updated_at`
-5. Backfill: Convert existing `elapsed_seconds` to `total_time_seconds`
-6. Recalculate all ranks and points with corrected formula
+5. Add segment metadata columns (distance, average_grade, city, state, country)
+6. Backfill: Convert existing `elapsed_seconds` to `total_time_seconds`
+7. Recalculate all ranks and points with corrected formula
 
 ## Indexes for Performance
 ```sql
