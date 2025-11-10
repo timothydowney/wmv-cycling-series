@@ -6,9 +6,10 @@ import WeekSelector from './components/WeekSelector';
 import NavBar from './components/NavBar';
 import AdminPanel from './components/AdminPanel';
 import ParticipantStatus from './components/ParticipantStatus';
+import ManageSegments from './components/ManageSegments';
 import { getWeeks, getWeekLeaderboard, Week, LeaderboardEntry } from './api';
 
-type ViewMode = 'leaderboard' | 'admin' | 'participants';
+type ViewMode = 'leaderboard' | 'admin' | 'participants' | 'segments';
 
 function App() {
   const [weeks, setWeeks] = useState<Week[]>([]);
@@ -84,6 +85,7 @@ function App() {
           isAdminPanelOpen={viewMode === 'admin'}
           onParticipantsClick={() => setViewMode('participants')}
           onLeaderboardClick={() => setViewMode('leaderboard')}
+          onManageSegmentsClick={() => setViewMode('segments')}
         />
         <div className="app app-content">
           <p>Loading...</p>
@@ -100,6 +102,7 @@ function App() {
           isAdminPanelOpen={viewMode === 'admin'}
           onParticipantsClick={() => setViewMode('participants')}
           onLeaderboardClick={() => setViewMode('leaderboard')}
+          onManageSegmentsClick={() => setViewMode('segments')}
         />
         <div className="app app-content">
           <div className="error">{error}</div>
@@ -115,6 +118,7 @@ function App() {
         isAdminPanelOpen={viewMode === 'admin'}
         onParticipantsClick={() => setViewMode('participants')}
         onLeaderboardClick={() => setViewMode('leaderboard')}
+        onManageSegmentsClick={() => setViewMode('segments')}
       />
       
       <div className="app app-content">
@@ -124,6 +128,12 @@ function App() {
           <div>
             <h1 style={{ marginBottom: '2rem' }}>Participant Status</h1>
             <ParticipantStatus />
+          </div>
+        ) : viewMode === 'segments' ? (
+          <div>
+            <h1 style={{ marginBottom: '1rem' }}>Manage Segments</h1>
+            <p className="admin-subtitle" style={{ marginTop: 0 }}>Add new Strava segments and manage known segments</p>
+            <ManageSegments />
           </div>
         ) : (
           <>

@@ -6,6 +6,7 @@ interface NavBarProps {
   isAdminPanelOpen: boolean;
   onParticipantsClick?: () => void;
   onLeaderboardClick?: () => void;
+  onManageSegmentsClick?: () => void;
 }
 
 interface AthleteInfo {
@@ -15,7 +16,7 @@ interface AthleteInfo {
   profile?: string;
 }
 
-const NavBar: React.FC<NavBarProps> = ({ onAdminPanelToggle, isAdminPanelOpen, onParticipantsClick, onLeaderboardClick }) => {
+const NavBar: React.FC<NavBarProps> = ({ onAdminPanelToggle, isAdminPanelOpen: _isAdminPanelOpen, onParticipantsClick, onLeaderboardClick, onManageSegmentsClick }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [athleteInfo, setAthleteInfo] = useState<AthleteInfo | null>(null);
@@ -156,6 +157,16 @@ const NavBar: React.FC<NavBarProps> = ({ onAdminPanelToggle, isAdminPanelOpen, o
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
                       Manage Competition
+                    </button>
+                    <button className="menu-item" onClick={() => {
+                      if (onManageSegmentsClick) onManageSegmentsClick();
+                      setIsMenuOpen(false);
+                    }}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="menu-icon">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                          d="M3 7h18M3 12h18M3 17h18" />
+                      </svg>
+                      Manage Segments
                     </button>
                     <button className="menu-item" onClick={() => {
                       if (onParticipantsClick) onParticipantsClick();
