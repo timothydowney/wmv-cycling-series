@@ -12,7 +12,7 @@
     "dev": "vite",
     "dev:server": "cd server && npm run dev",
     "dev:all": "npm run dev:server & npm run dev",
-    "stop": "lsof -ti:3001,5173 | xargs kill -9 2>/dev/null || true",
+    "stop": "pkill -9 -f 'npm run dev' 2>/dev/null || true; pkill -9 -f nodemon 2>/dev/null || true; pkill -9 -f 'node.*vite' 2>/dev/null || true; pkill -9 -f 'node src/index.js' 2>/dev/null || true; lsof -ti:3001,5173 | xargs kill -9 2>/dev/null || true",
     "build": "npm run build:server && vite build",
     "build:server": "cd server && npm install",
     "test": "cd server && npm test",

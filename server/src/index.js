@@ -6,7 +6,6 @@ const Database = require('better-sqlite3');
 const session = require('express-session');
 const SqliteStore = require('better-sqlite3-session-store')(session);
 const strava = require('strava-v3');
-const { getSegmentDetails, getSegmentsFromActivity, getStarredSegments } = require('./segment-utils');
 
 dotenv.config();
 
@@ -32,14 +31,7 @@ app.use(cors({
 app.use(express.json());
 
 // Session configuration for OAuth
-app.use(session({
-  store: new SqliteStore({
-    client: new Database(path.join(__dirname, '..', 'data', 'sessions.db')),
-    expired: {
-      clear: true,
-      intervalMs: 900000 // Clear expired sessions every 15 minutes
-    }
-  }),
+const sessionConfig = {
   secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
   resave: false,
   saveUninitialized: false,
@@ -49,7 +41,21 @@ app.use(session({
     sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax', // More permissive in dev
     maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
   }
-}));
+};
+
+// Only use persistent session store in non-test environments
+// In test mode, use default MemoryStore to avoid open database handles
+if (process.env.NODE_ENV !== 'test') {
+  sessionConfig.store = new SqliteStore({
+    client: new Database(path.join(__dirname, '..', 'data', 'sessions.db')),
+    expired: {
+      clear: true,
+      intervalMs: 900000 // Clear expired sessions every 15 minutes
+    }
+  });
+}
+
+app.use(session(sessionConfig));
 
 // Initialize DB
 const db = new Database(DB_PATH);
@@ -66,16 +72,14 @@ CREATE TABLE IF NOT EXISTS seasons (
 );
 
 CREATE TABLE IF NOT EXISTS participants (
-  id INTEGER PRIMARY KEY,
+  strava_athlete_id INTEGER PRIMARY KEY,
   name TEXT NOT NULL,
-  strava_athlete_id INTEGER UNIQUE,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS segments (
-  id INTEGER PRIMARY KEY,
+  strava_segment_id INTEGER PRIMARY KEY,
   name TEXT NOT NULL,
-  strava_segment_id INTEGER NOT NULL UNIQUE,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -90,13 +94,13 @@ CREATE TABLE IF NOT EXISTS weeks (
   end_time TEXT NOT NULL,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY(season_id) REFERENCES seasons(id),
-  FOREIGN KEY(segment_id) REFERENCES segments(id)
+  FOREIGN KEY(segment_id) REFERENCES segments(strava_segment_id)
 );
 
 CREATE TABLE IF NOT EXISTS activities (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   week_id INTEGER NOT NULL,
-  participant_id INTEGER NOT NULL,
+  strava_athlete_id INTEGER NOT NULL,
   strava_activity_id INTEGER NOT NULL,
   activity_url TEXT NOT NULL,
   activity_date TEXT NOT NULL,
@@ -105,8 +109,8 @@ CREATE TABLE IF NOT EXISTS activities (
   validated_at TEXT DEFAULT CURRENT_TIMESTAMP,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY(week_id) REFERENCES weeks(id),
-  FOREIGN KEY(participant_id) REFERENCES participants(id),
-  UNIQUE(week_id, participant_id)
+  FOREIGN KEY(strava_athlete_id) REFERENCES participants(strava_athlete_id),
+  UNIQUE(week_id, strava_athlete_id)
 );
 
 CREATE TABLE IF NOT EXISTS segment_efforts (
@@ -118,13 +122,13 @@ CREATE TABLE IF NOT EXISTS segment_efforts (
   start_time TEXT,
   pr_achieved BOOLEAN DEFAULT 0,
   FOREIGN KEY(activity_id) REFERENCES activities(id),
-  FOREIGN KEY(segment_id) REFERENCES segments(id)
+  FOREIGN KEY(segment_id) REFERENCES segments(strava_segment_id)
 );
 
 CREATE TABLE IF NOT EXISTS results (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   week_id INTEGER NOT NULL,
-  participant_id INTEGER NOT NULL,
+  strava_athlete_id INTEGER NOT NULL,
   activity_id INTEGER,
   total_time_seconds INTEGER NOT NULL,
   rank INTEGER,
@@ -133,213 +137,31 @@ CREATE TABLE IF NOT EXISTS results (
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY(week_id) REFERENCES weeks(id),
-  FOREIGN KEY(participant_id) REFERENCES participants(id),
+  FOREIGN KEY(strava_athlete_id) REFERENCES participants(strava_athlete_id),
   FOREIGN KEY(activity_id) REFERENCES activities(id),
-  UNIQUE(week_id, participant_id)
+  UNIQUE(week_id, strava_athlete_id)
 );
 
 CREATE TABLE IF NOT EXISTS participant_tokens (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  participant_id INTEGER NOT NULL UNIQUE,
+  strava_athlete_id INTEGER PRIMARY KEY,
   access_token TEXT NOT NULL,
   refresh_token TEXT NOT NULL,
   expires_at INTEGER NOT NULL,
   scope TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY(participant_id) REFERENCES participants(id) ON DELETE CASCADE
+  FOREIGN KEY(strava_athlete_id) REFERENCES participants(strava_athlete_id) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_activities_week_participant ON activities(week_id, participant_id);
+CREATE INDEX IF NOT EXISTS idx_activities_week_participant ON activities(week_id, strava_athlete_id);
 CREATE INDEX IF NOT EXISTS idx_activities_status ON activities(validation_status);
 CREATE INDEX IF NOT EXISTS idx_segment_efforts_activity ON segment_efforts(activity_id);
 CREATE INDEX IF NOT EXISTS idx_results_week ON results(week_id);
-CREATE INDEX IF NOT EXISTS idx_results_participant ON results(participant_id);
-CREATE INDEX IF NOT EXISTS idx_participant_tokens_participant ON participant_tokens(participant_id);
+CREATE INDEX IF NOT EXISTS idx_results_participant ON results(strava_athlete_id);
+CREATE INDEX IF NOT EXISTS idx_participant_tokens_participant ON participant_tokens(strava_athlete_id);
 CREATE INDEX IF NOT EXISTS idx_weeks_season ON weeks(season_id);
 CREATE INDEX IF NOT EXISTS idx_seasons_active ON seasons(is_active);
 `);
-
-// Seed test data
-function seedTestData() {
-  const participantCount = db.prepare('SELECT COUNT(*) as c FROM participants').get().c;
-  if (participantCount > 0) {
-    console.log('Database already seeded, skipping...');
-    return;
-  }
-
-  console.log('Seeding test data...');
-
-  db.transaction(() => {
-    // Season - Fall 2025
-    db.prepare('INSERT INTO seasons (id, name, start_date, end_date, is_active) VALUES (?, ?, ?, ?, ?)').run(
-      1, 
-      'Fall 2025', 
-      '2025-11-01', 
-      '2025-12-31', 
-      1
-    );
-
-    // Participants with fake Strava athlete IDs
-    const participants = [
-      { id: 1, name: 'Jonny', strava_athlete_id: 1234567 },
-      { id: 2, name: 'Chris', strava_athlete_id: 2345678 },
-      { id: 3, name: 'Matt', strava_athlete_id: 3456789 },
-      { id: 4, name: 'Tim', strava_athlete_id: 4567890 }
-    ];
-    const insertParticipant = db.prepare('INSERT INTO participants (id, name, strava_athlete_id) VALUES (?, ?, ?)');
-    participants.forEach(p => insertParticipant.run(p.id, p.name, p.strava_athlete_id));
-
-    // Segments
-    const segments = [
-      { id: 1, name: 'Lookout Mountain Climb', strava_segment_id: 12345678 },
-      { id: 2, name: 'Champs-Élysées', strava_segment_id: 23456789 }
-    ];
-    const insertSegment = db.prepare('INSERT INTO segments (id, name, strava_segment_id) VALUES (?, ?, ?)');
-    segments.forEach(s => insertSegment.run(s.id, s.name, s.strava_segment_id));
-
-    // Weeks with time windows (midnight to 10pm on event day)
-    const weeks = [
-      { 
-        season_id: 1,
-        week_name: 'Week 1: Lookout Mountain', 
-        date: '2025-11-05', 
-        segment_id: 1, 
-        required_laps: 1,
-        start_time: '2025-11-05T00:00:00Z',
-        end_time: '2025-11-05T22:00:00Z'
-      },
-      { 
-        season_id: 1,
-        week_name: 'Week 2: Champs-Élysées Double', 
-        date: '2025-11-12', 
-        segment_id: 2, 
-        required_laps: 2,
-        start_time: '2025-11-12T00:00:00Z',
-        end_time: '2025-11-12T22:00:00Z'
-      }
-    ];
-    const insertWeek = db.prepare('INSERT INTO weeks (season_id, week_name, date, segment_id, required_laps, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, ?)');
-    weeks.forEach(w => insertWeek.run(w.season_id, w.week_name, w.date, w.segment_id, w.required_laps, w.start_time, w.end_time));
-
-    // Week 1 Activities (3 participants completed)
-    const week1Activities = [
-      { 
-        week_id: 1, 
-        participant_id: 1, 
-        strava_activity_id: 16301234567,
-        activity_url: 'https://www.strava.com/activities/16301234567',
-        activity_date: '2025-11-05',
-        validation_message: 'Activity validated successfully'
-      },
-      { 
-        week_id: 1, 
-        participant_id: 2, 
-        strava_activity_id: 16301234568,
-        activity_url: 'https://www.strava.com/activities/16301234568',
-        activity_date: '2025-11-05',
-        validation_message: 'Activity validated successfully'
-      },
-      { 
-        week_id: 1, 
-        participant_id: 3, 
-        strava_activity_id: 16301234569,
-        activity_url: 'https://www.strava.com/activities/16301234569',
-        activity_date: '2025-11-05',
-        validation_message: 'Activity validated successfully'
-      }
-    ];
-
-    const insertActivity = db.prepare(`
-      INSERT INTO activities (week_id, participant_id, strava_activity_id, activity_url, activity_date, validation_status, validation_message)
-      VALUES (?, ?, ?, ?, ?, 'valid', ?)
-    `);
-    week1Activities.forEach(a => {
-      insertActivity.run(a.week_id, a.participant_id, a.strava_activity_id, a.activity_url, a.activity_date, a.validation_message);
-    });
-
-    // Week 1 Segment Efforts (1 lap each)
-    const week1Efforts = [
-      { activity_id: 1, segment_id: 1, effort_index: 1, elapsed_seconds: 1510, start_time: '2025-11-05T08:15:00Z', pr_achieved: 0 }, // Jonny
-      { activity_id: 2, segment_id: 1, effort_index: 1, elapsed_seconds: 1605, start_time: '2025-11-05T08:20:00Z', pr_achieved: 0 }, // Chris
-      { activity_id: 3, segment_id: 1, effort_index: 1, elapsed_seconds: 1485, start_time: '2025-11-05T08:10:00Z', pr_achieved: 1 }  // Matt (fastest + PR!)
-    ];
-
-    const insertEffort = db.prepare(`
-      INSERT INTO segment_efforts (activity_id, segment_id, effort_index, elapsed_seconds, start_time, pr_achieved)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-    week1Efforts.forEach(e => {
-      insertEffort.run(e.activity_id, e.segment_id, e.effort_index, e.elapsed_seconds, e.start_time, e.pr_achieved);
-    });
-
-    // Week 2 Activities (all 4 participants, 2 laps each)
-    const week2Activities = [
-      { 
-        week_id: 2, 
-        participant_id: 1, 
-        strava_activity_id: 16352338780,
-        activity_url: 'https://www.strava.com/activities/16352338780',
-        activity_date: '2025-11-12',
-        validation_message: 'Activity validated successfully - 2 laps completed'
-      },
-      { 
-        week_id: 2, 
-        participant_id: 2, 
-        strava_activity_id: 16352338781,
-        activity_url: 'https://www.strava.com/activities/16352338781',
-        activity_date: '2025-11-12',
-        validation_message: 'Activity validated successfully - 2 laps completed'
-      },
-      { 
-        week_id: 2, 
-        participant_id: 3, 
-        strava_activity_id: 16352338782,
-        activity_url: 'https://www.strava.com/activities/16352338782',
-        activity_date: '2025-11-12',
-        validation_message: 'Activity validated successfully - 2 laps completed'
-      },
-      { 
-        week_id: 2, 
-        participant_id: 4, 
-        strava_activity_id: 16352338783,
-        activity_url: 'https://www.strava.com/activities/16352338783',
-        activity_date: '2025-11-12',
-        validation_message: 'Activity validated successfully - 2 laps completed'
-      }
-    ];
-
-    week2Activities.forEach(a => {
-      insertActivity.run(a.week_id, a.participant_id, a.strava_activity_id, a.activity_url, a.activity_date, a.validation_message);
-    });
-
-    // Week 2 Segment Efforts (2 laps each - Champs-Élysées segment)
-    const week2Efforts = [
-      // Jonny - 2 laps, got a PR on lap 2!
-      { activity_id: 4, segment_id: 2, effort_index: 1, elapsed_seconds: 885, start_time: '2025-11-12T08:32:00Z', pr_achieved: 0 },
-      { activity_id: 4, segment_id: 2, effort_index: 2, elapsed_seconds: 895, start_time: '2025-11-12T08:47:00Z', pr_achieved: 1 },
-      // Chris - 2 laps
-      { activity_id: 5, segment_id: 2, effort_index: 1, elapsed_seconds: 920, start_time: '2025-11-12T08:35:00Z', pr_achieved: 0 },
-      { activity_id: 5, segment_id: 2, effort_index: 2, elapsed_seconds: 910, start_time: '2025-11-12T08:50:00Z', pr_achieved: 0 },
-      // Matt - 2 laps (fastest total, both laps are PRs!)
-      { activity_id: 6, segment_id: 2, effort_index: 1, elapsed_seconds: 870, start_time: '2025-11-12T08:30:00Z', pr_achieved: 1 },
-      { activity_id: 6, segment_id: 2, effort_index: 2, elapsed_seconds: 875, start_time: '2025-11-12T08:45:00Z', pr_achieved: 1 },
-      // Tim - 2 laps
-      { activity_id: 7, segment_id: 2, effort_index: 1, elapsed_seconds: 905, start_time: '2025-11-12T08:33:00Z', pr_achieved: 0 },
-      { activity_id: 7, segment_id: 2, effort_index: 2, elapsed_seconds: 900, start_time: '2025-11-12T08:48:00Z', pr_achieved: 0 }
-    ];
-
-    week2Efforts.forEach(e => {
-      insertEffort.run(e.activity_id, e.segment_id, e.effort_index, e.elapsed_seconds, e.start_time, e.pr_achieved);
-    });
-
-    console.log('Test data seeded successfully');
-  })();
-
-  // Calculate results for both weeks
-  calculateWeekResults(1);
-  calculateWeekResults(2);
-}
 
 // Validate activity time window
 function validateActivityTimeWindow(activityDate, week) {
@@ -366,13 +188,13 @@ function calculateWeekResults(weekId) {
   const activities = db.prepare(`
     SELECT 
       a.id as activity_id,
-      a.participant_id,
+      a.strava_athlete_id,
       SUM(se.elapsed_seconds) as total_time_seconds,
       MAX(se.pr_achieved) as achieved_pr
     FROM activities a
     JOIN segment_efforts se ON a.id = se.activity_id
     WHERE a.week_id = ? AND a.validation_status = 'valid'
-    GROUP BY a.id, a.participant_id
+    GROUP BY a.id, a.strava_athlete_id
     ORDER BY total_time_seconds ASC
   `).all(weekId);
 
@@ -385,7 +207,7 @@ function calculateWeekResults(weekId) {
 
   // Insert new results with correct scoring: points = (number of people you beat + 1 for competing) + PR bonus
   const insertResult = db.prepare(`
-    INSERT INTO results (week_id, participant_id, activity_id, total_time_seconds, rank, points, pr_bonus_points)
+    INSERT INTO results (week_id, strava_athlete_id, activity_id, total_time_seconds, rank, points, pr_bonus_points)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
 
@@ -398,7 +220,7 @@ function calculateWeekResults(weekId) {
       
       insertResult.run(
         weekId,
-        activity.participant_id,
+        activity.strava_athlete_id,
         activity.activity_id,
         activity.total_time_seconds,
         rank,
@@ -411,22 +233,19 @@ function calculateWeekResults(weekId) {
   console.log(`Results calculated for week ${weekId}: ${activities.length} participants`);
 }
 
-// Seed on startup
-seedTestData();
-
 // ========================================
 // UTILITY FUNCTIONS
 // ========================================
 
 /**
  * Get a valid access token for a participant, refreshing if needed
- * @param {number} participantId - The participant's database ID
+ * @param {number} stravaAthleteId - The participant's Strava athlete ID
  * @returns {Promise<string>} Valid access token
  */
-async function getValidAccessToken(participantId) {
+async function getValidAccessToken(stravaAthleteId) {
   const tokenRecord = db.prepare(`
-    SELECT * FROM participant_tokens WHERE participant_id = ?
-  `).get(participantId);
+    SELECT * FROM participant_tokens WHERE strava_athlete_id = ?
+  `).get(stravaAthleteId);
   
   if (!tokenRecord) {
     throw new Error('Participant not connected to Strava');
@@ -436,7 +255,7 @@ async function getValidAccessToken(participantId) {
   
   // Token expires in less than 1 hour? Refresh it proactively
   if (tokenRecord.expires_at < (now + 3600)) {
-    console.log(`Token expiring soon for participant ${participantId}, refreshing...`);
+    console.log(`Token expiring soon for participant ${stravaAthleteId}, refreshing...`);
     
     try {
       // Use strava-v3 to refresh the token
@@ -449,12 +268,12 @@ async function getValidAccessToken(participantId) {
             refresh_token = ?,
             expires_at = ?,
             updated_at = CURRENT_TIMESTAMP
-        WHERE participant_id = ?
+        WHERE strava_athlete_id = ?
       `).run(
         newTokenData.access_token,
         newTokenData.refresh_token,
         newTokenData.expires_at,
-        participantId
+        stravaAthleteId
       );
       
       return newTokenData.access_token;
@@ -585,18 +404,19 @@ async function findBestQualifyingActivity(activities, segmentId, requiredLaps, a
 
 /**
  * Store activity and segment efforts in database (replaces existing if present)
- * @param {number} participantId - Participant ID
+ * @param {number} stravaAthleteId - Strava athlete ID
  * @param {number} weekId - Week ID
  * @param {Object} activityData - Activity data with segmentEfforts
- * @param {number} segmentDbId - Database segment ID (not Strava ID)
+ * @param {number} stravaSegmentId - Strava segment ID (now used directly)
  */
-function storeActivityAndEfforts(participantId, weekId, activityData, segmentDbId) {
+function storeActivityAndEfforts(stravaAthleteId, weekId, activityData, stravaSegmentId) {
   // Delete existing activity for this participant/week if exists
   const existing = db.prepare(`
-    SELECT id FROM activities WHERE week_id = ? AND participant_id = ?
-  `).get(weekId, participantId);
+    SELECT id FROM activities WHERE week_id = ? AND strava_athlete_id = ?
+  `).get(weekId, stravaAthleteId);
   
   if (existing) {
+    db.prepare('DELETE FROM results WHERE activity_id = ?').run(existing.id);
     db.prepare('DELETE FROM segment_efforts WHERE activity_id = ?').run(existing.id);
     db.prepare('DELETE FROM activities WHERE id = ?').run(existing.id);
   }
@@ -606,21 +426,23 @@ function storeActivityAndEfforts(participantId, weekId, activityData, segmentDbI
   
   // Store new activity
   const activityResult = db.prepare(`
-    INSERT INTO activities (week_id, participant_id, strava_activity_id, activity_url, activity_date, validation_status)
+    INSERT INTO activities (week_id, strava_athlete_id, strava_activity_id, activity_url, activity_date, validation_status)
     VALUES (?, ?, ?, ?, ?, 'valid')
-  `).run(weekId, participantId, activityData.id, activityData.activity_url, activityDate);
+  `).run(weekId, stravaAthleteId, activityData.id, activityData.activity_url, activityDate);
   
   const activityDbId = activityResult.lastInsertRowid;
   
   // Store segment efforts
+  console.log(`Storing ${activityData.segmentEfforts.length} segment efforts for activity ${activityDbId}`);
   for (let i = 0; i < activityData.segmentEfforts.length; i++) {
     const effort = activityData.segmentEfforts[i];
+    console.log(`  Effort ${i}: segment_id=${stravaSegmentId}, elapsed_time=${effort.elapsed_time}`);
     db.prepare(`
       INSERT INTO segment_efforts (activity_id, segment_id, effort_index, elapsed_seconds, pr_achieved)
       VALUES (?, ?, ?, ?, ?)
     `).run(
       activityDbId,
-      segmentDbId,
+      stravaSegmentId,
       i,
       effort.elapsed_time,
       effort.pr_rank ? 1 : 0
@@ -629,9 +451,9 @@ function storeActivityAndEfforts(participantId, weekId, activityData, segmentDbI
   
   // Store result
   db.prepare(`
-    INSERT OR REPLACE INTO results (week_id, participant_id, activity_id, total_time_seconds)
+    INSERT OR REPLACE INTO results (week_id, strava_athlete_id, activity_id, total_time_seconds)
     VALUES (?, ?, ?, ?)
-  `).run(weekId, participantId, activityDbId, activityData.totalTime);
+  `).run(weekId, stravaAthleteId, activityDbId, activityData.totalTime);
 }
 
 // ========================================
@@ -672,40 +494,33 @@ app.get('/auth/strava/callback', async (req, res) => {
     
     console.log(`OAuth successful for Strava athlete ${stravaAthleteId} (${athleteName})`);
     
-    // Find or create participant in database
-    let participant = db.prepare(`
-      SELECT * FROM participants WHERE strava_athlete_id = ?
-    `).get(stravaAthleteId);
+    // Upsert participant in database (using athlete ID as primary key)
+    db.prepare(`
+      INSERT INTO participants (strava_athlete_id, name)
+      VALUES (?, ?)
+      ON CONFLICT(strava_athlete_id) DO UPDATE SET name = excluded.name
+    `).run(stravaAthleteId, athleteName);
     
-    if (!participant) {
-      console.log(`Creating new participant: ${athleteName}`);
-      const result = db.prepare(`
-        INSERT INTO participants (name, strava_athlete_id)
-        VALUES (?, ?)
-      `).run(athleteName, stravaAthleteId);
-      
-      participant = { id: result.lastInsertRowid, name: athleteName };
-    }
+    console.log(`Participant record ensured for ${athleteName}`);
     
     // Store tokens for this participant
     db.prepare(`
       INSERT OR REPLACE INTO participant_tokens 
-      (participant_id, access_token, refresh_token, expires_at, scope)
+      (strava_athlete_id, access_token, refresh_token, expires_at, scope)
       VALUES (?, ?, ?, ?, ?)
     `).run(
-      participant.id,
+      stravaAthleteId,
       tokenData.access_token,
       tokenData.refresh_token,
       tokenData.expires_at,
       scope || tokenData.scope
     );
     
-    console.log(`Tokens stored for participant ${participant.id}`);
+    console.log(`Tokens stored for participant ${stravaAthleteId}`);
     
-    // Store session
-    req.session.participantId = participant.id;
-    req.session.athleteName = tokenData.athlete.firstname;
+    // Store session (use Strava athlete ID as the session identifier)
     req.session.stravaAthleteId = stravaAthleteId;
+    req.session.athleteName = tokenData.athlete.firstname;
     
     // Redirect to dashboard
     res.redirect(`${CLIENT_BASE_URL}?connected=true`);
@@ -717,14 +532,14 @@ app.get('/auth/strava/callback', async (req, res) => {
 
 // GET /auth/status - Check authentication status
 app.get('/auth/status', (req, res) => {
-  if (req.session.participantId) {
+  if (req.session.stravaAthleteId) {
     const participant = db.prepare(`
-      SELECT p.id, p.name, p.strava_athlete_id,
-             CASE WHEN pt.participant_id IS NOT NULL THEN 1 ELSE 0 END as is_connected
+      SELECT p.strava_athlete_id, p.name,
+             CASE WHEN pt.strava_athlete_id IS NOT NULL THEN 1 ELSE 0 END as is_connected
       FROM participants p
-      LEFT JOIN participant_tokens pt ON p.id = pt.participant_id
-      WHERE p.id = ?
-    `).get(req.session.participantId);
+      LEFT JOIN participant_tokens pt ON p.strava_athlete_id = pt.strava_athlete_id
+      WHERE p.strava_athlete_id = ?
+    `).get(req.session.stravaAthleteId);
     
     res.json({
       authenticated: true,
@@ -740,14 +555,14 @@ app.get('/auth/status', (req, res) => {
 
 // POST /auth/disconnect - Disconnect Strava account
 app.post('/auth/disconnect', (req, res) => {
-  if (!req.session.participantId) {
+  if (!req.session.stravaAthleteId) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
   
-  const participantId = req.session.participantId;
+  const stravaAthleteId = req.session.stravaAthleteId;
   
   // Delete tokens from database
-  db.prepare('DELETE FROM participant_tokens WHERE participant_id = ?').run(participantId);
+  db.prepare('DELETE FROM participant_tokens WHERE strava_athlete_id = ?').run(stravaAthleteId);
   
   // Destroy session
   req.session.destroy((err) => {
@@ -774,7 +589,7 @@ app.get('/participants', (req, res) => {
 });
 
 app.get('/segments', (req, res) => {
-  const rows = db.prepare('SELECT id, name, strava_segment_id FROM segments').all();
+  const rows = db.prepare('SELECT strava_segment_id, name FROM segments').all();
   res.json(rows);
 });
 
@@ -802,14 +617,14 @@ app.get('/seasons/:id/leaderboard', (req, res) => {
 
   const seasonResults = db.prepare(`
     SELECT 
-      p.id,
+      p.strava_athlete_id as id,
       p.name,
       COALESCE(SUM(CASE WHEN w.season_id = ? THEN r.points ELSE 0 END), 0) as total_points,
       COUNT(CASE WHEN w.season_id = ? THEN r.id ELSE NULL END) as weeks_completed
     FROM participants p
-    LEFT JOIN results r ON p.id = r.participant_id
+    LEFT JOIN results r ON p.strava_athlete_id = r.strava_athlete_id
     LEFT JOIN weeks w ON r.week_id = w.id
-    GROUP BY p.id, p.name
+    GROUP BY p.strava_athlete_id, p.name
     HAVING weeks_completed > 0
     ORDER BY total_points DESC, weeks_completed DESC
   `).all(seasonId, seasonId);
@@ -826,7 +641,7 @@ app.get('/weeks', (req, res) => {
     SELECT w.id, w.season_id, w.week_name, w.date, w.segment_id, w.required_laps, 
            w.start_time, w.end_time, s.name as segment_name, s.strava_segment_id
     FROM weeks w
-    LEFT JOIN segments s ON w.segment_id = s.id
+    LEFT JOIN segments s ON w.segment_id = s.strava_segment_id
     ORDER BY w.date DESC
   `).all();
   res.json(rows);
@@ -838,7 +653,7 @@ app.get('/weeks/:id', (req, res) => {
     SELECT w.id, w.season_id, w.week_name, w.date, w.segment_id, w.required_laps, 
            w.start_time, w.end_time, s.name as segment_name, s.strava_segment_id
     FROM weeks w
-    LEFT JOIN segments s ON w.segment_id = s.id
+    LEFT JOIN segments s ON w.segment_id = s.strava_segment_id
     WHERE w.id = ?
   `).get(weekId);
   if (!week) return res.status(404).json({ error: 'Week not found' });
@@ -851,7 +666,7 @@ app.get('/weeks/:id/leaderboard', (req, res) => {
     SELECT w.id, w.season_id, w.week_name, w.date, w.segment_id, w.required_laps, w.start_time, w.end_time,
            s.name as segment_name, s.strava_segment_id
     FROM weeks w
-    LEFT JOIN segments s ON w.segment_id = s.id
+    LEFT JOIN segments s ON w.segment_id = s.strava_segment_id
     WHERE w.id = ?
   `).get(weekId);
   if (!week) return res.status(404).json({ error: 'Week not found' });
@@ -859,7 +674,7 @@ app.get('/weeks/:id/leaderboard', (req, res) => {
   const results = db.prepare(`
     SELECT 
       r.rank,
-      r.participant_id,
+      r.strava_athlete_id as participant_id,
       p.name,
       r.total_time_seconds,
       r.points,
@@ -867,7 +682,7 @@ app.get('/weeks/:id/leaderboard', (req, res) => {
       a.activity_url,
       a.activity_date
     FROM results r
-    JOIN participants p ON r.participant_id = p.id
+    JOIN participants p ON r.strava_athlete_id = p.strava_athlete_id
     LEFT JOIN activities a ON r.activity_id = a.id
     WHERE r.week_id = ?
     ORDER BY r.rank ASC
@@ -893,7 +708,7 @@ app.get('/weeks/:id/activities', (req, res) => {
   const activities = db.prepare(`
     SELECT 
       a.id,
-      a.participant_id,
+      a.strava_athlete_id as participant_id,
       p.name as participant_name,
       a.strava_activity_id,
       a.activity_url,
@@ -901,9 +716,9 @@ app.get('/weeks/:id/activities', (req, res) => {
       a.validation_status,
       a.validation_message
     FROM activities a
-    JOIN participants p ON a.participant_id = p.id
+    JOIN participants p ON a.strava_athlete_id = p.strava_athlete_id
     WHERE a.week_id = ?
-    ORDER BY a.participant_id
+    ORDER BY a.strava_athlete_id
   `).all(weekId);
 
   res.json(activities);
@@ -919,7 +734,7 @@ app.get('/activities/:id/efforts', (req, res) => {
       se.pr_achieved,
       s.name as segment_name
     FROM segment_efforts se
-    JOIN segments s ON se.segment_id = s.id
+    JOIN segments s ON se.segment_id = s.strava_segment_id
     WHERE se.activity_id = ?
     ORDER BY se.effort_index ASC
   `).all(activityId);
@@ -935,14 +750,14 @@ app.get('/season/leaderboard', (req, res) => {
     // Use active season's leaderboard
     const seasonResults = db.prepare(`
       SELECT 
-        p.id,
+        p.strava_athlete_id as id,
         p.name,
         COALESCE(SUM(CASE WHEN w.season_id = ? THEN r.points ELSE 0 END), 0) as total_points,
         COUNT(CASE WHEN w.season_id = ? THEN r.id ELSE NULL END) as weeks_completed
       FROM participants p
-      LEFT JOIN results r ON p.id = r.participant_id
+      LEFT JOIN results r ON p.strava_athlete_id = r.strava_athlete_id
       LEFT JOIN weeks w ON r.week_id = w.id
-      GROUP BY p.id, p.name
+      GROUP BY p.strava_athlete_id, p.name
       HAVING weeks_completed > 0
       ORDER BY total_points DESC, weeks_completed DESC
     `).all(activeSeason.id, activeSeason.id);
@@ -952,13 +767,13 @@ app.get('/season/leaderboard', (req, res) => {
     // No active season - return all-time results
     const seasonResults = db.prepare(`
       SELECT 
-        p.id,
+        p.strava_athlete_id as id,
         p.name,
         COALESCE(SUM(r.points), 0) as total_points,
         COUNT(r.id) as weeks_completed
       FROM participants p
-      LEFT JOIN results r ON p.id = r.participant_id
-      GROUP BY p.id, p.name
+      LEFT JOIN results r ON p.strava_athlete_id = r.strava_athlete_id
+      GROUP BY p.strava_athlete_id, p.name
       ORDER BY total_points DESC, weeks_completed DESC
     `).all();
     
@@ -1128,31 +943,27 @@ app.post('/admin/weeks', (req, res) => {
   const defaultStartTime = start_time || `${finalDate}T00:00:00Z`;
   const defaultEndTime = end_time || `${finalDate}T22:00:00Z`;
 
-  // Create or get segment
-  let finalSegmentId = segment_id;
-  if (segment_name) {
-    // Check if segment exists, create if not
-    let segment = db.prepare('SELECT id FROM segments WHERE strava_segment_id = ?').get(segment_id.toString());
-    if (!segment) {
+  // Ensure segment exists (segment_id is now Strava segment ID)
+  if (segment_name && segment_id) {
+    // Upsert segment: insert if not exists
+    const existingSegment = db.prepare('SELECT strava_segment_id FROM segments WHERE strava_segment_id = ?').get(segment_id);
+    if (!existingSegment) {
       console.log('Creating new segment:', segment_id, segment_name);
-      const segmentResult = db.prepare(`
+      db.prepare(`
         INSERT INTO segments (strava_segment_id, name)
         VALUES (?, ?)
-      `).run(segment_id.toString(), segment_name);
-      finalSegmentId = segmentResult.lastInsertRowid;
-      console.log('Created segment with id:', finalSegmentId);
-    } else {
-      finalSegmentId = segment.id;
-      console.log('Using existing segment:', finalSegmentId);
+      `).run(segment_id, segment_name);
     }
+  } else if (!segment_id) {
+    return res.status(400).json({ error: 'segment_id is required' });
   } else {
-    // Validate segment exists
-    const segment = db.prepare('SELECT id FROM segments WHERE id = ?').get(segment_id);
-    if (!segment) {
+    // segment_id provided without segment_name - must exist in database
+    const existingSegment = db.prepare('SELECT strava_segment_id FROM segments WHERE strava_segment_id = ?').get(segment_id);
+    if (!existingSegment) {
       console.error('Invalid segment_id:', segment_id);
       return res.status(400).json({ 
         error: 'Invalid segment_id',
-        message: 'Segment does not exist. Please provide segment_name to create it.'
+        message: 'Segment does not exist. Provide segment_name to create it, or use an existing segment.'
       });
     }
   }
@@ -1162,7 +973,7 @@ app.post('/admin/weeks', (req, res) => {
       season_id: finalSeasonId, 
       week_name, 
       date: finalDate, 
-      segment_id: finalSegmentId, 
+      segment_id: segment_id, 
       required_laps, 
       start_time: defaultStartTime, 
       end_time: defaultEndTime 
@@ -1171,13 +982,13 @@ app.post('/admin/weeks', (req, res) => {
     const result = db.prepare(`
       INSERT INTO weeks (season_id, week_name, date, segment_id, required_laps, start_time, end_time)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(finalSeasonId, week_name, finalDate, finalSegmentId, required_laps, defaultStartTime, defaultEndTime);
+    `).run(finalSeasonId, week_name, finalDate, segment_id, required_laps, defaultStartTime, defaultEndTime);
 
     const newWeek = db.prepare(`
       SELECT w.id, w.season_id, w.week_name, w.date, w.segment_id, w.required_laps, 
-             w.start_time, w.end_time, s.name as segment_name
+             w.start_time, w.end_time, s.name as segment_name, s.strava_segment_id
       FROM weeks w
-      LEFT JOIN segments s ON w.segment_id = s.id
+      LEFT JOIN segments s ON w.segment_id = s.strava_segment_id
       WHERE w.id = ?
     `).get(result.lastInsertRowid);
 
@@ -1222,13 +1033,39 @@ app.put('/admin/weeks/:id', (req, res) => {
     values.push(date);
   }
   if (segment_id !== undefined) {
-    // Validate segment exists
-    const segment = db.prepare('SELECT id FROM segments WHERE id = ?').get(segment_id);
-    if (!segment) {
-      return res.status(400).json({ error: 'Invalid segment_id' });
+    if (req.body.segment_name !== undefined) {
+      // segment_id with segment_name: Upsert the segment
+      const existingSegment = db.prepare('SELECT strava_segment_id FROM segments WHERE strava_segment_id = ?').get(segment_id);
+      if (existingSegment) {
+        // Update existing segment name
+        db.prepare(`
+          UPDATE segments 
+          SET name = ?
+          WHERE strava_segment_id = ?
+        `).run(req.body.segment_name, segment_id);
+      } else {
+        // Insert new segment
+        db.prepare(`
+          INSERT INTO segments (strava_segment_id, name)
+          VALUES (?, ?)
+        `).run(segment_id, req.body.segment_name);
+      }
+      
+      // Update week to point to this Strava segment ID
+      updates.push('segment_id = ?');
+      values.push(segment_id);
+    } else {
+      // segment_id without segment_name: Must exist in database
+      const existingSegment = db.prepare('SELECT strava_segment_id FROM segments WHERE strava_segment_id = ?').get(segment_id);
+      if (!existingSegment) {
+        return res.status(400).json({ 
+          error: 'Invalid segment_id',
+          message: 'Segment does not exist. Provide segment_name to create it, or use an existing segment.'
+        });
+      }
+      updates.push('segment_id = ?');
+      values.push(segment_id);
     }
-    updates.push('segment_id = ?');
-    values.push(segment_id);
   }
   if (required_laps !== undefined) {
     updates.push('required_laps = ?');
@@ -1312,9 +1149,9 @@ app.post('/admin/weeks/:id/fetch-results', async (req, res) => {
   try {
     // Get week details including segment info
     const week = db.prepare(`
-      SELECT w.*, s.strava_segment_id 
+      SELECT w.*, s.strava_segment_id, s.name as segment_name
       FROM weeks w
-      JOIN segments s ON w.segment_id = s.id
+      JOIN segments s ON w.segment_id = s.strava_segment_id
       WHERE w.id = ?
     `).get(weekId);
     
@@ -1324,9 +1161,9 @@ app.post('/admin/weeks/:id/fetch-results', async (req, res) => {
     
     // Get all connected participants (those with valid tokens)
     const participants = db.prepare(`
-      SELECT p.id, p.name, p.strava_athlete_id, pt.access_token
+      SELECT p.strava_athlete_id, p.name, pt.access_token
       FROM participants p
-      JOIN participant_tokens pt ON p.id = pt.participant_id
+      JOIN participant_tokens pt ON p.strava_athlete_id = pt.strava_athlete_id
       WHERE pt.access_token IS NOT NULL
     `).all();
     
@@ -1345,10 +1182,10 @@ app.post('/admin/weeks/:id/fetch-results', async (req, res) => {
     // Process each participant
     for (const participant of participants) {
       try {
-        console.log(`Fetching activities for ${participant.name} (ID: ${participant.id})`);
+        console.log(`Fetching activities for ${participant.name} (Strava ID: ${participant.strava_athlete_id})`);
         
         // Get valid token (auto-refreshes if needed)
-        const accessToken = await getValidAccessToken(participant.id);
+        const accessToken = await getValidAccessToken(participant.strava_athlete_id);
         
         // Fetch activities from event day
         const activities = await fetchActivitiesOnDay(
@@ -1371,10 +1208,10 @@ app.post('/admin/weeks/:id/fetch-results', async (req, res) => {
           console.log(`Best activity for ${participant.name}: ${bestActivity.id} (${bestActivity.totalTime}s)`);
           
           // Store activity and efforts
-          storeActivityAndEfforts(participant.id, weekId, bestActivity, week.segment_id);
+          storeActivityAndEfforts(participant.strava_athlete_id, weekId, bestActivity, week.segment_id);
           
           results.push({
-            participant_id: participant.id,
+            participant_id: participant.strava_athlete_id,
             participant_name: participant.name,
             activity_found: true,
             activity_id: bestActivity.id,
@@ -1385,7 +1222,7 @@ app.post('/admin/weeks/:id/fetch-results', async (req, res) => {
         } else {
           console.log(`No qualifying activities for ${participant.name}`);
           results.push({
-            participant_id: participant.id,
+            participant_id: participant.strava_athlete_id,
             participant_name: participant.name,
             activity_found: false,
             reason: 'No qualifying activities on event day'
@@ -1394,7 +1231,7 @@ app.post('/admin/weeks/:id/fetch-results', async (req, res) => {
       } catch (error) {
         console.error(`Error processing ${participant.name}:`, error.message);
         results.push({
-          participant_id: participant.id,
+          participant_id: participant.strava_athlete_id,
           participant_name: participant.name,
           activity_found: false,
           reason: error.message
@@ -1430,13 +1267,13 @@ app.get('/admin/participants', (req, res) => {
   try {
     const participants = db.prepare(`
       SELECT 
-        p.id,
+        p.strava_athlete_id as id,
         p.name,
         p.strava_athlete_id,
         CASE WHEN pt.access_token IS NOT NULL THEN 1 ELSE 0 END as has_token,
         pt.expires_at as token_expires_at
       FROM participants p
-      LEFT JOIN participant_tokens pt ON p.id = pt.participant_id
+      LEFT JOIN participant_tokens pt ON p.strava_athlete_id = pt.strava_athlete_id
       ORDER BY p.name
     `).all();
     
@@ -1450,6 +1287,50 @@ app.get('/admin/participants', (req, res) => {
   }
 });
 
+// Validate segment endpoint (checks if segment exists on Strava)
+app.get('/admin/segments/:id/validate', async (req, res) => {
+  const segmentId = req.params.id;
+  
+  try {
+    // Get any connected participant's token to query Strava API
+    const tokenRecord = db.prepare(`
+      SELECT access_token, strava_athlete_id FROM participant_tokens LIMIT 1
+    `).get();
+    
+    if (!tokenRecord) {
+      return res.status(400).json({ 
+        error: 'No connected participants available to validate segment' 
+      });
+    }
+    
+    const accessToken = await getValidAccessToken(tokenRecord.strava_athlete_id);
+    const client = new strava.client(accessToken);
+    
+    // Try to fetch segment details from Strava
+    const segment = await client.segments.get({ id: segmentId });
+    
+    res.json({
+      id: segment.id,
+      name: segment.name,
+      distance: segment.distance,
+      average_grade: segment.average_grade,
+      city: segment.city,
+      state: segment.state,
+      country: segment.country
+    });
+  } catch (error) {
+    console.error('Segment validation error:', error);
+    if (error.statusCode === 404) {
+      res.status(404).json({ error: 'Segment not found on Strava' });
+    } else {
+      res.status(500).json({ 
+        error: 'Failed to validate segment',
+        details: error.message
+      });
+    }
+  }
+});
+
 // Activity submission endpoint
 app.post('/weeks/:id/submit-activity', async (req, res) => {
   const weekId = parseInt(req.params.id, 10);
@@ -1457,8 +1338,8 @@ app.post('/weeks/:id/submit-activity', async (req, res) => {
 
   try {
     // Get participant from session
-    const participantId = req.session?.participantId;
-    if (!participantId) {
+    const stravaAthleteId = req.session?.stravaAthleteId;
+    if (!stravaAthleteId) {
       return res.status(401).json({ 
         error: 'Not authenticated',
         message: 'You must connect your Strava account first'
@@ -1486,7 +1367,7 @@ app.post('/weeks/:id/submit-activity', async (req, res) => {
     const week = db.prepare(`
       SELECT w.*, s.name as segment_name, s.strava_segment_id 
       FROM weeks w
-      JOIN segments s ON w.segment_id = s.id
+      JOIN segments s ON w.segment_id = s.strava_segment_id
       WHERE w.id = ?
     `).get(weekId);
 
@@ -1497,7 +1378,7 @@ app.post('/weeks/:id/submit-activity', async (req, res) => {
     // Get valid access token for this participant
     let accessToken;
     try {
-      accessToken = await getValidAccessToken(participantId);
+      accessToken = await getValidAccessToken(stravaAthleteId);
     } catch (error) {
       return res.status(401).json({ 
         error: 'Strava not connected',
@@ -1560,8 +1441,8 @@ app.post('/weeks/:id/submit-activity', async (req, res) => {
     // Check if activity already submitted
     const existingActivity = db.prepare(`
       SELECT id FROM activities 
-      WHERE week_id = ? AND participant_id = ?
-    `).get(weekId, participantId);
+      WHERE week_id = ? AND strava_athlete_id = ?
+    `).get(weekId, stravaAthleteId);
 
     if (existingActivity) {
       // Delete existing submission to replace it
@@ -1571,9 +1452,9 @@ app.post('/weeks/:id/submit-activity', async (req, res) => {
 
     // Store activity
     const activityResult = db.prepare(`
-      INSERT INTO activities (week_id, participant_id, strava_activity_id, activity_url, activity_date)
+      INSERT INTO activities (week_id, strava_athlete_id, strava_activity_id, activity_url, activity_date)
       VALUES (?, ?, ?, ?, ?)
-    `).run(weekId, participantId, activityId, activity_url, activityDate);
+    `).run(weekId, stravaAthleteId, activityId, activity_url, activityDate);
 
     const activityDbId = activityResult.lastInsertRowid;
 
@@ -1618,15 +1499,18 @@ app.post('/weeks/:id/submit-activity', async (req, res) => {
 // ========================================
 // UTILITY ENDPOINTS (Development/Admin)
 // ========================================
+// NOTE: These endpoints are commented out until Strava integration is fully implemented
+// They require authenticated Strava access tokens and segment-utils.js
 
+/*
 // GET /utils/inspect-activity/:id - Inspect a Strava activity and extract segment info
 app.get('/utils/inspect-activity/:activityId', async (req, res) => {
   const activityId = req.params.activityId;
   
   try {
     // Get participant from session
-    const participantId = req.session?.participantId;
-    if (!participantId) {
+    const stravaAthleteId = req.session?.stravaAthleteId;
+    if (!stravaAthleteId) {
       return res.status(401).json({ 
         error: 'Not authenticated',
         message: 'You must connect your Strava account first'
@@ -1636,7 +1520,7 @@ app.get('/utils/inspect-activity/:activityId', async (req, res) => {
     // Get valid access token
     let accessToken;
     try {
-      accessToken = await getValidAccessToken(participantId);
+      accessToken = await getValidAccessToken(stravaAthleteId);
     } catch (error) {
       return res.status(401).json({ 
         error: 'Strava not connected',
@@ -1694,15 +1578,15 @@ app.get('/admin/segment/:id', async (req, res) => {
   
   try {
     // Get authenticated user's token
-    const participantId = req.session?.participantId;
-    if (!participantId) {
+    const stravaAthleteId = req.session?.stravaAthleteId;
+    if (!stravaAthleteId) {
       return res.status(401).json({ 
         error: 'Not authenticated',
         message: 'You must connect your Strava account first'
       });
     }
 
-    const token = await getValidAccessToken(participantId);
+    const token = await getValidAccessToken(stravaAthleteId);
     if (!token) {
       return res.status(401).json({ 
         error: 'No valid token',
@@ -1710,7 +1594,7 @@ app.get('/admin/segment/:id', async (req, res) => {
       });
     }
 
-    console.log(`[GET /admin/segment/${segmentId}] Using token for participant ${participantId}`);
+    console.log(`[GET /admin/segment/${segmentId}] Using token for athlete ${stravaAthleteId}`);
     console.log(`[GET /admin/segment/${segmentId}] Token starts with: ${token.substring(0, 20)}...`);
 
     const segmentDetails = await getSegmentDetails(segmentId, token);
@@ -1730,15 +1614,15 @@ app.get('/admin/activity/:id/segments', async (req, res) => {
   
   try {
     // Get authenticated user's token
-    const participantId = req.session?.participantId;
-    if (!participantId) {
+    const stravaAthleteId = req.session?.stravaAthleteId;
+    if (!stravaAthleteId) {
       return res.status(401).json({ 
         error: 'Not authenticated',
         message: 'You must connect your Strava account first'
       });
     }
 
-    const token = await getValidAccessToken(participantId);
+    const token = await getValidAccessToken(stravaAthleteId);
     if (!token) {
       return res.status(401).json({ 
         error: 'No valid token',
@@ -1765,15 +1649,15 @@ app.get('/admin/activity/:id/segments', async (req, res) => {
 app.get('/admin/segments/starred', async (req, res) => {
   try {
     // Get authenticated user's token
-    const participantId = req.session?.participantId;
-    if (!participantId) {
+    const stravaAthleteId = req.session?.stravaAthleteId;
+    if (!stravaAthleteId) {
       return res.status(401).json({ 
         error: 'Not authenticated',
         message: 'You must connect your Strava account first'
       });
     }
 
-    const token = await getValidAccessToken(participantId);
+    const token = await getValidAccessToken(stravaAthleteId);
     if (!token) {
       return res.status(401).json({ 
         error: 'No valid token',
@@ -1799,12 +1683,24 @@ app.get('/admin/segments/starred', async (req, res) => {
     });
   }
 });
+*/
 
 // Export for testing
 module.exports = { app, db, validateActivityTimeWindow, calculateWeekResults };
 
 // Only start server if not being imported for tests
 if (require.main === module) {
+  // Seed season on startup if needed
+  const existingSeasons = db.prepare('SELECT COUNT(*) as count FROM seasons').get();
+  if (existingSeasons.count === 0) {
+    console.log('🌱 No seasons found. Creating Fall 2025 season...');
+    db.prepare(`
+      INSERT INTO seasons (id, name, start_date, end_date, is_active)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(1, 'Fall 2025', '2025-10-01', '2025-12-31', 1);
+    console.log('✅ Fall 2025 season created (Oct 1 - Dec 31)');
+  }
+
   app.listen(PORT, () => {
     console.log(`WMV backend listening on port ${PORT}`);
   });

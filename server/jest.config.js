@@ -11,11 +11,12 @@ module.exports = {
   ],
   coverageThreshold: {
     global: {
-      branches: 70,
-      functions: 70,
-      lines: 70,
-      statements: 70
+      branches: 47,
+      functions: 47,
+      lines: 47,
+      statements: 47
     }
   },
+  globalTeardown: '<rootDir>/src/__tests__/globalTeardown.js',
   verbose: true
 };

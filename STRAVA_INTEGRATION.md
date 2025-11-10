@@ -796,4 +796,118 @@ Once tested:
 3. Provide simple instructions: "Visit app → Click Connect → Done!"
 4. Monitor for connection issues/questions
 
+## Utility Endpoints for Development (Currently Commented Out)
+
+The following helper endpoints were implemented in `server/src/index.js` (lines ~1500-1690) but are commented out until full Strava integration is complete. They require authenticated Strava access tokens and the `segment-utils.js` helper file.
+
+### Available Utility Endpoints
+
+#### `GET /utils/inspect-activity/:activityId`
+**Purpose:** Inspect a Strava activity and extract all segment information
+**Use Case:** Admins can paste a Strava activity URL to see all segments ridden and copy the segment ID for creating a new week
+**Returns:**
+- Activity metadata (name, date, distance)
+- List of all segments with IDs, names, times, PR status
+- Formatted times (MM:SS)
+- Clickable URLs to segments
+
+**Example Usage:**
+```
+GET /utils/inspect-activity/12345678
+```
+
+**Response:**
+```json
+{
+  "activity_id": 12345678,
+  "activity_name": "Morning Ride",
+  "activity_url": "https://www.strava.com/activities/12345678",
+  "total_segments": 5,
+  "segments": [
+    {
+      "segment_id": 987654,
+      "segment_name": "Lookout Mountain Climb",
+      "segment_url": "https://www.strava.com/segments/987654",
+      "effort_time": 1485,
+      "effort_time_formatted": "24:45",
+      "is_pr": true
+    }
+  ],
+  "usage_hint": "Copy the segment_id from the segment you want to use for a week"
+}
+```
+
+#### `GET /admin/segment/:id`
+**Purpose:** Get detailed information about a specific Strava segment
+**Use Case:** Before creating a week, verify segment details (length, elevation, location)
+**Returns:** Full segment details from Strava API including stats and location
+
+**Example Usage:**
+```
+GET /admin/segment/987654
+```
+
+#### `GET /admin/activity/:id/segments`
+**Purpose:** Get all segments from a specific activity with occurrence counts
+**Use Case:** Useful for multi-lap segments - shows how many times each segment was ridden
+**Returns:** 
+- Segment list with occurrence counts
+- All efforts with times and PR status
+
+**Example Usage:**
+```
+GET /admin/activity/12345678/segments
+```
+
+**Response:**
+```json
+{
+  "activity_id": 12345678,
+  "segment_count": 2,
+  "segments": [
+    {
+      "id": 987654,
+      "name": "Champs-Élysées",
+      "occurrences": 2,
+      "efforts": [
+        { "elapsed_time": 885, "pr_rank": null },
+        { "elapsed_time": 895, "pr_rank": 1 }
+      ]
+    }
+  ]
+}
+```
+
+#### `GET /admin/segments/starred`
+**Purpose:** Get authenticated user's starred segments from Strava
+**Use Case:** Quickly see which segments the admin has already starred for easy selection
+**Returns:** List of all starred segments with details
+
+**Example Usage:**
+```
+GET /admin/segments/starred
+```
+
+### Helper File: `segment-utils.js`
+
+The file `server/src/segment-utils.js` was deleted but contained three helper functions:
+- `getSegmentDetails(segmentId, accessToken)` - Fetch segment from Strava API
+- `getStarredSegments(accessToken)` - Fetch athlete's starred segments
+- `getSegmentsFromActivity(activityId, accessToken)` - Extract all segments from activity
+
+**To restore these utilities:**
+1. Uncomment lines ~1500-1690 in `server/src/index.js`
+2. Recreate `server/src/segment-utils.js` with the three helper functions (see git history)
+3. Add `const { getSegmentDetails, getSegmentsFromActivity, getStarredSegments } = require('./segment-utils');` to imports
+4. Write tests for these endpoints in `server/src/__tests__/admin-utilities.test.js`
+
+### When to Restore These Endpoints
+
+Restore when:
+- Full OAuth flow is implemented and tested
+- Admins need an easier way to select segments for weekly competitions
+- You want a UI for browsing and selecting segments instead of manually finding segment IDs
+
+These endpoints were useful during initial development for discovering segment IDs but aren't critical for the core functionality.
+
 

@@ -57,7 +57,56 @@ function WeekManager() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log('Submitting week form data:', formData);
+    // Get segment input value
+    const segmentInput = (document.getElementById('segment_input') as HTMLInputElement)?.value.trim();
+    
+    // Extract segment ID from URL or use as-is if it's just a number
+    let segmentId = formData.segment_id;
+    let segmentName = formData.segment_name;
+    
+    if (segmentInput) {
+      // Extract ID from URL like https://www.strava.com/segments/12744502
+      const urlMatch = segmentInput.match(/segments\/(\d+)/);
+      const extractedId = urlMatch ? urlMatch[1] : segmentInput;
+      
+      if (!/^\d+$/.test(extractedId)) {
+        setMessage({ type: 'error', text: 'Invalid segment ID or URL' });
+        setTimeout(() => setMessage(null), 5000);
+        return;
+      }
+      
+      // Validate segment exists and get name
+      try {
+        const response = await fetch(`http://localhost:3001/admin/segments/${extractedId}/validate`, {
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          throw new Error('Segment not found or invalid');
+        }
+        
+        const segmentData = await response.json();
+        segmentId = parseInt(extractedId);
+        segmentName = segmentData.name;
+      } catch (err: any) {
+        setMessage({ type: 'error', text: `Failed to validate segment: ${err.message}` });
+        setTimeout(() => setMessage(null), 5000);
+        return;
+      }
+    } else if (!editingWeekId) {
+      // Creating new week - segment is required
+      setMessage({ type: 'error', text: 'Segment is required' });
+      setTimeout(() => setMessage(null), 5000);
+      return;
+    }
+    
+    const submitData = {
+      ...formData,
+      segment_id: segmentId,
+      segment_name: segmentName
+    };
+    
+    console.log('Submitting week form data:', submitData);
     
     try {
       const url = editingWeekId 
@@ -70,7 +119,7 @@ function WeekManager() {
         method,
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(formData)
+        body: JSON.stringify(submitData)
       });
 
       if (!response.ok) {
@@ -99,6 +148,10 @@ function WeekManager() {
         end_time: ''
       });
       
+      // Clear segment input
+      const segmentInputEl = document.getElementById('segment_input') as HTMLInputElement;
+      if (segmentInputEl) segmentInputEl.value = '';
+      
       // Refresh weeks list
       await fetchWeeks();
       
@@ -113,7 +166,7 @@ function WeekManager() {
   const handleEdit = (week: Week) => {
     setFormData({
       week_name: week.week_name,
-      segment_id: week.segment_id,
+      segment_id: week.strava_segment_id ? parseInt(week.strava_segment_id) : week.segment_id,
       segment_name: week.segment_name || '',
       required_laps: week.required_laps,
       start_time: week.start_time,
@@ -298,30 +351,38 @@ function WeekManager() {
           </div>
 
           <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="segment_id">Segment ID</label>
-              <input
-                type="number"
-                id="segment_id"
-                name="segment_id"
-                value={formData.segment_id || ''}
-                onChange={handleInputChange}
-                required
-                placeholder="From Strava segment URL"
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="segment_name">Segment Name</label>
+            <div className="form-group full-width">
+              <label htmlFor="segment_input">
+                Segment (Strava URL or ID)
+                {formData.segment_name && (
+                  <span style={{ marginLeft: '10px', fontSize: '0.9em' }}>
+                    - Current: {formData.segment_name}
+                    {formData.segment_id && (
+                      <>
+                        {' '}(
+                        <a 
+                          href={`https://www.strava.com/segments/${formData.segment_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: '#f56004' }}
+                        >
+                          View on Strava
+                        </a>
+                        )
+                      </>
+                    )}
+                  </span>
+                )}
+              </label>
               <input
                 type="text"
-                id="segment_name"
-                name="segment_name"
-                value={formData.segment_name}
-                onChange={handleInputChange}
-                required
-                placeholder="e.g., Box Hill KOM"
+                id="segment_input"
+                name="segment_input"
+                placeholder="e.g., https://www.strava.com/segments/12744502 or just 12744502"
               />
+              <small style={{ color: '#666' }}>
+                Paste a Strava segment URL or just the segment ID. Use Segment Finder above if needed.
+              </small>
             </div>
           </div>
 
