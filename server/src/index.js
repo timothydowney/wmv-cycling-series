@@ -1287,6 +1287,28 @@ app.get('/admin/participants', (req, res) => {
   }
 });
 
+// Get all known segments (for autocomplete)
+app.get('/admin/segments', (req, res) => {
+  try {
+    const segments = db.prepare(`
+      SELECT 
+        strava_segment_id as id,
+        strava_segment_id,
+        name
+      FROM segments
+      ORDER BY name
+    `).all();
+    
+    res.json(segments);
+  } catch (error) {
+    console.error('Failed to get segments:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch segments',
+      details: error.message
+    });
+  }
+});
+
 // Validate segment endpoint (checks if segment exists on Strava)
 app.get('/admin/segments/:id/validate', async (req, res) => {
   const segmentId = req.params.id;
