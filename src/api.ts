@@ -14,12 +14,12 @@ export interface Week {
   season_id: number;
   week_name: string;
   date: string;
-  segment_id: number;
+  segment_id: number; // This is now the Strava segment ID
   required_laps: number;
   start_time: string;
   end_time: string;
   segment_name?: string;
-  strava_segment_id?: string;
+  strava_segment_id?: number; // Same as segment_id (for backwards compatibility)
 }
 
 export interface LeaderboardEntry {

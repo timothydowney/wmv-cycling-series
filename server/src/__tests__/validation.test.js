@@ -96,10 +96,15 @@ describe('Helper Functions', () => {
     });
   });
 
-  afterAll(() => {
+  afterAll(async () => {
     // Clean up test database
+    await new Promise(resolve => setTimeout(resolve, 100));
     if (fs.existsSync(TEST_DB_PATH)) {
-      fs.unlinkSync(TEST_DB_PATH);
+      try {
+        fs.unlinkSync(TEST_DB_PATH);
+      } catch (err) {
+        // File may be locked
+      }
     }
   });
 });

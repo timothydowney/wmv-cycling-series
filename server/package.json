@@ -9,8 +9,9 @@
     "start": "node src/index.js",
     "predev": "node check-node.js",
     "dev": "NODE_ENV=development nodemon src/index.js",
-    "test": "NODE_ENV=test jest --coverage",
+    "test": "NODE_ENV=test jest --coverage --runInBand",
     "test:watch": "NODE_ENV=test jest --watch",
+    "seed": "node scripts/seed.js",
     "export:season": "node scripts/export-season-data.js",
     "import:season": "node scripts/import-season-data.js"
   },
