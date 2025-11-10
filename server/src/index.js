@@ -23,9 +23,9 @@ const CLIENT_BASE_URL = process.env.CLIENT_BASE_URL || 'http://localhost:5173';
 const DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, '..', 'data', 'wmv.db');
 
 const app = express();
-// Enable CORS for local development - allow both localhost and 127.0.0.1
+// Enable CORS for frontend - use CLIENT_BASE_URL environment variable
 app.use(cors({ 
-  origin: [CLIENT_BASE_URL, 'http://localhost:5173', 'http://127.0.0.1:5173'],
+  origin: CLIENT_BASE_URL,
   credentials: true // Important: allow cookies to be sent
 }));
 app.use(express.json());
