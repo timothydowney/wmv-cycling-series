@@ -124,7 +124,8 @@ function WeekManager() {
   const handleEdit = (week: Week) => {
     setFormData({
       week_name: week.week_name,
-      segment_id: week.strava_segment_id ? parseInt(week.strava_segment_id) : week.segment_id,
+      // strava_segment_id is already a number when present; fall back to segment_id
+      segment_id: week.strava_segment_id ?? week.segment_id,
       segment_name: week.segment_name || '',
       required_laps: week.required_laps,
       start_time: week.start_time,

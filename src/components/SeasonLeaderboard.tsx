@@ -51,7 +51,7 @@ const SeasonLeaderboard: React.FC = () => {
             </tr>
           ) : (
             standings.map((standing, index) => (
-              <tr key={standing.participant_id}>
+              <tr key={standing.id}>
                 <td>{index + 1}</td>
                 <td>{standing.name}</td>
                 <td>{standing.total_points}</td>
