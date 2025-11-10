@@ -22,11 +22,20 @@ jobs:
         run: |
           npm ci
 
+      - name: Audit dependencies (frontend)
+        run: npm audit
+
+      - name: Audit dependencies (backend)
+        run: cd server && npm audit || true
+
       - name: Typecheck (frontend)
         run: npm run typecheck
 
       - name: Lint (frontend)
         run: npm run lint
+
+      - name: Lint (backend)
+        run: cd server && npm run lint
 
       - name: Build
         run: npm run build
