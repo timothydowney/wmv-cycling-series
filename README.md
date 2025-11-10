@@ -38,9 +38,10 @@ npm run build           # Build for production
 - ✅ Weekly + season leaderboards
 - ✅ Admin week and segment management
 - ✅ Strava OAuth (participants connect once, activities fetched automatically)
+- ✅ OAuth token encryption (AES-256-GCM at rest in database)
 - ✅ SQLite database with test data
-- ✅ 95+ backend tests
-- ✅ Complete documentation
+- ✅ 105+ backend tests (including encryption security tests)
+- ✅ Complete documentation (including security audit and encryption guide)
 
 ## Architecture
 
@@ -60,6 +61,7 @@ Start with one of these:
 | First time? | [Quick Start](./docs/QUICK_START.md) - 5 min setup |
 | Understanding the system? | [Architecture](./docs/ARCHITECTURE.md) |
 | Building features? | [API Reference](./docs/API.md) |
+| Security & encryption? | [Security Audit](./docs/SECURITY_AUDIT.md) & [Encryption Guide](./docs/TOKEN_ENCRYPTION_GUIDE.md) |
 | Deploying? | [Deployment Guide](./docs/DEPLOYMENT.md) |
 | Running admin tasks? | [Admin Guide](./ADMIN_GUIDE.md) |
 | Need everything? | [Documentation Index](./docs/README.md) |
