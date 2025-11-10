@@ -1,88 +1,92 @@
 # WMV Cycling Series
 
-Western Mass Velo’s weekly Zwift/Strava hill climb & time trial series. React + TypeScript frontend, Express + SQLite backend. Simple to run locally; designed for small clubs.
+Western Mass Velo's weekly Zwift/Strava hill climb & time trial series. React + TypeScript frontend, Express + SQLite backend. Simple to run locally; designed for small clubs.
+
+## Quick Start
+
+**Get running in 5 minutes:**
+
+```bash
+npm install              # Install everything
+npm run dev:all         # Start both servers
+# Visit http://localhost:5173
+```
+
+See [Quick Start Guide](./docs/QUICK_START.md) for details.
 
 ## Requirements
 
-- Node.js 24.x (LTS) — required for better-sqlite3
+- **Node.js 24.x** (required for better-sqlite3)
 - npm (bundled with Node)
 
-Tip: `.nvmrc` pins Node 24. If you use nvm:
+**Install Node 24:**
 ```bash
 nvm install 24 && nvm use 24
 ```
 
-## Quick start
+## Commands
 
-Install deps (frontend + backend):
 ```bash
-npm install
+npm run dev:all         # Start frontend + backend (RECOMMENDED)
+npm run stop            # Kill stuck processes
+npm test                # Run tests
+npm run build           # Build for production
 ```
 
-Run both servers (frontend on 5173, backend on 3001):
-```bash
-npm run dev:all
-```
+## What's Included
 
-Stop/cleanup (kills stuck vite/nodemon/ports):
-```bash
-npm run stop
-```
+- ✅ Weekly + season leaderboards
+- ✅ Admin week and segment management
+- ✅ Strava OAuth (participants connect once, activities fetched automatically)
+- ✅ SQLite database with test data
+- ✅ 95+ backend tests
+- ✅ Complete documentation
 
-Build:
-```bash
-npm run build
-```
+## Architecture
 
-Test (backend):
-```bash
-npm test
-```
+- **Frontend:** React 18 + TypeScript (Vite)
+- **Backend:** Node.js 24.x + Express + SQLite
+- **Auth:** Strava OAuth (per-participant tokens)
+- **Deployment:** Railway.app (recommended)
 
-## What’s included
+See [Architecture Overview](./docs/ARCHITECTURE.md) for system design.
 
-- Leaderboards: weekly + season
-- Admin: manage weeks, manage segments (validate via Strava, store metadata)
-- Participant Strava OAuth (planned flow; test data by default)
-- SQLite DB with seed/test data
+## Documentation
 
-## Dev workflow
+Start with one of these:
 
-- Preferred: `npm run dev:all` (runs backend + frontend together)
-- Separate (optional):
-  - Backend: `npm run dev:server` (in project root)
-  - Frontend: `npm run dev`
-
-If you see “port already in use,” run `npm run stop`.
-
-## Configuration
-
-Optional (for live Strava validation/OAuth):
-1) Copy env and set credentials
-```bash
-cp server/.env.example server/.env
-```
-2) Edit `server/.env` with your Strava app credentials
-
-Without credentials, the app uses test data and local validation where possible.
+| For... | Read |
+|--------|------|
+| First time? | [Quick Start](./docs/QUICK_START.md) - 5 min setup |
+| Understanding the system? | [Architecture](./docs/ARCHITECTURE.md) |
+| Building features? | [API Reference](./docs/API.md) |
+| Deploying? | [Deployment Guide](./docs/DEPLOYMENT.md) |
+| Running admin tasks? | [Admin Guide](./ADMIN_GUIDE.md) |
+| Need everything? | [Documentation Index](./docs/README.md) |
 
 ## Troubleshooting
 
-- better-sqlite3 build errors: ensure Node 24.x; then `cd server && npm rebuild better-sqlite3`
-- CORS/network: make sure both servers are running (5173, 3001)
-- Stuck processes/ports: `npm run stop`
+**Port in use?**
+```bash
+npm run stop
+npm run dev:all
+```
 
-## Docs
+**Wrong Node version?**
+```bash
+nvm install 24
+nvm use 24
+npm run dev:all
+```
 
-- docs index: `docs/README.md`
-- architecture overview: `docs/ARCHITECTURE.md`
-- API reference: `docs/API.md`
-- scoring rules: `docs/SCORING.md`
-- admin guide: `ADMIN_GUIDE.md`
-- database design: `DATABASE_DESIGN.md`
-- roadmap: `PLAN.md`
-- Strava integration plan: `STRAVA_INTEGRATION.md`
+**Build errors?**
+```bash
+npm install
+cd server && npm rebuild better-sqlite3
+```
+
+See [Quick Start Guide](./docs/QUICK_START.md) for more troubleshooting.
 
 ## License
 
-MIT (suggested). Add a LICENSE file if you plan to distribute publicly.
+MIT

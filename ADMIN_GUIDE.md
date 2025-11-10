@@ -337,6 +337,14 @@ The current workflow is:
 7. **Clear naming** - Include the segment name and lap requirement in the week name (e.g., "Week 3: Lookout Mountain - 2 Laps")
 8. **Time zone awareness** - All times are in UTC; make sure participants know their local time conversion
 
+## References
+
+- **Scoring rules:** See `docs/SCORING.md`
+- **Database design:** See `docs/DATABASE_DESIGN.md`
+- **Strava OAuth:** See `docs/STRAVA_INTEGRATION.md`
+- **API reference:** See `docs/API.md`
+- **Architecture:** See `docs/ARCHITECTURE.md`
+
 ## Common Scenarios
 
 ### Fetching results after event day
