@@ -6,6 +6,7 @@ const Database = require('better-sqlite3');
 const session = require('express-session');
 const SqliteStore = require('better-sqlite3-session-store')(session);
 const strava = require('strava-v3');
+const { encryptToken, decryptToken } = require('./encryption');
 
 dotenv.config();
 
@@ -256,6 +257,15 @@ async function getValidAccessToken(stravaAthleteId) {
     throw new Error('Participant not connected to Strava');
   }
   
+  // Decrypt the stored refresh token (for checking expiry and refresh)
+  let refreshToken = tokenRecord.refresh_token;
+  try {
+    refreshToken = decryptToken(tokenRecord.refresh_token);
+  } catch (error) {
+    console.warn(`Failed to decrypt refresh token for ${stravaAthleteId}. May be plaintext from before encryption: ${error.message}`);
+    // If decryption fails, assume it's plaintext (migration case)
+  }
+  
   const now = Math.floor(Date.now() / 1000);  // Current Unix timestamp
   
   // Token expires in less than 1 hour? Refresh it proactively
@@ -264,9 +274,10 @@ async function getValidAccessToken(stravaAthleteId) {
     
     try {
       // Use strava-v3 to refresh the token
-      const newTokenData = await strava.oauth.refreshToken(tokenRecord.refresh_token);
+      const newTokenData = await strava.oauth.refreshToken(refreshToken);
       
       // Update database with NEW tokens (both access and refresh tokens change!)
+      // Store encrypted
       db.prepare(`
         UPDATE participant_tokens 
         SET access_token = ?,
@@ -275,20 +286,28 @@ async function getValidAccessToken(stravaAthleteId) {
             updated_at = CURRENT_TIMESTAMP
         WHERE strava_athlete_id = ?
       `).run(
-        newTokenData.access_token,
-        newTokenData.refresh_token,
+        encryptToken(newTokenData.access_token),
+        encryptToken(newTokenData.refresh_token),
         newTokenData.expires_at,
         stravaAthleteId
       );
       
+      // Return the plaintext access token (kept in memory for use)
       return newTokenData.access_token;
     } catch (error) {
       throw new Error(`Failed to refresh token: ${error.message}`);
     }
   }
   
-  // Token still valid, return it
-  return tokenRecord.access_token;
+  // Token still valid, decrypt and return it
+  try {
+    const accessToken = decryptToken(tokenRecord.access_token);
+    return accessToken;
+  } catch (error) {
+    console.warn(`Failed to decrypt access token for ${stravaAthleteId}. May be plaintext from before encryption: ${error.message}`);
+    // If decryption fails, assume it's plaintext (migration case)
+    return tokenRecord.access_token;
+  }
 }
 
 /**
@@ -508,20 +527,20 @@ app.get('/auth/strava/callback', async (req, res) => {
     
     console.log(`Participant record ensured for ${athleteName}`);
     
-    // Store tokens for this participant
+    // Store tokens for this participant (ENCRYPTED)
     db.prepare(`
       INSERT OR REPLACE INTO participant_tokens 
       (strava_athlete_id, access_token, refresh_token, expires_at, scope)
       VALUES (?, ?, ?, ?, ?)
     `).run(
       stravaAthleteId,
-      tokenData.access_token,
-      tokenData.refresh_token,
+      encryptToken(tokenData.access_token),
+      encryptToken(tokenData.refresh_token),
       tokenData.expires_at,
       scope || tokenData.scope
     );
     
-    console.log(`Tokens stored for participant ${stravaAthleteId}`);
+    console.log(`Tokens stored (encrypted) for participant ${stravaAthleteId}`);
     
     // Store session (use Strava athlete ID as the session identifier)
     req.session.stravaAthleteId = stravaAthleteId;
