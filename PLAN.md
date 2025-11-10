@@ -171,9 +171,12 @@ For local development, Strava API credentials (Client ID and Client Secret) are 
     *   ✅ `POST /admin/weeks` - Create week with segment ID
     *   ✅ `PUT /admin/weeks/:id` - Update week
     *   ✅ `DELETE /admin/weeks/:id` - Delete week
-    *   ⏳ Admin UI for creating/editing weeks
-    *   ⏳ Segment ID validation (verify segment exists via Strava API)
-    *   ⏳ Segment search/selection UI (future enhancement)
+    *   ✅ Admin UI for creating/editing weeks with Event Date picker (auto-fills midnight-10pm times)
+    *   ✅ Enhanced segment input with URL validation and visual feedback
+    *   ✅ `GET /admin/segments` - List all known segments for autocomplete
+    *   ✅ Segment URL parsing (strips query params, validates via Strava API)
+    *   ✅ Autocomplete dropdown of previously used segments
+    *   📋 Segment search/selection UI (future enhancement: smart single-box that auto-detects URLs vs names)
     
     **Future Automation:**
     *   📋 Event-based system using Strava webhooks

@@ -1,0 +1,181 @@
+.segment-input-container {
+  margin-bottom: 1.5rem;
+}
+
+.segment-input-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.segment-url-input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 2px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: border-color 0.3s;
+  box-sizing: border-box;
+}
+
+.segment-url-input:focus {
+  outline: none;
+  border-color: #FC5200;
+}
+
+.segment-url-input.valid {
+  border-color: #28a745;
+  background-color: #f0fff4;
+}
+
+.segment-url-input.error {
+  border-color: #dc3545;
+  background-color: #fff5f5;
+}
+
+.segment-name-input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 2px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: border-color 0.3s;
+  box-sizing: border-box;
+}
+
+.segment-name-input:focus {
+  outline: none;
+  border-color: #FC5200;
+}
+
+.segment-name-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.segment-name-display {
+  width: 100%;
+  padding: 0.5rem;
+  border: 2px solid #ddd;
+  border-radius: 4px;
+  background-color: white;
+  font-size: 14px;
+  color: #333;
+  transition: border-color 0.3s;
+}
+
+.segment-name-display:focus {
+  outline: none;
+  border-color: #FC5200;
+}
+
+.name-autocomplete-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 250px;
+  overflow-y: auto;
+  background: white;
+  border: 2px solid #FC5200;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  margin-top: -2px;
+}
+
+.validation-spinner {
+  color: #FC5200;
+  font-size: 14px;
+}
+
+.validation-success {
+  color: #28a745;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.validation-error {
+  color: #dc3545;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.error-text {
+  color: #dc3545;
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.known-segments-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e0e0e0;
+}
+
+.toggle-segments-button {
+  background: none;
+  border: none;
+  color: #FC5200;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0.5rem 0;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.toggle-segments-button:hover {
+  color: #d64400;
+  text-decoration: underline;
+}
+
+.known-segments-dropdown {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin-top: 0.5rem;
+  background: white;
+}
+
+.segment-option {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-bottom: 1px solid #f0f0f0;
+  background: white;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.2s;
+}
+
+.segment-option:last-child {
+  border-bottom: none;
+}
+
+.segment-option:hover {
+  background-color: #f8f8f8;
+}
+
+.segment-option-name {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+}
+
+.segment-option-id {
+  font-size: 12px;
+  color: #666;
+  font-family: monospace;
+}
+
+@media (max-width: 768px) {
+  .segment-input-row {
+    grid-template-columns: 1fr;
+  }
+}
