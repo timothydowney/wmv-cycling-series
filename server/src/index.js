@@ -80,6 +80,11 @@ CREATE TABLE IF NOT EXISTS participants (
 CREATE TABLE IF NOT EXISTS segments (
   strava_segment_id INTEGER PRIMARY KEY,
   name TEXT NOT NULL,
+  distance REAL,
+  average_grade REAL,
+  city TEXT,
+  state TEXT,
+  country TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -1294,7 +1299,12 @@ app.get('/admin/segments', (req, res) => {
       SELECT 
         strava_segment_id as id,
         strava_segment_id,
-        name
+        name,
+        distance,
+        average_grade,
+        city,
+        state,
+        country
       FROM segments
       ORDER BY name
     `).all();
@@ -1306,6 +1316,44 @@ app.get('/admin/segments', (req, res) => {
       error: 'Failed to fetch segments',
       details: error.message
     });
+  }
+});
+
+// Create or update a segment in our database
+app.post('/admin/segments', (req, res) => {
+  const { strava_segment_id, name, distance, average_grade, city, state, country } = req.body || {};
+
+  if (!strava_segment_id || !name) {
+    return res.status(400).json({
+      error: 'Missing required fields',
+      required: ['strava_segment_id', 'name']
+    });
+  }
+
+  try {
+    // Upsert segment by Strava ID with metadata
+    db.prepare(`
+      INSERT INTO segments (strava_segment_id, name, distance, average_grade, city, state, country)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(strava_segment_id) DO UPDATE SET 
+        name = excluded.name,
+        distance = excluded.distance,
+        average_grade = excluded.average_grade,
+        city = excluded.city,
+        state = excluded.state,
+        country = excluded.country
+    `).run(strava_segment_id, name, distance, average_grade, city, state, country);
+
+    const saved = db.prepare(`
+      SELECT strava_segment_id as id, strava_segment_id, name, distance, average_grade, city, state, country
+      FROM segments
+      WHERE strava_segment_id = ?
+    `).get(strava_segment_id);
+
+    return res.status(201).json(saved);
+  } catch (error) {
+    console.error('Failed to upsert segment:', error);
+    return res.status(500).json({ error: 'Failed to save segment', details: error.message });
   }
 });
 

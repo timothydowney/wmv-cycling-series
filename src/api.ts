@@ -73,6 +73,28 @@ export interface SubmissionResponse {
   };
 }
 
+// Segment interfaces
+export interface AdminSegment {
+  id: number; // same as strava_segment_id
+  strava_segment_id: number;
+  name: string;
+  distance?: number;
+  average_grade?: number;
+  city?: string;
+  state?: string;
+  country?: string;
+}
+
+export interface ValidatedSegmentDetails {
+  id: number;
+  name: string;
+  distance?: number;
+  average_grade?: number;
+  city?: string;
+  state?: string;
+  country?: string;
+}
+
 export const api = {
   async getSeasons(): Promise<Season[]> {
     const response = await fetch(`${API_BASE_URL}/seasons`);
@@ -153,6 +175,42 @@ export const api = {
   getConnectUrl(): string {
     return `${API_BASE_URL}/auth/strava`;
   },
+
+  async getAdminSegments(): Promise<AdminSegment[]> {
+    const response = await fetch(`${API_BASE_URL}/admin/segments`);
+    if (!response.ok) throw new Error('Failed to fetch segments');
+    return response.json();
+  },
+
+  async validateSegment(id: number): Promise<ValidatedSegmentDetails> {
+    const response = await fetch(`${API_BASE_URL}/admin/segments/${id}/validate`, { credentials: 'include' });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || err.message || 'Segment validation failed');
+    }
+    return response.json();
+  },
+
+  async addSegment(strava_segment_id: number, name: string, details?: Partial<ValidatedSegmentDetails>): Promise<AdminSegment> {
+    const response = await fetch(`${API_BASE_URL}/admin/segments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        strava_segment_id, 
+        name,
+        distance: details?.distance,
+        average_grade: details?.average_grade,
+        city: details?.city,
+        state: details?.state,
+        country: details?.country
+      })
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || err.message || 'Failed to save segment');
+    }
+    return response.json();
+  }
 };
 
 // Named exports for convenience (used by components)
@@ -194,4 +252,16 @@ export async function submitActivity(weekId: number, data: ActivitySubmission): 
 
 export function getConnectUrl(): string {
   return api.getConnectUrl();
+}
+
+export async function getAdminSegments(): Promise<AdminSegment[]> {
+  return api.getAdminSegments();
+}
+
+export async function validateSegment(id: number): Promise<ValidatedSegmentDetails> {
+  return api.validateSegment(id);
+}
+
+export async function addSegment(strava_segment_id: number, name: string, details?: Partial<ValidatedSegmentDetails>): Promise<AdminSegment> {
+  return api.addSegment(strava_segment_id, name, details);
 }

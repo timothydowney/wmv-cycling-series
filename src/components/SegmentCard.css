@@ -1,0 +1,52 @@
+.segment-card {
+  background: white;
+  border: 1px solid #ddd;
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+}
+
+.segment-card-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.segment-link {
+  color: #fc4c02;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s;
+}
+
+.segment-link:hover {
+  color: #e34402;
+  text-decoration: underline;
+}
+
+.segment-id-pill {
+  display: inline-block;
+  background: #ffe5d6;
+  color: #cc3c00;
+  padding: 0.15rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.segment-card-stats {
+  font-size: 0.85rem;
+  color: #555;
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.segment-card-stats > span:not(:last-child)::after {
+  content: '•';
+  margin-left: 0.75rem;
+  color: #999;
+}
