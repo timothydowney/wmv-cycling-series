@@ -2,10 +2,13 @@
 /**
  * Database Seeding Script
  * 
- * Creates initial season and test data for development.
+ * Creates initial Fall 2025 season for development.
  * Run with: npm run seed
  * 
- * This script is safe to run multiple times - it checks for existing data.
+ * Safe to run multiple times - checks for existing seasons.
+ * 
+ * Note: Participants, segments, and weeks are created via the admin UI.
+ * Tests create their own test fixtures inline (see __tests__/).
  */
 
 const Database = require('better-sqlite3');
@@ -44,7 +47,7 @@ console.log('');
 console.log('✅ Database seeding complete!');
 console.log('');
 console.log('Next steps:');
-console.log('  1. Create segments via admin API (POST /admin/weeks with segment_name)');
-console.log('  2. Create weeks via admin API (POST /admin/weeks)');
-console.log('  3. Participants auto-created when they connect via Strava OAuth');
+console.log('  1. Participants connect via Strava OAuth');
+console.log('  2. Admin creates segments via Manage Segments page');
+console.log('  3. Admin creates weeks via Week Manager');
 console.log('');
