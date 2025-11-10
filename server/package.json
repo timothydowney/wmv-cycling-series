@@ -16,7 +16,7 @@
     "import:season": "node scripts/import-season-data.js"
   },
   "engines": {
-    "node": ">=20 <=25"
+    "node": ">=24 <25"
   },
   "dependencies": {
     "better-sqlite3": "^12.4.1",

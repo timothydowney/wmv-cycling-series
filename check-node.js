@@ -5,9 +5,9 @@ const majorVersion = parseInt(nodeVersion.split('.')[0]);
 
 console.log(`Current Node.js version: v${nodeVersion}`);
 
-if (majorVersion < 20 || majorVersion > 25) {
+if (majorVersion !== 24) {
   console.error('\n❌ ERROR: Wrong Node.js version!');
-  console.error('This project requires Node.js v20-25');
+  console.error('This project requires Node.js 24.x (LTS)');
   console.error(`You are using v${nodeVersion}\n`);
   console.error('To fix this:');
   console.error('  nvm use 24');

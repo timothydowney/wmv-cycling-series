@@ -6,13 +6,12 @@ This is a React + TypeScript frontend with Node.js Express backend application f
 ## Critical Setup Information
 
 ### Node.js Version Requirements
-- **REQUIRED:** Node.js v20-24 (NOT v25+)
-- The project uses `better-sqlite3` native module which requires Node 20-24
-- `.nvmrc` file specifies Node 20
-- If user has Node 25+, instruct them to either:
-  1. Downgrade to Node 20 or 24
-  2. Use `npx -p node@20` prefix for npm commands
-  3. Use nvm: `nvm install 20 && nvm use 20`
+- REQUIRED: Node.js 24.x (LTS). Node 25+ is not supported yet.
+- The project uses `better-sqlite3` native module; tested and supported on Node 24.x
+- `.nvmrc` file specifies Node 24
+- If user is on a different Node version, instruct them to either:
+  1. Use nvm: `nvm install 24 && nvm use 24`
+  2. Use `npx -p node@24` prefix for npm commands
 
 ### Development Server Setup
 
@@ -41,7 +40,7 @@ This is a React + TypeScript frontend with Node.js Express backend application f
 
 #### 2. better-sqlite3 Build Errors
 - Almost always caused by wrong Node.js version
-- **Solution:** Ensure Node 20-24 is being used
+- Solution: Ensure Node 24.x is being used
 - Then run: `cd server && npm rebuild better-sqlite3`
 
 #### 3. Port Already in Use
@@ -124,7 +123,7 @@ npm run build  # Builds both backend and frontend
 5. `STRAVA_INTEGRATION.md` - OAuth flow and API integration plans
 
 ### Key Configuration Files
-- `.nvmrc` - Node version (20)
+- `.nvmrc` - Node version (24)
 - `package.json` - Frontend dependencies and scripts
 - `server/package.json` - Backend dependencies
 - `vite.config.ts` - Vite build configuration
@@ -207,7 +206,7 @@ lsof -ti:5173  # Frontend
 
 ## Common User Questions
 
-**Q: Why do I need Node 20-24 and not 25?**
+**Q: Why do I need Node 24 and not 25?**
 A: The `better-sqlite3` native module doesn't support Node 25 yet.
 
 **Q: Can I use just the frontend without the backend?**
