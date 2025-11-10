@@ -74,7 +74,7 @@ For local development, Strava API credentials (Client ID and Client Secret) are 
     *   Implement "dumb" components for rendering leaderboards and selectors.
 
 4.  **Backend API (✅ Complete):**
-    *   Set up Node 20-24 environment.
+  *   Set up Node 24.x environment.
     *   Create Express + SQLite backend in `server/`.
     *   Implement database schema (participants, segments, weeks, activities, segment_efforts, results).
     *   Auto-seed from existing JSON files.
