@@ -1278,7 +1278,7 @@ app.post('/admin/weeks', (req, res) => {
   // Ensure segment exists (segment_id is now Strava segment ID)
   if (segment_name && segment_id) {
     // Upsert segment: insert if not exists
-    const existingSegment = db.prepare('SELECT strava_segment_id FROM segment WHERE strava_strava_segment_id = ?').get(segment_id);
+    const existingSegment = db.prepare('SELECT strava_segment_id FROM segment WHERE strava_segment_id = ?').get(segment_id);
     if (!existingSegment) {
       console.log('Creating new segment:', segment_id, segment_name);
       db.prepare(`
@@ -1290,7 +1290,7 @@ app.post('/admin/weeks', (req, res) => {
     return res.status(400).json({ error: 'segment_id is required' });
   } else {
     // segment_id provided without segment_name - must exist in database
-    const existingSegment = db.prepare('SELECT strava_segment_id FROM segment WHERE strava_strava_segment_id = ?').get(segment_id);
+    const existingSegment = db.prepare('SELECT strava_segment_id FROM segment WHERE strava_segment_id = ?').get(segment_id);
     if (!existingSegment) {
       console.error('Invalid segment_id:', segment_id);
       return res.status(400).json({ 
@@ -1367,13 +1367,13 @@ app.put('/admin/weeks/:id', (req, res) => {
   if (segment_id !== undefined) {
     if (req.body.segment_name !== undefined) {
       // segment_id with segment_name: Upsert the segment
-      const existingSegment = db.prepare('SELECT strava_segment_id FROM segment WHERE strava_strava_segment_id = ?').get(segment_id);
+      const existingSegment = db.prepare('SELECT strava_segment_id FROM segment WHERE strava_segment_id = ?').get(segment_id);
       if (existingSegment) {
         // Update existing segment name
         db.prepare(`
-          UPDATE segments 
+          UPDATE segment 
           SET name = ?
-          WHERE strava_strava_segment_id = ?
+          WHERE strava_segment_id = ?
         `).run(req.body.segment_name, segment_id);
       } else {
         // Insert new segment
@@ -1388,7 +1388,7 @@ app.put('/admin/weeks/:id', (req, res) => {
       values.push(segment_id);
     } else {
       // segment_id without segment_name: Must exist in database
-      const existingSegment = db.prepare('SELECT strava_segment_id FROM segment WHERE strava_strava_segment_id = ?').get(segment_id);
+      const existingSegment = db.prepare('SELECT strava_segment_id FROM segment WHERE strava_segment_id = ?').get(segment_id);
       if (!existingSegment) {
         return res.status(400).json({ 
           error: 'Invalid segment_id',
@@ -1672,7 +1672,7 @@ app.post('/admin/segments', (req, res) => {
 
     const saved = db.prepare(`
       SELECT strava_segment_id as id, strava_segment_id, name, distance, average_grade, city, state, country
-      FROM segment WHERE strava_strava_segment_id = ?
+      FROM segment WHERE strava_segment_id = ?
     `).get(strava_segment_id);
 
     return res.status(201).json(saved);

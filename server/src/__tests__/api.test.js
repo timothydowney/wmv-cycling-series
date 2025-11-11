@@ -96,7 +96,7 @@ describe('WMV Backend API', () => {
     // Create test activities and results for Week 1
     const activity1 = db.prepare(`
       INSERT INTO activity (week_id, strava_athlete_id, strava_activity_id, validation_status) VALUES (?, ?, ?, ?)
-    `).run(testWeekId1, TEST_ATHLETE_1, 9001, 'https://www.strava.com/activities/9001', '2025-11-05');
+    `).run(testWeekId1, TEST_ATHLETE_1, 9001, 'valid');
     testActivityId1 = activity1.lastInsertRowid;
     
     db.prepare(`
@@ -106,7 +106,7 @@ describe('WMV Backend API', () => {
 
     const activity2 = db.prepare(`
       INSERT INTO activity (week_id, strava_athlete_id, strava_activity_id, validation_status) VALUES (?, ?, ?, ?)
-    `).run(testWeekId1, TEST_ATHLETE_2, 9002, 'https://www.strava.com/activities/9002', '2025-11-05');
+    `).run(testWeekId1, TEST_ATHLETE_2, 9002, 'valid');
     testActivityId2 = activity2.lastInsertRowid;
     
     db.prepare(`

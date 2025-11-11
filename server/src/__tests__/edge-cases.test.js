@@ -222,7 +222,7 @@ describe('Edge Cases and Error Handling', () => {
       db.prepare('INSERT INTO participant (strava_athlete_id, name) VALUES (?, ?)').run(testAthleteId, 'Test Participant');
       const activityResult = db.prepare(`
         INSERT INTO activity (week_id, strava_athlete_id, strava_activity_id, validation_status) VALUES (?, ?, ?, ?)
-      `).run(weekId, testAthleteId, 1234567, 'https://www.strava.com/activities/1234567', '2025-11-15');
+      `).run(weekId, testAthleteId, 1234567, 'valid');
       
       db.prepare(`
         INSERT INTO result (week_id, strava_athlete_id, activity_id, total_time_seconds, rank, points, pr_bonus_points)
