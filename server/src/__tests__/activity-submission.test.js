@@ -37,31 +37,31 @@ describe('Activity Submission API', () => {
 
   beforeAll(() => {
     // Clear any seeded data - tests should be self-contained
-    db.prepare('DELETE FROM results').run();
-    db.prepare('DELETE FROM segment_efforts').run();
-    db.prepare('DELETE FROM activities').run();
-    db.prepare('DELETE FROM weeks').run();
-    db.prepare('DELETE FROM participant_tokens').run();
-    db.prepare('DELETE FROM participants').run();
-    db.prepare('DELETE FROM segments').run();
-    db.prepare('DELETE FROM seasons').run();
+    db.prepare('DELETE FROM result').run();
+    db.prepare('DELETE FROM segment_effort').run();
+    db.prepare('DELETE FROM activity').run();
+    db.prepare('DELETE FROM week').run();
+    db.prepare('DELETE FROM participant_token').run();
+    db.prepare('DELETE FROM participant').run();
+    db.prepare('DELETE FROM segment').run();
+    db.prepare('DELETE FROM season').run();
 
     // Create test season
     const seasonResult = db.prepare(`
-      INSERT INTO seasons (name, start_date, end_date, is_active)
+      INSERT INTO season (name, start_date, end_date, is_active)
       VALUES (?, ?, ?, ?)
     `).run('Test Season', '2025-01-01', '2025-12-31', 1);
     testSeasonId = seasonResult.lastInsertRowid;
 
     // Create test segment
     db.prepare(`
-      INSERT INTO segments (strava_segment_id, name)
+      INSERT INTO segment (strava_segment_id, name)
       VALUES (?, ?)
     `).run(testSegmentId, 'Test Climb Segment');
 
     // Create test week
     const weekResult = db.prepare(`
-      INSERT INTO weeks (season_id, week_name, date, segment_id, required_laps, start_time, end_time)
+      INSERT INTO week (season_id, week_name, date, strava_segment_id, required_laps, start_time, end_time)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(
       testSeasonId,
@@ -76,14 +76,14 @@ describe('Activity Submission API', () => {
 
     // Create a test participant with Strava athlete ID
     db.prepare(`
-      INSERT INTO participants (strava_athlete_id, name)
+      INSERT INTO participant (strava_athlete_id, name)
       VALUES (?, ?)
     `).run(testStravaAthleteId, 'Test Athlete');
 
     // Insert test tokens (expires far in the future)
     const expiresAt = Math.floor(Date.now() / 1000) + 86400; // 24 hours from now
     db.prepare(`
-      INSERT INTO participant_tokens (strava_athlete_id, access_token, refresh_token, expires_at, scope)
+      INSERT INTO participant_token (strava_athlete_id, access_token, refresh_token, expires_at, scope)
       VALUES (?, ?, ?, ?, ?)
     `).run(
       testStravaAthleteId,
@@ -223,7 +223,7 @@ describe('Activity Submission API', () => {
   describe('Token refresh logic', () => {
     test('uses existing token when not expired', async () => {
       const token = db.prepare(`
-        SELECT * FROM participant_tokens WHERE strava_athlete_id = ?
+        SELECT * FROM participant_token WHERE strava_athlete_id = ?
       `).get(testStravaAthleteId);
 
       expect(token).toBeDefined();
@@ -235,7 +235,7 @@ describe('Activity Submission API', () => {
 
     test('token expiry is stored as unix timestamp', async () => {
       const token = db.prepare(`
-        SELECT expires_at FROM participant_tokens WHERE strava_athlete_id = ?
+        SELECT expires_at FROM participant_token WHERE strava_athlete_id = ?
       `).get(testStravaAthleteId);
 
       expect(token.expires_at).toBeGreaterThan(1700000000); // After Nov 2023

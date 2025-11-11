@@ -39,24 +39,24 @@ describe('WMV Backend API', () => {
 
   beforeAll(() => {
     // Clear all data - ensure clean slate for tests
-    db.prepare('DELETE FROM results').run();
-    db.prepare('DELETE FROM segment_efforts').run();
-    db.prepare('DELETE FROM activities').run();
-    db.prepare('DELETE FROM weeks').run();
-    db.prepare('DELETE FROM participant_tokens').run();
-    db.prepare('DELETE FROM participants').run();
-    db.prepare('DELETE FROM segments').run();
-    db.prepare('DELETE FROM seasons').run();
+    db.prepare('DELETE FROM result').run();
+    db.prepare('DELETE FROM segment_effort').run();
+    db.prepare('DELETE FROM activity').run();
+    db.prepare('DELETE FROM week').run();
+    db.prepare('DELETE FROM participant_token').run();
+    db.prepare('DELETE FROM participant').run();
+    db.prepare('DELETE FROM segment').run();
+    db.prepare('DELETE FROM season').run();
 
     // Create test season
     db.prepare(`
-      INSERT INTO seasons (id, name, start_date, end_date, is_active)
+      INSERT INTO season (id, name, start_date, end_date, is_active)
       VALUES (?, ?, ?, ?, ?)
     `).run(TEST_SEASON_ID, 'Test Season 2025', '2025-11-01', '2025-12-31', 1);
 
     // Create test segments
     db.prepare(`
-      INSERT INTO segments (strava_segment_id, name)
+      INSERT INTO segment (strava_segment_id, name)
       VALUES (?, ?), (?, ?)
     `).run(
       TEST_SEGMENT_1, 'Test Segment 1',
@@ -65,7 +65,7 @@ describe('WMV Backend API', () => {
 
     // Create test participants
     db.prepare(`
-      INSERT INTO participants (strava_athlete_id, name)
+      INSERT INTO participant (strava_athlete_id, name)
       VALUES (?, ?), (?, ?), (?, ?)
     `).run(
       TEST_ATHLETE_1, 'Test Athlete 1',
@@ -75,7 +75,7 @@ describe('WMV Backend API', () => {
 
     // Create test weeks
     const week1Result = db.prepare(`
-      INSERT INTO weeks (season_id, week_name, date, segment_id, required_laps, start_time, end_time)
+      INSERT INTO week (season_id, week_name, date, strava_segment_id, required_laps, start_time, end_time)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(
       TEST_SEASON_ID, 'Test Week 1', '2025-11-05',
@@ -85,7 +85,7 @@ describe('WMV Backend API', () => {
     testWeekId1 = week1Result.lastInsertRowid;
 
     db.prepare(`
-      INSERT INTO weeks (season_id, week_name, date, segment_id, required_laps, start_time, end_time)
+      INSERT INTO week (season_id, week_name, date, strava_segment_id, required_laps, start_time, end_time)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(
       TEST_SEASON_ID, 'Test Week 2', '2025-11-12',
@@ -95,30 +95,28 @@ describe('WMV Backend API', () => {
 
     // Create test activities and results for Week 1
     const activity1 = db.prepare(`
-      INSERT INTO activities (week_id, strava_athlete_id, strava_activity_id, activity_url, activity_date, validation_status)
-      VALUES (?, ?, ?, ?, ?, 'valid')
+      INSERT INTO activity (week_id, strava_athlete_id, strava_activity_id, validation_status) VALUES (?, ?, ?, ?)
     `).run(testWeekId1, TEST_ATHLETE_1, 9001, 'https://www.strava.com/activities/9001', '2025-11-05');
     testActivityId1 = activity1.lastInsertRowid;
     
     db.prepare(`
-      INSERT INTO segment_efforts (activity_id, segment_id, effort_index, elapsed_seconds, pr_achieved)
+      INSERT INTO segment_effort (activity_id, strava_segment_id, effort_index, elapsed_seconds, pr_achieved)
       VALUES (?, ?, ?, ?, ?)
     `).run(testActivityId1, TEST_SEGMENT_1, 1, 1500, 0);
 
     const activity2 = db.prepare(`
-      INSERT INTO activities (week_id, strava_athlete_id, strava_activity_id, activity_url, activity_date, validation_status)
-      VALUES (?, ?, ?, ?, ?, 'valid')
+      INSERT INTO activity (week_id, strava_athlete_id, strava_activity_id, validation_status) VALUES (?, ?, ?, ?)
     `).run(testWeekId1, TEST_ATHLETE_2, 9002, 'https://www.strava.com/activities/9002', '2025-11-05');
     testActivityId2 = activity2.lastInsertRowid;
     
     db.prepare(`
-      INSERT INTO segment_efforts (activity_id, segment_id, effort_index, elapsed_seconds, pr_achieved)
+      INSERT INTO segment_effort (activity_id, strava_segment_id, effort_index, elapsed_seconds, pr_achieved)
       VALUES (?, ?, ?, ?, ?)
     `).run(testActivityId2, TEST_SEGMENT_1, 1, 1600, 1);
 
     // Calculate results for test week
     db.prepare(`
-      INSERT INTO results (week_id, strava_athlete_id, activity_id, total_time_seconds, rank, points, pr_bonus_points)
+      INSERT INTO result (week_id, strava_athlete_id, activity_id, total_time_seconds, rank, points, pr_bonus_points)
       VALUES (?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?)
     `).run(
       testWeekId1, TEST_ATHLETE_1, testActivityId1, 1500, 1, 2, 0,
@@ -251,9 +249,7 @@ describe('WMV Backend API', () => {
       expect(entry).toHaveProperty('rank');
       expect(entry).toHaveProperty('name');
       expect(entry).toHaveProperty('total_time_seconds');
-      expect(entry).toHaveProperty('points');
-      expect(entry).toHaveProperty('activity_url');
-    });
+      expect(entry).toHaveProperty('points');    });
 
     test('GET /weeks/:id/leaderboard is sorted by rank', async () => {
       const response = await request(app).get(`/weeks/${testWeekId1}/leaderboard`);
@@ -282,9 +278,7 @@ describe('WMV Backend API', () => {
     test('GET /weeks/:id/activities returns activities list', async () => {
       const response = await request(app).get(`/weeks/${testWeekId1}/activities`);
       expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body[0]).toHaveProperty('activity_url');
-      expect(response.body[0]).toHaveProperty('validation_status');
+      expect(Array.isArray(response.body)).toBe(true);      expect(response.body[0]).toHaveProperty('validation_status');
     });
 
     test('GET /activities/:id/efforts returns segment efforts', async () => {

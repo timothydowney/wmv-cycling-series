@@ -35,12 +35,12 @@ describe('Edge Cases and Error Handling', () => {
   beforeAll(() => {
     // Create test season and segments for edge case tests
     db.prepare(`
-      INSERT INTO seasons (id, name, start_date, end_date, is_active)
+      INSERT INTO season (id, name, start_date, end_date, is_active)
       VALUES (?, ?, ?, ?, ?)
     `).run(TEST_SEASON_ID, 'Edge Case Season', '2025-01-01', '2025-12-31', 1);
 
     db.prepare(`
-      INSERT INTO segments (strava_segment_id, name)
+      INSERT INTO segment (strava_segment_id, name)
       VALUES (?, ?), (?, ?)
     `).run(
       TEST_SEGMENT_1, 'Test Segment 1',
@@ -219,32 +219,31 @@ describe('Edge Cases and Error Handling', () => {
 
       // Create a participant and activity for this week
       const testAthleteId = 9988776655;
-      db.prepare('INSERT INTO participants (strava_athlete_id, name) VALUES (?, ?)').run(testAthleteId, 'Test Participant');
+      db.prepare('INSERT INTO participant (strava_athlete_id, name) VALUES (?, ?)').run(testAthleteId, 'Test Participant');
       const activityResult = db.prepare(`
-        INSERT INTO activities (week_id, strava_athlete_id, strava_activity_id, activity_url, activity_date, validation_status)
-        VALUES (?, ?, ?, ?, ?, 'valid')
+        INSERT INTO activity (week_id, strava_athlete_id, strava_activity_id, validation_status) VALUES (?, ?, ?, ?)
       `).run(weekId, testAthleteId, 1234567, 'https://www.strava.com/activities/1234567', '2025-11-15');
       
       db.prepare(`
-        INSERT INTO results (week_id, strava_athlete_id, activity_id, total_time_seconds, rank, points, pr_bonus_points)
+        INSERT INTO result (week_id, strava_athlete_id, activity_id, total_time_seconds, rank, points, pr_bonus_points)
         VALUES (?, ?, ?, ?, ?, ?, ?)
       `).run(weekId, testAthleteId, activityResult.lastInsertRowid, 1500, 1, 1, 0);
 
       // Verify data exists
-      const activitiesBefore = db.prepare('SELECT * FROM activities WHERE week_id = ?').all(weekId);
+      const activitiesBefore = db.prepare('SELECT * FROM activity WHERE week_id = ?').all(weekId);
       expect(activitiesBefore.length).toBeGreaterThan(0);
 
-      const resultsBefore = db.prepare('SELECT * FROM results WHERE week_id = ?').all(weekId);
+      const resultsBefore = db.prepare('SELECT * FROM result WHERE week_id = ?').all(weekId);
       expect(resultsBefore.length).toBeGreaterThan(0);
 
       // Delete week
       await request(app).delete(`/admin/weeks/${weekId}`);
 
       // Verify cascading deletion
-      const activitiesAfter = db.prepare('SELECT * FROM activities WHERE week_id = ?').all(weekId);
+      const activitiesAfter = db.prepare('SELECT * FROM activity WHERE week_id = ?').all(weekId);
       expect(activitiesAfter.length).toBe(0);
 
-      const resultsAfter = db.prepare('SELECT * FROM results WHERE week_id = ?').all(weekId);
+      const resultsAfter = db.prepare('SELECT * FROM result WHERE week_id = ?').all(weekId);
       expect(resultsAfter.length).toBe(0);
     });
 
