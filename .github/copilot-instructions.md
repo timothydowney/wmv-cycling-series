@@ -45,7 +45,20 @@ npm run stop  # Kills all dev processes and clears ports
 
 ## Pre-Commit Workflow
 
-**Always run before committing:**
+**Before committing, ALWAYS:**
+
+1. **Clean up junk files** - Remove any temporary, debug, or duplicate files you created during development
+   - Check `git status` for unintended files
+   - Look for duplicate files (e.g., `.js` and `.cjs` versions, temporary scripts)
+   - Remove test/debug artifacts
+   - This prevents bloating the repo with accidental files
+
+2. **Run the linter** (automatically enforced by pre-commit hook):
+```bash
+npm run lint:all  # Runs both frontend and backend linters
+```
+
+3. **Run full checks** if making substantial changes:
 ```bash
 npm run check  # Audits, typechecks, lints, builds, tests (everything)
 ```
@@ -55,6 +68,8 @@ npm run check  # Audits, typechecks, lints, builds, tests (everything)
 - **Type errors:** Fix TypeScript manually
 - **Lint:** Run `npm run lint:fix`
 - **Tests:** Fix code or test file, then rerun
+
+**Remember:** The pre-commit hook will block commits with linting errors. Clean up all junk before committing to keep the repo tidy.
 
 ---
 
