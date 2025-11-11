@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import './WeekManager.css';
-import { getWeeks, Week, fetchWeekForAdmin, createWeek, updateWeek, deleteWeek, fetchWeekResults } from '../api';
+import { getWeeks, Week, createWeek, updateWeek, deleteWeek, fetchWeekResults } from '../api';
 import SegmentInput from './SegmentInput';
 
 interface WeekFormData {
