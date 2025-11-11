@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import './SegmentFinder.css';
+import { inspectSegment } from '../api';
 
 interface SegmentDetails {
   id: number;
@@ -59,16 +60,7 @@ function SegmentFinder() {
     setSegment(null);
 
     try {
-      const response = await fetch(`http://localhost:3001/admin/segment/${segmentId}`, {
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to fetch segment');
-      }
-
-      const data = await response.json();
+      const data = await inspectSegment(parseInt(segmentId, 10));
       setSegment(data);
     } catch (err: any) {
       setError(err.message);

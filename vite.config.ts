@@ -5,8 +5,9 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   define: {
-    'import.meta.env.REACT_APP_BACKEND_URL': JSON.stringify(
-      (process.env as NodeJS.ProcessEnv).REACT_APP_BACKEND_URL || 'http://localhost:3001'
-    ),
+    // Allow REACT_APP_BACKEND_URL to be optionally set at build time
+    // For dev: REACT_APP_BACKEND_URL should be set in .env
+    // For prod (Docker/Railway): Leave unset so api.ts uses relative URLs automatically
+    'import.meta.env.REACT_APP_BACKEND_URL': JSON.stringify(process.env.REACT_APP_BACKEND_URL || ''),
   },
 })

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import './ParticipantStatus.css';
+import { getAdminParticipants } from '../api';
 
 interface Participant {
   id: number;
@@ -22,15 +23,7 @@ function ParticipantStatus() {
   const fetchParticipants = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:3001/admin/participants', {
-        credentials: 'include'
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch participants');
-      }
-      
-      const data = await response.json();
+      const data = await getAdminParticipants();
       setParticipants(data);
     } catch (err: any) {
       setError(err.message);

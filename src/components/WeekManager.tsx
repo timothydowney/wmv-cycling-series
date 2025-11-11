@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import './WeekManager.css';
-import { getWeeks, Week } from '../api';
+import { getWeeks, Week, fetchWeekForAdmin, createWeek, updateWeek, deleteWeek, fetchWeekResults } from '../api';
 import SegmentInput from './SegmentInput';
 
 interface WeekFormData {
@@ -71,26 +71,10 @@ function WeekManager() {
     console.log('Submitting week form data:', submitData);
     
     try {
-      const url = editingWeekId 
-        ? `http://localhost:3001/admin/weeks/${editingWeekId}`
-        : 'http://localhost:3001/admin/weeks';
-      
-      const method = editingWeekId ? 'PUT' : 'POST';
-      
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(submitData)
-      });
+      const result = editingWeekId 
+        ? await updateWeek(editingWeekId, submitData)
+        : await createWeek(submitData);
 
-      if (!response.ok) {
-        const error = await response.json();
-        console.error('Server error response:', error);
-        throw new Error(error.message || error.error || JSON.stringify(error));
-      }
-
-      const result = await response.json();
       console.log('Week saved successfully:', result);
       
       setMessage({ 
@@ -141,16 +125,7 @@ function WeekManager() {
     }
 
     try {
-      const response = await fetch(`http://localhost:3001/admin/weeks/${weekId}`, {
-        method: 'DELETE',
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to delete week');
-      }
-
+      await deleteWeek(weekId);
       setMessage({ type: 'success', text: 'Week deleted successfully!' });
       await fetchWeeks();
       setTimeout(() => setMessage(null), 3000);
@@ -168,17 +143,7 @@ function WeekManager() {
     setMessage({ type: 'success', text: 'Fetching results... this may take a moment.' });
 
     try {
-      const response = await fetch(`http://localhost:3001/admin/weeks/${weekId}/fetch-results`, {
-        method: 'POST',
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to fetch results');
-      }
-
-      const result = await response.json();
+      const result = await fetchWeekResults(weekId);
       setMessage({ 
         type: 'success', 
         text: `Fetched results for ${result.participants_processed} participants. Found ${result.results_found} qualifying activities.` 

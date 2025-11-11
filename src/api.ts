@@ -219,6 +219,101 @@ export const api = {
       throw new Error(err.error || err.message || 'Failed to save segment');
     }
     return response.json();
+  },
+
+  async getAdminParticipants(): Promise<any[]> {
+    const response = await fetch(`${API_BASE_URL}/admin/participants`, {
+      credentials: 'include'
+    });
+    if (!response.ok) throw new Error('Failed to fetch participants');
+    return response.json();
+  },
+
+  async fetchWeekForAdmin(weekId: number): Promise<Week> {
+    const response = await fetch(`${API_BASE_URL}/admin/weeks/${weekId}`, {
+      credentials: 'include'
+    });
+    if (!response.ok) throw new Error('Failed to fetch week');
+    return response.json();
+  },
+
+  async createWeek(data: Partial<Week>): Promise<Week> {
+    const response = await fetch(`${API_BASE_URL}/admin/weeks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to create week');
+    }
+    return response.json();
+  },
+
+  async updateWeek(weekId: number, data: Partial<Week>): Promise<Week> {
+    const response = await fetch(`${API_BASE_URL}/admin/weeks/${weekId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to update week');
+    }
+    return response.json();
+  },
+
+  async deleteWeek(weekId: number): Promise<{ message: string }> {
+    const response = await fetch(`${API_BASE_URL}/admin/weeks/${weekId}`, {
+      method: 'DELETE',
+      credentials: 'include'
+    });
+    if (!response.ok) throw new Error('Failed to delete week');
+    return response.json();
+  },
+
+  async fetchWeekResults(weekId: number): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/admin/weeks/${weekId}/fetch-results`, {
+      method: 'POST',
+      credentials: 'include'
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to fetch results');
+    }
+    return response.json();
+  },
+
+  async getKnownSegments(): Promise<AdminSegment[]> {
+    const response = await fetch(`${API_BASE_URL}/admin/segments`, {
+      credentials: 'include'
+    });
+    if (!response.ok) throw new Error('Failed to fetch segments');
+    return response.json();
+  },
+
+  async getStarredSegments(): Promise<any[]> {
+    const response = await fetch(`${API_BASE_URL}/admin/segments/starred`, {
+      credentials: 'include'
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || err.message || 'Failed to fetch starred segments');
+    }
+    return response.json().then((data: any) => data.segments || data);
+  },
+
+  async inspectSegment(segmentId: number): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/admin/segment/${segmentId}`, {
+      credentials: 'include'
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || err.message || 'Failed to inspect segment');
+    }
+    return response.json();
   }
 };
 
@@ -273,4 +368,40 @@ export async function validateSegment(id: number): Promise<ValidatedSegmentDetai
 
 export async function addSegment(strava_segment_id: number, name: string, details?: Partial<ValidatedSegmentDetails>): Promise<AdminSegment> {
   return api.addSegment(strava_segment_id, name, details);
+}
+
+export async function getAdminParticipants(): Promise<any[]> {
+  return api.getAdminParticipants();
+}
+
+export async function fetchWeekForAdmin(weekId: number): Promise<Week> {
+  return api.fetchWeekForAdmin(weekId);
+}
+
+export async function createWeek(data: Partial<Week>): Promise<Week> {
+  return api.createWeek(data);
+}
+
+export async function updateWeek(weekId: number, data: Partial<Week>): Promise<Week> {
+  return api.updateWeek(weekId, data);
+}
+
+export async function deleteWeek(weekId: number): Promise<{ message: string }> {
+  return api.deleteWeek(weekId);
+}
+
+export async function fetchWeekResults(weekId: number): Promise<any> {
+  return api.fetchWeekResults(weekId);
+}
+
+export async function getKnownSegments(): Promise<AdminSegment[]> {
+  return api.getKnownSegments();
+}
+
+export async function getStarredSegments(): Promise<any[]> {
+  return api.getStarredSegments();
+}
+
+export async function inspectSegment(segmentId: number): Promise<any> {
+  return api.inspectSegment(segmentId);
 }

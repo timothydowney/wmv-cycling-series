@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import './SegmentSearch.css';
+import { getStarredSegments } from '../api';
 
 interface SegmentSearchProps {
   onSegmentSelect?: (segmentId: number, segmentName: string) => void;
@@ -35,26 +36,10 @@ const SegmentSearch: React.FC<SegmentSearchProps> = ({ onSegmentSelect }) => {
     setSelectedSegment(null);
 
     try {
-      const response = await fetch(`http://localhost:3001/admin/segments/starred`, {
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        let errorMessage = 'Failed to fetch starred segments';
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorData.error || errorMessage;
-        } catch (e) {
-          // Response wasn't JSON, use status text
-          errorMessage = `Server error: ${response.status} ${response.statusText}`;
-        }
-        throw new Error(errorMessage);
-      }
-
-      const data = await response.json();
-      setResults(data.segments || []);
+      const segments = await getStarredSegments();
+      setResults(segments);
       
-      if (!data.segments || data.segments.length === 0) {
+      if (!segments || segments.length === 0) {
         setError('No starred segments found. Star segments on Strava.com first!');
       }
     } catch (err) {

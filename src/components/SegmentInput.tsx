@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import './SegmentInput.css';
+import { getAdminSegments, validateSegment as validateSegmentApi, addSegment } from '../api';
 
 interface Segment {
   id: number;
@@ -25,11 +26,8 @@ function SegmentInput({ value, onChange }: SegmentInputProps) {
   useEffect(() => {
     const fetchSegments = async () => {
       try {
-        const response = await fetch('http://localhost:3001/admin/segments');
-        if (response.ok) {
-          const segments = await response.json();
-          setKnownSegments(segments);
-        }
+        const segments = await getAdminSegments();
+        setKnownSegments(segments);
       } catch (error) {
         console.error('Failed to fetch known segments:', error);
       }
@@ -77,15 +75,7 @@ function SegmentInput({ value, onChange }: SegmentInputProps) {
     setErrorMessage('');
     
     try {
-      const response = await fetch(`http://localhost:3001/admin/segments/${segmentId}/validate`, {
-        credentials: 'include'
-      });
-      
-      if (!response.ok) {
-        throw new Error('Segment not found on Strava');
-      }
-      
-      const segmentData = await response.json();
+      const segmentData = await validateSegmentApi(segmentId);
       setValidationState('valid');
       onChange(segmentId, segmentData.name);
     } catch (error: any) {
