@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import './NavBar.css';
+import { getAuthStatus, disconnect, getConnectUrl } from '../api';
 
 interface NavBarProps {
   onAdminPanelToggle: () => void;
@@ -27,26 +28,20 @@ const NavBar: React.FC<NavBarProps> = ({ onAdminPanelToggle, isAdminPanelOpen: _
 
   const checkConnection = async () => {
     try {
-      const response = await fetch('http://localhost:3001/auth/status', {
-        credentials: 'include'
-      });
+      const data = await getAuthStatus();
+      setIsConnected(!!(data.authenticated && data.participant?.is_connected));
       
-      if (response.ok) {
-        const data = await response.json();
-        setIsConnected(data.authenticated && data.participant?.is_connected);
-        
-        // Convert participant data to athlete format
-        if (data.participant && data.participant.is_connected) {
-          const nameParts = data.participant.name.split(' ');
-          setAthleteInfo({
-            id: data.participant.strava_athlete_id,
-            firstname: nameParts[0] || '',
-            lastname: nameParts.slice(1).join(' ') || '',
-            profile: undefined // We don't have profile photo in our current schema
-          });
-        } else {
-          setAthleteInfo(null);
-        }
+      // Convert participant data to athlete format
+      if (data.participant && data.participant.is_connected) {
+        const nameParts = data.participant.name.split(' ');
+        setAthleteInfo({
+          id: data.participant.strava_athlete_id,
+          firstname: nameParts[0] || '',
+          lastname: nameParts.slice(1).join(' ') || '',
+          profile: undefined // We don't have profile photo in our current schema
+        });
+      } else {
+        setAthleteInfo(null);
       }
     } catch (error) {
       console.error('Error checking connection:', error);
@@ -55,15 +50,12 @@ const NavBar: React.FC<NavBarProps> = ({ onAdminPanelToggle, isAdminPanelOpen: _
   };
 
   const handleConnect = () => {
-    window.location.href = 'http://localhost:3001/auth/strava';
+    window.location.href = getConnectUrl();
   };
 
   const handleDisconnect = async () => {
     try {
-      await fetch('http://localhost:3001/auth/disconnect', {
-        method: 'POST',
-        credentials: 'include'
-      });
+      await disconnect();
       setIsConnected(false);
       setAthleteInfo(null);
       setIsMenuOpen(false);
