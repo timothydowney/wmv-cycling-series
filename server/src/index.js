@@ -568,11 +568,19 @@ app.get('/auth/strava/callback', async (req, res) => {
     req.session.stravaAthleteId = stravaAthleteId;
     req.session.athleteName = tokenData.athlete.firstname;
     
-    // Redirect to dashboard with safe fallback to request base URL
-    const baseUrl = CLIENT_BASE_URL || getBaseUrl(req);
-    const finalRedirect = `${baseUrl}?connected=true`;
-    console.log('[AUTH] Callback successful, redirecting to:', finalRedirect);
-    res.redirect(finalRedirect);
+    // Explicitly save session before redirecting (important for some session stores)
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session save error:', err);
+        return res.redirect(`${CLIENT_BASE_URL}?error=session_error`);
+      }
+      
+      // Redirect to dashboard with safe fallback to request base URL
+      const baseUrl = CLIENT_BASE_URL || getBaseUrl(req);
+      const finalRedirect = `${baseUrl}?connected=true`;
+      console.log('[AUTH] Callback successful, redirecting to:', finalRedirect);
+      res.redirect(finalRedirect);
+    });
   } catch (error) {
     console.error('OAuth callback error:', error);
     res.redirect(`${CLIENT_BASE_URL}?error=server_error`);

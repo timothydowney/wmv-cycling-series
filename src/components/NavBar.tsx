@@ -23,7 +23,17 @@ const NavBar: React.FC<NavBarProps> = ({ onAdminPanelToggle, isAdminPanelOpen: _
   const [athleteInfo, setAthleteInfo] = useState<AthleteInfo | null>(null);
 
   useEffect(() => {
-    checkConnection();
+    // Check if we just came back from OAuth callback
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('connected')) {
+      // Connected from OAuth - check status and clean up URL
+      checkConnection();
+      // Clear the query parameter from URL (replace state, don't reload)
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else {
+      // Normal page load - just check connection
+      checkConnection();
+    }
   }, []);
 
   const checkConnection = async () => {
