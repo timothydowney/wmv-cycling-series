@@ -11,5 +11,14 @@ startCommand = "npm start"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 10
 
+# CRITICAL: Persistent volume for SQLite database
+# Without this, the database is recreated on every restart/redeploy
+[[volumes]]
+# Mount path in container (must match DATABASE_PATH env var)
+mountPath = "/data"
+# Railway will create and persist this volume automatically
+# Set size as needed (starts at 1GB, can be increased)
+size = "5GB"
+
 
 

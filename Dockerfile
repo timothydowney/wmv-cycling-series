@@ -59,7 +59,9 @@ COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 ## Copy scripts (needed for npm prepare hook)
 COPY --from=builder --chown=nodejs:nodejs /app/scripts ./scripts
 
-## Dedicated volume mount point for SQLite (configure DATABASE_PATH=/data/wmv.db in Railway)
+## Dedicated persistent volume mount point for SQLite databases
+## Both wmv.db (main) and sessions.db (sessions) should be stored here
+## In Railway: mount a persistent volume at /data
 RUN mkdir -p /data && chown nodejs:nodejs /data
 
 # Switch to non-root user
