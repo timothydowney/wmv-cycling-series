@@ -24,6 +24,11 @@ const CLIENT_BASE_URL = process.env.CLIENT_BASE_URL || 'http://localhost:5173';
 const DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, '..', 'data', 'wmv.db');
 
 const app = express();
+
+// CRITICAL: Trust reverse proxy (Railway uses nginx proxy)
+// This is REQUIRED for secure cookies to work behind a proxy
+app.set('trust proxy', 1);
+
 // Enable CORS for frontend - use CLIENT_BASE_URL environment variable
 app.use(cors({ 
   origin: CLIENT_BASE_URL,
@@ -46,6 +51,7 @@ const sessionConfig = {
   resave: false,
   saveUninitialized: true, // Ensure new sessions get a cookie
   rolling: true, // CRITICAL: Force session cookie to be set on EVERY response (including redirects)
+  proxy: true, // CRITICAL: Trust reverse proxy (Railway) for X-Forwarded-Proto header
   cookie: {
     secure: process.env.NODE_ENV === 'production', // HTTPS only in production
     httpOnly: true,
