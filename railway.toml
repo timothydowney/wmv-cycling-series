@@ -1,10 +1,10 @@
 # Railway configuration as code
-# Current best practice: use Railpack (replaces deprecated Nixpacks)
+# Using Dockerfile for explicit multi-stage build control
 # Docs: https://docs.railway.app/guides/build-configuration
 
 [build]
-# Use Railpack (Railway's modern builder - Nixpacks is deprecated)
-builder = "RAILPACK"
+# Use Dockerfile (explicit builder for full control over build process)
+builder = "DOCKERFILE"
 
 [deploy]
 startCommand = "npm start"
