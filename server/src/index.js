@@ -21,6 +21,10 @@ if (process.env.STRAVA_CLIENT_ID && process.env.STRAVA_CLIENT_SECRET) {
 
 const PORT = process.env.PORT || 3001;
 const CLIENT_BASE_URL = process.env.CLIENT_BASE_URL || 'http://localhost:5173';
+
+// Database path: use persistent /data volume in production, local dev folder otherwise
+// In development: ./server/data/wmv.db (local)
+// In production (Railway): /data/wmv.db (persistent volume mounted in railway.toml)
 const DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, '..', 'data', 'wmv.db');
 
 const app = express();
@@ -60,27 +64,27 @@ const sessionConfig = {
     path: '/' // Explicit path
   }
 };
+
+// Initialize DB first (needed for session store)
+// Database path uses persistent /data volume on Railway, local dev folder otherwise
+const db = new Database(DB_PATH);
+
 // Only use persistent session store in non-test environments
 // In test mode, use default MemoryStore to avoid open database handles
 if (process.env.NODE_ENV !== 'test') {
-  const sessionDbPath = path.join(__dirname, '..', 'data', 'sessions.db');
-  console.log('[SESSION] Initializing SQLite session store at:', sessionDbPath);
+  console.log('[SESSION] Setting up SQLite session store using main database');
   sessionConfig.store = new SqliteStore({
-    client: new Database(sessionDbPath),
+    client: db,
     expired: {
       clear: true,
       intervalMs: 900000 // Clear expired sessions every 15 minutes
     }
   });
-  console.log('[SESSION] SQLite session store initialized');
 } else {
   console.log('[SESSION] Using memory session store (test mode)');
 }
 
 app.use(session(sessionConfig));
-
-// Initialize DB
-const db = new Database(DB_PATH);
 
 // Create tables with updated schema v2.0
 db.exec(`

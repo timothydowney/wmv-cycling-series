@@ -17,7 +17,7 @@ Complete information for deploying WMV Cycling Series to production.
    - `STRAVA_CLIENT_ID` (from [strava.com/settings/api](https://www.strava.com/settings/api))
    - `STRAVA_CLIENT_SECRET` (from [strava.com/settings/api](https://www.strava.com/settings/api))
    - `STRAVA_REDIRECT_URI=https://yourapp.railway.app/auth/strava/callback`
-   - `DATABASE_PATH=/data/wmv.db`
+   - `DATABASE_PATH=/data/wmv.db` (CRITICAL: Must match volume mount in railway.toml)
    - `SESSION_SECRET` (generate: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`)
 4. Update Strava OAuth app: Change "Authorization Callback Domain" to `yourapp.railway.app`
 5. Push code to `main` branch → Railway auto-deploys
@@ -25,6 +25,57 @@ Complete information for deploying WMV Cycling Series to production.
 7. Done! App is live.
 
 **See sections below for detailed troubleshooting and advanced setup.**
+
+---
+
+## CRITICAL: Persistent Volume Configuration (Railway)
+
+⚠️ **IMPORTANT:** SQLite databases MUST be stored on a persistent volume, not in the ephemeral container filesystem. Without this, your data is deleted every time the app restarts or redeploys.
+
+### The Problem
+
+Railway containers have two types of storage:
+- **Ephemeral:** Container root filesystem (deleted on restart/redeploy)
+- **Persistent:** Mounted volumes (survives restarts and redeploys)
+
+If you store databases in the wrong place (e.g., `/app/server/data/`), they will be recreated fresh every time Railway restarts the container.
+
+### The Solution
+
+1. **In Railway Dashboard:**
+   - Go to your project
+   - Click on "Settings" → "Volumes"
+   - Create a new volume (or use existing)
+   - Mount it at `/data` in your application
+
+2. **In Environment Variables:**
+   - Set `DATABASE_PATH=/data/wmv.db` (main database)
+   - Set `SESSION_DATABASE_PATH=/data/sessions.db` (session storage)
+
+3. **Why `/data`?**
+   - This path must match your persistent volume mount point
+   - Anything in `/app/` is ephemeral and will be lost
+   - The Dockerfile creates this directory and ensures proper permissions
+
+### How to Verify
+
+After deployment:
+1. Check logs for paths being used:
+   ```
+   DATABASE_PATH: '/data/wmv.db'  ✅ Good (persistent)
+   DATABASE_PATH: '/app/server/data/wmv.db'  ❌ Bad (ephemeral)
+   ```
+
+2. Make changes, restart the app, verify changes persist
+3. If data disappears on restart, check volume configuration
+
+### What Gets Stored Where
+
+| Item | Path | Volume |
+|------|------|--------|
+| Main database (data + sessions) | `/data/wmv.db` | Persistent volume |
+| Frontend assets | `/app/dist/` | Ephemeral (rebuilt on deploy) |
+| Node modules | `/app/node_modules/` | Ephemeral (rebuilt on deploy) |
 
 ---
 
