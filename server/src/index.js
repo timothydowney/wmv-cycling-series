@@ -568,9 +568,9 @@ app.get('/auth/strava/callback', async (req, res) => {
     req.session.stravaAthleteId = stravaAthleteId;
     req.session.athleteName = tokenData.athlete.firstname;
     
-  // Redirect to dashboard with safe fallback to request base URL
-  const baseUrl = CLIENT_BASE_URL || getBaseUrl(req);
-  const finalRedirect = `${baseUrl}?connected=true`;
+    // Redirect to dashboard with safe fallback to request base URL
+    const baseUrl = CLIENT_BASE_URL || getBaseUrl(req);
+    const finalRedirect = `${baseUrl}?connected=true`;
     console.log('[AUTH] Callback successful, redirecting to:', finalRedirect);
     res.redirect(finalRedirect);
   } catch (error) {
