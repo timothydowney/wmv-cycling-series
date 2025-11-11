@@ -2,6 +2,32 @@
 
 Complete information for deploying WMV Cycling Series to production.
 
+---
+
+## Quick Start - Deploy to Railway (5 minutes)
+
+**New to deployment? Start here:**
+
+1. Create account at [railway.app](https://railway.app) (sign in with GitHub)
+2. Click "New Project" → "Deploy from GitHub repo" → select `strava-ncc-scrape`
+3. Set environment variables in Railway dashboard:
+   - `NODE_ENV=production`
+   - `PORT=3001`
+   - `CLIENT_BASE_URL=https://yourapp.railway.app` (use your Railway URL)
+   - `STRAVA_CLIENT_ID` (from [strava.com/settings/api](https://www.strava.com/settings/api))
+   - `STRAVA_CLIENT_SECRET` (from [strava.com/settings/api](https://www.strava.com/settings/api))
+   - `STRAVA_REDIRECT_URI=https://yourapp.railway.app/auth/strava/callback`
+   - `DATABASE_PATH=/data/wmv.db`
+   - `SESSION_SECRET` (generate: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`)
+4. Update Strava OAuth app: Change "Authorization Callback Domain" to `yourapp.railway.app`
+5. Push code to `main` branch → Railway auto-deploys
+6. Visit your Railway URL and test the OAuth flow
+7. Done! App is live.
+
+**See sections below for detailed troubleshooting and advanced setup.**
+
+---
+
 ## Requirements Analysis
 
 ### Frontend (React + Vite)
@@ -481,6 +507,114 @@ feature branch → PR → CI tests → merge to main → Railway deploys
 
 ---
 
+## Pre-Deployment Checklist
+
+**Run before EVERY deployment to production:**
+
+```bash
+# 1. Make sure all tests pass
+npm test
+
+# 2. Build locally to verify
+npm run build
+
+# 3. Check for linting issues
+npm run lint
+
+# 4. Verify Node version is 24.x
+node --version  # Should be v24.x.x
+
+# 5. If all pass, commit and push
+git add .
+git commit -m "Descriptive message about what's changing"
+git push origin main
+```
+
+**After push:**
+- GitHub Actions runs automatically
+- Check [GitHub Actions page](https://github.com/timothydowney/wmv-cycling-series/actions)
+- If ✅ pass: Railway auto-deploys
+- If ❌ fail: Fix and retry
+
+### First Production Deploy Checklist
+
+Before going live for the first time:
+
+- [ ] Railway account created and project connected
+- [ ] All environment variables set in Railway dashboard:
+  - [ ] `NODE_ENV=production`
+  - [ ] `PORT=3001`
+  - [ ] `CLIENT_BASE_URL` points to production Railway URL
+  - [ ] `STRAVA_CLIENT_ID` from Strava app
+  - [ ] `STRAVA_CLIENT_SECRET` from Strava app
+  - [ ] `STRAVA_REDIRECT_URI` matches production URL
+  - [ ] `DATABASE_PATH=/data/wmv.db`
+  - [ ] `SESSION_SECRET` generated and set
+- [ ] Strava OAuth app updated with production domain
+- [ ] GitHub Actions CI/CD working (tests passing)
+- [ ] Database initialization tested (created seed data)
+- [ ] Test Strava OAuth flow in production:
+  - [ ] Visit production URL
+  - [ ] Click "Connect"
+  - [ ] Redirected to Strava
+  - [ ] Can authorize
+  - [ ] Returned to app
+  - [ ] Can see participant info
+- [ ] Admin interface working
+- [ ] Leaderboards display correctly
+- [ ] No console errors in browser DevTools
+- [ ] No error logs in Railway dashboard
+
+### Generate SESSION_SECRET
+
+Run this in your terminal:
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Copy the output and paste it as `SESSION_SECRET` value in Railway dashboard.
+
+---
+
+## Standard Deployment Process
+
+### Scenario 1: New Feature or Bug Fix
+
+1. **Develop locally:**
+   ```bash
+   npm run dev:all  # Both servers running
+   # Make changes, test thoroughly
+   npm test         # Ensure tests pass
+   ```
+
+2. **Commit and push:**
+   ```bash
+   git add .
+   git commit -m "Add feature: [description]"
+   git push origin main
+   ```
+
+3. **GitHub Actions runs:** Automatically tests and builds
+
+4. **Railway deploys:** Automatically when CI passes
+
+5. **Verify in production:**
+   - Check Railway deployment status
+   - Visit production URL
+   - Spot-check features that changed
+   - Check Railway logs for errors
+
+### Scenario 2: Urgent Hotfix
+
+Same as standard process, but with more urgency:
+
+1. **Make minimal changes** to fix the issue
+2. **Test thoroughly** before committing
+3. **Push to main** (auto-deploys)
+4. **Monitor closely** for first 30 minutes
+
+---
+
 ## Rollback Strategy
 
 ### If Something Breaks in Production
@@ -488,16 +622,26 @@ feature branch → PR → CI tests → merge to main → Railway deploys
 **Rollback to previous version:**
 
 1. Go to Railway dashboard
-2. View deployment history
-3. Select previous working deployment
-4. Click "Redeploy"
-5. Done! Previous version is live
+2. Go to **"Deployments"** tab
+3. View deployment history
+4. Select previous working deployment
+5. Click **"Redeploy"**
+6. Done! Previous version is live
 
 **Why this is safe:**
 - Database persists across deployments
 - Data is never lost
 - Can rollback in seconds
 - Keep trying deployments until one works
+
+### Redeploying Current Version
+
+If you need to restart without code changes:
+
+1. Go to Railway dashboard
+2. Go to **"Deployments"** tab
+3. Click current deployment
+4. Click **"Redeploy"**
 
 ---
 
@@ -524,6 +668,29 @@ feature branch → PR → CI tests → merge to main → Railway deploys
 - [ ] Weekly: Verify database backups
 - [ ] Monthly: Review Railway usage/costs
 - [ ] Quarterly: Update dependencies
+
+### Verify Production Deployment
+
+After deployment, verify it's working:
+
+1. **Check if it's running:**
+   - Visit your Railway URL: `https://yourapp.railway.app`
+   - You should see the WMV website
+
+2. **Test OAuth flow:**
+   - Click **"Connect"** → Should redirect to Strava
+   - Log in with your Strava account
+   - Should return and show you're connected
+
+3. **Check admin panel:**
+   - Login as admin
+   - Verify you can view/edit weeks
+   - Verify "Fetch Results" button works
+
+4. **Check logs:**
+   - Go to Railway dashboard
+   - Check deployment logs for errors
+   - Look for any connection issues
 
 ---
 
