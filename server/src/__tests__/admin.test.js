@@ -237,7 +237,7 @@ describe('Coverage Improvements - Quick Wins', () => {
         expect(res.body.distance).toBe(2.0);
 
         // Verify only one segment exists
-        const allSegments = db.prepare('SELECT COUNT(*) as count FROM segments').get();
+        const allSegments = db.prepare('SELECT COUNT(*) as count FROM segment').get();
         expect(allSegments.count).toBe(1);
       });
 
