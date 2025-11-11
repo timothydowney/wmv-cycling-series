@@ -103,9 +103,6 @@ describe('User Data Endpoints (GDPR)', () => {
       db.prepare('INSERT INTO participants (name, strava_athlete_id) VALUES (?, ?)')
         .run('Tim D', stravaAthleteId);
 
-      const participantId = db.prepare('SELECT id FROM participants WHERE strava_athlete_id = ?')
-        .get(stravaAthleteId).id;
-
       db.prepare('INSERT INTO participant_tokens (strava_athlete_id, access_token, refresh_token, expires_at) VALUES (?, ?, ?, ?)')
         .run(stravaAthleteId, 'token123', 'refresh123', Date.now() + 3600000);
 
