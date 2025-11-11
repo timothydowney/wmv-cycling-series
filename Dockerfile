@@ -15,6 +15,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY package*.json ./
 COPY server/package*.json ./server/
 
+# Copy scripts (needed for npm prepare hook)
+COPY scripts ./scripts
+
 # Install dependencies
 RUN npm ci
 
@@ -52,6 +55,9 @@ COPY --from=builder --chown=nodejs:nodejs /app/server/node_modules ./server/node
 
 ## Copy built frontend assets
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
+
+## Copy scripts (needed for npm prepare hook)
+COPY --from=builder --chown=nodejs:nodejs /app/scripts ./scripts
 
 ## Dedicated volume mount point for SQLite (configure DATABASE_PATH=/data/wmv.db in Railway)
 RUN mkdir -p /data && chown nodejs:nodejs /data
