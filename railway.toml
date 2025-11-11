@@ -1,13 +1,15 @@
 # Railway configuration as code
-# Docs: https://docs.railway.app/guides/config-as-code
+# Current best practice: use Railpack (replaces deprecated Nixpacks)
+# Docs: https://docs.railway.app/guides/build-configuration
 
 [build]
-# Use nixpacks for building
-builder = "nixpacks"
+# Use Railpack (Railway's modern builder - Nixpacks is deprecated)
+builder = "RAILPACK"
 
 [deploy]
 startCommand = "npm start"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 10
+
 
 
