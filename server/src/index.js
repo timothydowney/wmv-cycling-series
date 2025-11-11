@@ -50,17 +50,21 @@ const sessionConfig = {
     maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
   }
 };
-
 // Only use persistent session store in non-test environments
 // In test mode, use default MemoryStore to avoid open database handles
 if (process.env.NODE_ENV !== 'test') {
+  const sessionDbPath = path.join(__dirname, '..', 'data', 'sessions.db');
+  console.log('[SESSION] Initializing SQLite session store at:', sessionDbPath);
   sessionConfig.store = new SqliteStore({
-    client: new Database(path.join(__dirname, '..', 'data', 'sessions.db')),
+    client: new Database(sessionDbPath),
     expired: {
       clear: true,
       intervalMs: 900000 // Clear expired sessions every 15 minutes
     }
   });
+  console.log('[SESSION] SQLite session store initialized');
+} else {
+  console.log('[SESSION] Using memory session store (test mode)');
 }
 
 app.use(session(sessionConfig));
@@ -568,12 +572,20 @@ app.get('/auth/strava/callback', async (req, res) => {
     req.session.stravaAthleteId = stravaAthleteId;
     req.session.athleteName = tokenData.athlete.firstname;
     
+    console.log('[AUTH] Session set in memory:', {
+      sessionID: req.sessionID,
+      stravaAthleteId: req.session.stravaAthleteId,
+      athleteName: req.session.athleteName
+    });
+    
     // Explicitly save session before redirecting (important for some session stores)
     req.session.save((err) => {
       if (err) {
-        console.error('Session save error:', err);
+        console.error('[AUTH] Session save error:', err);
         return res.redirect(`${CLIENT_BASE_URL}?error=session_error`);
       }
+      
+      console.log('[AUTH] Session saved successfully to store');
       
       // Redirect to dashboard with safe fallback to request base URL
       const baseUrl = CLIENT_BASE_URL || getBaseUrl(req);
@@ -589,6 +601,9 @@ app.get('/auth/strava/callback', async (req, res) => {
 
 // GET /auth/status - Check authentication status
 app.get('/auth/status', (req, res) => {
+  console.log('[AUTH] GET /auth/status - Session ID:', req.sessionID);
+  console.log('[AUTH] GET /auth/status - Session stravaAthleteId:', req.session?.stravaAthleteId);
+  
   if (req.session.stravaAthleteId) {
     const participant = db.prepare(`
       SELECT p.strava_athlete_id, p.name,
@@ -598,11 +613,14 @@ app.get('/auth/status', (req, res) => {
       WHERE p.strava_athlete_id = ?
     `).get(req.session.stravaAthleteId);
     
+    console.log('[AUTH] GET /auth/status - Found participant:', participant);
+    
     res.json({
       authenticated: true,
       participant: participant
     });
   } else {
+    console.log('[AUTH] GET /auth/status - No session found, returning unauthenticated');
     res.json({
       authenticated: false,
       participant: null
