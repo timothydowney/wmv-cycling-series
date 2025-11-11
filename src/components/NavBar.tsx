@@ -38,8 +38,13 @@ const NavBar: React.FC<NavBarProps> = ({ onAdminPanelToggle, isAdminPanelOpen: _
 
   const checkConnection = async () => {
     try {
+      console.log('[NavBar] Checking auth status...');
       const data = await getAuthStatus();
-      setIsConnected(!!(data.authenticated && data.participant?.is_connected));
+      console.log('[NavBar] Auth status response:', data);
+      
+      const isConnected = !!(data.authenticated && data.participant?.is_connected);
+      console.log('[NavBar] Setting isConnected to:', isConnected);
+      setIsConnected(isConnected);
       
       // Convert participant data to athlete format
       if (data.participant && data.participant.is_connected) {
@@ -54,7 +59,7 @@ const NavBar: React.FC<NavBarProps> = ({ onAdminPanelToggle, isAdminPanelOpen: _
         setAthleteInfo(null);
       }
     } catch (error) {
-      console.error('Error checking connection:', error);
+      console.error('[NavBar] Error checking connection:', error);
       setIsConnected(false);
     }
   };

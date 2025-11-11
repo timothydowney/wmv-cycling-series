@@ -147,11 +147,15 @@ export const api = {
   },
 
   async getAuthStatus(): Promise<AuthStatus> {
+    console.log('[API] Fetching auth status from:', API_BASE_URL || '(relative URL)');
     const response = await fetch(`${API_BASE_URL}/auth/status`, {
       credentials: 'include' // Important: include cookies for session
     });
+    console.log('[API] Auth status response:', response.status, response.statusText);
     if (!response.ok) throw new Error('Failed to fetch auth status');
-    return response.json();
+    const data = await response.json();
+    console.log('[API] Auth status data:', data);
+    return data;
   },
 
   async disconnect(): Promise<{ success: boolean; message: string }> {
