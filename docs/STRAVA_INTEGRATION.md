@@ -535,6 +535,182 @@ async function retryWithBackoff(fn, maxRetries = 3) {
 
 ---
 
+## Strava API Agreement Compliance
+
+**Status:** Email sent to `developers@strava.com` for confirmation that our app qualifies as a "Community Application" under the Strava API Agreement. Awaiting response.
+
+**Assumption:** We proceed with development assuming our app is permitted as a Community Application. This section documents our compliance and requirements.
+
+---
+
+### API Agreement Summary
+
+Our app has been reviewed against the [Strava API Agreement](https://www.strava.com/legal/api) (effective October 9, 2025). Key findings:
+
+**Our Classification:** Community Application
+- **Definition** (Section 2.10): A Developer Application created with the primary purpose of permitting athletes to organize and collaborate in group activities, no larger than 9,999 registered users.
+- **WMV Qualification:** ~100 club members organizing weekly segment competitions = community organization
+- **Implication:** Special permission to display data from multiple club members to organize group activities (normally prohibited)
+
+**Use Case Validation:**
+- ✅ Club members authenticate via OAuth with explicit permission
+- ✅ We display leaderboards showing results from multiple members
+- ✅ Activities remain public on Strava (we don't hide or alter them)
+- ✅ App is free; no monetization
+- ✅ Data only visible to authenticated club members
+- ✅ Primary purpose is community organization, not replicating Strava
+
+**Potential Concerns Addressed:**
+- ❓ "Virtual races or competitions" — Our app organizes club activities, doesn't replace Strava racing features
+- ❓ "Competitive to Strava" — We complement Strava, don't replicate its core functionality
+- ❌ **NOT**: Selling access, sharing data with third parties, using for marketing
+
+---
+
+### API Agreement Compliance Checklist
+
+This checklist ensures our implementation remains compliant with all API Agreement requirements.
+
+#### Authentication & Authorization (Section 5)
+- [x] **Use OAuth 2.0** - Each member authenticates individually (✅ implemented)
+- [x] **Request minimal scopes** - Only `activity:read` and `profile:read_all` (✅ implemented)
+- [x] **Obtain explicit consent** - OAuth prompt shows permissions before access (✅ built-in)
+- [x] **Allow disconnection** - "Disconnect Strava" button on dashboard (✅ implemented)
+- [ ] **Clear privacy policy** - Must explain data usage and user rights (⏳ needed for production)
+- [ ] **Inform users of data collection** - Privacy notice on login screen (⏳ needed for production)
+
+#### Data Usage & Disclosure (Sections 2.9, 2.10)
+- [x] **Only show own data by default** - OAuth enforces per-user access (✅ implemented)
+- [x] **Community Application exception** - Display multiple members' data for leaderboards (✅ architected)
+- [x] **Only display to club members** - Leaderboards require login (✅ implemented)
+- [x] **No data sharing with third parties** - No APIs expose data outside app (✅ by design)
+- [x] **No monetization** - Free app, no charges (✅ by design)
+- [x] **No targeted advertising** - No ad targeting based on Strava data (✅ by design)
+- [x] **No data selling** - Never to data brokers or sponsors (✅ committed)
+- [ ] **Content not modified** - Verify segment times aren't altered or misrepresented (⏳ code review)
+
+#### Data Security (Section 2.8)
+- [x] **Encrypt in transit** - All API calls use HTTPS (✅ implemented)
+- [ ] **Encrypt at rest** - Production must encrypt tokens with AES-256-GCM (⏳ [see TOKEN_ENCRYPTION_GUIDE.md](./TOKEN_ENCRYPTION_GUIDE.md))
+- [ ] **Security measures** - Commerc reasonable security practices (⏳ add to privacy policy)
+- [ ] **Breach notification** - Notify Strava within 24 hours of any breach (⏳ process needed)
+
+#### Data Retention & Deletion (Sections 2.6, 7)
+- [x] **Respect deletions** - Update app within 48 hours when user deletes on Strava (✅ by design)
+- [ ] **Cache limit** - Data cache no longer than 7 days (⏳ verify implementation)
+- [ ] **User data deletion** - Allow members to delete their data on request (⏳ add endpoint)
+- [x] **Token revocation** - Respect when user disconnects (✅ implemented)
+
+#### Prohibited Uses (Section 2.14)
+- ✅ **NOT for AI/ML training** - Never using data for model training (✅ by design)
+- ✅ **NOT replicating Strava** - Building a leaderboard tool, not mimicking Strava UI/functionality (✅ by design)
+- ✅ **NOT competitive to Strava** - App enhances Strava experience (✅ by design)
+- ✅ **NOT web scraping** - Using official OAuth API only (✅ by design)
+- ✅ **NOT content that's harmful** - No defamatory, hateful, or violent content (✅ by design)
+- ✅ **NOT charging users** - Free to club members (✅ by design)
+- ✅ **NOT malware or viruses** - Standard app security (✅ by design)
+
+#### API Usage Restrictions (Section 2.11)
+- [x] **Rate limits** - Default 200 req/15min, 2000/day per app (✅ well within for 100 members)
+- [x] **Single API token** - One token per app (not per user) (✅ implemented)
+- [x] **Token confidentiality** - Never share token or log it (✅ implemented)
+
+#### Attribution & Branding (Sections 2.3, 2.5, 9)
+- [ ] **Strava attribution** - Link to Strava in app/docs (⏳ add to UI)
+- [ ] **Brand guidelines compliance** - Use approved Strava logos [Strava Brand Guidelines](https://developers.strava.com/guidelines) (⏳ review guidelines)
+- [ ] **No confusing origin** - Clear app is not made by Strava (⏳ add to UI/privacy policy)
+- [x] **Not claiming Strava endorsement** - Making clear we're a community tool (✅ by design)
+
+#### Monitoring & Transparency (Sections 2.12)
+- [x] **Strava monitoring usage** - Accept Strava collects usage data (✅ by design)
+- [ ] **Usage disclosure** - Add statement to privacy policy explaining this (⏳ needed)
+
+#### Privacy & Data Protection (Section 5)
+- [ ] **GDPR/UK GDPR Compliance** - Privacy policy meets legal requirements (⏳ legal review needed)
+- [ ] **Personal data handling** - Process only with lawful basis (⏳ privacy policy)
+- [ ] **User requests** - Respond to data deletion/access requests (⏳ process needed)
+- [x] **Respect privacy settings** - Honor public/private activity settings (✅ by design)
+
+---
+
+### Implementation Tasks (Priority Order)
+
+#### High Priority (Before Production)
+1. **Privacy Policy**
+   - Add statement explaining:
+     - What data we collect (activity data, athlete profile)
+     - How long we retain it (cache 7 days, permanent storage optional)
+     - How users can delete it (request to admin + in-app delete)
+     - GDPR/privacy compliance
+   - Link prominently in app footer
+
+2. **Data Deletion Endpoint**
+   - Add `DELETE /api/user/data` endpoint
+   - Members can request deletion of their data
+   - Implement 48-hour deadline
+
+3. **Token Encryption**
+   - Implement AES-256-GCM encryption for production tokens
+   - See [TOKEN_ENCRYPTION_GUIDE.md](./TOKEN_ENCRYPTION_GUIDE.md)
+
+4. **Security Audit**
+   - Verify no tokens logged or exposed
+   - Confirm HTTPS on all API endpoints
+   - See [SECURITY_AUDIT.md](./SECURITY_AUDIT.md)
+
+#### Medium Priority (Within First Month)
+5. **Strava Attribution**
+   - Add "Powered by Strava" link to app
+   - Follow [Strava Brand Guidelines](https://developers.strava.com/guidelines)
+
+6. **Monitoring & Alerting**
+   - Set up alerts for API errors or abuse
+   - Monitor token refresh failures
+
+7. **Documentation**
+   - Add to in-app help: "Your data is managed by WMV, not Strava"
+   - Explain which scopes we use and why
+
+#### Low Priority (Future)
+8. **Webhooks Implementation**
+   - Eventually use webhooks instead of polling
+   - Reduces API requests and response time
+   - See [Strava Webhooks Documentation](https://developers.strava.com/docs/webhooks/)
+
+---
+
+### Community Application Status - Pending Confirmation
+
+**Email sent to:** `developers@strava.com`  
+**Date:** November 11, 2025  
+**Status:** Awaiting response
+
+**Question asked:**
+- Does our WMV leaderboard app qualify as a "Community Application"?
+- Is weekly segment competition tracking permitted, or does it violate "virtual races" restriction?
+- Any other compliance requirements for our use case?
+
+**Expected response time:** 3-7 business days
+
+**What to do if Strava says "no":**
+- Likely scenarios:
+  1. "You need to apply for review" → Follow review process
+  2. "This is a virtual race" → Pivot to non-competitive leaderboard (time tracking only)
+  3. "You need to encrypt tokens" → Already on roadmap
+  4. "You need a more restrictive privacy policy" → Implement immediately
+
+---
+
+### Related Documentation
+
+- **[TOKEN_ENCRYPTION_GUIDE.md](./TOKEN_ENCRYPTION_GUIDE.md)** - How to encrypt tokens at rest
+- **[SECURITY_AUDIT.md](./SECURITY_AUDIT.md)** - Complete security review of the app
+- **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Production security requirements
+- **[Official Strava API Agreement](https://www.strava.com/legal/api)** - Full legal text (last updated October 9, 2025)
+- **[Strava Brand Guidelines](https://developers.strava.com/guidelines)** - Logo and attribution rules
+
+---
+
 ## Manual Testing Without Real OAuth
 
 ### Test Data Approach (Current)

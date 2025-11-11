@@ -128,6 +128,11 @@ function StravaConnect({ onAuthChange }: StravaConnectProps) {
 
   return (
     <div className="strava-connect-container">
+      <div className="privacy-notice">
+        <p className="privacy-notice-text">
+          By connecting your Strava account, you agree to share your activity data with Western Mass Velo for competition tracking purposes. Your data is protected by our <a href="/PRIVACY_POLICY.md" target="_blank" rel="noopener noreferrer" className="privacy-link">Privacy Policy</a>.
+        </p>
+      </div>
       <a href={getConnectUrl()} className="strava-connect-link">
         <img 
           src="/assets/strava/btn_strava_connectwith_orange.svg"
