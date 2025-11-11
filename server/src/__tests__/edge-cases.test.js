@@ -41,11 +41,12 @@ describe('Edge Cases and Error Handling', () => {
 
     db.prepare(`
       INSERT INTO segment (strava_segment_id, name)
-      VALUES (?, ?), (?, ?)
-    `).run(
-      TEST_SEGMENT_1, 'Test Segment 1',
-      TEST_SEGMENT_2, 'Test Segment 2'
-    );
+      VALUES (?, ?)
+    `).run(TEST_SEGMENT_1, 'Test Segment 1');
+    db.prepare(`
+      INSERT INTO segment (strava_segment_id, name)
+      VALUES (?, ?)
+    `).run(TEST_SEGMENT_2, 'Test Segment 2');
   });
 
   afterAll(async () => {

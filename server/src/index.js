@@ -873,12 +873,12 @@ app.get('/health', (req, res) => {
 });
 
 app.get('/participants', (req, res) => {
-  const rows = db.prepare('SELECT id, name, strava_athlete_id FROM participants').all();
+  const rows = db.prepare('SELECT id, name, strava_athlete_id FROM participant').all();
   res.json(rows);
 });
 
 app.get('/segments', (req, res) => {
-  const rows = db.prepare('SELECT strava_segment_id, name FROM segments').all();
+  const rows = db.prepare('SELECT strava_segment_id, name FROM segment').all();
   res.json(rows);
 });
 
@@ -887,13 +887,13 @@ app.get('/segments', (req, res) => {
 // ========================================
 
 app.get('/seasons', (req, res) => {
-  const seasons = db.prepare('SELECT id, name, start_date, end_date, is_active FROM seasons ORDER BY start_date DESC').all();
+  const seasons = db.prepare('SELECT id, name, start_date, end_date, is_active FROM season ORDER BY start_date DESC').all();
   res.json(seasons);
 });
 
 app.get('/seasons/:id', (req, res) => {
   const seasonId = parseInt(req.params.id, 10);
-  const season = db.prepare('SELECT id, name, start_date, end_date, is_active FROM seasons WHERE id = ?').get(seasonId);
+  const season = db.prepare('SELECT id, name, start_date, end_date, is_active FROM season WHERE id = ?').get(seasonId);
   if (!season) return res.status(404).json({ error: 'Season not found' });
   res.json(season);
 });
@@ -901,7 +901,7 @@ app.get('/seasons/:id', (req, res) => {
 app.get('/seasons/:id/leaderboard', (req, res) => {
   const seasonId = parseInt(req.params.id, 10);
   
-  const season = db.prepare('SELECT id, name, start_date, end_date FROM seasons WHERE id = ?').get(seasonId);
+  const season = db.prepare('SELECT id, name, start_date, end_date FROM season WHERE id = ?').get(seasonId);
   if (!season) return res.status(404).json({ error: 'Season not found' });
 
   const seasonResults = db.prepare(`
@@ -927,8 +927,8 @@ app.get('/seasons/:id/leaderboard', (req, res) => {
 
 app.get('/weeks', (req, res) => {
   const rows = db.prepare(`
-    SELECT w.id, w.season_id, w.week_name, w.date, w.strava_segment_id, w.required_laps, 
-           w.start_time, w.end_time, s.name as segment_name, s.strava_segment_id
+    SELECT w.id, w.season_id, w.week_name, w.date, w.strava_segment_id as segment_id, w.required_laps, 
+           w.start_time, w.end_time, s.name as segment_name
     FROM week w
     LEFT JOIN segment s ON w.strava_segment_id = s.strava_segment_id
     ORDER BY w.date DESC
@@ -939,8 +939,8 @@ app.get('/weeks', (req, res) => {
 app.get('/weeks/:id', (req, res) => {
   const weekId = parseInt(req.params.id, 10);
   const week = db.prepare(`
-    SELECT w.id, w.season_id, w.week_name, w.date, w.strava_segment_id, w.required_laps, 
-           w.start_time, w.end_time, s.name as segment_name, s.strava_segment_id
+    SELECT w.id, w.season_id, w.week_name, w.date, w.strava_segment_id as segment_id, w.required_laps, 
+           w.start_time, w.end_time, s.name as segment_name
     FROM week w
     LEFT JOIN segment s ON w.strava_segment_id = s.strava_segment_id
     WHERE w.id = ?
@@ -952,8 +952,8 @@ app.get('/weeks/:id', (req, res) => {
 app.get('/weeks/:id/leaderboard', (req, res) => {
   const weekId = parseInt(req.params.id, 10);
   const week = db.prepare(`
-    SELECT w.id, w.season_id, w.week_name, w.date, w.strava_segment_id, w.required_laps, w.start_time, w.end_time,
-           s.name as segment_name, s.strava_segment_id
+    SELECT w.id, w.season_id, w.week_name, w.date, w.strava_segment_id as segment_id, w.required_laps, w.start_time, w.end_time,
+           s.name as segment_name
     FROM week w
     LEFT JOIN segment s ON w.strava_segment_id = s.strava_segment_id
     WHERE w.id = ?
@@ -970,14 +970,12 @@ app.get('/weeks/:id/leaderboard', (req, res) => {
       a.strava_athlete_id as participant_id,
       p.name,
       SUM(se.elapsed_seconds) as total_time_seconds,
-      MAX(se.pr_achieved) as achieved_pr,
-      a.activity_url,
-      a.activity_date
+      MAX(se.pr_achieved) as achieved_pr
     FROM activity a
     JOIN segment_effort se ON a.id = se.activity_id
     JOIN participant p ON a.strava_athlete_id = p.strava_athlete_id
     WHERE a.week_id = ? AND a.validation_status = 'valid'
-    GROUP BY a.id, a.strava_athlete_id, p.name, a.activity_url, a.activity_date
+    GROUP BY a.id, a.strava_athlete_id, p.name
     ORDER BY total_time_seconds ASC
   `).all(weekId);
 
@@ -996,9 +994,7 @@ app.get('/weeks/:id/leaderboard', (req, res) => {
       total_time_seconds: activity.total_time_seconds,
       time_hhmmss: new Date(activity.total_time_seconds * 1000).toISOString().substring(11, 19),
       points: totalPoints,
-      pr_bonus_points: prBonus,
-      activity_url: activity.activity_url,
-      activity_date: activity.activity_date
+      pr_bonus_points: prBonus
     };
   });
   
@@ -1013,8 +1009,6 @@ app.get('/weeks/:id/activities', (req, res) => {
       a.strava_athlete_id as participant_id,
       p.name as participant_name,
       a.strava_activity_id,
-      a.activity_url,
-      a.activity_date,
       a.validation_status,
       a.validation_message
     FROM activity a
@@ -1036,7 +1030,7 @@ app.get('/activities/:id/efforts', (req, res) => {
       se.pr_achieved,
       s.name as segment_name
     FROM segment_effort se
-    JOIN segment s ON se.segment_id = s.strava_segment_id
+    JOIN segment s ON se.strava_segment_id = s.strava_segment_id
     WHERE se.activity_id = ?
     ORDER BY se.effort_index ASC
   `).all(activityId);
@@ -1131,15 +1125,15 @@ app.post('/admin/seasons', (req, res) => {
   try {
     // If setting as active, deactivate other seasons first
     if (is_active) {
-      db.prepare('UPDATE seasons SET is_active = 0').run();
+      db.prepare('UPDATE season SET is_active = 0').run();
     }
 
     const result = db.prepare(`
-      INSERT INTO seasons (name, start_date, end_date, is_active)
+      INSERT INTO season (name, start_date, end_date, is_active)
       VALUES (?, ?, ?, ?)
     `).run(name, start_date, end_date, is_active ? 1 : 0);
 
-    const newSeason = db.prepare('SELECT id, name, start_date, end_date, is_active FROM seasons WHERE id = ?').get(result.lastInsertRowid);
+    const newSeason = db.prepare('SELECT id, name, start_date, end_date, is_active FROM season WHERE id = ?').get(result.lastInsertRowid);
     res.status(201).json(newSeason);
   } catch (error) {
     res.status(500).json({ error: 'Failed to create season', details: error.message });
@@ -1151,7 +1145,7 @@ app.put('/admin/seasons/:id', (req, res) => {
   const seasonId = parseInt(req.params.id, 10);
   const { name, start_date, end_date, is_active } = req.body;
 
-  const existingSeason = db.prepare('SELECT id FROM seasons WHERE id = ?').get(seasonId);
+  const existingSeason = db.prepare('SELECT id FROM season WHERE id = ?').get(seasonId);
   if (!existingSeason) {
     return res.status(404).json({ error: 'Season not found' });
   }
@@ -1159,7 +1153,7 @@ app.put('/admin/seasons/:id', (req, res) => {
   try {
     // If setting as active, deactivate other seasons first
     if (is_active) {
-      db.prepare('UPDATE seasons SET is_active = 0').run();
+      db.prepare('UPDATE season SET is_active = 0').run();
     }
 
     const updates = [];
@@ -1187,9 +1181,9 @@ app.put('/admin/seasons/:id', (req, res) => {
     }
 
     values.push(seasonId);
-    db.prepare(`UPDATE seasons SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+    db.prepare(`UPDATE season SET ${updates.join(', ')} WHERE id = ?`).run(...values);
 
-    const updatedSeason = db.prepare('SELECT id, name, start_date, end_date, is_active FROM seasons WHERE id = ?').get(seasonId);
+    const updatedSeason = db.prepare('SELECT id, name, start_date, end_date, is_active FROM season WHERE id = ?').get(seasonId);
     res.json(updatedSeason);
   } catch (error) {
     res.status(500).json({ error: 'Failed to update season', details: error.message });
@@ -1200,7 +1194,7 @@ app.put('/admin/seasons/:id', (req, res) => {
 app.delete('/admin/seasons/:id', (req, res) => {
   const seasonId = parseInt(req.params.id, 10);
 
-  const existingSeason = db.prepare('SELECT id FROM seasons WHERE id = ?').get(seasonId);
+  const existingSeason = db.prepare('SELECT id FROM season WHERE id = ?').get(seasonId);
   if (!existingSeason) {
     return res.status(404).json({ error: 'Season not found' });
   }
@@ -1215,7 +1209,7 @@ app.delete('/admin/seasons/:id', (req, res) => {
   }
 
   try {
-    db.prepare('DELETE FROM seasons WHERE id = ?').run(seasonId);
+    db.prepare('DELETE FROM season WHERE id = ?').run(seasonId);
     res.json({ message: 'Season deleted successfully' });
   } catch (error) {
     res.status(500).json({ error: 'Failed to delete season', details: error.message });
@@ -1235,7 +1229,7 @@ app.post('/admin/weeks', (req, res) => {
   // Auto-select active season if not provided
   let finalSeasonId = season_id;
   if (!finalSeasonId) {
-    const activeSeason = db.prepare('SELECT id FROM seasons WHERE is_active = 1 LIMIT 1').get();
+    const activeSeason = db.prepare('SELECT id FROM season WHERE is_active = 1 LIMIT 1').get();
     if (!activeSeason) {
       console.error('No active season found');
       return res.status(400).json({ 
@@ -1265,7 +1259,7 @@ app.post('/admin/weeks', (req, res) => {
   }
 
   // Validate season exists
-  const season = db.prepare('SELECT id FROM seasons WHERE id = ?').get(finalSeasonId);
+  const season = db.prepare('SELECT id FROM season WHERE id = ?').get(finalSeasonId);
   if (!season) {
     console.error('Invalid season_id:', finalSeasonId);
     return res.status(400).json({ error: 'Invalid season_id' });
@@ -1312,13 +1306,13 @@ app.post('/admin/weeks', (req, res) => {
     });
     
     const result = db.prepare(`
-      INSERT INTO week (season_id, week_name, date, segment_id, required_laps, start_time, end_time)
+      INSERT INTO week (season_id, week_name, date, strava_segment_id, required_laps, start_time, end_time)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(finalSeasonId, week_name, finalDate, segment_id, required_laps, defaultStartTime, defaultEndTime);
 
     const newWeek = db.prepare(`
-      SELECT w.id, w.season_id, w.week_name, w.date, w.strava_segment_id, w.required_laps, 
-             w.start_time, w.end_time, s.name as segment_name, s.strava_segment_id
+      SELECT w.id, w.season_id, w.week_name, w.date, w.strava_segment_id as segment_id, w.required_laps, 
+             w.start_time, w.end_time, s.name as segment_name
       FROM week w
       LEFT JOIN segment s ON w.strava_segment_id = s.strava_segment_id
       WHERE w.id = ?
@@ -1348,7 +1342,7 @@ app.put('/admin/weeks/:id', (req, res) => {
   const values = [];
 
   if (season_id !== undefined) {
-    const season = db.prepare('SELECT id FROM seasons WHERE id = ?').get(season_id);
+    const season = db.prepare('SELECT id FROM season WHERE id = ?').get(season_id);
     if (!season) {
       return res.status(400).json({ error: 'Invalid season_id' });
     }
@@ -1420,13 +1414,13 @@ app.put('/admin/weeks/:id', (req, res) => {
 
   try {
     db.prepare(`
-      UPDATE weeks 
+      UPDATE week 
       SET ${updates.join(', ')}
       WHERE id = ?
     `).run(...values);
 
     const updatedWeek = db.prepare(`
-      SELECT id, week_name, date, segment_id, required_laps, start_time, end_time
+      SELECT id, week_name, date, strava_segment_id as segment_id, required_laps, start_time, end_time
       FROM week WHERE id = ?
     `).get(weekId);
 
@@ -1547,7 +1541,6 @@ app.post('/admin/weeks/:id/fetch-results', async (req, res) => {
             participant_name: participant.name,
             activity_found: true,
             activity_id: bestActivity.id,
-            activity_url: bestActivity.activity_url,
             total_time: bestActivity.totalTime,
             segment_efforts: bestActivity.segmentEfforts.length
           });
@@ -2085,11 +2078,11 @@ module.exports = { app, db, validateActivityTimeWindow, calculateWeekResults };
 // Only start server if not being imported for tests
 if (require.main === module) {
   // Seed season on startup if needed
-  const existingSeasons = db.prepare('SELECT COUNT(*) as count FROM seasons').get();
+  const existingSeasons = db.prepare('SELECT COUNT(*) as count FROM season').get();
   if (existingSeasons.count === 0) {
     console.log('🌱 No seasons found. Creating Fall 2025 season...');
     db.prepare(`
-      INSERT INTO seasons (id, name, start_date, end_date, is_active)
+      INSERT INTO season (id, name, start_date, end_date, is_active)
       VALUES (?, ?, ?, ?, ?)
     `).run(1, 'Fall 2025', '2025-10-01', '2025-12-31', 1);
     console.log('✅ Fall 2025 season created (Oct 1 - Dec 31)');

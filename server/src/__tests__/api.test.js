@@ -57,21 +57,26 @@ describe('WMV Backend API', () => {
     // Create test segments
     db.prepare(`
       INSERT INTO segment (strava_segment_id, name)
-      VALUES (?, ?), (?, ?)
-    `).run(
-      TEST_SEGMENT_1, 'Test Segment 1',
-      TEST_SEGMENT_2, 'Test Segment 2'
-    );
+      VALUES (?, ?)
+    `).run(TEST_SEGMENT_1, 'Test Segment 1');
+    db.prepare(`
+      INSERT INTO segment (strava_segment_id, name)
+      VALUES (?, ?)
+    `).run(TEST_SEGMENT_2, 'Test Segment 2');
 
     // Create test participants
     db.prepare(`
       INSERT INTO participant (strava_athlete_id, name)
-      VALUES (?, ?), (?, ?), (?, ?)
-    `).run(
-      TEST_ATHLETE_1, 'Test Athlete 1',
-      TEST_ATHLETE_2, 'Test Athlete 2',
-      TEST_ATHLETE_3, 'Test Athlete 3'
-    );
+      VALUES (?, ?)
+    `).run(TEST_ATHLETE_1, 'Test Athlete 1');
+    db.prepare(`
+      INSERT INTO participant (strava_athlete_id, name)
+      VALUES (?, ?)
+    `).run(TEST_ATHLETE_2, 'Test Athlete 2');
+    db.prepare(`
+      INSERT INTO participant (strava_athlete_id, name)
+      VALUES (?, ?)
+    `).run(TEST_ATHLETE_3, 'Test Athlete 3');
 
     // Create test weeks
     const week1Result = db.prepare(`
@@ -117,11 +122,12 @@ describe('WMV Backend API', () => {
     // Calculate results for test week
     db.prepare(`
       INSERT INTO result (week_id, strava_athlete_id, activity_id, total_time_seconds, rank, points, pr_bonus_points)
-      VALUES (?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      testWeekId1, TEST_ATHLETE_1, testActivityId1, 1500, 1, 2, 0,
-      testWeekId1, TEST_ATHLETE_2, testActivityId2, 1600, 2, 2, 1
-    );
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(testWeekId1, TEST_ATHLETE_1, testActivityId1, 1500, 1, 2, 0);
+    db.prepare(`
+      INSERT INTO result (week_id, strava_athlete_id, activity_id, total_time_seconds, rank, points, pr_bonus_points)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(testWeekId1, TEST_ATHLETE_2, testActivityId2, 1600, 2, 2, 1);
   });
   
   afterAll(async () => {
