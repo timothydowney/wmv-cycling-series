@@ -31,6 +31,13 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Helper to compute request base URL behind proxies (Railway)
+function getBaseUrl(req) {
+  const proto = (req.headers['x-forwarded-proto'] || req.protocol || 'http').toString();
+  const host = (req.headers['x-forwarded-host'] || req.get('host') || '').toString();
+  return `${proto}://${host}`;
+}
+
 // Session configuration for OAuth
 const sessionConfig = {
   secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
@@ -493,15 +500,23 @@ app.use(express.static(path.join(__dirname, '../../dist')));
 
 // GET /auth/strava - Initiate OAuth flow
 app.get('/auth/strava', (req, res) => {
-  const stravaAuthUrl = 'https://www.strava.com/oauth/authorize?' + 
+  // Compute redirect URI with safe fallback if env not set
+  const computedRedirect = `${getBaseUrl(req)}/auth/strava/callback`;
+  const redirectUri = process.env.STRAVA_REDIRECT_URI || computedRedirect;
+
+  // Helpful runtime trace (does not log secrets)
+  console.log('[AUTH] Using STRAVA_REDIRECT_URI:', redirectUri);
+  console.log('[AUTH] Using CLIENT_BASE_URL:', CLIENT_BASE_URL || '(not set, will fallback)');
+
+  const stravaAuthUrl = 'https://www.strava.com/oauth/authorize?' +
     new URLSearchParams({
       client_id: process.env.STRAVA_CLIENT_ID,
-      redirect_uri: process.env.STRAVA_REDIRECT_URI,
+      redirect_uri: redirectUri,
       response_type: 'code',
       approval_prompt: 'auto',  // 'force' to always show consent screen
       scope: 'activity:read,profile:read_all'
     });
-  
+
   console.log('Redirecting to Strava OAuth:', stravaAuthUrl);
   res.redirect(stravaAuthUrl);
 });
@@ -553,8 +568,11 @@ app.get('/auth/strava/callback', async (req, res) => {
     req.session.stravaAthleteId = stravaAthleteId;
     req.session.athleteName = tokenData.athlete.firstname;
     
-    // Redirect to dashboard
-    res.redirect(`${CLIENT_BASE_URL}?connected=true`);
+  // Redirect to dashboard with safe fallback to request base URL
+  const baseUrl = CLIENT_BASE_URL || getBaseUrl(req);
+  const finalRedirect = `${baseUrl}?connected=true`;
+    console.log('[AUTH] Callback successful, redirecting to:', finalRedirect);
+    res.redirect(finalRedirect);
   } catch (error) {
     console.error('OAuth callback error:', error);
     res.redirect(`${CLIENT_BASE_URL}?error=server_error`);
@@ -1799,6 +1817,22 @@ if (require.main === module) {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`WMV backend listening on port ${PORT}`);
+    // Startup diagnostics (non-sensitive) for env verification in Railway logs
+    const safeEnv = {
+      NODE_ENV: process.env.NODE_ENV,
+      CLIENT_BASE_URL: process.env.CLIENT_BASE_URL,
+      STRAVA_REDIRECT_URI: process.env.STRAVA_REDIRECT_URI,
+      STRAVA_CLIENT_ID: process.env.STRAVA_CLIENT_ID,
+      DATABASE_PATH: process.env.DATABASE_PATH,
+      TOKEN_ENCRYPTION_KEY_LENGTH: process.env.TOKEN_ENCRYPTION_KEY ? process.env.TOKEN_ENCRYPTION_KEY.length : 'missing'
+    };
+    console.log('[STARTUP] Effective env summary:', safeEnv);
+    if (!process.env.CLIENT_BASE_URL) {
+      console.warn('[STARTUP] CLIENT_BASE_URL not set; will fallback to request host for final redirects.');
+    }
+    if (!process.env.STRAVA_REDIRECT_URI) {
+      console.warn('[STARTUP] STRAVA_REDIRECT_URI not set; /auth/strava will compute one from request host.');
+    }
   });
 }
 
