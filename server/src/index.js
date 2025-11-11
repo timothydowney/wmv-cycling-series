@@ -1802,7 +1802,7 @@ if (require.main === module) {
     console.log('✅ Fall 2025 season created (Oct 1 - Dec 31)');
   }
 
-  app.listen(PORT, () => {
+  app.listen(PORT, '0.0.0.0', () => {
     console.log(`WMV backend listening on port ${PORT}`);
   });
 }
