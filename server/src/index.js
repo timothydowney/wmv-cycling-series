@@ -39,15 +39,17 @@ function getBaseUrl(req) {
 }
 
 // Session configuration for OAuth
+// Based on express-session best practices and Passport.js patterns
 const sessionConfig = {
-  name: 'wmv.sid', // Explicit session cookie name
+  name: 'wmv.sid',
   secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
   resave: false,
-  saveUninitialized: true, // Changed to true to ensure cookie is sent even if session empty
+  saveUninitialized: true, // Ensure new sessions get a cookie
+  rolling: true, // CRITICAL: Force session cookie to be set on EVERY response (including redirects)
   cookie: {
     secure: process.env.NODE_ENV === 'production', // HTTPS only in production
     httpOnly: true,
-    sameSite: 'lax', // 'lax' allows cookies on safe redirects (needed for OAuth callback)
+    sameSite: 'lax', // 'lax' allows cookies on safe redirects from Strava OAuth
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     path: '/' // Explicit path
   }
@@ -604,16 +606,14 @@ app.get('/auth/strava/callback', async (req, res) => {
       }
       
       console.log('[AUTH] Session saved successfully to store');
-      console.log('[AUTH] Response headers before redirect:', res.getHeaders());
-      console.log('[AUTH] Set-Cookie header:', res.getHeader('set-cookie'));
       
       // Redirect to dashboard with safe fallback to request base URL
       const baseUrl = CLIENT_BASE_URL || getBaseUrl(req);
       const finalRedirect = `${baseUrl}?connected=true`;
       console.log('[AUTH] Callback successful, redirecting to:', finalRedirect);
       
-      // Send status code explicitly to ensure headers are flushed
-      res.status(302).redirect(finalRedirect);
+      // The rolling: true option in sessionConfig ensures the Set-Cookie header is sent
+      res.redirect(finalRedirect);
     });
   } catch (error) {
     console.error('OAuth callback error:', error);
