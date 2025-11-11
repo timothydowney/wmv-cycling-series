@@ -212,6 +212,87 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 ---
 
+## CRITICAL: Reverse Proxy Configuration
+
+⚠️ **If your app is behind a reverse proxy (Railway, AWS, Heroku, nginx, etc), this section is REQUIRED.**
+
+### The Problem
+
+Most cloud platforms use reverse proxies (nginx, load balancers, etc):
+
+```
+User → HTTPS → Platform Proxy → HTTP → Your App
+```
+
+**Without proper configuration:**
+- Express doesn't recognize HTTPS (sees HTTP from proxy)
+- Secure cookies aren't sent (Express rejects them as insecure)
+- Session cookies get lost across redirects
+- OAuth flows fail
+- Users can't stay logged in
+
+### The Solution
+
+This is already configured in `server/src/index.js`:
+
+```javascript
+// At app initialization
+const app = express();
+app.set('trust proxy', 1);  // Trust the first proxy in chain
+
+// In session configuration
+const sessionConfig = {
+  proxy: true,  // Use X-Forwarded-Proto header from proxy
+  rolling: true,  // Send session cookie on every response (needed for redirects)
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',  // HTTPS in production
+    httpOnly: true,
+    sameSite: 'lax',  // Allow cookies on OAuth redirects
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+    path: '/'
+  }
+};
+```
+
+**What this does:**
+- `app.set('trust proxy', 1)` - Express reads `X-Forwarded-Proto` header from proxy
+- `proxy: true` - express-session uses the same header to detect HTTPS
+- `secure: true` detection now works correctly through proxy
+- Cookies are properly set and sent by browser
+
+### Testing Proxy Configuration
+
+After deployment, verify in browser DevTools (F12):
+
+1. **Application** tab → **Cookies**
+2. Look for `wmv.sid` cookie
+3. Verify:
+   - ✅ Domain matches your production domain
+   - ✅ Secure flag is enabled (HTTPS only)
+   - ✅ SameSite is "Lax"
+   - ✅ Path is "/"
+   - ✅ HttpOnly is checked
+
+**If cookies are missing:**
+- Check that `trust proxy` is set in code
+- Verify proxy is sending `X-Forwarded-Proto: https`
+- Check `proxy: true` in session config
+- Review Rails logs for errors
+
+### Platform-Specific Notes
+
+| Platform | Proxy | Configuration |
+|----------|-------|---|
+| **Railway** | ✅ nginx | Automatic - just set `trust proxy` |
+| **Heroku** | ✅ nginx | Automatic - just set `trust proxy` |
+| **AWS ALB/ELB** | ✅ ELB | May need custom header setup |
+| **DigitalOcean App** | ✅ Reverse Proxy | Automatic - just set `trust proxy` |
+| **Self-hosted Docker** | Depends | Configure your nginx/reverse proxy |
+
+For detailed proxy issues, see [docs/OAUTH_SESSION_FIX.md](OAUTH_SESSION_FIX.md).
+
+---
+
 ## Database Backup Strategy
 
 **Critical:** SQLite file must be backed up regularly!
