@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import './SegmentInput.css';
-import { getAdminSegments, validateSegment as validateSegmentApi, addSegment } from '../api';
+import { getAdminSegments, validateSegment as validateSegmentApi } from '../api';
 
 interface Segment {
   id: number;
