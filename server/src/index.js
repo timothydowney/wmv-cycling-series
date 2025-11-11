@@ -40,14 +40,16 @@ function getBaseUrl(req) {
 
 // Session configuration for OAuth
 const sessionConfig = {
+  name: 'wmv.sid', // Explicit session cookie name
   secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
   resave: false,
-  saveUninitialized: false,
+  saveUninitialized: true, // Changed to true to ensure cookie is sent even if session empty
   cookie: {
     secure: process.env.NODE_ENV === 'production', // HTTPS only in production
     httpOnly: true,
     sameSite: 'lax', // 'lax' allows cookies on safe redirects (needed for OAuth callback)
-    maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    path: '/' // Explicit path
   }
 };
 // Only use persistent session store in non-test environments
@@ -68,6 +70,22 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 app.use(session(sessionConfig));
+
+// Middleware to log all Set-Cookie headers
+app.use((req, res, next) => {
+  const originalSetHeader = res.setHeader;
+  res.setHeader = function(name, value) {
+    if (name.toLowerCase() === 'set-cookie') {
+      console.log('[COOKIE] Setting cookie in response:', value);
+    }
+    return originalSetHeader.call(this, name, value);
+  };
+  
+  // Log session initialization
+  console.log('[SESSION] Request', req.method, req.path, '- Session ID:', req.sessionID, 'Session data:', req.session);
+  
+  next();
+});
 
 // Initialize DB
 const db = new Database(DB_PATH);
@@ -586,12 +604,16 @@ app.get('/auth/strava/callback', async (req, res) => {
       }
       
       console.log('[AUTH] Session saved successfully to store');
+      console.log('[AUTH] Response headers before redirect:', res.getHeaders());
+      console.log('[AUTH] Set-Cookie header:', res.getHeader('set-cookie'));
       
       // Redirect to dashboard with safe fallback to request base URL
       const baseUrl = CLIENT_BASE_URL || getBaseUrl(req);
       const finalRedirect = `${baseUrl}?connected=true`;
       console.log('[AUTH] Callback successful, redirecting to:', finalRedirect);
-      res.redirect(finalRedirect);
+      
+      // Send status code explicitly to ensure headers are flushed
+      res.status(302).redirect(finalRedirect);
     });
   } catch (error) {
     console.error('OAuth callback error:', error);
