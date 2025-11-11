@@ -1,5 +1,14 @@
 // Backend API client
-const API_BASE_URL = import.meta.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
+// In production (Railway), frontend and backend share one domain, so use relative URLs
+// In development, frontend and backend are on different ports, so use explicit URL
+const API_BASE_URL = import.meta.env.REACT_APP_BACKEND_URL || (() => {
+  // If running on localhost, use explicit backend URL for development
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    return 'http://localhost:3001';
+  }
+  // Otherwise (production), use relative URLs (same domain as frontend)
+  return '';
+})();
 
 export interface Season {
   id: number;
