@@ -1,17 +1,13 @@
 # Railway configuration as code
-# This file tells Railway how to build and run your application
 # Docs: https://docs.railway.app/guides/config-as-code
 
 [build]
-# Railway auto-detects Node.js via package.json
-# This explicitly tells Railway to use Node.js builder
+# Use nixpacks for building
 builder = "nixpacks"
 
 [deploy]
-# The start command - Railway runs this after build
-# npm install is automatically run by Railway, so we just need start
 startCommand = "npm start"
-
-# Restart policy
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 10
+
+

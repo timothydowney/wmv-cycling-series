@@ -1,0 +1,6 @@
+# Nixpacks configuration
+# Docs: https://docs.railway.app/guides/nixpacks
+
+[variables]
+# Explicitly set Node.js version (must be 24.x for better-sqlite3)
+NIXPACKS_NODE_VERSION = "24"
