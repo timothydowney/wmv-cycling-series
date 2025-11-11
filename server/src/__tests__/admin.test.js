@@ -36,30 +36,30 @@ describe('Coverage Improvements - Quick Wins', () => {
 
   beforeAll(() => {
     // Clean slate for these tests
-    db.prepare('DELETE FROM results').run();
-    db.prepare('DELETE FROM segment_efforts').run();
-    db.prepare('DELETE FROM activities').run();
-    db.prepare('DELETE FROM weeks').run();
-    db.prepare('DELETE FROM participant_tokens').run();
-    db.prepare('DELETE FROM participants').run();
-    db.prepare('DELETE FROM segments').run();
-    db.prepare('DELETE FROM seasons').run();
+    db.prepare('DELETE FROM result').run();
+    db.prepare('DELETE FROM segment_effort').run();
+    db.prepare('DELETE FROM activity').run();
+    db.prepare('DELETE FROM week').run();
+    db.prepare('DELETE FROM participant_token').run();
+    db.prepare('DELETE FROM participant').run();
+    db.prepare('DELETE FROM segment').run();
+    db.prepare('DELETE FROM season').run();
 
     // Create test season
     db.prepare(`
-      INSERT INTO seasons (id, name, start_date, end_date, is_active)
+      INSERT INTO season (id, name, start_date, end_date, is_active)
       VALUES (?, ?, ?, ?, ?)
     `).run(TEST_SEASON_ID, 'Test Season', '2025-01-01', '2025-12-31', 1);
 
     // Create initial segments
     db.prepare(`
-      INSERT INTO segments (strava_segment_id, name, distance, average_grade, city, state, country)
+      INSERT INTO segment (strava_segment_id, name, distance, average_grade, city, state, country)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(TEST_SEGMENT_1, 'Segment 1', 1.5, 5.2, 'Boston', 'MA', 'USA');
 
     // Create test participant
     db.prepare(`
-      INSERT INTO participants (strava_athlete_id, name)
+      INSERT INTO participant (strava_athlete_id, name)
       VALUES (?, ?)
     `).run(TEST_ATHLETE, 'Test Athlete');
   });
@@ -78,7 +78,7 @@ describe('Coverage Improvements - Quick Wins', () => {
     describe('GET /admin/segments', () => {
       test('returns empty array initially', async () => {
         // Clean segments for this test
-        db.prepare('DELETE FROM segments').run();
+        db.prepare('DELETE FROM segment').run();
 
         const res = await request(app).get('/admin/segments');
 
@@ -89,13 +89,13 @@ describe('Coverage Improvements - Quick Wins', () => {
 
       test('returns list of segments with correct structure', async () => {
         // Clean and add test data
-        db.prepare('DELETE FROM segments').run();
+        db.prepare('DELETE FROM segment').run();
         db.prepare(`
-          INSERT INTO segments (strava_segment_id, name, distance, average_grade, city, state, country)
+          INSERT INTO segment (strava_segment_id, name, distance, average_grade, city, state, country)
           VALUES (?, ?, ?, ?, ?, ?, ?)
         `).run(TEST_SEGMENT_1, 'Climb 1', 2.5, 6.5, 'Denver', 'CO', 'USA');
         db.prepare(`
-          INSERT INTO segments (strava_segment_id, name, distance, average_grade, city, state, country)
+          INSERT INTO segment (strava_segment_id, name, distance, average_grade, city, state, country)
           VALUES (?, ?, ?, ?, ?, ?, ?)
         `).run(TEST_SEGMENT_2, 'Flat Segment', 5.0, 1.2, 'Austin', 'TX', 'USA');
 
@@ -114,13 +114,13 @@ describe('Coverage Improvements - Quick Wins', () => {
       });
 
       test('returns segments sorted alphabetically by name', async () => {
-        db.prepare('DELETE FROM segments').run();
+        db.prepare('DELETE FROM segment').run();
         db.prepare(`
-          INSERT INTO segments (strava_segment_id, name, distance, average_grade, city, state, country)
+          INSERT INTO segment (strava_segment_id, name, distance, average_grade, city, state, country)
           VALUES (?, ?, ?, ?, ?, ?, ?)
         `).run(111, 'Zebra Hill', 1.0, 3.0, 'City1', 'ST1', 'Country1');
         db.prepare(`
-          INSERT INTO segments (strava_segment_id, name, distance, average_grade, city, state, country)
+          INSERT INTO segment (strava_segment_id, name, distance, average_grade, city, state, country)
           VALUES (?, ?, ?, ?, ?, ?, ?)
         `).run(222, 'Apple Street', 2.0, 4.0, 'City2', 'ST2', 'Country2');
 
@@ -134,7 +134,7 @@ describe('Coverage Improvements - Quick Wins', () => {
 
     describe('POST /admin/segments', () => {
       test('creates new segment with all fields', async () => {
-        db.prepare('DELETE FROM segments').run();
+        db.prepare('DELETE FROM segment').run();
 
         const res = await request(app)
           .post('/admin/segments')
@@ -157,7 +157,7 @@ describe('Coverage Improvements - Quick Wins', () => {
       });
 
       test('creates segment with minimal fields (only required)', async () => {
-        db.prepare('DELETE FROM segments').run();
+        db.prepare('DELETE FROM segment').run();
 
         const res = await request(app)
           .post('/admin/segments')
@@ -207,7 +207,7 @@ describe('Coverage Improvements - Quick Wins', () => {
       });
 
       test('updates existing segment (upsert behavior)', async () => {
-        db.prepare('DELETE FROM segments').run();
+        db.prepare('DELETE FROM segment').run();
 
         // First insert
         let res = await request(app)
@@ -242,7 +242,7 @@ describe('Coverage Improvements - Quick Wins', () => {
       });
 
       test('handles null/empty metadata fields', async () => {
-        db.prepare('DELETE FROM segments').run();
+        db.prepare('DELETE FROM segment').run();
 
         const res = await request(app)
           .post('/admin/segments')
@@ -273,32 +273,32 @@ describe('Coverage Improvements - Quick Wins', () => {
 
     beforeEach(() => {
       // Clean for each test
-      db.prepare('DELETE FROM results').run();
-      db.prepare('DELETE FROM segment_efforts').run();
-      db.prepare('DELETE FROM activities').run();
-      db.prepare('DELETE FROM weeks').run();
-      db.prepare('DELETE FROM participant_tokens').run();
-      db.prepare('DELETE FROM participants').run();
-      db.prepare('DELETE FROM segments').run();
+      db.prepare('DELETE FROM result').run();
+      db.prepare('DELETE FROM segment_effort').run();
+      db.prepare('DELETE FROM activity').run();
+      db.prepare('DELETE FROM week').run();
+      db.prepare('DELETE FROM participant_token').run();
+      db.prepare('DELETE FROM participant').run();
+      db.prepare('DELETE FROM segment').run();
 
       // Don't delete seasons - just use unique IDs for each test
       leaderboardSeasonId++;
 
       // Create test season with unique ID
       db.prepare(`
-        INSERT INTO seasons (id, name, start_date, end_date, is_active)
+        INSERT INTO season (id, name, start_date, end_date, is_active)
         VALUES (?, ?, ?, ?, ?)
       `).run(leaderboardSeasonId, `Edge Case Season ${leaderboardSeasonId}`, '2025-01-01', '2025-12-31', 1);
 
       // Create test segment
       db.prepare(`
-        INSERT INTO segments (strava_segment_id, name, distance, average_grade, city, state, country)
+        INSERT INTO segment (strava_segment_id, name, distance, average_grade, city, state, country)
         VALUES (?, ?, ?, ?, ?, ?, ?)
       `).run(TEST_SEGMENT_1, 'Test Segment', 2.0, 5.0, 'City', 'ST', 'Country');
 
       // Create test week
       const result = db.prepare(`
-        INSERT INTO weeks (season_id, week_name, date, segment_id, required_laps, start_time, end_time)
+        INSERT INTO week (season_id, week_name, date, strava_segment_id, required_laps, start_time, end_time)
         VALUES (?, ?, ?, ?, ?, ?, ?)
         RETURNING id
       `).get(leaderboardSeasonId, 'Test Week', '2025-06-01', TEST_SEGMENT_1, 1, '06:00', '18:00');
@@ -328,19 +328,18 @@ describe('Coverage Improvements - Quick Wins', () => {
     test('leaderboard sorting works with single result', async () => {
       // Create participant
       db.prepare(`
-        INSERT INTO participants (strava_athlete_id, name)
+        INSERT INTO participant (strava_athlete_id, name)
         VALUES (?, ?)
       `).run(1111, 'Single Rider');
 
       // Create activity with segment efforts (leaderboard reads from activities now)
       const activityId = db.prepare(`
-        INSERT INTO activities (week_id, strava_athlete_id, strava_activity_id, activity_url, activity_date, validation_status)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).run(testWeekId, 1111, 999, 'https://strava.com/activities/999', '2025-11-01T10:00:00Z', 'valid').lastInsertRowid;
+        INSERT INTO activity (week_id, strava_athlete_id, strava_activity_id, validation_status) VALUES (?, ?, ?, ?)
+      `).run(testWeekId, 1111, 999, 'valid').lastInsertRowid;
 
       // Create segment effort
       db.prepare(`
-        INSERT INTO segment_efforts (activity_id, segment_id, effort_index, elapsed_seconds)
+        INSERT INTO segment_effort (activity_id, strava_segment_id, effort_index, elapsed_seconds)
         VALUES (?, ?, ?, ?)
       `).run(activityId, TEST_SEGMENT_1, 1, 3600);
 
@@ -354,33 +353,31 @@ describe('Coverage Improvements - Quick Wins', () => {
     test('leaderboard with tied scores', async () => {
       // Create two participants
       db.prepare(`
-        INSERT INTO participants (strava_athlete_id, name)
+        INSERT INTO participant (strava_athlete_id, name)
         VALUES (?, ?)
       `).run(2222, 'Rider A');
       db.prepare(`
-        INSERT INTO participants (strava_athlete_id, name)
+        INSERT INTO participant (strava_athlete_id, name)
         VALUES (?, ?)
       `).run(2223, 'Rider B');
 
       // Create activities for both riders (leaderboard reads from activities)
       const activityIdA = db.prepare(`
-        INSERT INTO activities (week_id, strava_athlete_id, strava_activity_id, activity_url, activity_date, validation_status)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).run(testWeekId, 2222, 9991, 'https://strava.com/activities/9991', '2025-11-01T10:00:00Z', 'valid').lastInsertRowid;
+        INSERT INTO activity (week_id, strava_athlete_id, strava_activity_id, validation_status) VALUES (?, ?, ?, ?)
+      `).run(testWeekId, 2222, 9991, 'valid').lastInsertRowid;
 
       const activityIdB = db.prepare(`
-        INSERT INTO activities (week_id, strava_athlete_id, strava_activity_id, activity_url, activity_date, validation_status)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).run(testWeekId, 2223, 9992, 'https://strava.com/activities/9992', '2025-11-01T10:00:00Z', 'valid').lastInsertRowid;
+        INSERT INTO activity (week_id, strava_athlete_id, strava_activity_id, validation_status) VALUES (?, ?, ?, ?)
+      `).run(testWeekId, 2223, 9992, 'valid').lastInsertRowid;
 
       // Both riders have same time (tied scores)
       db.prepare(`
-        INSERT INTO segment_efforts (activity_id, segment_id, effort_index, elapsed_seconds)
+        INSERT INTO segment_effort (activity_id, strava_segment_id, effort_index, elapsed_seconds)
         VALUES (?, ?, ?, ?)
       `).run(activityIdA, TEST_SEGMENT_1, 1, 3600);
 
       db.prepare(`
-        INSERT INTO segment_efforts (activity_id, segment_id, effort_index, elapsed_seconds)
+        INSERT INTO segment_effort (activity_id, strava_segment_id, effort_index, elapsed_seconds)
         VALUES (?, ?, ?, ?)
       `).run(activityIdB, TEST_SEGMENT_1, 1, 3600);
 
@@ -400,11 +397,11 @@ describe('Coverage Improvements - Quick Wins', () => {
 
   describe('Season Management Edge Cases', () => {
     beforeEach(() => {
-      db.prepare('DELETE FROM results').run();
-      db.prepare('DELETE FROM segment_efforts').run();
-      db.prepare('DELETE FROM activities').run();
-      db.prepare('DELETE FROM weeks').run();
-      db.prepare('DELETE FROM seasons').run();
+      db.prepare('DELETE FROM result').run();
+      db.prepare('DELETE FROM segment_effort').run();
+      db.prepare('DELETE FROM activity').run();
+      db.prepare('DELETE FROM week').run();
+      db.prepare('DELETE FROM season').run();
     });
 
     test('POST /admin/seasons handles leap year dates', async () => {
@@ -543,20 +540,20 @@ describe('Coverage Improvements - Quick Wins', () => {
 
   describe('Week Management Additional Cases', () => {
     beforeEach(() => {
-      db.prepare('DELETE FROM results').run();
-      db.prepare('DELETE FROM segment_efforts').run();
-      db.prepare('DELETE FROM activities').run();
-      db.prepare('DELETE FROM weeks').run();
-      db.prepare('DELETE FROM seasons').run();
-      db.prepare('DELETE FROM segments').run();
+      db.prepare('DELETE FROM result').run();
+      db.prepare('DELETE FROM segment_effort').run();
+      db.prepare('DELETE FROM activity').run();
+      db.prepare('DELETE FROM week').run();
+      db.prepare('DELETE FROM season').run();
+      db.prepare('DELETE FROM segment').run();
 
       db.prepare(`
-        INSERT INTO seasons (id, name, start_date, end_date, is_active)
+        INSERT INTO season (id, name, start_date, end_date, is_active)
         VALUES (?, ?, ?, ?, ?)
       `).run(TEST_SEASON_ID, 'Week Test Season', '2025-01-01', '2025-12-31', 1);
 
       db.prepare(`
-        INSERT INTO segments (strava_segment_id, name, distance, average_grade, city, state, country)
+        INSERT INTO segment (strava_segment_id, name, distance, average_grade, city, state, country)
         VALUES (?, ?, ?, ?, ?, ?, ?)
       `).run(TEST_SEGMENT_1, 'Segment A', 2.0, 5.0, 'City', 'ST', 'Country');
     });
@@ -627,8 +624,8 @@ describe('Coverage Improvements - Quick Wins', () => {
 
   describe('Admin Participants', () => {
     test('GET /admin/participants returns empty array initially', async () => {
-      db.prepare('DELETE FROM participant_tokens').run();
-      db.prepare('DELETE FROM participants').run();
+      db.prepare('DELETE FROM participant_token').run();
+      db.prepare('DELETE FROM participant').run();
 
       const res = await request(app).get('/admin/participants');
 
@@ -638,11 +635,11 @@ describe('Coverage Improvements - Quick Wins', () => {
     });
 
     test('GET /admin/participants includes participant info', async () => {
-      db.prepare('DELETE FROM participant_tokens').run();
-      db.prepare('DELETE FROM participants').run();
+      db.prepare('DELETE FROM participant_token').run();
+      db.prepare('DELETE FROM participant').run();
 
       db.prepare(`
-        INSERT INTO participants (strava_athlete_id, name)
+        INSERT INTO participant (strava_athlete_id, name)
         VALUES (?, ?)
       `).run(5555, 'Test Participant');
 
@@ -658,11 +655,11 @@ describe('Coverage Improvements - Quick Wins', () => {
     });
 
     test('GET /admin/participants shows has_token = 0 when no token', async () => {
-      db.prepare('DELETE FROM participant_tokens').run();
-      db.prepare('DELETE FROM participants').run();
+      db.prepare('DELETE FROM participant_token').run();
+      db.prepare('DELETE FROM participant').run();
 
       db.prepare(`
-        INSERT INTO participants (strava_athlete_id, name)
+        INSERT INTO participant (strava_athlete_id, name)
         VALUES (?, ?)
       `).run(6666, 'No Token Participant');
 
@@ -673,16 +670,16 @@ describe('Coverage Improvements - Quick Wins', () => {
     });
 
     test('GET /admin/participants shows has_token = 1 when token exists', async () => {
-      db.prepare('DELETE FROM participant_tokens').run();
-      db.prepare('DELETE FROM participants').run();
+      db.prepare('DELETE FROM participant_token').run();
+      db.prepare('DELETE FROM participant').run();
 
       db.prepare(`
-        INSERT INTO participants (strava_athlete_id, name)
+        INSERT INTO participant (strava_athlete_id, name)
         VALUES (?, ?)
       `).run(7777, 'Token Participant');
 
       db.prepare(`
-        INSERT INTO participant_tokens (strava_athlete_id, access_token, refresh_token, expires_at)
+        INSERT INTO participant_token (strava_athlete_id, access_token, refresh_token, expires_at)
         VALUES (?, ?, ?, ?)
       `).run(7777, 'fake_token', 'fake_refresh', Math.floor(Date.now() / 1000) + 3600);
 
@@ -694,15 +691,15 @@ describe('Coverage Improvements - Quick Wins', () => {
     });
 
     test('GET /admin/participants returns participants sorted by name', async () => {
-      db.prepare('DELETE FROM participant_tokens').run();
-      db.prepare('DELETE FROM participants').run();
+      db.prepare('DELETE FROM participant_token').run();
+      db.prepare('DELETE FROM participant').run();
 
       db.prepare(`
-        INSERT INTO participants (strava_athlete_id, name)
+        INSERT INTO participant (strava_athlete_id, name)
         VALUES (?, ?)
       `).run(8888, 'Zebra Rider');
       db.prepare(`
-        INSERT INTO participants (strava_athlete_id, name)
+        INSERT INTO participant (strava_athlete_id, name)
         VALUES (?, ?)
       `).run(8889, 'Apple Rider');
 
@@ -767,8 +764,8 @@ describe('Coverage Improvements - Quick Wins', () => {
   describe('Admin Segments Validation Cases', () => {
     beforeEach(() => {
       // Clean segments for each test - avoid FK constraints
-      db.prepare('DELETE FROM weeks').run();
-      db.prepare('DELETE FROM segments').run();
+      db.prepare('DELETE FROM week').run();
+      db.prepare('DELETE FROM segment').run();
     });
 
     test('POST /admin/segments with only strava_segment_id', async () => {
