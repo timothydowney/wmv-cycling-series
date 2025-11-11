@@ -1,5 +1,12 @@
 # OAuth Session Persistence Fix - Complete Analysis
 
+**See also:**
+- [`STRAVA_INTEGRATION.md`](./STRAVA_INTEGRATION.md) - How OAuth and Strava integration work
+- [`OAUTH_FIX_SUMMARY.md`](./OAUTH_FIX_SUMMARY.md) - Summary and analysis of the debugging journey
+- [`DEPLOYMENT.md`](./DEPLOYMENT.md) - Production deployment and reverse proxy configuration
+
+---
+
 ## Problem Statement
 
 Strava OAuth connection was failing on Railway production with a critical issue: **session cookies were not persisting across the OAuth callback redirect**. The browser would get authenticated on Strava, redirect back to the app, but the session cookie would not be sent in subsequent requests, causing the user to appear as unauthenticated.

@@ -14,6 +14,8 @@ Welcome to the WMV Cycling Series documentation. Start with **Getting Started**,
 
 - **[API Reference](./API.md)** - Complete endpoint reference
 - **[Strava Integration](./STRAVA_INTEGRATION.md)** - OAuth flow, token management, activity collection
+  - **[OAuth Session Fix](./OAUTH_SESSION_FIX.md)** - Technical details: reverse proxy & session persistence
+  - **[OAuth Fix Summary](./OAUTH_FIX_SUMMARY.md)** - Analysis of the OAuth session debugging journey
 - **[Database Design](./DATABASE_DESIGN.md)** - Schema, queries, data flow
 
 ### Features & Operations
@@ -22,10 +24,16 @@ Welcome to the WMV Cycling Series documentation. Start with **Getting Started**,
 - **[Scoring Rules](./SCORING.md)** - How points are calculated
 - **[Admin Guide](../ADMIN_GUIDE.md)** - Week management, batch fetch, participant operations
 
-### Branding & Deployment
+### Security & Deployment
+
+- **[Security Audit](./SECURITY_AUDIT.md)** - Comprehensive security review
+- **[Token Encryption Guide](./TOKEN_ENCRYPTION_GUIDE.md)** - Token storage and encryption
+- **[Deployment Guide](./DEPLOYMENT.md)** - Railway setup, backups, monitoring
+
+### Branding & Standards
 
 - **[Strava Branding](../STRAVA_BRANDING.md)** - OAuth button guidelines and attribution
-- **[Deployment Guide](./DEPLOYMENT.md)** - Railway setup, backups, monitoring
+- **[Pre-Commit Checklist](./PRE_COMMIT_CHECKLIST.md)** - Code quality standards
 
 ---
 
@@ -64,10 +72,15 @@ Welcome to the WMV Cycling Series documentation. Start with **Getting Started**,
 ├── README.md                  # This file - your entry point
 ├── QUICK_START.md             # Get running in 5 minutes
 ├── ARCHITECTURE.md            # System design overview
-├── API.md                      # Endpoint reference
-├── DATABASE_DESIGN.md          # Schema and queries
-├── STRAVA_INTEGRATION.md       # OAuth and activity flow
-├── SCORING.md                  # Points calculation
+├── API.md                     # Endpoint reference
+├── DATABASE_DESIGN.md         # Schema and queries
+├── STRAVA_INTEGRATION.md      # OAuth and activity flow
+│   ├── OAUTH_SESSION_FIX.md   #   → Technical: Reverse proxy & sessions
+│   └── OAUTH_FIX_SUMMARY.md   #   → Analysis: How we debugged it
+├── SCORING.md                 # Points calculation
+├── SECURITY_AUDIT.md          # Security review
+├── TOKEN_ENCRYPTION_GUIDE.md  # Token encryption details
+├── PRE_COMMIT_CHECKLIST.md    # Code standards
 └── DEPLOYMENT.md              # Production deployment
 
 /
@@ -87,7 +100,12 @@ Welcome to the WMV Cycling Series documentation. Start with **Getting Started**,
 | **API.md** | Reference all endpoints | You're building features |
 | **DATABASE_DESIGN.md** | Understand the schema | You're working with data |
 | **STRAVA_INTEGRATION.md** | Learn OAuth + activity flow | You're integrating Strava or debugging auth |
+| **OAUTH_SESSION_FIX.md** | Technical: Reverse proxy sessions | You need reverse proxy/production details |
+| **OAUTH_FIX_SUMMARY.md** | Analysis of OAuth debugging | You want to understand the fixes |
 | **SCORING.md** | Understand scoring rules | You're checking point calculations |
+| **SECURITY_AUDIT.md** | Security review | You're auditing the codebase |
+| **TOKEN_ENCRYPTION_GUIDE.md** | Token encryption details | You're implementing encryption |
+| **PRE_COMMIT_CHECKLIST.md** | Code standards | You want to maintain quality |
 | **DEPLOYMENT.md** | Deploy to production | You're going live |
 | **ADMIN_GUIDE.md** | Manage competitions | You're running events |
 | **STRAVA_BRANDING.md** | Follow brand guidelines | You're adding Strava UI elements |
@@ -100,13 +118,16 @@ Welcome to the WMV Cycling Series documentation. Start with **Getting Started**,
 A: Read [Quick Start](./QUICK_START.md), run `npm run dev:all`, and open http://localhost:5173
 
 **Q: How does the OAuth flow work?**  
-A: See [Strava Integration](./STRAVA_INTEGRATION.md) - comprehensive guide with code examples
+A: Start with [Strava Integration](./STRAVA_INTEGRATION.md) for the comprehensive guide with code examples. If you need production/reverse proxy details, see [OAuth Session Fix](./OAUTH_SESSION_FIX.md). For background on how we debugged it, see [OAuth Fix Summary](./OAUTH_FIX_SUMMARY.md).
+
+**Q: Why is OAuth failing in production?**  
+A: Almost always a reverse proxy session issue. See [OAuth Session Fix](./OAUTH_SESSION_FIX.md) for full technical explanation and solution.
 
 **Q: What's the database schema?**  
 A: See [Database Design](./DATABASE_DESIGN.md) - complete schema with examples
 
 **Q: How do I deploy to production?**  
-A: See [Deployment Guide](./DEPLOYMENT.md) - Railway setup instructions
+A: See [Deployment Guide](./DEPLOYMENT.md) - Railway setup instructions with all environment variables
 
 **Q: How are points calculated?**  
 A: See [Scoring Rules](./SCORING.md) - complete scoring formula
@@ -116,6 +137,9 @@ A: See [Admin Guide](../ADMIN_GUIDE.md) - step-by-step workflow
 
 **Q: What's the API reference?**  
 A: See [API Reference](./API.md) - all endpoints with examples
+
+**Q: Is the app secure?**  
+A: See [Security Audit](./SECURITY_AUDIT.md) - comprehensive security review
 
 ---
 
