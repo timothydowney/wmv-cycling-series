@@ -1,6 +1,15 @@
 const request = require('supertest');
 const path = require('path');
 const fs = require('fs');
+const {
+  createSeason,
+  createSegment,
+  createParticipant,
+  createWeek,
+  createActivity,
+  createResult,
+  clearAllData
+} = require('./testDataHelpers');
 
 // Mock strava-v3 library to prevent network calls
 jest.mock('strava-v3', () => ({
@@ -38,96 +47,75 @@ describe('WMV Backend API', () => {
   let testWeekId1, testActivityId1, testActivityId2;
 
   beforeAll(() => {
-    // Clear all data - ensure clean slate for tests
-    db.prepare('DELETE FROM result').run();
-    db.prepare('DELETE FROM segment_effort').run();
-    db.prepare('DELETE FROM activity').run();
-    db.prepare('DELETE FROM week').run();
-    db.prepare('DELETE FROM participant_token').run();
-    db.prepare('DELETE FROM participant').run();
-    db.prepare('DELETE FROM segment').run();
-    db.prepare('DELETE FROM season').run();
+    clearAllData(db);
 
     // Create test season
-    db.prepare(`
-      INSERT INTO season (id, name, start_date, end_date, is_active)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(TEST_SEASON_ID, 'Test Season 2025', '2025-11-01', '2025-12-31', 1);
+    const season = createSeason(db, 'Test Season 2025', true);
 
     // Create test segments
-    db.prepare(`
-      INSERT INTO segment (strava_segment_id, name)
-      VALUES (?, ?)
-    `).run(TEST_SEGMENT_1, 'Test Segment 1');
-    db.prepare(`
-      INSERT INTO segment (strava_segment_id, name)
-      VALUES (?, ?)
-    `).run(TEST_SEGMENT_2, 'Test Segment 2');
+    createSegment(db, TEST_SEGMENT_1, 'Test Segment 1');
+    createSegment(db, TEST_SEGMENT_2, 'Test Segment 2');
 
     // Create test participants
-    db.prepare(`
-      INSERT INTO participant (strava_athlete_id, name)
-      VALUES (?, ?)
-    `).run(TEST_ATHLETE_1, 'Test Athlete 1');
-    db.prepare(`
-      INSERT INTO participant (strava_athlete_id, name)
-      VALUES (?, ?)
-    `).run(TEST_ATHLETE_2, 'Test Athlete 2');
-    db.prepare(`
-      INSERT INTO participant (strava_athlete_id, name)
-      VALUES (?, ?)
-    `).run(TEST_ATHLETE_3, 'Test Athlete 3');
+    createParticipant(db, TEST_ATHLETE_1, 'Test Athlete 1');
+    createParticipant(db, TEST_ATHLETE_2, 'Test Athlete 2');
+    createParticipant(db, TEST_ATHLETE_3, 'Test Athlete 3');
 
     // Create test weeks
-    const week1Result = db.prepare(`
-      INSERT INTO week (season_id, week_name, date, strava_segment_id, required_laps, start_time, end_time)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      TEST_SEASON_ID, 'Test Week 1', '2025-11-05',
-      TEST_SEGMENT_1, 1,
-      '2025-11-05T00:00:00Z', '2025-11-05T22:00:00Z'
-    );
-    testWeekId1 = week1Result.lastInsertRowid;
+    const week1 = createWeek(db, {
+      seasonId: season.seasonId,
+      stravaSegmentId: TEST_SEGMENT_1,
+      weekName: 'Test Week 1',
+      date: '2025-11-05'
+    });
+    testWeekId1 = week1.weekId;
 
-    db.prepare(`
-      INSERT INTO week (season_id, week_name, date, strava_segment_id, required_laps, start_time, end_time)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      TEST_SEASON_ID, 'Test Week 2', '2025-11-12',
-      TEST_SEGMENT_2, 2,
-      '2025-11-12T00:00:00Z', '2025-11-12T22:00:00Z'
-    );
+    createWeek(db, {
+      seasonId: season.seasonId,
+      stravaSegmentId: TEST_SEGMENT_2,
+      weekName: 'Test Week 2',
+      date: '2025-11-12',
+      requiredLaps: 2
+    });
 
     // Create test activities and results for Week 1
-    const activity1 = db.prepare(`
-      INSERT INTO activity (week_id, strava_athlete_id, strava_activity_id, validation_status) VALUES (?, ?, ?, ?)
-    `).run(testWeekId1, TEST_ATHLETE_1, 9001, 'valid');
-    testActivityId1 = activity1.lastInsertRowid;
-    
-    db.prepare(`
-      INSERT INTO segment_effort (activity_id, strava_segment_id, effort_index, elapsed_seconds, pr_achieved)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(testActivityId1, TEST_SEGMENT_1, 1, 1500, 0);
+    const activity1 = createActivity(db, {
+      weekId: testWeekId1,
+      stravaAthleteId: TEST_ATHLETE_1,
+      stravaActivityId: 9001,
+      stravaSegmentId: TEST_SEGMENT_1,
+      elapsedSeconds: 1500,
+      prAchieved: false
+    });
+    testActivityId1 = activity1.activityId;
 
-    const activity2 = db.prepare(`
-      INSERT INTO activity (week_id, strava_athlete_id, strava_activity_id, validation_status) VALUES (?, ?, ?, ?)
-    `).run(testWeekId1, TEST_ATHLETE_2, 9002, 'valid');
-    testActivityId2 = activity2.lastInsertRowid;
-    
-    db.prepare(`
-      INSERT INTO segment_effort (activity_id, strava_segment_id, effort_index, elapsed_seconds, pr_achieved)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(testActivityId2, TEST_SEGMENT_1, 1, 1600, 1);
+    const activity2 = createActivity(db, {
+      weekId: testWeekId1,
+      stravaAthleteId: TEST_ATHLETE_2,
+      stravaActivityId: 9002,
+      stravaSegmentId: TEST_SEGMENT_1,
+      elapsedSeconds: 1600,
+      prAchieved: true
+    });
+    testActivityId2 = activity2.activityId;
 
     // Calculate results for test week
-    db.prepare(`
-      INSERT INTO result (week_id, strava_athlete_id, activity_id, total_time_seconds, rank, points, pr_bonus_points)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(testWeekId1, TEST_ATHLETE_1, testActivityId1, 1500, 1, 2, 0);
-    db.prepare(`
-      INSERT INTO result (week_id, strava_athlete_id, activity_id, total_time_seconds, rank, points, pr_bonus_points)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(testWeekId1, TEST_ATHLETE_2, testActivityId2, 1600, 2, 2, 1);
+    createResult(db, {
+      weekId: testWeekId1,
+      stravaAthleteId: TEST_ATHLETE_1,
+      activityId: testActivityId1,
+      totalTimeSeconds: 1500,
+      rank: 1,
+      points: 2
+    });
+    createResult(db, {
+      weekId: testWeekId1,
+      stravaAthleteId: TEST_ATHLETE_2,
+      activityId: testActivityId2,
+      totalTimeSeconds: 1600,
+      rank: 2,
+      points: 2
+    });
   });
   
   afterAll(async () => {

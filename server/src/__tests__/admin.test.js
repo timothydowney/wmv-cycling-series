@@ -1,6 +1,12 @@
 const request = require('supertest');
 const path = require('path');
 const fs = require('fs');
+const {
+  clearAllData,
+  createSeason,
+  createSegment,
+  createParticipant
+} = require('./testDataHelpers');
 
 // Mock strava-v3 library to prevent network calls
 jest.mock('strava-v3', () => ({
@@ -35,33 +41,10 @@ describe('Coverage Improvements - Quick Wins', () => {
   let testWeekId;
 
   beforeAll(() => {
-    // Clean slate for these tests
-    db.prepare('DELETE FROM result').run();
-    db.prepare('DELETE FROM segment_effort').run();
-    db.prepare('DELETE FROM activity').run();
-    db.prepare('DELETE FROM week').run();
-    db.prepare('DELETE FROM participant_token').run();
-    db.prepare('DELETE FROM participant').run();
-    db.prepare('DELETE FROM segment').run();
-    db.prepare('DELETE FROM season').run();
-
-    // Create test season
-    db.prepare(`
-      INSERT INTO season (id, name, start_date, end_date, is_active)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(TEST_SEASON_ID, 'Test Season', '2025-01-01', '2025-12-31', 1);
-
-    // Create initial segments
-    db.prepare(`
-      INSERT INTO segment (strava_segment_id, name, distance, average_grade, city, state, country)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(TEST_SEGMENT_1, 'Segment 1', 1.5, 5.2, 'Boston', 'MA', 'USA');
-
-    // Create test participant
-    db.prepare(`
-      INSERT INTO participant (strava_athlete_id, name)
-      VALUES (?, ?)
-    `).run(TEST_ATHLETE, 'Test Athlete');
+    clearAllData(db);
+    createSeason(db, 'Test Season', true);
+    createSegment(db, TEST_SEGMENT_1, 'Segment 1', { distance: 1.5, averageGrade: 5.2, city: 'Boston', state: 'MA', country: 'USA' });
+    createParticipant(db, TEST_ATHLETE, 'Test Athlete');
   });
 
   afterAll(() => {
@@ -273,28 +256,16 @@ describe('Coverage Improvements - Quick Wins', () => {
 
     beforeEach(() => {
       // Clean for each test
-      db.prepare('DELETE FROM result').run();
-      db.prepare('DELETE FROM segment_effort').run();
-      db.prepare('DELETE FROM activity').run();
-      db.prepare('DELETE FROM week').run();
-      db.prepare('DELETE FROM participant_token').run();
-      db.prepare('DELETE FROM participant').run();
-      db.prepare('DELETE FROM segment').run();
+      clearAllData(db);
 
       // Don't delete seasons - just use unique IDs for each test
       leaderboardSeasonId++;
 
       // Create test season with unique ID
-      db.prepare(`
-        INSERT INTO season (id, name, start_date, end_date, is_active)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(leaderboardSeasonId, `Edge Case Season ${leaderboardSeasonId}`, '2025-01-01', '2025-12-31', 1);
+      createSeason(db, `Edge Case Season ${leaderboardSeasonId}`, true, { seasonId: leaderboardSeasonId });
 
       // Create test segment
-      db.prepare(`
-        INSERT INTO segment (strava_segment_id, name, distance, average_grade, city, state, country)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(TEST_SEGMENT_1, 'Test Segment', 2.0, 5.0, 'City', 'ST', 'Country');
+      createSegment(db, TEST_SEGMENT_1, 'Test Segment', { distance: 2.0, averageGrade: 5.0, city: 'City', state: 'ST', country: 'Country' });
 
       // Create test week
       const result = db.prepare(`
@@ -397,11 +368,7 @@ describe('Coverage Improvements - Quick Wins', () => {
 
   describe('Season Management Edge Cases', () => {
     beforeEach(() => {
-      db.prepare('DELETE FROM result').run();
-      db.prepare('DELETE FROM segment_effort').run();
-      db.prepare('DELETE FROM activity').run();
-      db.prepare('DELETE FROM week').run();
-      db.prepare('DELETE FROM season').run();
+      clearAllData(db);
     });
 
     test('POST /admin/seasons handles leap year dates', async () => {
@@ -540,22 +507,9 @@ describe('Coverage Improvements - Quick Wins', () => {
 
   describe('Week Management Additional Cases', () => {
     beforeEach(() => {
-      db.prepare('DELETE FROM result').run();
-      db.prepare('DELETE FROM segment_effort').run();
-      db.prepare('DELETE FROM activity').run();
-      db.prepare('DELETE FROM week').run();
-      db.prepare('DELETE FROM season').run();
-      db.prepare('DELETE FROM segment').run();
-
-      db.prepare(`
-        INSERT INTO season (id, name, start_date, end_date, is_active)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(TEST_SEASON_ID, 'Week Test Season', '2025-01-01', '2025-12-31', 1);
-
-      db.prepare(`
-        INSERT INTO segment (strava_segment_id, name, distance, average_grade, city, state, country)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(TEST_SEGMENT_1, 'Segment A', 2.0, 5.0, 'City', 'ST', 'Country');
+      clearAllData(db);
+      createSeason(db, 'Week Test Season', true, { seasonId: TEST_SEASON_ID });
+      createSegment(db, TEST_SEGMENT_1, 'Segment A', { distance: 2.0, averageGrade: 5.0, city: 'City', state: 'ST', country: 'Country' });
     });
 
     test('creates week with minimum required fields', async () => {

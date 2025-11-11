@@ -1,6 +1,11 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 const { SCHEMA } = require('../schema');
+const {
+  createParticipant,
+  createFullUserWithActivity,
+  clearAllData
+} = require('./testDataHelpers');
 
 describe('User Data Endpoints (GDPR)', () => {
   let db;
@@ -25,45 +30,14 @@ describe('User Data Endpoints (GDPR)', () => {
 
   describe('POST /user/data/delete', () => {
     beforeEach(() => {
-      // Clear all tables before each test
-      db.exec('DELETE FROM deletion_request');
-      db.exec('DELETE FROM segment_effort');
-      db.exec('DELETE FROM result');
-      db.exec('DELETE FROM activity');
-      db.exec('DELETE FROM participant_token');
-      db.exec('DELETE FROM participant');
+      clearAllData(db);
     });
 
     test('deletes all user data in single synchronous transaction', () => {
       const stravaAthleteId = 12345;
 
       // Setup: Create a user with activities
-      db.prepare('INSERT INTO participant (name, strava_athlete_id) VALUES (?, ?)')
-        .run('Tim D', stravaAthleteId);
-
-      db.prepare('INSERT INTO participant_token (strava_athlete_id, access_token, refresh_token, expires_at) VALUES (?, ?, ?, ?)')
-        .run(stravaAthleteId, 'token123', 'refresh123', Date.now() + 3600000);
-
-      // Create a season and week (required foreign keys)
-      const season = db.prepare('INSERT INTO season (name, start_date, end_date, is_active) VALUES (?, ?, ?, ?)')
-        .run('Test Season', '2025-01-01', '2025-12-31', 1);
-      const seasonId = season.lastInsertRowid;
-
-      const segment = db.prepare('INSERT INTO segment (strava_segment_id, name) VALUES (?, ?)')
-        .run(99999, 'Test Segment');
-      
-      const week = db.prepare('INSERT INTO week (season_id, week_name, date, strava_segment_id, required_laps, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, ?)')
-        .run(seasonId, 'Test Week', '2025-06-01', 99999, 1, '2025-06-01T00:00:00Z', '2025-06-01T22:00:00Z');
-      const weekId = week.lastInsertRowid;
-
-      const activityId = db.prepare('INSERT INTO activity (week_id, strava_athlete_id, strava_activity_id) VALUES (?, ?, ?)')
-        .run(weekId, stravaAthleteId, 999).lastInsertRowid;
-
-      db.prepare('INSERT INTO segment_effort (activity_id, strava_segment_id, effort_index, elapsed_seconds) VALUES (?, ?, ?, ?)')
-        .run(activityId, 99999, 1, 1234);
-
-      db.prepare('INSERT INTO result (week_id, strava_athlete_id, total_time_seconds) VALUES (?, ?, ?)')
-        .run(weekId, stravaAthleteId, 1234);
+      createFullUserWithActivity(db, { stravaAthleteId, name: 'Tim D' });
 
       // Verify data exists
       expect(db.prepare('SELECT COUNT(*) as count FROM participant WHERE strava_athlete_id = ?').get(stravaAthleteId).count).toBe(1);
@@ -75,11 +49,13 @@ describe('User Data Endpoints (GDPR)', () => {
       // Execute deletion (synchronously)
       const deleteTransaction = db.transaction(() => {
         // Delete data in cascade order (children first, parent last)
+        // Foreign key dependencies: result -> activity -> segment_effort
+        // So: segment_effort first, then result, then activity, then token, then participant
         db.prepare('DELETE FROM segment_effort WHERE activity_id IN (SELECT id FROM activity WHERE strava_athlete_id = ?)')
           .run(stravaAthleteId);
-        db.prepare('DELETE FROM activity WHERE strava_athlete_id = ?')
-          .run(stravaAthleteId);
         db.prepare('DELETE FROM result WHERE strava_athlete_id = ?')
+          .run(stravaAthleteId);
+        db.prepare('DELETE FROM activity WHERE strava_athlete_id = ?')
           .run(stravaAthleteId);
         db.prepare('DELETE FROM participant_token WHERE strava_athlete_id = ?')
           .run(stravaAthleteId);
@@ -115,36 +91,22 @@ describe('User Data Endpoints (GDPR)', () => {
     test('deletes segment efforts before activities (cascade order)', () => {
       const stravaAthleteId = 22222;
 
-      // Setup
-      db.prepare('INSERT INTO participant (name, strava_athlete_id) VALUES (?, ?)')
-        .run('User Two', stravaAthleteId);
-
-      // Create week first
-      const season = db.prepare('INSERT INTO season (name, start_date, end_date, is_active) VALUES (?, ?, ?, ?)')
-        .run('Test Season', '2025-01-01', '2025-12-31', 1);
-      const seasonId = season.lastInsertRowid;
-
-      const segment = db.prepare('INSERT INTO segment (strava_segment_id, name) VALUES (?, ?)')
-        .run(88888, 'Test Segment');
-      
-      const week = db.prepare('INSERT INTO week (season_id, week_name, date, strava_segment_id, required_laps, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, ?)')
-        .run(seasonId, 'Test Week', '2025-06-01', 88888, 1, '2025-06-01T00:00:00Z', '2025-06-01T22:00:00Z');
-      const weekId = week.lastInsertRowid;
-
-      const activityId = db.prepare('INSERT INTO activity (week_id, strava_athlete_id, strava_activity_id) VALUES (?, ?, ?)')
-        .run(weekId, stravaAthleteId, 888).lastInsertRowid;
-
-      db.prepare('INSERT INTO segment_effort (activity_id, strava_segment_id, effort_index, elapsed_seconds) VALUES (?, ?, ?, ?)')
-        .run(activityId, 88888, 1, 999);
+      // Setup: Create a user with activities
+      createFullUserWithActivity(db, { 
+        stravaAthleteId, 
+        name: 'User Two',
+        stravaSegmentId: 88888
+      });
 
       expect(db.prepare('SELECT COUNT(*) as count FROM segment_effort').get().count).toBe(1);
 
       // Delete in correct order
       const deleteTransaction = db.transaction(() => {
-        // Delete children first
+        // result -> activity -> segment_effort (delete children first)
+        db.prepare('DELETE FROM result WHERE strava_athlete_id = ?')
+          .run(stravaAthleteId);
         db.prepare('DELETE FROM segment_effort WHERE activity_id IN (SELECT id FROM activity WHERE strava_athlete_id = ?)')
           .run(stravaAthleteId);
-        // Then parent
         db.prepare('DELETE FROM activity WHERE strava_athlete_id = ?')
           .run(stravaAthleteId);
       });
@@ -158,10 +120,7 @@ describe('User Data Endpoints (GDPR)', () => {
     test('rolls back entire transaction on error', () => {
       const stravaAthleteId = 33333;
 
-      db.prepare('INSERT INTO participant (name, strava_athlete_id) VALUES (?, ?)')
-        .run('User Three', stravaAthleteId);
-      db.prepare('INSERT INTO participant_token (strava_athlete_id, access_token, refresh_token, expires_at) VALUES (?, ?, ?, ?)')
-        .run(stravaAthleteId, 'token', 'refresh', Date.now());
+      createParticipant(db, stravaAthleteId, 'User Three', true);
 
       expect(db.prepare('SELECT COUNT(*) as count FROM participant WHERE strava_athlete_id = ?').get(stravaAthleteId).count).toBe(1);
 
@@ -186,44 +145,18 @@ describe('User Data Endpoints (GDPR)', () => {
 
   describe('GET /user/data', () => {
     beforeEach(() => {
-      db.exec('DELETE FROM deletion_request');
-      db.exec('DELETE FROM segment_effort');
-      db.exec('DELETE FROM result');
-      db.exec('DELETE FROM activity');
-      db.exec('DELETE FROM participant_token');
-      db.exec('DELETE FROM participant');
+      clearAllData(db);
     });
 
     test('retrieves all user data for GDPR access request', () => {
       const stravaAthleteId = 44444;
 
       // Setup: Create complete user profile
-      db.prepare('INSERT INTO participant (name, strava_athlete_id) VALUES (?, ?)')
-        .run('Alice', stravaAthleteId);
-
-      db.prepare('INSERT INTO participant_token (strava_athlete_id, access_token, refresh_token, expires_at) VALUES (?, ?, ?, ?)')
-        .run(stravaAthleteId, 'token_access_123', 'token_refresh_456', Date.now() + 3600000);
-
-      // Create week first
-      const season = db.prepare('INSERT INTO season (name, start_date, end_date, is_active) VALUES (?, ?, ?, ?)')
-        .run('Test Season', '2025-01-01', '2025-12-31', 1);
-      const seasonId = season.lastInsertRowid;
-
-      const segment = db.prepare('INSERT INTO segment (strava_segment_id, name) VALUES (?, ?)')
-        .run(77777, 'Test Segment');
-      
-      const week = db.prepare('INSERT INTO week (season_id, week_name, date, strava_segment_id, required_laps, start_time, end_time) VALUES (?, ?, ?, ?, ?, ?, ?)')
-        .run(seasonId, 'Test Week', '2025-06-01', 77777, 1, '2025-06-01T00:00:00Z', '2025-06-01T22:00:00Z');
-      const weekId = week.lastInsertRowid;
-
-      const activityId = db.prepare('INSERT INTO activity (week_id, strava_athlete_id, strava_activity_id) VALUES (?, ?, ?)')
-        .run(weekId, stravaAthleteId, 111).lastInsertRowid;
-
-      db.prepare('INSERT INTO segment_effort (activity_id, strava_segment_id, effort_index, elapsed_seconds, pr_achieved) VALUES (?, ?, ?, ?, ?)')
-        .run(activityId, 77777, 1, 1000, 1);
-
-      db.prepare('INSERT INTO result (week_id, strava_athlete_id, total_time_seconds, rank, points) VALUES (?, ?, ?, ?, ?)')
-        .run(weekId, stravaAthleteId, 1000, 1, 5);
+      createFullUserWithActivity(db, { 
+        stravaAthleteId, 
+        name: 'Alice',
+        stravaSegmentId: 77777
+      });
 
       // Retrieve user data
       const participant = db.prepare('SELECT * FROM participant WHERE strava_athlete_id = ?').get(stravaAthleteId);
@@ -258,8 +191,7 @@ describe('User Data Endpoints (GDPR)', () => {
     test('returns empty arrays when user has no data', () => {
       const stravaAthleteId = 55555;
 
-      db.prepare('INSERT INTO participant (name, strava_athlete_id) VALUES (?, ?)')
-        .run('Bob', stravaAthleteId);
+      createParticipant(db, stravaAthleteId, 'Bob');
 
       const activities = db.prepare('SELECT * FROM activity WHERE strava_athlete_id = ?').all(stravaAthleteId);
       const results = db.prepare('SELECT * FROM result WHERE strava_athlete_id = ?').all(stravaAthleteId);
@@ -273,19 +205,14 @@ describe('User Data Endpoints (GDPR)', () => {
 
   describe('POST /auth/disconnect', () => {
     beforeEach(() => {
-      db.exec('DELETE FROM participant_token');
-      db.exec('DELETE FROM participant');
+      clearAllData(db);
     });
 
     test('removes tokens but keeps participant record', () => {
       const stravaAthleteId = 66666;
 
       // Setup
-      db.prepare('INSERT INTO participant (name, strava_athlete_id) VALUES (?, ?)')
-        .run('Charlie', stravaAthleteId);
-
-      db.prepare('INSERT INTO participant_token (strava_athlete_id, access_token, refresh_token, expires_at) VALUES (?, ?, ?, ?)')
-        .run(stravaAthleteId, 'token_x', 'refresh_x', Date.now());
+      createParticipant(db, stravaAthleteId, 'Charlie', true);
 
       expect(db.prepare('SELECT COUNT(*) as count FROM participant_token WHERE strava_athlete_id = ?').get(stravaAthleteId).count).toBe(1);
 
