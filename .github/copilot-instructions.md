@@ -310,12 +310,46 @@ A: Frontend (Vite dev server) provides hot reload. Backend (Express) serves API.
 2. **CORS/network errors?** → Verify both servers running: `lsof -ti:3001` and `lsof -ti:5173`
 3. **Port conflicts?** → Run `npm run stop` to cleanup stuck processes
 4. **Tests failing?** → Ensure Node 24.x, then run: `npm install && npm test`
+5. **OAuth/session issues in production?** → Check reverse proxy config (`app.set('trust proxy', 1)` in index.js)
+
+### Production Deployment Notes
+
+**CRITICAL: Reverse Proxy & Secure Cookies**
+
+If deploying behind a reverse proxy (Railway, Heroku, AWS, etc.), session cookies won't work without proper configuration:
+
+1. **Express must trust the proxy:**
+   ```javascript
+   app.set('trust proxy', 1);  // In server/src/index.js - ALREADY SET
+   ```
+
+2. **Session config must use proxy mode:**
+   ```javascript
+   const sessionConfig = {
+     proxy: true,  // Use X-Forwarded-Proto header
+     rolling: true,  // Send cookies on every response (needed for OAuth)
+     cookie: { secure: true, httpOnly: true, sameSite: 'lax' }
+   };
+   ```
+   
+3. **Without this:**
+   - Browser gets new session ID on every request
+   - User gets logged out after OAuth redirect
+   - Session cookies never persist
+
+**See docs/OAUTH_SESSION_FIX.md for complete explanation and testing procedures.**
+
+For Railway specifically:
+- ✅ Already configured correctly in code
+- ✅ Just deploy and it works
+- ⚠️ If session issues occur, check reverse proxy troubleshooting in docs/DEPLOYMENT.md
 
 ### Implementation Guidelines
 - **New endpoints** → Add tests in `server/src/__tests__/` BEFORE or WITH the code
 - **Database changes** → Update schema in `server/src/index.js`, add migration if needed
 - **Frontend components** → Keep in `src/components/`, use existing patterns
 - **API integration** → Use `src/api.ts` client, add types to `src/types.ts`
+- **Production issues** → Check docs/OAUTH_SESSION_FIX.md and docs/DEPLOYMENT.md first
 - **Before pushing** → Run `npm run check` (catches 99% of issues)
 
 ### Key Workflow
@@ -323,12 +357,14 @@ A: Frontend (Vite dev server) provides hot reload. Backend (Express) serves API.
 - **Testing during dev:** Parallel terminals: one with `npm run dev:all`, one with `cd server && npm run test:watch`
 - **Before commit:** `npm run check` (audits, types, lints, builds, tests)
 - **Stuck processes:** `npm run stop` (safe cleanup)
+- **Production debugging:** Check logs and verify reverse proxy config
 
 ## Project Status (as of November 2025)
 - ✅ Backend API fully functional with test data
 - ✅ Frontend displays leaderboards correctly
 - ✅ Admin endpoints for week management
-- ✅ Comprehensive test coverage
-- ⏳ Strava OAuth integration (planned)
-- ⏳ Activity submission and validation (planned)
-- ⏳ Production deployment (not started)
+- ✅ Comprehensive test coverage (144 tests, ~50% coverage)
+- ✅ **Strava OAuth integration working** (session persistence fixed with reverse proxy config)
+- ✅ **Production deployment on Railway (fully functional)**
+- ✅ Secure cookies and session handling configured correctly
+- ⏳ Activity submission and validation (partial - tokens stored, ready for implementation)
