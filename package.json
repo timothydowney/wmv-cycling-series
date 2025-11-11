@@ -28,8 +28,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "check": "npm run audit && npm run typecheck && npm run lint && npm run lint:backend && npm run build && npm test",
     "lint:backend": "npm --prefix server run lint",
+    "lint:all": "npm run lint && npm run lint:backend",
     "preview": "vite preview",
-    "postinstall": "cd server && npm install"
+    "postinstall": "cd server && npm install",
+    "prepare": "node scripts/install-hooks.cjs"
   },
   "dependencies": {
     "react": "^18.2.0",
