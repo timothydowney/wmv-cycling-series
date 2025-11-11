@@ -487,11 +487,6 @@ function storeActivityAndEfforts(stravaAthleteId, weekId, activityData, stravaSe
 // Serve built frontend from dist/ directory
 app.use(express.static(path.join(__dirname, '../../dist')));
 
-// Fallback to index.html for React Router SPA
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../../dist/index.html'));
-});
-
 // ========================================
 // AUTHENTICATION ROUTES
 // ========================================
@@ -1806,3 +1801,29 @@ if (require.main === module) {
     console.log(`WMV backend listening on port ${PORT}`);
   });
 }
+
+// ======================================================
+// SPA FALLBACK (must be registered LAST)
+// If no API/static route matched above, serve index.html
+// This ensures client-side routes like /connect work in prod
+// ======================================================
+app.get('*', (req, res, next) => {
+  // Let static assets (with extensions) and explicit API/admin paths fall through
+  if (req.path.includes('.')) return next();
+
+  // Do NOT intercept known backend route prefixes
+  const apiPrefixes = [
+    '/auth',
+    '/admin',
+    '/weeks',
+    '/seasons',
+    '/season',
+    '/participants',
+    '/activities',
+    '/health'
+  ];
+  if (apiPrefixes.some(p => req.path.startsWith(p))) return next();
+
+  // Otherwise, serve SPA entrypoint
+  res.sendFile(path.join(__dirname, '../../dist/index.html'));
+});
