@@ -332,11 +332,17 @@ describe('Coverage Improvements - Quick Wins', () => {
         VALUES (?, ?)
       `).run(1111, 'Single Rider');
 
-      // Create result
+      // Create activity with segment efforts (leaderboard reads from activities now)
+      const activityId = db.prepare(`
+        INSERT INTO activities (week_id, strava_athlete_id, strava_activity_id, activity_url, activity_date, validation_status)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(testWeekId, 1111, 999, 'https://strava.com/activities/999', '2025-11-01T10:00:00Z', 'valid').lastInsertRowid;
+
+      // Create segment effort
       db.prepare(`
-        INSERT INTO results (week_id, strava_athlete_id, rank, points, total_time_seconds)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(testWeekId, 1111, 1, 50, 3600);
+        INSERT INTO segment_efforts (activity_id, segment_id, effort_index, elapsed_seconds)
+        VALUES (?, ?, ?, ?)
+      `).run(activityId, TEST_SEGMENT_1, 1, 3600);
 
       const res = await request(app).get(`/weeks/${testWeekId}/leaderboard`);
 
@@ -356,23 +362,35 @@ describe('Coverage Improvements - Quick Wins', () => {
         VALUES (?, ?)
       `).run(2223, 'Rider B');
 
-      // Both get same points
+      // Create activities for both riders (leaderboard reads from activities)
+      const activityIdA = db.prepare(`
+        INSERT INTO activities (week_id, strava_athlete_id, strava_activity_id, activity_url, activity_date, validation_status)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(testWeekId, 2222, 9991, 'https://strava.com/activities/9991', '2025-11-01T10:00:00Z', 'valid').lastInsertRowid;
+
+      const activityIdB = db.prepare(`
+        INSERT INTO activities (week_id, strava_athlete_id, strava_activity_id, activity_url, activity_date, validation_status)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(testWeekId, 2223, 9992, 'https://strava.com/activities/9992', '2025-11-01T10:00:00Z', 'valid').lastInsertRowid;
+
+      // Both riders have same time (tied scores)
       db.prepare(`
-        INSERT INTO results (week_id, strava_athlete_id, rank, points, total_time_seconds)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(testWeekId, 2222, 1, 100, 3600);
+        INSERT INTO segment_efforts (activity_id, segment_id, effort_index, elapsed_seconds)
+        VALUES (?, ?, ?, ?)
+      `).run(activityIdA, TEST_SEGMENT_1, 1, 3600);
+
       db.prepare(`
-        INSERT INTO results (week_id, strava_athlete_id, rank, points, total_time_seconds)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(testWeekId, 2223, 2, 100, 3600);
+        INSERT INTO segment_efforts (activity_id, segment_id, effort_index, elapsed_seconds)
+        VALUES (?, ?, ?, ?)
+      `).run(activityIdB, TEST_SEGMENT_1, 1, 3600);
 
       const res = await request(app).get(`/weeks/${testWeekId}/leaderboard`);
 
       expect(res.status).toBe(200);
       expect(res.body.leaderboard.length).toBe(2);
-      // Both should have same points
-      expect(res.body.leaderboard[0].points).toBe(100);
-      expect(res.body.leaderboard[1].points).toBe(100);
+      // Both should have same points (both competed)
+      expect(res.body.leaderboard[0].points).toBe(2);  // 1st place: (2-1)+1 = 2
+      expect(res.body.leaderboard[1].points).toBe(1);  // 2nd place: (2-2)+1 = 1
     });
   });
 

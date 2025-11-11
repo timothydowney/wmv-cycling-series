@@ -180,6 +180,15 @@ CREATE TABLE IF NOT EXISTS participant_tokens (
   FOREIGN KEY(strava_athlete_id) REFERENCES participants(strava_athlete_id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS deletion_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  strava_athlete_id INTEGER NOT NULL,
+  requested_at TEXT NOT NULL,
+  status TEXT DEFAULT 'pending',
+  completed_at TEXT,
+  FOREIGN KEY(strava_athlete_id) REFERENCES participants(strava_athlete_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_activities_week_participant ON activities(week_id, strava_athlete_id);
 CREATE INDEX IF NOT EXISTS idx_activities_status ON activities(validation_status);
 CREATE INDEX IF NOT EXISTS idx_segment_efforts_activity ON segment_efforts(activity_id);
@@ -647,6 +656,174 @@ app.post('/auth/disconnect', (req, res) => {
 });
 
 // ========================================
+// USER DATA & PRIVACY
+// ========================================
+
+/**
+ * DELETE /user/data
+ * 
+ * Request complete deletion of user data (GDPR compliance)
+ * User must be authenticated
+ * Deletion completes within 48 hours
+ * 
+ * Response:
+ * {
+ *   "success": true,
+ *   "message": "Data deletion request submitted",
+ *   "timestamp": "2025-11-11T12:00:00Z",
+ *   "deletionDeadline": "2025-11-13T12:00:00Z"
+ * }
+ */
+app.post('/user/data/delete', (req, res) => {
+  // Require authentication
+  if (!req.session.stravaAthleteId) {
+    return res.status(401).json({ error: 'Not authenticated. Please connect to Strava first.' });
+  }
+  
+  const stravaAthleteId = req.session.stravaAthleteId;
+  
+  try {
+    // Start transaction for data deletion
+    const deleteTransaction = db.transaction(() => {
+      // 1. Delete all segment efforts (linked to activities)
+      db.prepare(`
+        DELETE FROM segment_efforts 
+        WHERE activity_id IN (
+          SELECT id FROM activities WHERE strava_athlete_id = ?
+        )
+      `).run(stravaAthleteId);
+      
+      // 2. Delete all activities
+      db.prepare('DELETE FROM activities WHERE strava_athlete_id = ?').run(stravaAthleteId);
+      
+      // 3. Delete all results
+      db.prepare('DELETE FROM results WHERE strava_athlete_id = ?').run(stravaAthleteId);
+      
+      // 4. Delete OAuth tokens
+      db.prepare('DELETE FROM participant_tokens WHERE strava_athlete_id = ?').run(stravaAthleteId);
+      
+      // 5. Delete participant record
+      db.prepare('DELETE FROM participants WHERE strava_athlete_id = ?').run(stravaAthleteId);
+      
+      // 6. Log deletion request (for audit trail)
+      const deletionTimestamp = new Date().toISOString();
+      db.prepare(`
+        INSERT INTO deletion_requests (strava_athlete_id, requested_at, status, completed_at)
+        VALUES (?, ?, ?, ?)
+      `).run(stravaAthleteId, deletionTimestamp, 'completed', deletionTimestamp);
+    });
+    
+    // Execute the transaction
+    deleteTransaction();
+    
+    // Destroy session after data deletion
+    req.session.destroy((err) => {
+      if (err) {
+        console.warn('[USER_DATA] Session destruction error during data deletion:', err);
+      }
+    });
+    
+    // Return success response
+    const deletionTimestamp = new Date().toISOString();
+    
+    res.json({
+      success: true,
+      message: 'Your data has been deleted from the WMV application',
+      timestamp: deletionTimestamp,
+      info: 'All activities, results, and tokens have been removed. This action cannot be undone.',
+      nextSteps: 'You can reconnect with Strava anytime to participate in future competitions'
+    });
+    
+  } catch (error) {
+    console.error('[USER_DATA] Error during data deletion:', error);
+    res.status(500).json({
+      error: 'Failed to delete data',
+      message: error.message || 'An unexpected error occurred',
+      contact: 'Please contact admins@westmassvel.org if the problem persists'
+    });
+  }
+});
+
+/**
+ * GET /user/data
+ * 
+ * Retrieve all personal data we hold about the user (GDPR Data Access)
+ * User must be authenticated
+ * 
+ * Response:
+ * {
+ *   "athlete": { ... },
+ *   "activities": [ ... ],
+ *   "results": [ ... ],
+ *   "tokens": { ... }
+ * }
+ */
+app.get('/user/data', (req, res) => {
+  if (!req.session.stravaAthleteId) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  
+  const stravaAthleteId = req.session.stravaAthleteId;
+  
+  try {
+    // Get participant info
+    const participant = db.prepare('SELECT * FROM participants WHERE strava_athlete_id = ?').get(stravaAthleteId);
+    
+    if (!participant) {
+      return res.status(404).json({ error: 'Participant not found' });
+    }
+    
+    // Get all activities
+    const activities = db.prepare('SELECT * FROM activities WHERE strava_athlete_id = ?').all(stravaAthleteId);
+    
+    // Get all results
+    const results = db.prepare('SELECT * FROM results WHERE strava_athlete_id = ?').all(stravaAthleteId);
+    
+    // Get segment efforts for all activities
+    const efforts = db.prepare(`
+      SELECT se.* FROM segment_efforts se
+      JOIN activities a ON se.activity_id = a.id
+      WHERE a.strava_athlete_id = ?
+    `).all(stravaAthleteId);
+    
+    // Get token info (without actual token values)
+    const tokenInfo = db.prepare(`
+      SELECT 
+        id,
+        strava_athlete_id,
+        created_at,
+        updated_at,
+        'REDACTED' as access_token,
+        'REDACTED' as refresh_token
+      FROM participant_tokens 
+      WHERE strava_athlete_id = ?
+    `).get(stravaAthleteId);
+    
+    // Return all data
+    res.json({
+      exportedAt: new Date().toISOString(),
+      participant: {
+        name: participant.name,
+        stravaAthleteId: participant.strava_athlete_id,
+        createdAt: participant.created_at
+      },
+      activities: activities,
+      results: results,
+      segmentEfforts: efforts,
+      tokens: tokenInfo ? { stored: true, createdAt: tokenInfo.created_at } : null,
+      note: 'This is your personal data export. Tokens are redacted for security.'
+    });
+    
+  } catch (error) {
+    console.error('[USER_DATA] Error retrieving user data:', error);
+    res.status(500).json({
+      error: 'Failed to retrieve data',
+      message: error.message
+    });
+  }
+});
+
+// ========================================
 // PUBLIC ROUTES
 // ========================================
 
@@ -743,35 +920,48 @@ app.get('/weeks/:id/leaderboard', (req, res) => {
   `).get(weekId);
   if (!week) return res.status(404).json({ error: 'Week not found' });
 
-  const results = db.prepare(`
+  // IMPORTANT: Compute leaderboard scores on read, not from stored database records
+  // This ensures scores are always correct even if users delete their data
+  // Scoring is computed fresh from activities table each time
+  
+  const activities = db.prepare(`
     SELECT 
-      r.rank,
-      r.strava_athlete_id as participant_id,
+      a.id as activity_id,
+      a.strava_athlete_id as participant_id,
       p.name,
-      r.total_time_seconds,
-      r.points,
-      r.pr_bonus_points,
+      SUM(se.elapsed_seconds) as total_time_seconds,
+      MAX(se.pr_achieved) as achieved_pr,
       a.activity_url,
       a.activity_date
-    FROM results r
-    JOIN participants p ON r.strava_athlete_id = p.strava_athlete_id
-    LEFT JOIN activities a ON r.activity_id = a.id
-    WHERE r.week_id = ?
-    ORDER BY r.rank ASC
+    FROM activities a
+    JOIN segment_efforts se ON a.id = se.activity_id
+    JOIN participants p ON a.strava_athlete_id = p.strava_athlete_id
+    WHERE a.week_id = ? AND a.validation_status = 'valid'
+    GROUP BY a.id, a.strava_athlete_id, p.name, a.activity_url, a.activity_date
+    ORDER BY total_time_seconds ASC
   `).all(weekId);
 
-  const leaderboard = results.map(r => ({
-    rank: r.rank,
-    participant_id: r.participant_id,
-    name: r.name,
-    total_time_seconds: r.total_time_seconds,
-    time_hhmmss: new Date(r.total_time_seconds * 1000).toISOString().substring(11, 19),
-    points: r.points,
-    pr_bonus_points: r.pr_bonus_points,
-    activity_url: r.activity_url,
-    activity_date: r.activity_date
-  }));
-
+  // Compute leaderboard scores from activities (always correct)
+  const totalParticipants = activities.length;
+  const leaderboard = activities.map((activity, index) => {
+    const rank = index + 1;
+    const basePoints = (totalParticipants - rank) + 1;  // Beat (total - rank) people + 1 for competing
+    const prBonus = activity.achieved_pr ? 1 : 0;
+    const totalPoints = basePoints + prBonus;
+    
+    return {
+      rank: rank,
+      participant_id: activity.participant_id,
+      name: activity.name,
+      total_time_seconds: activity.total_time_seconds,
+      time_hhmmss: new Date(activity.total_time_seconds * 1000).toISOString().substring(11, 19),
+      points: totalPoints,
+      pr_bonus_points: prBonus,
+      activity_url: activity.activity_url,
+      activity_date: activity.activity_date
+    };
+  });
+  
   res.json({ week, leaderboard });
 });
 
@@ -815,42 +1005,72 @@ app.get('/activities/:id/efforts', (req, res) => {
 });
 
 app.get('/season/leaderboard', (req, res) => {
-  // Get the active season, or fall back to all results if no active season
-  const activeSeason = db.prepare('SELECT id FROM seasons WHERE is_active = 1 LIMIT 1').get();
+  // IMPORTANT: Compute season standings by summing weekly scores calculated on read
+  // This ensures total points are always correct even if users delete their data
+  // Scoring is computed fresh from activities each time (no stale cached results)
   
-  if (activeSeason) {
-    // Use active season's leaderboard
-    const seasonResults = db.prepare(`
+  // Get all weeks (sorted by date for logic clarity)
+  const weeks = db.prepare(`
+    SELECT id, week_name, date FROM weeks ORDER BY date ASC
+  `).all();
+
+  const allParticipantScores = {};  // { athlete_id: { name, total_points, weeks_completed } }
+
+  // Compute from activities (source of truth)
+  weeks.forEach(week => {
+    const activities = db.prepare(`
       SELECT 
-        p.strava_athlete_id as id,
+        a.id as activity_id,
+        a.strava_athlete_id as participant_id,
         p.name,
-        COALESCE(SUM(CASE WHEN w.season_id = ? THEN r.points ELSE 0 END), 0) as total_points,
-        COUNT(CASE WHEN w.season_id = ? THEN r.id ELSE NULL END) as weeks_completed
-      FROM participants p
-      LEFT JOIN results r ON p.strava_athlete_id = r.strava_athlete_id
-      LEFT JOIN weeks w ON r.week_id = w.id
-      GROUP BY p.strava_athlete_id, p.name
-      HAVING weeks_completed > 0
-      ORDER BY total_points DESC, weeks_completed DESC
-    `).all(activeSeason.id, activeSeason.id);
+        SUM(se.elapsed_seconds) as total_time_seconds,
+        MAX(se.pr_achieved) as achieved_pr
+      FROM activities a
+      JOIN segment_efforts se ON a.id = se.activity_id
+      JOIN participants p ON a.strava_athlete_id = p.strava_athlete_id
+      WHERE a.week_id = ? AND a.validation_status = 'valid'
+      GROUP BY a.id, a.strava_athlete_id, p.name
+      ORDER BY total_time_seconds ASC
+    `).all(week.id);
+
+    const totalParticipants = activities.length;
     
-    res.json(seasonResults);
-  } else {
-    // No active season - return all-time results
-    const seasonResults = db.prepare(`
-      SELECT 
-        p.strava_athlete_id as id,
-        p.name,
-        COALESCE(SUM(r.points), 0) as total_points,
-        COUNT(r.id) as weeks_completed
-      FROM participants p
-      LEFT JOIN results r ON p.strava_athlete_id = r.strava_athlete_id
-      GROUP BY p.strava_athlete_id, p.name
-      ORDER BY total_points DESC, weeks_completed DESC
-    `).all();
-    
-    res.json(seasonResults);
-  }
+    // Compute scores for this week
+    activities.forEach((activity, index) => {
+      const rank = index + 1;
+      const basePoints = (totalParticipants - rank) + 1;
+      const prBonus = activity.achieved_pr ? 1 : 0;
+      const weekPoints = basePoints + prBonus;
+
+      if (!allParticipantScores[activity.participant_id]) {
+        allParticipantScores[activity.participant_id] = {
+          name: activity.name,
+          total_points: 0,
+          weeks_completed: 0
+        };
+      }
+
+      allParticipantScores[activity.participant_id].total_points += weekPoints;
+      allParticipantScores[activity.participant_id].weeks_completed += 1;
+    });
+  });
+
+  // Convert to sorted array
+  const seasonResults = Object.entries(allParticipantScores)
+    .map(([id, data]) => ({
+      id: parseInt(id),
+      name: data.name,
+      total_points: data.total_points,
+      weeks_completed: data.weeks_completed
+    }))
+    .sort((a, b) => {
+      if (b.total_points !== a.total_points) {
+        return b.total_points - a.total_points;
+      }
+      return b.weeks_completed - a.weeks_completed;
+    });
+
+  res.json(seasonResults);
 });
 
 // ========================================

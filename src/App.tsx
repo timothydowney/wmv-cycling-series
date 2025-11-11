@@ -7,6 +7,7 @@ import NavBar from './components/NavBar';
 import AdminPanel from './components/AdminPanel';
 import ParticipantStatus from './components/ParticipantStatus';
 import ManageSegments from './components/ManageSegments';
+import Footer from './components/Footer';
 import { getWeeks, getWeekLeaderboard, Week, LeaderboardEntry } from './api';
 
 type ViewMode = 'leaderboard' | 'admin' | 'participants' | 'segments';
@@ -150,13 +151,7 @@ function App() {
 
             <SeasonLeaderboard />
 
-            <footer className="app-footer">
-              <img 
-                src="/assets/strava/powered_by_strava.svg" 
-                alt="Powered by Strava"
-                className="strava-attribution"
-              />
-            </footer>
+            <Footer />
           </>
         )}
       </div>

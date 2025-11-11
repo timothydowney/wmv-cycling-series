@@ -9,6 +9,35 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+.privacy-notice {
+  width: 100%;
+  background-color: #fff8f0;
+  border: 1px solid #ffe0cc;
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+}
+
+.privacy-notice-text {
+  margin: 0;
+  font-size: 13px;
+  color: #555;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.privacy-link {
+  color: #FC5200;
+  text-decoration: none;
+  font-weight: 500;
+  transition: opacity 0.2s;
+}
+
+.privacy-link:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
 .strava-connect-link {
   text-decoration: none;
   display: inline-block;

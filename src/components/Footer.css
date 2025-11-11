@@ -1,0 +1,141 @@
+.app-footer {
+  background-color: #f8f9fa;
+  border-top: 1px solid #e0e0e0;
+  padding: 32px 20px;
+  margin-top: 60px;
+  font-size: 14px;
+  color: #666;
+}
+
+.footer-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  align-items: center;
+  text-align: center;
+}
+
+.footer-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.footer-info {
+  flex-direction: column;
+  gap: 8px;
+}
+
+.footer-text {
+  margin: 0;
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+}
+
+.footer-copyright {
+  margin: 0;
+  font-size: 13px;
+  color: #999;
+}
+
+.footer-links {
+  gap: 8px;
+}
+
+.footer-link {
+  color: #FC5200;
+  text-decoration: none;
+  font-weight: 500;
+  transition: opacity 0.2s;
+}
+
+.footer-link:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
+.footer-separator {
+  color: #ddd;
+  font-weight: 300;
+}
+
+.footer-attribution {
+  gap: 8px;
+}
+
+.powered-by {
+  font-size: 13px;
+  color: #999;
+  margin: 0;
+}
+
+.strava-attribution {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #FC5200;
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.2s;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.strava-attribution:hover {
+  background-color: rgba(252, 82, 0, 0.08);
+  opacity: 0.9;
+}
+
+.strava-logo {
+  width: 20px;
+  height: 20px;
+  color: #FC5200;
+  display: inline-block;
+}
+
+.strava-text {
+  font-size: 14px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .app-footer {
+    padding: 24px 16px;
+    margin-top: 40px;
+  }
+
+  .footer-content {
+    gap: 20px;
+  }
+
+  .footer-section {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .footer-text {
+    font-size: 13px;
+  }
+
+  .footer-copyright {
+    font-size: 12px;
+  }
+
+  .footer-link {
+    font-size: 13px;
+  }
+
+  .strava-logo {
+    width: 18px;
+    height: 18px;
+  }
+
+  .strava-text {
+    font-size: 13px;
+  }
+}
