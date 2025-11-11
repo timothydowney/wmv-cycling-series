@@ -37,7 +37,9 @@ server/coverage/
 .env
 .env.local
 .env.*.local
+.env.*
 server/.env
+server/.env.*
 
 # Credentials
 public/strava-credentials.json
