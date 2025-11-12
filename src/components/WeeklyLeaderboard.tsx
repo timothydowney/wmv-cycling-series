@@ -22,23 +22,39 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard }) => {
             <th>Name</th>
             <th>Time</th>
             <th>Points</th>
-            <th>PR Bonus</th>
             <th>Activity</th>
           </tr>
         </thead>
         <tbody>
           {leaderboard.length === 0 ? (
             <tr>
-              <td colSpan={6}>No results yet for this week</td>
+              <td colSpan={5}>No results yet for this week</td>
             </tr>
           ) : (
-            leaderboard.map(entry => (
+            leaderboard.map((entry) => (
               <tr key={entry.participant_id}>
                 <td>{entry.rank}</td>
                 <td>{entry.name}</td>
-                <td>{entry.time_hhmmss}</td>
-                <td>{entry.points}</td>
-                <td>{entry.pr_bonus_points > 0 ? '⭐ +1' : ''}</td>
+                <td>
+                  {/* Show effort breakdown if multiple laps required */}
+                  {entry.effort_breakdown && entry.effort_breakdown.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {entry.effort_breakdown.map((effort, i) => (
+                        <div key={i} style={{ fontSize: '0.9em', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span>Lap {effort.lap}: {effort.time_hhmmss}</span>
+                          {effort.is_pr && <span style={{ marginLeft: '8px', color: '#ff6b35' }}>⭐</span>}
+                        </div>
+                      ))}
+                      <div style={{ borderTop: '1px solid #ccc', paddingTop: '4px', fontWeight: 'bold' }}>
+                        Total: {entry.time_hhmmss}
+                      </div>
+                    </div>
+                  ) : (
+                    /* Show just the time if single lap */
+                    entry.time_hhmmss
+                  )}
+                </td>
+                <td>{entry.points}{entry.pr_bonus_points > 0 ? ` + ${entry.pr_bonus_points}` : ''}</td>
                 <td>
                   {entry.activity_url ? (
                     <a href={entry.activity_url} target="_blank" rel="noopener noreferrer">

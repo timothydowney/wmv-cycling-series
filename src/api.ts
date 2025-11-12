@@ -31,6 +31,13 @@ export interface Week {
   strava_segment_id?: number; // Same as segment_id (for backwards compatibility)
 }
 
+export interface SegmentEffort {
+  lap: number;
+  time_seconds: number;
+  time_hhmmss: string;
+  is_pr?: boolean;
+}
+
 export interface LeaderboardEntry {
   rank: number;
   participant_id: number;
@@ -41,6 +48,7 @@ export interface LeaderboardEntry {
   pr_bonus_points: number;
   activity_url: string;
   activity_date: string;
+  effort_breakdown?: SegmentEffort[] | null;
 }
 
 export interface WeekLeaderboard {
