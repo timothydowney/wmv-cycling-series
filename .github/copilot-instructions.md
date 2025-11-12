@@ -47,18 +47,30 @@ npm run stop  # Kills all dev processes and clears ports
 
 **Before committing, ALWAYS:**
 
-1. **Clean up junk files** - Remove any temporary, debug, or duplicate files you created during development
-   - Check `git status` for unintended files
+1. **Be selective about files added to git** - CRITICAL: Only add files that belong in the repo
+   - Check `git status` BEFORE adding files
+   - Only `git add` specific files you intentionally modified (don't use `git add .`)
+   - Review each file: Is this essential to the project?
+   - **Delete:** Temporary scripts, debug files, duplicate files (`.js` + `.cjs`), test artifacts
+   - **Never commit:**
+     - Generated files (build outputs, coverage reports)
+     - Temporary exploration/scratch files
+     - Node debug logs (`.ndjson`, memory dumps)
+     - IDE-specific files not in `.gitignore`
+   - **Rationale:** Keep git history clean and repo lean; makes reviewing changes easier
+
+2. **Clean up junk files** - Remove any temporary, debug, or duplicate files you created during development
+   - Check `git status` for unintended files BEFORE staging
    - Look for duplicate files (e.g., `.js` and `.cjs` versions, temporary scripts)
    - Remove test/debug artifacts
    - This prevents bloating the repo with accidental files
 
-2. **Run the linter** (automatically enforced by pre-commit hook):
+3. **Run the linter** (automatically enforced by pre-commit hook):
 ```bash
 npm run lint:all  # Runs both frontend and backend linters
 ```
 
-3. **Run full checks** if making substantial changes:
+4. **Run full checks** if making substantial changes:
 ```bash
 npm run check  # Audits, typechecks, lints, builds, tests (everything)
 ```
