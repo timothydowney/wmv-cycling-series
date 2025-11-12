@@ -110,56 +110,6 @@ function validateActivityTimeWindow(activityDate, week) {
 }
 
 // Calculate results and rankings for a week
-function calculateWeekResults(weekId) {
-  // Get all valid activities for this week with summed segment efforts and PR info
-  const activities = db.prepare(`
-    SELECT 
-      a.id as activity_id,
-      a.strava_athlete_id,
-      SUM(se.elapsed_seconds) as total_time_seconds,
-      MAX(se.pr_achieved) as achieved_pr
-    FROM activity a
-    JOIN segment_effort se ON a.id = se.activity_id
-    WHERE a.week_id = ? AND a.validation_status = 'valid'
-    GROUP BY a.id, a.strava_athlete_id
-    ORDER BY total_time_seconds ASC
-  `).all(weekId);
-
-  if (activities.length === 0) return;
-
-  const totalParticipants = activities.length;
-  
-  // Delete existing results for this week
-  db.prepare('DELETE FROM result WHERE week_id = ?').run(weekId);
-
-  // Insert new results with correct scoring: points = (number of people you beat + 1 for competing) + PR bonus
-  const insertResult = db.prepare(`
-    INSERT INTO result (week_id, strava_athlete_id, activity_id, total_time_seconds, rank, points, pr_bonus_points)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  db.transaction(() => {
-    activities.forEach((activity, index) => {
-      const rank = index + 1;
-      const basePoints = (totalParticipants - rank) + 1; // Beat everyone ranked below you + 1 for competing
-      const prBonus = activity.achieved_pr ? 1 : 0; // +1 point if any PR was achieved
-      const totalPoints = basePoints + prBonus;
-      
-      insertResult.run(
-        weekId,
-        activity.strava_athlete_id,
-        activity.activity_id,
-        activity.total_time_seconds,
-        rank,
-        totalPoints,
-        prBonus
-      );
-    });
-  })();
-
-  console.log(`Results calculated for week ${weekId}: ${activities.length} participants`);
-}
-
 // ========================================
 // UTILITY FUNCTIONS
 // ========================================
@@ -813,19 +763,69 @@ app.get('/seasons/:id/leaderboard', (req, res) => {
   const season = db.prepare('SELECT id, name, start_date, end_date FROM season WHERE id = ?').get(seasonId);
   if (!season) return res.status(404).json({ error: 'Season not found' });
 
-  const seasonResults = db.prepare(`
-    SELECT 
-      p.strava_athlete_id as id,
-      p.name,
-      COALESCE(SUM(CASE WHEN w.season_id = ? THEN r.points ELSE 0 END), 0) as total_points,
-      COUNT(CASE WHEN w.season_id = ? THEN r.id ELSE NULL END) as weeks_completed
-    FROM participant p
-    LEFT JOIN result r ON p.strava_athlete_id = r.strava_athlete_id
-    LEFT JOIN week w ON r.week_id = w.id
-    GROUP BY p.strava_athlete_id, p.name
-    HAVING weeks_completed > 0
-    ORDER BY total_points DESC, weeks_completed DESC
-  `).all(seasonId, seasonId);
+  // Compute season standings by summing weekly scores calculated on read
+  // This ensures total points are always correct even if users delete their data
+  
+  // Get all weeks in this season
+  const weeks = db.prepare(`
+    SELECT id, week_name, date FROM week WHERE season_id = ? ORDER BY date ASC
+  `).all(seasonId);
+
+  const allParticipantScores = {};  // { athlete_id: { name, total_points, weeks_completed } }
+
+  // Compute from activities (source of truth)
+  weeks.forEach(week => {
+    const activities = db.prepare(`
+      SELECT 
+        a.id as activity_id,
+        a.strava_athlete_id as participant_id,
+        p.name,
+        SUM(se.elapsed_seconds) as total_time_seconds,
+        MAX(se.pr_achieved) as achieved_pr
+      FROM activity a
+      JOIN segment_effort se ON a.id = se.activity_id
+      JOIN participant p ON a.strava_athlete_id = p.strava_athlete_id
+      WHERE a.week_id = ? AND a.validation_status = 'valid'
+      GROUP BY a.id, a.strava_athlete_id, p.name
+      ORDER BY total_time_seconds ASC
+    `).all(week.id);
+
+    const totalParticipants = activities.length;
+    
+    // Compute scores for this week
+    activities.forEach((activity, index) => {
+      const rank = index + 1;
+      const basePoints = (totalParticipants - rank) + 1;
+      const prBonus = activity.achieved_pr ? 1 : 0;
+      const weekPoints = basePoints + prBonus;
+
+      if (!allParticipantScores[activity.participant_id]) {
+        allParticipantScores[activity.participant_id] = {
+          name: activity.name,
+          total_points: 0,
+          weeks_completed: 0
+        };
+      }
+
+      allParticipantScores[activity.participant_id].total_points += weekPoints;
+      allParticipantScores[activity.participant_id].weeks_completed += 1;
+    });
+  });
+
+  // Convert to sorted array
+  const seasonResults = Object.entries(allParticipantScores)
+    .map(([id, data]) => ({
+      id: parseInt(id),
+      name: data.name,
+      total_points: data.total_points,
+      weeks_completed: data.weeks_completed
+    }))
+    .sort((a, b) => {
+      if (b.total_points !== a.total_points) {
+        return b.total_points - a.total_points;
+      }
+      return b.weeks_completed - a.weeks_completed;
+    });
 
   res.json({ season, leaderboard: seasonResults });
 });
@@ -1494,8 +1494,8 @@ app.post('/admin/weeks/:id/fetch-results', async (req, res) => {
       }
     }
     
-    // Recalculate leaderboard for this week
-    calculateWeekResults(weekId);
+    // Note: Scores are computed dynamically on read, not stored
+    // See GET /weeks/:id/leaderboard and GET /season/leaderboard
     
     console.log(`Fetch results complete for week ${weekId}: ${results.filter(r => r.activity_found).length}/${participants.length} activities found`);
     
@@ -1790,10 +1790,10 @@ app.post('/weeks/:id/submit-activity', async (req, res) => {
       );
     }
 
-    // Recalculate leaderboard for this week
-    calculateWeekResults(weekId);
+    // Note: Scores are computed dynamically on read, not stored
+    // See GET /weeks/:id/leaderboard and GET /season/leaderboard
 
-    res.json({ 
+    res.json({
       message: 'Activity submitted successfully',
       activity: {
         id: activityDbId,
@@ -2003,7 +2003,7 @@ app.get('/admin/segments/starred', async (req, res) => {
 */
 
 // Export for testing
-module.exports = { app, db, validateActivityTimeWindow, calculateWeekResults };
+module.exports = { app, db, validateActivityTimeWindow };
 
 // Only start server if not being imported for tests
 if (require.main === module) {
