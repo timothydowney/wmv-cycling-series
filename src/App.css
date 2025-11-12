@@ -15,20 +15,7 @@
   padding: 2rem;
 }
 
-.app-footer {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding-top: 2rem;
-  margin-top: 2rem;
-  border-top: 1px solid #ddd;
-  opacity: 0.8;
-}
 
-.app-footer .strava-attribution {
-  height: 32px;
-  width: auto;
-}
 
 table {
   width: 100%;

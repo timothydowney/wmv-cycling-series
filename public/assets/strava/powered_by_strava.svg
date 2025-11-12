@@ -4,7 +4,7 @@
   Use this for attribution on pages showing Strava data
   Do not modify, alter, or animate
 -->
-<svg width="120" height="32" viewBox="0 0 120 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg preserveAspectRatio="xMidYMid meet" viewBox="0 0 160 32" fill="none" xmlns="http://www.w3.org/2000/svg">
   <!-- Strava Logo Icon -->
   <g transform="translate(2, 6)">
     <path d="M10 0L5 10h3.33l1.67-3.33L11.67 10H15L10 0z" fill="#FC5200"/>
