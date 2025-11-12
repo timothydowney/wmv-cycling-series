@@ -19,7 +19,9 @@ function StravaConnect({ onAuthChange }: StravaConnectProps) {
     try {
       setLoading(true);
       setError(null);
+      console.log('[StravaConnect] Fetching auth status...');
       const status = await getAuthStatus();
+      console.log('[StravaConnect] Auth status response:', status);
       setAuthStatus(status);
       onAuthChange?.(status);
     } catch (err) {
@@ -37,6 +39,7 @@ function StravaConnect({ onAuthChange }: StravaConnectProps) {
     const params = new URLSearchParams(window.location.search);
     if (params.get('connected') === 'true') {
       // OAuth successful - refresh status
+      console.log('[StravaConnect] OAuth callback detected (connected=true), fetching auth status...');
       fetchAuthStatus();
       // Clean up URL
       window.history.replaceState({}, '', window.location.pathname);
@@ -56,6 +59,7 @@ function StravaConnect({ onAuthChange }: StravaConnectProps) {
           break;
       }
       
+      console.log('[StravaConnect] OAuth error detected:', errorType);
       setError(errorMessage);
       // Clean up URL
       window.history.replaceState({}, '', window.location.pathname);

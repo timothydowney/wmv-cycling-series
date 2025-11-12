@@ -436,7 +436,7 @@ function storeActivityAndEfforts(stravaAthleteId, weekId, activityData, stravaSe
   
   // Store result
   db.prepare(`
-    INSERT OR REPLACE INTO results (week_id, strava_athlete_id, activity_id, total_time_seconds)
+    INSERT OR REPLACE INTO result (week_id, strava_athlete_id, activity_id, total_time_seconds)
     VALUES (?, ?, ?, ?)
   `).run(weekId, stravaAthleteId, activityDbId, activityData.totalTime);
 }
@@ -505,7 +505,7 @@ app.get('/auth/strava/callback', async (req, res) => {
     
     // Store tokens for this participant (ENCRYPTED)
     db.prepare(`
-      INSERT OR REPLACE INTO participant_tokens 
+      INSERT OR REPLACE INTO participant_token 
       (strava_athlete_id, access_token, refresh_token, expires_at, scope)
       VALUES (?, ?, ?, ?, ?)
     `).run(
@@ -523,16 +523,27 @@ app.get('/auth/strava/callback', async (req, res) => {
     req.session.athleteName = tokenData.athlete.firstname;
     
     // Explicitly save session before redirecting (important for some session stores)
+    console.log(`[AUTH] Saving session for athlete ${stravaAthleteId}...`);
+    console.log('[AUTH] Session data before save:', {
+      stravaAthleteId: req.session.stravaAthleteId,
+      athleteName: req.session.athleteName,
+      sessionId: req.sessionID
+    });
+    
     req.session.save((err) => {
       if (err) {
         console.error('[AUTH] Session save error:', err);
         return res.redirect(`${CLIENT_BASE_URL}?error=session_error`);
       }
       
+      console.log(`[AUTH] Session saved successfully for athlete ${stravaAthleteId}`);
+      console.log(`[AUTH] Session ID: ${req.sessionID}`);
+      
       // Redirect to dashboard with safe fallback to request base URL
       const baseUrl = CLIENT_BASE_URL || getBaseUrl(req);
       const finalRedirect = `${baseUrl}?connected=true`;
       
+      console.log(`[AUTH] Redirecting to ${finalRedirect}`);
       // The rolling: true option in sessionConfig ensures the Set-Cookie header is sent
       res.redirect(finalRedirect);
     });
@@ -544,6 +555,12 @@ app.get('/auth/strava/callback', async (req, res) => {
 
 // GET /auth/status - Check authentication status
 app.get('/auth/status', (req, res) => {
+  console.log(`[AUTH_STATUS] Checking status. Session ID: ${req.sessionID}`);
+  console.log('[AUTH_STATUS] Session data:', {
+    stravaAthleteId: req.session.stravaAthleteId,
+    athleteName: req.session.athleteName
+  });
+  
   if (req.session.stravaAthleteId) {
     const participant = db.prepare(`
       SELECT p.strava_athlete_id, p.name,
@@ -553,11 +570,14 @@ app.get('/auth/status', (req, res) => {
       WHERE p.strava_athlete_id = ?
     `).get(req.session.stravaAthleteId);
     
+    console.log('[AUTH_STATUS] Found participant:', participant);
+    
     res.json({
       authenticated: true,
       participant: participant
     });
   } else {
+    console.log('[AUTH_STATUS] No session found - not authenticated');
     res.json({
       authenticated: false,
       participant: null
@@ -853,7 +873,8 @@ app.get('/weeks/:id/leaderboard', (req, res) => {
   // This ensures scores are always correct even if users delete their data
   // Scoring is computed fresh from activities table each time
   
-  const activities = db.prepare(`
+  // Get activities with their segment efforts (sorted by total time)
+  const activitiesWithTotals = db.prepare(`
     SELECT 
       a.id as activity_id,
       a.strava_athlete_id as participant_id,
@@ -863,18 +884,37 @@ app.get('/weeks/:id/leaderboard', (req, res) => {
     FROM activity a
     JOIN segment_effort se ON a.id = se.activity_id
     JOIN participant p ON a.strava_athlete_id = p.strava_athlete_id
-    WHERE a.week_id = ? AND a.validation_status = 'valid'
+    WHERE a.week_id = ? AND a.validation_status = 'valid' AND se.strava_segment_id = ?
     GROUP BY a.id, a.strava_athlete_id, p.name
     ORDER BY total_time_seconds ASC
-  `).all(weekId);
+  `).all(weekId, week.segment_id);
 
   // Compute leaderboard scores from activities (always correct)
-  const totalParticipants = activities.length;
-  const leaderboard = activities.map((activity, index) => {
+  const totalParticipants = activitiesWithTotals.length;
+  const leaderboard = activitiesWithTotals.map((activity, index) => {
     const rank = index + 1;
     const basePoints = (totalParticipants - rank) + 1;  // Beat (total - rank) people + 1 for competing
     const prBonus = activity.achieved_pr ? 1 : 0;
     const totalPoints = basePoints + prBonus;
+    
+    // Fetch individual segment efforts for this activity
+    const efforts = db.prepare(`
+      SELECT elapsed_seconds, effort_index, pr_achieved
+      FROM segment_effort
+      WHERE activity_id = ? AND strava_segment_id = ?
+      ORDER BY effort_index ASC
+    `).all(activity.activity_id, week.segment_id);
+    
+    // Build effort breakdown (only if more than 1 effort required)
+    let effortBreakdown = null;
+    if (week.required_laps > 1) {
+      effortBreakdown = efforts.map(e => ({
+        lap: e.effort_index + 1,
+        time_seconds: e.elapsed_seconds,
+        time_hhmmss: new Date(e.elapsed_seconds * 1000).toISOString().substring(11, 19),
+        is_pr: e.pr_achieved ? true : false
+      }));
+    }
     
     return {
       rank: rank,
@@ -882,6 +922,7 @@ app.get('/weeks/:id/leaderboard', (req, res) => {
       name: activity.name,
       total_time_seconds: activity.total_time_seconds,
       time_hhmmss: new Date(activity.total_time_seconds * 1000).toISOString().substring(11, 19),
+      effort_breakdown: effortBreakdown,  // null if only 1 lap, array if multiple
       points: totalPoints,
       pr_bonus_points: prBonus
     };
@@ -1423,7 +1464,7 @@ app.post('/admin/weeks/:id/fetch-results', async (req, res) => {
           console.log(`Best activity for ${participant.name}: ${bestActivity.id} (${bestActivity.totalTime}s)`);
           
           // Store activity and efforts
-          storeActivityAndEfforts(participant.strava_athlete_id, weekId, bestActivity, week.segment_id);
+          storeActivityAndEfforts(participant.strava_athlete_id, weekId, bestActivity, week.strava_segment_id);
           
           results.push({
             participant_id: participant.strava_athlete_id,
