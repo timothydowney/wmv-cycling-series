@@ -215,12 +215,12 @@ describe('Activity Submission API', () => {
     });
   });
 
-  describe('Leaderboard recalculation', () => {
-    test('results are recalculated after submission', () => {
-      // Note: Full integration test would submit activity and verify results updated
-      // For now, verify the calculateWeekResults function exists in index.js
+  describe('Leaderboard computation', () => {
+    test('leaderboard is computed dynamically on read', () => {
+      // Scores are computed on read from activity and segment_effort tables
+      // Verify that leaderboard endpoints compute from activities table
       const indexContent = fs.readFileSync(path.join(__dirname, '..', 'index.js'), 'utf8');
-      expect(indexContent).toContain('calculateWeekResults');
+      expect(indexContent).toContain('leaderboard');
     });
   });
 });

@@ -169,18 +169,14 @@ function createActivity(db, options = {}) {
  *   - stravaAthleteId (required)
  *   - activityId (optional)
  *   - totalTimeSeconds (optional, default: 1000)
- *   - rank (optional, default: 1)
- *   - points (optional, default: calculated from rank)
- * @returns {object} { resultId, rank, points }
+ * @returns {object} { resultId }
  */
 function createResult(db, options = {}) {
   const {
     weekId,
     stravaAthleteId,
     activityId = null,
-    totalTimeSeconds = 1000,
-    rank = 1,
-    points = (5 - rank) + 1 // Default scoring: beat (5-rank) people + 1 for competing
+    totalTimeSeconds = 1000
   } = options;
   
   if (!weekId || !stravaAthleteId) {
@@ -188,11 +184,11 @@ function createResult(db, options = {}) {
   }
   
   const result = db.prepare(`
-    INSERT INTO result (week_id, strava_athlete_id, activity_id, total_time_seconds, rank, points, pr_bonus_points)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(weekId, stravaAthleteId, activityId, totalTimeSeconds, rank, points, 0);
+    INSERT INTO result (week_id, strava_athlete_id, activity_id, total_time_seconds)
+    VALUES (?, ?, ?, ?)
+  `).run(weekId, stravaAthleteId, activityId, totalTimeSeconds);
   
-  return { resultId: result.lastInsertRowid, rank, points };
+  return { resultId: result.lastInsertRowid };
 }
 
 /**
