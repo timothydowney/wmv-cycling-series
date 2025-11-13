@@ -61,6 +61,17 @@ function startServers() {
   writePidFile(child.pid);
   console.log(`[dev-server] Server started with PID ${child.pid}`);
   console.log(`[dev-server] PID written to ${PID_FILE}`);
+  
+  // CRITICAL: Ensure PID file is written before this process keeps running
+  // This prevents race conditions where child exits before parent can write file
+  if (!fs.existsSync(PID_FILE)) {
+    console.error('[dev-server] FATAL: Failed to write PID file');
+    process.exit(1);
+  }
+  
+  // Keep this parent process alive to handle signals
+  // The child process will be killed when we receive a signal
+  process.stdin.resume();
 
   // Handle parent process termination signals
   const signals = ['SIGTERM', 'SIGINT'];
@@ -119,21 +130,24 @@ function stopServers() {
       try {
         process.kill(pid, 0);
         // Parent still alive
-        console.log(`[dev-server] Parent still running, force terminating all child processes...`);
+        console.log(`[dev-server] Parent still running, force terminating...`);
         
-        // Kill all nodemon and vite processes
+        // Kill ONLY this specific process tree, not ALL nodemon/vite globally
+        // This is crucial to not interfere with other processes or VSCode
         const { execSync } = require('child_process');
         try {
-          execSync("pkill -9 -f 'nodemon src/index.js' 2>/dev/null || true");
-          execSync("pkill -9 -f 'vite' 2>/dev/null || true");
+          // Only kill children of the specific PID we started
+          execSync(`ps --ppid ${pid} -o pid= | xargs -r kill -9 2>/dev/null || true`);
+          // Then kill the parent
+          process.kill(pid, 'SIGKILL');
+          console.log(`[dev-server] Force killed process tree (PID ${pid})`);
         } catch (e) {
-          // Ignore pkill errors
+          // If tree kill fails, just kill the parent
+          process.kill(pid, 'SIGKILL');
         }
-        
-        // Kill parent if still alive
-        process.kill(pid, 'SIGKILL');
       } catch (error) {
         // Process already dead, good!
+        console.log('[dev-server] Process already terminated');
       }
       
       deletePidFile();
@@ -149,6 +163,36 @@ function stopServers() {
       process.exit(1);
     }
   }
+}
+
+function cleanupOrphans() {
+  console.log('[dev-server] Cleaning up orphaned dev processes...');
+  
+  const { execSync } = require('child_process');
+  
+  // Strategy: Kill only processes that are part of the dev server chain
+  // AND are NOT VSCode processes
+  try {
+    // Find all concurrently processes that started npm run dev:all
+    // Look for: concurrently ... npm:dev:server npm:dev
+    execSync(`ps aux | grep 'concurrently.*dev:server.*npm:dev' | grep -v grep | awk '{print $2}' | xargs -r kill -9 2>/dev/null || true`);
+    
+    // Find orphaned nodemon processes that are running server/src/index.js
+    // (not other nodemon processes)
+    execSync(`ps aux | grep 'nodemon src/index.js' | grep -v grep | awk '{print $2}' | xargs -r kill -9 2>/dev/null || true`);
+    
+    // Find vite processes in the strava repo dir specifically
+    execSync(`lsof -ti:5173 2>/dev/null | xargs -r kill -9 2>/dev/null || true`);
+    execSync(`lsof -ti:3001 2>/dev/null | xargs -r kill -9 2>/dev/null || true`);
+    
+    console.log('[dev-server] Cleanup complete');
+  } catch (e) {
+    // Ignore errors - some commands might not find anything
+    console.log('[dev-server] Cleanup finished (some processes may not have existed)');
+  }
+  
+  // Clean up the PID file
+  deletePidFile();
 }
 
 function statusServers() {
@@ -188,7 +232,9 @@ if (command === 'start') {
   stopServers();
 } else if (command === 'status') {
   statusServers();
+} else if (command === 'cleanup') {
+  cleanupOrphans();
 } else {
-  console.log('Usage: node scripts/dev-server.js [start|stop|status]');
+  console.log('Usage: node scripts/dev-server.js [start|stop|status|cleanup]');
   process.exit(1);
 }
