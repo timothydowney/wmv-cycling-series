@@ -45,10 +45,6 @@ server/**/*.test.ts
 server/jest.config.js
 server/coverage
 
-# Development utilities and scripts
-scripts/dev-server.cjs
-scripts/install-hooks.cjs
-
 # Environment files (must not be committed anyway)
 .env
 .env.local

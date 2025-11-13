@@ -33,6 +33,7 @@
     "check": "npm run audit && npm run typecheck && npm run lint && npm run lint:backend && npm run build && npm test",
     "lint:backend": "npm --prefix server run lint",
     "lint:all": "npm run lint && npm run lint:backend",
+    "validate:docker": "bash scripts/validate-docker-build.sh",
     "preview": "vite preview",
     "postinstall": "cd server && npm install",
     "prepare": "node scripts/install-hooks.cjs"
