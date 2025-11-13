@@ -41,12 +41,13 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard }) => {
             <th style={{ width: '200px' }}>Name</th>
             <th>Time</th>
             <th>Points</th>
+            <th>Device</th>
           </tr>
         </thead>
         <tbody>
           {leaderboard.length === 0 ? (
             <tr>
-              <td colSpan={4}>No results yet for this week</td>
+              <td colSpan={5}>No results yet for this week</td>
             </tr>
           ) : (
             leaderboard.map((entry) => (
@@ -115,6 +116,7 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard }) => {
                   })()}
                 </td>
                 <td>{entry.points}{entry.pr_bonus_points > 0 ? ` + ${entry.pr_bonus_points}` : ''}</td>
+                <td>{entry.device_name || '—'}</td>
               </tr>
             ))
           )}

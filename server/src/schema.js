@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS activity (
   week_id INTEGER NOT NULL,
   strava_athlete_id INTEGER NOT NULL,
   strava_activity_id INTEGER NOT NULL,
+  device_name TEXT,
   validation_status TEXT DEFAULT 'valid',
   validation_message TEXT,
   validated_at TEXT DEFAULT CURRENT_TIMESTAMP,

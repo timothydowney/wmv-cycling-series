@@ -28,4 +28,5 @@ export interface LeaderboardEntry {
   time: string;
   points: number;
   participant_id: number | null;
+  device_name?: string | null;
 }

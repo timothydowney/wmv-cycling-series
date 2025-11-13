@@ -312,11 +312,12 @@ async function findBestQualifyingActivity(activities, segmentId, requiredLaps, a
     try {
       console.log(`[FETCH] Fetching details for activity ${activity.id} (${activity.name})`);
       
-      // Fetch full activity details (includes segment efforts)
+      // Fetch full activity details (includes segment efforts and device info)
       const fullActivity = await client.activities.get({ id: activity.id });
       
       const totalEfforts = (fullActivity.segment_efforts || []).length;
       console.log(`[FETCH]   Activity has ${totalEfforts} total segment efforts`);
+      console.log(`[FETCH]   Device: ${fullActivity.device_name || '(unknown)'}`);
       
       if (totalEfforts === 0) {
         console.log('[FETCH]   ✗ No segment efforts, skipping');
@@ -361,7 +362,8 @@ async function findBestQualifyingActivity(activities, segmentId, requiredLaps, a
             start_date_local: fullActivity.start_date_local,
             totalTime: totalTime,
             segmentEfforts: sortedEfforts,
-            activity_url: `https://www.strava.com/activities/${fullActivity.id}`
+            activity_url: `https://www.strava.com/activities/${fullActivity.id}`,
+            device_name: fullActivity.device_name || null
           };
           console.log('[FETCH]   New best activity!');
         }
@@ -400,9 +402,9 @@ function storeActivityAndEfforts(stravaAthleteId, weekId, activityData, stravaSe
   
   // Store new activity
   const activityResult = db.prepare(`
-    INSERT INTO activity (week_id, strava_athlete_id, strava_activity_id, validation_status)
-    VALUES (?, ?, ?, 'valid')
-  `).run(weekId, stravaAthleteId, activityData.id);
+    INSERT INTO activity (week_id, strava_athlete_id, strava_activity_id, device_name, validation_status)
+    VALUES (?, ?, ?, ?, 'valid')
+  `).run(weekId, stravaAthleteId, activityData.id, activityData.device_name || null);
   
   const activityDbId = activityResult.lastInsertRowid;
   
@@ -942,6 +944,7 @@ app.get('/weeks/:id/leaderboard', (req, res) => {
       a.id as activity_id,
       a.strava_athlete_id as participant_id,
       a.strava_activity_id,
+      a.device_name,
       p.name,
       SUM(se.elapsed_seconds) as total_time_seconds,
       MAX(se.pr_achieved) as achieved_pr
@@ -949,7 +952,7 @@ app.get('/weeks/:id/leaderboard', (req, res) => {
     JOIN segment_effort se ON a.id = se.activity_id
     JOIN participant p ON a.strava_athlete_id = p.strava_athlete_id
     WHERE a.week_id = ? AND a.validation_status = 'valid' AND se.strava_segment_id = ?
-    GROUP BY a.id, a.strava_athlete_id, a.strava_activity_id, p.name
+    GROUP BY a.id, a.strava_athlete_id, a.strava_activity_id, a.device_name, p.name
     ORDER BY total_time_seconds ASC
   `).all(weekId, week.segment_id);
 
@@ -990,6 +993,7 @@ app.get('/weeks/:id/leaderboard', (req, res) => {
       effort_breakdown: effortBreakdown,  // null if only 1 lap, array if multiple
       points: totalPoints,
       pr_bonus_points: prBonus,
+      device_name: activity.device_name,
       activity_url: `https://www.strava.com/activities/${activity.strava_activity_id}/`,
       strava_effort_id: efforts.length > 0 ? efforts[0].strava_effort_id : null  // For single-lap linking
     };
