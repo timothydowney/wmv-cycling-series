@@ -21,13 +21,19 @@ npm run dev:all
 ```bash
 npm run dev:start   # Start once, background process
 npm run dev:status  # Check if running
-npm run dev:stop    # Stop cleanly
+npm run dev:stop    # Stop cleanly (normal case)
+npm run dev:cleanup # Stop forcefully (emergency only)
 ```
 **When to use:**
 - Running in background while you do other work
 - Automated testing/deployment scripts
 - CI/CD pipelines
 - Agentic/programmatic workflows
+
+**Stopping strategy:**
+- **Normal:** Try `npm run dev:stop` first
+- **If that fails:** Use `npm run dev:cleanup` to force-kill all dev processes
+- **Emergency:** If you need guaranteed cleanup regardless of state
 
 ## Why This Matters
 
@@ -50,6 +56,7 @@ For automated use, we use a `.dev.pid` file to track the parent process:
 1. **`npm run dev:start`** - Starts servers and writes parent PID to `.dev.pid`
 2. **`npm run dev:stop`** - Reads PID, sends SIGTERM (graceful shutdown), then SIGKILL if needed
 3. **`npm run dev:status`** - Shows if servers are running
+4. **`npm run dev:cleanup`** - Emergency: kills all orphaned dev processes (no tracking needed)
 
 ## Usage
 
@@ -91,6 +98,31 @@ This:
 5. Sends SIGKILL to parent if necessary
 6. Deletes `.dev.pid` file
 7. Cleans up all ports
+
+### Emergency Cleanup (Orphaned Processes)
+
+If you end up with orphaned dev processes (e.g., multiple concurrently instances):
+
+```bash
+npm run dev:cleanup
+```
+
+This:
+1. Searches for ALL concurrently processes with dev:server pattern
+2. Searches for ALL nodemon processes running server/src/index.js
+3. Kills processes on ports 3001 (backend) and 5173 (frontend)
+4. Deletes `.dev.pid` file
+5. **Does NOT require a valid .dev.pid file to work**
+
+**When to use:**
+- You have multiple orphaned dev server processes
+- `npm run dev:stop` didn't work (no valid PID file)
+- You need guaranteed cleanup regardless of state
+
+**Why it's safe:**
+- Uses specific pattern matching (only dev server processes)
+- Uses port-based detection (more reliable than process names)
+- Won't interfere with other Node.js processes or VSCode
 
 ## Key Implementation Details
 

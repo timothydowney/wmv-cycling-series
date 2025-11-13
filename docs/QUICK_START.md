@@ -39,6 +39,13 @@ npm run dev:status  # Verify running
 npm run dev:stop    # Stop cleanly when done
 ```
 
+**If `npm run dev:stop` doesn't work (orphaned processes):**
+```bash
+npm run dev:cleanup  # Force-kill all dev processes
+```
+
+See `docs/DEV_PROCESS_MANAGEMENT.md` for detailed process management guide.
+
 ## Verify (1 minute)
 
 1. Open http://localhost:5173 in browser
