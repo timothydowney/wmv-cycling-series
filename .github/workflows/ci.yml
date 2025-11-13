@@ -43,6 +43,9 @@ jobs:
       - name: Test (backend)
         run: npm test
 
+      - name: Build Docker image
+        run: docker build -t wmv-cycling:ci .
+
   deploy:
     needs: build-test
     runs-on: ubuntu-latest
