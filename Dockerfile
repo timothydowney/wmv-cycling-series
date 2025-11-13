@@ -5,10 +5,6 @@ FROM node:24-slim AS builder
 
 WORKDIR /app
 
-# Copy .git metadata to invalidate cache when source code changes
-# This ensures Docker rebuilds npm ci and frontend build on every push
-COPY .git ./
-
 # Install build dependencies for better-sqlite3
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
