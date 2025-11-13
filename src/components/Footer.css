@@ -3,7 +3,7 @@
   border-top: 3px solid var(--wmv-orange);
   padding: 32px 20px;
   margin-top: 60px;
-  font-size: 14px;
+  font-size: var(--font-sm);
   color: #666;
 }
 
@@ -32,7 +32,7 @@
 
 .footer-text {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--font-sm);
   color: #666;
   font-weight: 500;
 }
@@ -51,7 +51,7 @@
 
 .footer-copyright {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--font-xs);
   color: #999;
 }
 
@@ -131,24 +131,23 @@
     gap: 12px;
   }
 
-  .footer-text {
-    font-size: 13px;
-  }
-
-  .footer-copyright {
-    font-size: 12px;
-  }
-
-  .footer-link {
-    font-size: 13px;
-  }
-
   .strava-logo {
     width: 18px;
     height: 18px;
   }
+}
 
-  .strava-text {
-    font-size: 13px;
+@media (max-width: 480px) {
+  .app-footer {
+    padding: 16px 12px;
+    margin-top: 30px;
+  }
+
+  .footer-content {
+    gap: 16px;
+  }
+
+  .footer-section {
+    gap: 8px;
   }
 }
