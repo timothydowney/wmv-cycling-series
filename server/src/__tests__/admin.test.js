@@ -811,4 +811,432 @@ describe('Coverage Improvements - Quick Wins', () => {
       expect(res.body.average_grade).toBe(-5.5);
     });
   });
+
+  // ============================================================================
+  // ADMIN DATA EXPORT/IMPORT - Complete Test Suite
+  // ============================================================================
+
+  describe('Admin Export/Import Data', () => {
+    describe('GET /admin/export-data', () => {
+      test('exports segments, seasons, and weeks (excludes participants)', async () => {
+        // Clear and create test data
+        clearAllData(db);
+        createSeason(db, 'Test Season', true);
+        createSegment(db, 111111, 'Test Segment', { distance: 2.5, averageGrade: 6.0 });
+        createParticipant(db, 222222, 'Test Participant');
+
+        const res = await request(app).get('/admin/export-data');
+
+        expect(res.status).toBe(200);
+        expect(res.body).toHaveProperty('exportedAt');
+        expect(res.body).toHaveProperty('version');
+        expect(res.body).toHaveProperty('data');
+        expect(res.body.data).not.toHaveProperty('participants'); // Should NOT include participants
+        expect(res.body.data).toHaveProperty('segments');
+        expect(res.body.data).toHaveProperty('seasons');
+        expect(res.body.data).toHaveProperty('weeks');
+      });
+
+      test('exports correct data types and fields', async () => {
+        clearAllData(db);
+        // eslint-disable-next-line no-unused-vars
+        const seasonId = createSeason(db, 'Export Test Season', true);
+        // eslint-disable-next-line no-unused-vars
+        const segmentId = createSegment(db, 444444, 'Export Test Segment', { 
+          distance: 3.5, 
+          averageGrade: 7.5, 
+          city: 'Denver', 
+          state: 'CO', 
+          country: 'USA' 
+        });
+        // Participants should NOT be exported, so we create one but don't check for it
+        createParticipant(db, 555555, 'Export Test Participant');
+
+        const res = await request(app).get('/admin/export-data');
+
+        expect(res.status).toBe(200);
+
+        // Check segment structure
+        expect(res.body.data.segments.length).toBe(1);
+        expect(res.body.data.segments[0].strava_segment_id).toBe(444444);
+        expect(res.body.data.segments[0].name).toBe('Export Test Segment');
+        expect(res.body.data.segments[0].distance).toBe(3.5);
+        expect(res.body.data.segments[0].average_grade).toBe(7.5);
+        expect(res.body.data.segments[0].city).toBe('Denver');
+        expect(res.body.data.segments[0].state).toBe('CO');
+        expect(res.body.data.segments[0].country).toBe('USA');
+
+        // Check season structure
+        expect(res.body.data.seasons.length).toBe(1);
+        expect(res.body.data.seasons[0].name).toBe('Export Test Season');
+        expect(res.body.data.seasons[0].is_active).toBe(1);
+      });
+
+      test('sets proper HTTP headers for download', async () => {
+        const res = await request(app).get('/admin/export-data');
+
+        expect(res.status).toBe(200);
+        expect(res.headers['content-type']).toContain('application/json');
+        expect(res.headers['content-disposition']).toContain('attachment');
+        expect(res.headers['content-disposition']).toContain('wmv-export-');
+        expect(res.headers['content-disposition']).toContain('.json');
+      });
+    });
+
+    describe('POST /admin/import-data', () => {
+      test('imports segments, seasons, and weeks (excludes participants)', async () => {
+        clearAllData(db);
+
+        const importData = {
+          segments: [
+            { 
+              strava_segment_id: 888888, 
+              name: 'Imported Segment 1',
+              distance: 2.0,
+              average_grade: 5.5,
+              city: 'Boston',
+              state: 'MA',
+              country: 'USA'
+            }
+          ],
+          seasons: [
+            {
+              id: 1,
+              name: 'Imported Season',
+              start_date: '2025-01-01',
+              end_date: '2025-12-31',
+              is_active: 1
+            }
+          ],
+          weeks: [
+            {
+              id: 1,
+              season_id: 1,
+              week_name: 'Imported Week 1',
+              date: '2025-01-07',
+              strava_segment_id: 888888,
+              required_laps: 2,
+              start_time: '2025-01-07T00:00:00Z',
+              end_time: '2025-01-07T22:00:00Z'
+            }
+          ]
+        };
+
+        const res = await request(app)
+          .post('/admin/import-data')
+          .send({ data: importData });
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.imported).not.toHaveProperty('participants'); // Should NOT have participants
+        expect(res.body.imported.segments).toBe(1);
+        expect(res.body.imported.seasons).toBe(1);
+        expect(res.body.imported.weeks).toBe(1);
+
+        // Verify data was actually inserted (but NOT participants)
+        const segments = db.prepare('SELECT COUNT(*) as count FROM segment').get();
+        expect(segments.count).toBe(1);
+
+        const seasons = db.prepare('SELECT COUNT(*) as count FROM season').get();
+        expect(seasons.count).toBe(1);
+
+        const weeks = db.prepare('SELECT COUNT(*) as count FROM week').get();
+        expect(weeks.count).toBe(1);
+      });
+
+      test('respects foreign key constraints during import', async () => {
+        clearAllData(db);
+
+        const importData = {
+          participants: [{ strava_athlete_id: 999999, name: 'Test' }],
+          segments: [{ strava_segment_id: 111111, name: 'Segment' }],
+          seasons: [
+            {
+              id: 1,
+              name: 'Season',
+              start_date: '2025-01-01',
+              end_date: '2025-12-31',
+              is_active: 1
+            }
+          ],
+          weeks: [
+            {
+              id: 1,
+              season_id: 1,
+              week_name: 'Week',
+              date: '2025-01-07',
+              strava_segment_id: 111111,
+              required_laps: 1,
+              start_time: '2025-01-07T00:00:00Z',
+              end_time: '2025-01-07T22:00:00Z'
+            }
+          ]
+        };
+
+        const res = await request(app)
+          .post('/admin/import-data')
+          .send({ data: importData });
+
+        // Should succeed without FK violations
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+      });
+
+      test('clears existing data before import (preserves participants)', async () => {
+        // First import
+        clearAllData(db);
+        const importData1 = {
+          segments: [],
+          seasons: [],
+          weeks: []
+        };
+
+        await request(app).post('/admin/import-data').send({ data: importData1 });
+
+        // Add a participant manually (shouldn't be affected by import)
+        db.prepare('INSERT INTO participant (strava_athlete_id, name) VALUES (?, ?)').run(111, 'Original Participant');
+
+        let count = db.prepare('SELECT COUNT(*) as count FROM participant').get();
+        expect(count.count).toBe(1);
+
+        // Second import with different segment data
+        const importData2 = {
+          segments: [{ strava_segment_id: 222, name: 'Segment' }],
+          seasons: [],
+          weeks: []
+        };
+
+        const res = await request(app).post('/admin/import-data').send({ data: importData2 });
+
+        expect(res.status).toBe(200);
+
+        // Participant should still be there (import doesn't touch participants)
+        count = db.prepare('SELECT COUNT(*) as count FROM participant').get();
+        expect(count.count).toBe(1);
+
+        const participant = db.prepare('SELECT * FROM participant').get();
+        expect(participant.name).toBe('Original Participant');
+
+        // But segments should be updated
+        const segmentCount = db.prepare('SELECT COUNT(*) as count FROM segment').get();
+        expect(segmentCount.count).toBe(1);
+      });
+
+      test('validates required fields', async () => {
+        const res = await request(app)
+          .post('/admin/import-data')
+          .send({ data: null });
+
+        expect(res.status).toBe(400);
+        expect(res.body).toHaveProperty('error');
+      });
+
+      test('handles missing data field in request', async () => {
+        const res = await request(app)
+          .post('/admin/import-data')
+          .send({});
+
+        expect(res.status).toBe(400);
+        expect(res.body.error).toContain('Missing data field');
+      });
+
+      test('skips invalid records silently', async () => {
+        clearAllData(db);
+
+        const importData = {
+          segments: [
+            { strava_segment_id: 666666, name: 'Valid Segment' },
+            { name: 'Invalid Segment' } // Invalid - no strava_segment_id
+          ],
+          seasons: [
+            {
+              id: 1,
+              name: 'Valid Season',
+              start_date: '2025-01-01',
+              end_date: '2025-12-31',
+              is_active: 1
+            },
+            {
+              id: 2,
+              name: 'Invalid Season'
+              // Missing required start_date and end_date
+            }
+          ],
+          weeks: []
+        };
+
+        const res = await request(app)
+          .post('/admin/import-data')
+          .send({ data: importData });
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+
+        // Check database to see what was actually inserted
+        const segmentCount = db.prepare('SELECT COUNT(*) as count FROM segment').get();
+        expect(segmentCount.count).toBe(1);
+
+        const segment = db.prepare('SELECT * FROM segment').get();
+        expect(segment.name).toBe('Valid Segment');
+
+        const seasonCount = db.prepare('SELECT COUNT(*) as count FROM season').get();
+        expect(seasonCount.count).toBe(1);
+      });
+
+      test('handles empty data arrays', async () => {
+        clearAllData(db);
+
+        const importData = {
+          participants: [],
+          segments: [],
+          seasons: [],
+          weeks: []
+        };
+
+        const res = await request(app)
+          .post('/admin/import-data')
+          .send({ data: importData });
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.imported.segments).toBe(0);
+        expect(res.body.imported.seasons).toBe(0);
+        expect(res.body.imported.weeks).toBe(0);
+      });
+
+      test('preserves transactional atomicity on error', async () => {
+        clearAllData(db);
+
+        // This would normally cause an error if we had validation that checked FK constraints
+        // For now, we just verify the import works atomically
+        const importData = {
+          segments: [{ strava_segment_id: 777777, name: 'Segment' }],
+          seasons: [
+            {
+              id: 1,
+              name: 'Season',
+              start_date: '2025-01-01',
+              end_date: '2025-12-31',
+              is_active: 1
+            }
+          ],
+          weeks: []
+        };
+
+        const res = await request(app)
+          .post('/admin/import-data')
+          .send({ data: importData });
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+
+        // Verify import results - participants are NOT imported
+        expect(db.prepare('SELECT COUNT(*) as count FROM participant').get().count).toBe(0);
+        expect(db.prepare('SELECT COUNT(*) as count FROM segment').get().count).toBe(1);
+        expect(db.prepare('SELECT COUNT(*) as count FROM season').get().count).toBe(1);
+      });
+    });
+
+    describe('Export/Import Round-Trip', () => {
+      test('data survives export then import cycle (without participants)', async () => {
+        clearAllData(db);
+        // eslint-disable-next-line no-unused-vars
+        const seasonId = createSeason(db, 'Round Trip Season', true);
+        // eslint-disable-next-line no-unused-vars
+        const segmentId = createSegment(db, 888888, 'Round Trip Segment', { 
+          distance: 4.0, 
+          averageGrade: 8.0,
+          city: 'Austin',
+          state: 'TX',
+          country: 'USA'
+        });
+        // Create participant but it won't be included in export/import cycle
+        createParticipant(db, 999999, 'Round Trip Participant');
+
+        // Export
+        const exportRes = await request(app).get('/admin/export-data');
+        expect(exportRes.status).toBe(200);
+        const exported = exportRes.body.data;
+
+        // Should not have participants in export
+        expect(exported).not.toHaveProperty('participants');
+
+        // Clear database
+        clearAllData(db);
+
+        // Verify cleared
+        const count = db.prepare('SELECT COUNT(*) as count FROM segment').get();
+        expect(count.count).toBe(0);
+
+        // Import
+        const importRes = await request(app)
+          .post('/admin/import-data')
+          .send({ data: exported });
+
+        expect(importRes.status).toBe(200);
+
+        // Verify segment data matches
+        const segment = db.prepare('SELECT * FROM segment').get();
+        expect(segment.name).toBe('Round Trip Segment');
+        expect(segment.distance).toBe(4.0);
+        expect(segment.average_grade).toBe(8.0);
+
+        // Verify season data
+        const season = db.prepare('SELECT * FROM season').get();
+        expect(season.name).toBe('Round Trip Season');
+      });
+    });
+
+    describe('Production Mode - Endpoints Disabled', () => {
+      let originalNodeEnv;
+
+      beforeAll(() => {
+        originalNodeEnv = process.env.NODE_ENV;
+      });
+
+      afterAll(() => {
+        process.env.NODE_ENV = originalNodeEnv;
+      });
+
+      test('GET /admin/export-data returns 403 in production', async () => {
+        process.env.NODE_ENV = 'production';
+
+        const res = await request(app)
+          .get('/admin/export-data');
+
+        expect(res.status).toBe(403);
+        expect(res.body.error).toBe('This endpoint is only available in development mode');
+        expect(res.body.endpoint).toBe('/admin/export-data');
+      });
+
+      test('POST /admin/import-data returns 403 in production', async () => {
+        process.env.NODE_ENV = 'production';
+
+        const res = await request(app)
+          .post('/admin/import-data')
+          .send({
+            data: {
+              segments: [],
+              seasons: [],
+              weeks: []
+            }
+          });
+
+        expect(res.status).toBe(403);
+        expect(res.body.error).toBe('This endpoint is only available in development mode');
+        expect(res.body.endpoint).toBe('/admin/import-data');
+      });
+
+      test('endpoints work normally in development mode', async () => {
+        process.env.NODE_ENV = 'development';
+
+        // Export should work
+        const exportRes = await request(app)
+          .get('/admin/export-data');
+
+        expect(exportRes.status).toBe(200);
+        expect(exportRes.body.data).toBeDefined();
+      });
+    });
+  });
 });

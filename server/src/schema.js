@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS segment_effort (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   activity_id INTEGER NOT NULL,
   strava_segment_id INTEGER NOT NULL,
+  strava_effort_id TEXT,
   effort_index INTEGER NOT NULL,
   elapsed_seconds INTEGER NOT NULL,
   start_time TEXT,

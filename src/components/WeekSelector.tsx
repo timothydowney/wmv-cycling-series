@@ -1,5 +1,6 @@
 import React from 'react';
 import { Week } from '../api';
+import './WeekSelector.css';
 
 interface Props {
   weeks: Week[];
@@ -24,11 +25,22 @@ const WeekSelector: React.FC<Props> = ({ weeks, selectedWeekId, setSelectedWeekI
     return '';
   };
 
+  if (weeks.length === 0) {
+    return (
+      <div className="week-selector-empty-container">
+        <div className="week-selector-empty-box">
+          <p className="week-selector-empty-text">No weeks have been added to the season.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div>
-      <label htmlFor="week-select">Select Week: </label>
+    <div className="week-selector-container">
+      <label htmlFor="week-select" className="week-selector-label">Select Week:</label>
       <select
         id="week-select"
+        className="week-selector-dropdown"
         value={selectedWeekId || ''}
         onChange={(e) => setSelectedWeekId(parseInt(e.target.value))}
       >

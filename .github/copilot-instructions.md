@@ -12,15 +12,27 @@ Western Mass Velo cycling competition tracker: React + TypeScript frontend with 
 - **Check:** `node --version` (must be v24.x.x)
 - **Fix:** `nvm install 24 && nvm use 24` (or use `npx -p node@24` prefix)
 
-### Development: Use `npm run dev:all`
-- Starts both backend (port 3001) and frontend (port 5173) simultaneously
-- Uses `concurrently` with color-coded output
-- Stop: Press `Ctrl+C` or run `npm run stop`
+### Development: Two Options
 
-### If Processes Get Stuck
+#### For Interactive Development (Recommended)
 ```bash
-npm run stop  # Kills all dev processes and clears ports
+npm run dev:all     # Foreground, colored output, both servers together
+                    # Stop: Ctrl+C
 ```
+
+#### For Automated/Agentic Use (Recommended for Scripts)
+```bash
+npm run dev:start   # Background, returns immediately, tracks PID
+npm run dev:status  # Check if running
+npm run dev:stop    # Clean shutdown
+```
+
+### Cleanup
+```bash
+npm run stop        # Stops all servers and cleans up ports
+```
+
+**Full documentation:** See [`docs/DEV_PROCESS_MANAGEMENT.md`](../docs/DEV_PROCESS_MANAGEMENT.md) for complete process management guide
 
 ---
 

@@ -52,3 +52,6 @@ public/strava-credentials.json
 
 # Test/example projects
 test-project/
+
+# Dev server PID tracking
+.dev.pid

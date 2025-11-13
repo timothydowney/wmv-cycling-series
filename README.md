@@ -27,11 +27,16 @@ nvm install 24 && nvm use 24
 ## Commands
 
 ```bash
-npm run dev:all         # Start frontend + backend (RECOMMENDED)
-npm run stop            # Kill stuck processes
+npm run dev:all         # Interactive: Start frontend + backend with output (press Ctrl+C to stop)
+npm run dev:start       # Automated: Start in background, returns immediately
+npm run dev:stop        # Automated: Stop background servers cleanly
+npm run dev:status      # Check if servers are running
+npm run stop            # Stops all servers and cleans up ports
 npm test                # Run tests
 npm run build           # Build for production
 ```
+
+**→ See [Dev Process Management](./docs/DEV_PROCESS_MANAGEMENT.md) for detailed guidance on when to use each.**
 
 ## What's Included
 

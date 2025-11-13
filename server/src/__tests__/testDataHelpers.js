@@ -150,9 +150,9 @@ function createActivity(db, options = {}) {
   
   // Create segment effort
   const effortResult = db.prepare(`
-    INSERT INTO segment_effort (activity_id, strava_segment_id, effort_index, elapsed_seconds, pr_achieved)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(activityId, stravaSegmentId, 1, elapsedSeconds, prAchieved ? 1 : 0);
+    INSERT INTO segment_effort (activity_id, strava_segment_id, effort_index, elapsed_seconds, pr_achieved, strava_effort_id)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(activityId, stravaSegmentId, 1, elapsedSeconds, prAchieved ? 1 : 0, String(Math.floor(Math.random() * 1000000000000000000)));
   
   return {
     activityId,
