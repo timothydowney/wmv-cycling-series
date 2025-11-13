@@ -4,6 +4,56 @@
 
 How to configure weeks, manage segments, and collect results.
 
+## Admin Access Control
+
+**Only users designated as admins can access admin features.** Regular users see only:
+- Leaderboard view
+- Disconnect from Strava button
+
+Admins see the full navigation menu with:
+- Manage Competition (create/edit weeks)
+- Manage Segments (add/update segment metadata)
+- Participant Status (view connected participants)
+
+### Who is an Admin?
+
+Admins are identified by their **Strava athlete ID**. The app reads a list of admin athlete IDs from the `ADMIN_ATHLETE_IDS` environment variable.
+
+**Finding your Strava athlete ID:**
+1. Log in to [Strava.com](https://strava.com)
+2. Go to [Settings → Profile](https://www.strava.com/settings/profile)
+3. Look at the URL bar: `https://www.strava.com/athletes/YOUR_ID_HERE`
+4. Your athlete ID is the number at the end
+
+**Example:** If your profile URL is `https://www.strava.com/athletes/12345678`, your athlete ID is `12345678`.
+
+### How to Add/Remove Admins
+
+Admins are configured via the `ADMIN_ATHLETE_IDS` environment variable (comma-separated list of athlete IDs).
+
+**Development (local):**
+1. Edit `.env`:
+   ```
+   ADMIN_ATHLETE_IDS=12345678,87654321
+   ```
+2. Restart servers: `npm run dev:all`
+
+**Production (Railway):**
+1. Go to Railway dashboard → Project → Settings → Secrets
+2. Set `ADMIN_ATHLETE_IDS=12345678,87654321` (comma-separated, no spaces)
+3. Railway auto-redeploys with new value
+4. Changes take effect immediately for new logins
+
+**Safe default:** If `ADMIN_ATHLETE_IDS` is empty or not set, no one has admin access. This is the default for security.
+
+### Security Notes
+
+- Admin access is based on immutable Strava athlete IDs (cannot be faked)
+- All admin endpoints require authentication and admin status
+- Non-admin attempts to access admin features are logged
+- Admins must be connected to Strava (OAuth) to have access
+- Disconnecting from Strava immediately revokes admin access
+
 ## Workflow Overview
 
 1. **Setup Phase:**

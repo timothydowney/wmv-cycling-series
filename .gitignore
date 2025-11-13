@@ -38,11 +38,9 @@ server/coverage/
 .env.local
 .env.*.local
 .env.*
-server/.env
-server/.env.*
 
 # Allow checked-in production template
-!server/.env.railway.example
+!.env.railway.example
 
 # Credentials
 public/strava-credentials.json

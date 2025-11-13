@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import './ManageSegments.css';
-import { addSegment, getAdminSegments, validateSegment, AdminSegment, ValidatedSegmentDetails } from '../api';
+import { addSegment, getAdminSegments, validateSegment, AdminSegment, ValidatedSegmentDetails, getAuthStatus } from '../api';
 import SegmentCard from './SegmentCard';
 
 const parseSegmentInput = (input: string): number | null => {
@@ -14,6 +14,8 @@ const parseSegmentInput = (input: string): number | null => {
 };
 
 function ManageSegments() {
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const [segments, setSegments] = useState<AdminSegment[]>([]);
   const [loading, setLoading] = useState(true);
   // Internal load error for segment list; we just show a generic message inline
@@ -25,6 +27,23 @@ function ManageSegments() {
   const [lastValidatedId, setLastValidatedId] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Check admin status on mount
+  useEffect(() => {
+    const checkAdmin = async () => {
+      try {
+        const status = await getAuthStatus();
+        setIsAdmin(status.is_admin || false);
+      } catch (error) {
+        console.error('Failed to check admin status:', error);
+        setIsAdmin(false);
+      } finally {
+        setCheckingAuth(false);
+      }
+    };
+
+    checkAdmin();
+  }, []);
 
   const refresh = async () => {
     try {
@@ -130,6 +149,21 @@ function ManageSegments() {
     await refresh();
     setTimeout(() => setActionMessage(null), 5000);
   };
+
+  if (checkingAuth) {
+    return <div className="manage-segments"><p>Loading...</p></div>;
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="manage-segments">
+        <div style={{ padding: '2rem', textAlign: 'center' }}>
+          <h2 style={{ color: '#e74c3c', marginBottom: '1rem' }}>Access Denied</h2>
+          <p>You do not have admin permissions to access this page.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="manage-segments">
