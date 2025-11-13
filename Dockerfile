@@ -5,6 +5,11 @@ FROM node:24-slim AS builder
 
 WORKDIR /app
 
+# Set NODE_ENV to production early to avoid installing dev dependencies
+# This is a defense-in-depth measure: even if something tries to install test code,
+# it won't be included because npm treats development dependencies differently
+ENV NODE_ENV=production
+
 # Install build dependencies for better-sqlite3
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -18,7 +23,7 @@ COPY server/package*.json ./server/
 # Copy scripts (needed for npm prepare hook)
 COPY scripts ./scripts
 
-# Install dependencies
+# Install dependencies (production only, no devDependencies)
 RUN npm ci
 
 # Copy source code

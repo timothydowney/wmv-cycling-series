@@ -357,6 +357,114 @@ function createWeekWithResults(db, options = {}) {
   return { weekId: week.weekId, activities, results };
 }
 
+/**
+ * Mock the checkAuthorization function for testing
+ * 
+ * Usage in your test file BEFORE requiring the app:
+ * 
+ * jest.mock('../index.js', () => {
+ *   const actual = jest.requireActual('../index.js');
+ *   return {
+ *     ...actual,
+ *     checkAuthorization: jest.fn((req, adminRequired) => {
+ *       // Mock implementation for testing
+ *       const athleteId = req._testAthleteId;
+ *       
+ *       if (!athleteId) {
+ *         return { authorized: false, statusCode: 401, message: 'Not authenticated' };
+ *       }
+ *       
+ *       if (adminRequired) {
+ *         const adminIds = (process.env.ADMIN_ATHLETE_IDS || '').split(',').map(Number);
+ *         if (!adminIds.includes(athleteId)) {
+ *           return { authorized: false, statusCode: 403, message: 'Forbidden' };
+ *         }
+ *       }
+ *       
+ *       return { authorized: true, statusCode: 200 };
+ *     })
+ *   };
+ * });
+ * 
+ * Then in your test:
+ * const { checkAuthorization } = require('../index.js');
+ * 
+ * const mockAuthRequest = (athleteId) => ({
+ *   _testAthleteId: athleteId,
+ *   session: { stravaAthleteId: athleteId }
+ * });
+ * 
+ * // Test admin authorization
+ * process.env.ADMIN_ATHLETE_IDS = '999001';
+ * expect(checkAuthorization(mockAuthRequest(999001), true).authorized).toBe(true);
+ * expect(checkAuthorization(mockAuthRequest(999002), true).statusCode).toBe(403);
+ */
+
+/**
+ * Create a mock request object for testing authorization
+ * 
+ * Usage:
+ * const adminReq = createMockAuthRequest(999001, true);  // admin user
+ * const userReq = createMockAuthRequest(999002, false);   // regular user
+ * 
+ * const { checkAuthorization } = require('../index.js');
+ * const result = checkAuthorization(adminReq, true);  // true = admin required
+ * 
+ * @param {number} athleteId - Strava athlete ID
+ * @param {boolean} isAdmin - Whether this athlete should be an admin
+ * @returns {object} Mock request object
+ */
+function createMockAuthRequest(athleteId, isAdmin = false) {
+  return {
+    _testAthleteId: athleteId,
+    session: {
+      stravaAthleteId: isAdmin ? athleteId : null
+    },
+    path: '/test'
+  };
+}
+
+/**
+ * Helper to make a request with a specific athlete ID in the session
+ * Usage in test files:
+ * 
+ * // Admin request (will use auto-injected admin session)
+ * const adminRes = await request(app).post('/admin/weeks').send(data);
+ * 
+ * // Non-admin request (overrides session)
+ * const nonAdminRes = await makeRequestAsUser(request, app, {
+ *   method: 'post',
+ *   path: '/admin/weeks',
+ *   athleteId: 999999,  // Non-admin athlete ID
+ *   data: { ... }
+ * });
+ * 
+ * @param {object} requestModule - supertest request module
+ * @param {object} app - Express app
+ * @param {object} options - Configuration
+ *   - method (required): 'get', 'post', 'put', 'delete', etc.
+ *   - path (required): The endpoint path
+ *   - athleteId (optional): Override the athlete ID in session
+ *   - data (optional): Request body for POST/PUT
+ * @returns {Promise<object>} Response object
+ */
+async function makeRequestAsUser(requestModule, app, options) {
+  const { method = 'get', path, athleteId, data } = options;
+  
+  const req = requestModule(app)[method](path);
+  
+  // Override session if athleteId provided (simulates non-admin user)
+  if (athleteId !== undefined) {
+    req.set('X-Override-Athlete-Id', athleteId);
+  }
+  
+  if (data) {
+    req.send(data).set('Content-Type', 'application/json');
+  }
+  
+  return req;
+}
+
 module.exports = {
   createParticipant,
   createMultipleParticipants,
@@ -367,5 +475,7 @@ module.exports = {
   createActivity,
   createResult,
   createFullUserWithActivity,
-  clearAllData
+  clearAllData,
+  createMockAuthRequest,
+  makeRequestAsUser
 };

@@ -25,6 +25,7 @@ jest.mock('strava-v3', () => ({
 const TEST_DB_PATH = path.join(__dirname, '..', '..', 'data', 'edge-cases-test.db');
 process.env.DATABASE_PATH = TEST_DB_PATH;
 process.env.NODE_ENV = 'test';
+process.env.ADMIN_ATHLETE_IDS = '999001'; // Set admin IDs for tests
 
 // Remove test database if it exists
 if (fs.existsSync(TEST_DB_PATH)) {

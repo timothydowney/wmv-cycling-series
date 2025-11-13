@@ -88,6 +88,22 @@ if (process.env.NODE_ENV !== 'test') {
 
 app.use(session(sessionConfig));
 
+// Test mode: Load session injection middleware from separate test file
+// SECURITY: This file only exists in source code, not in production builds
+// It will only load if NODE_ENV is explicitly 'test'
+if (process.env.NODE_ENV === 'test') {
+  try {
+    const registerTestMiddleware = require('./__tests__/testMiddleware');
+    registerTestMiddleware(app);
+  } catch (err) {
+    // In production, this file won't exist - that's expected and correct
+    // Only throw if it's a different kind of error
+    if (err.code !== 'MODULE_NOT_FOUND') {
+      throw err;
+    }
+  }
+}
+
 // Initialize database schema (single source of truth from schema.js)
 db.exec(SCHEMA);
 
@@ -106,23 +122,43 @@ function getAdminAthleteIds() {
     .filter(id => !isNaN(id));
 }
 
-// Middleware: Require admin role
-const requireAdmin = (req, res, next) => {
+// Helper: Check if a user is authenticated and optionally if they're an admin
+// This is extracted as a mockable function for testing
+function checkAuthorization(req, adminRequired = false) {
   // First check: must be authenticated
   if (!req.session.stravaAthleteId) {
-    return res.status(401).json({ 
-      error: 'Not authenticated. Please connect to Strava first.' 
-    });
+    return {
+      authorized: false,
+      statusCode: 401,
+      message: 'Not authenticated. Please connect to Strava first.'
+    };
   }
   
-  // Second check: must be in admin list
-  const adminIds = getAdminAthleteIds();
+  // Second check: if admin required, verify admin status
+  if (adminRequired) {
+    const adminIds = getAdminAthleteIds();
+    if (!adminIds.includes(req.session.stravaAthleteId)) {
+      console.warn(`[AUTH] Non-admin access attempt by athlete ${req.session.stravaAthleteId} to ${req.path}`);
+      return {
+        authorized: false,
+        statusCode: 403,
+        message: 'Forbidden. Admin access required.'
+      };
+    }
+  }
   
-  if (!adminIds.includes(req.session.stravaAthleteId)) {
-    console.warn(`[AUTH] Non-admin access attempt by athlete ${req.session.stravaAthleteId} to ${req.path}`);
-    return res.status(403).json({ 
-      error: 'Forbidden. Admin access required.' 
-    });
+  return {
+    authorized: true,
+    statusCode: 200
+  };
+}
+
+// Middleware: Require admin role
+const requireAdmin = (req, res, next) => {
+  const authCheck = checkAuthorization(req, true);
+  
+  if (!authCheck.authorized) {
+    return res.status(authCheck.statusCode).json({ error: authCheck.message });
   }
   
   // Pass through to next handler
@@ -2214,7 +2250,7 @@ app.get('/admin/segments/starred', requireAdmin, async (req, res) => {
 */
 
 // Export for testing
-module.exports = { app, db, validateActivityTimeWindow };
+module.exports = { app, db, validateActivityTimeWindow, checkAuthorization };
 
 // Only start server if not being imported for tests
 if (require.main === module) {

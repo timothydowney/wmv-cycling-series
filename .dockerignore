@@ -1,0 +1,55 @@
+# Docker build ignore file
+# Excludes files from being copied to Docker images during build
+# CRITICAL: Only exclude files that are truly not needed in production
+# The Dockerfile builder stage will create what's needed (dist, node_modules)
+
+# Git
+.git
+.gitignore
+.github
+
+# IDE/Editor
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Development files (source, not built output)
+.nvmrc
+vite.config.ts
+tsconfig.json
+tsconfig.node.json
+vite-env.d.ts
+check-node.js
+
+# Documentation
+docs
+README.md
+ADMIN_GUIDE.md
+PRIVACY_POLICY.md
+STRAVA_BRANDING.md
+LICENSE
+AGENT_USAGE.md
+
+# Configuration
+.editorconfig
+.eslintrc.cjs
+
+# Test files - CRITICAL: Exclude from production builds
+# These files should NOT be in the production Docker image
+server/src/__tests__
+server/**/*.test.js
+server/**/*.test.ts
+server/jest.config.js
+server/coverage
+
+# Development utilities and scripts
+scripts/dev-server.cjs
+scripts/install-hooks.cjs
+
+# Environment files (must not be committed anyway)
+.env
+.env.local
+.env.*.local
