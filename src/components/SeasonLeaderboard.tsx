@@ -35,11 +35,11 @@ const SeasonLeaderboard: React.FC = () => {
   return (
     <div>
       <h2>Season Leaderboard</h2>
-      <table>
+      <table style={{ width: '100%' }}>
         <thead>
           <tr>
-            <th>Rank</th>
-            <th>Name</th>
+            <th style={{ width: '60px' }}>Rank</th>
+            <th style={{ width: '200px' }}>Name</th>
             <th>Total Points</th>
             <th>Weeks Completed</th>
           </tr>
@@ -52,8 +52,17 @@ const SeasonLeaderboard: React.FC = () => {
           ) : (
             standings.map((standing, index) => (
               <tr key={standing.id}>
-                <td>{index + 1}</td>
-                <td>{standing.name}</td>
+                <td style={{ width: '60px' }}>{index + 1}</td>
+                <td style={{ width: '200px' }}>
+                  <a 
+                    href={`https://www.strava.com/athletes/${standing.strava_athlete_id}`}
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    style={{ color: 'var(--wmv-purple)', fontWeight: 600, textDecoration: 'none' }}
+                  >
+                    {standing.name}
+                  </a>
+                </td>
                 <td>{standing.total_points}</td>
                 <td>{standing.weeks_completed}</td>
               </tr>

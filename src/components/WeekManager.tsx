@@ -12,7 +12,11 @@ interface WeekFormData {
   end_time: string;   // ISO 8601 format
 }
 
-function WeekManager() {
+interface WeekManagerProps {
+  onFetchResults?: () => void;
+}
+
+function WeekManager({ onFetchResults }: WeekManagerProps) {
   const [weeks, setWeeks] = useState<Week[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [editingWeekId, setEditingWeekId] = useState<number | null>(null);
@@ -136,10 +140,6 @@ function WeekManager() {
   };
 
   const handleFetchResults = async (weekId: number) => {
-    if (!confirm('This will fetch activities from all connected participants. Continue?')) {
-      return;
-    }
-
     setMessage({ type: 'success', text: 'Fetching results... this may take a moment.' });
 
     try {
@@ -148,6 +148,11 @@ function WeekManager() {
         type: 'success', 
         text: `Fetched results for ${result.participants_processed} participants. Found ${result.results_found} qualifying activities.` 
       });
+      
+      // Trigger leaderboard refresh in parent component
+      if (onFetchResults) {
+        onFetchResults();
+      }
       
       setTimeout(() => setMessage(null), 5000);
     } catch (err: any) {

@@ -27,6 +27,16 @@ const ScheduleTable: React.FC<Props> = ({ weeks }) => {
     return 'TBD';
   };
 
+  const formatFullDate = (dateString: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
+
   const formatTime = (time: string) => {
     if (!time) return '—';
     const date = new Date(time);
@@ -44,9 +54,13 @@ const ScheduleTable: React.FC<Props> = ({ weeks }) => {
     return dateA.getTime() - dateB.getTime();
   });
 
+  // Get season start and end dates from first and last week
+  const seasonStart = sortedWeeks.length > 0 ? formatFullDate(sortedWeeks[0].date || sortedWeeks[0].start_time) : '';
+  const seasonEnd = sortedWeeks.length > 0 ? formatFullDate(sortedWeeks[sortedWeeks.length - 1].date || sortedWeeks[sortedWeeks.length - 1].start_time) : '';
+
   return (
     <div className="schedule-table-container">
-      <h2>Schedule</h2>
+      <h2>Season Schedule | {seasonStart} to {seasonEnd}</h2>
       <table className="schedule-table">
         <thead>
           <tr>

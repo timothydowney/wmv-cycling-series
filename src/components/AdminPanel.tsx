@@ -1,7 +1,11 @@
 import './AdminPanel.css';
 import WeekManager from './WeekManager';
 
-function AdminPanel() {
+interface AdminPanelProps {
+  onFetchResults?: () => void;
+}
+
+function AdminPanel({ onFetchResults }: AdminPanelProps) {
   return (
     <div className="admin-panel">
       <div className="admin-header">
@@ -9,7 +13,7 @@ function AdminPanel() {
         <p className="admin-subtitle">Manage weeks, segments, and results for the Zwift Hill Climb/Time Trial Series</p>
       </div>
 
-      <WeekManager />
+      <WeekManager onFetchResults={onFetchResults} />
     </div>
   );
 }

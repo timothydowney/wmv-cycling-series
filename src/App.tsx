@@ -161,23 +161,31 @@ function App() {
     refreshWeeks();
   }, [viewMode, selectedSeasonId]); // Refresh when viewMode or season changes
 
+  // Function to fetch/refresh leaderboard
+  const fetchLeaderboard = async (weekId: number) => {
+    try {
+      const leaderboardData = await getWeekLeaderboard(weekId);
+      setSelectedWeek(leaderboardData.week);
+      setWeekLeaderboard(leaderboardData.leaderboard);
+    } catch (err) {
+      setError('Failed to load leaderboard');
+      console.error(err);
+    }
+  };
+
+  // Refresh leaderboard when week changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    const fetchLeaderboard = async () => {
-      if (selectedWeekId === null) return;
-
-      try {
-        const leaderboardData = await getWeekLeaderboard(selectedWeekId);
-        setSelectedWeek(leaderboardData.week);
-        setWeekLeaderboard(leaderboardData.leaderboard);
-      } catch (err) {
-        setError('Failed to load leaderboard');
-        console.error(err);
-      }
-    };
-
-    fetchLeaderboard();
+    if (selectedWeekId === null) return;
+    fetchLeaderboard(selectedWeekId);
   }, [selectedWeekId]);
+
+  // Handler for when results are fetched - refresh leaderboard
+  const handleFetchResults = () => {
+    if (selectedWeekId !== null) {
+      fetchLeaderboard(selectedWeekId);
+    }
+  };
 
   if (loading) {
     return (
@@ -225,7 +233,7 @@ function App() {
       
       <div className="app app-content">
         {viewMode === 'admin' ? (
-          <AdminPanel />
+          <AdminPanel onFetchResults={handleFetchResults} />
         ) : viewMode === 'participants' ? (
           <div>
             <h1 style={{ marginBottom: '2rem' }}>Participant Status</h1>

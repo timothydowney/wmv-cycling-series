@@ -60,6 +60,7 @@ export interface WeekLeaderboard {
 
 export interface SeasonStanding {
   id: number;
+  strava_athlete_id: number;
   name: string;
   total_points: number;
   weeks_completed: number;
