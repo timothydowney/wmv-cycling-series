@@ -49,13 +49,11 @@
 }
 
 .week-name {
-  font-weight: 600;
   color: var(--wmv-purple);
 }
 
 .week-date {
   white-space: nowrap;
-  font-weight: 500;
 }
 
 .segment-name a {
@@ -72,7 +70,6 @@
 
 .required-laps {
   text-align: center;
-  font-weight: 500;
 }
 
 .time-window {

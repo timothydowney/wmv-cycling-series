@@ -1,5 +1,6 @@
 import React from 'react';
 import { Week, LeaderboardEntry } from '../api';
+import { formatLapCount } from '../utils/lapFormatter';
 
 interface Props {
   week: Week | null;
@@ -11,15 +12,33 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard }) => {
     return null;
   }
 
+  // Format date like "November 11, 2025"
+  const dateObj = new Date(week.date);
+  const formattedDate = dateObj.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+
   return (
     <div>
-      <h2>{week.week_name} Leaderboard</h2>
-      <p>Date: {week.date} | Segment: {week.segment_id} | Laps: {week.required_laps}</p>
-      <table>
+      <h2>
+        {formattedDate} |&nbsp;
+        <a 
+          href={`https://www.strava.com/segments/${week.segment_id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: 'var(--wmv-purple)', textDecoration: 'none' }}
+        >
+          {week.week_name}
+        </a>
+        &nbsp;| {formatLapCount(week.required_laps)}
+      </h2>
+      <table style={{ width: '100%' }}>
         <thead>
           <tr>
-            <th>Rank</th>
-            <th>Name</th>
+            <th style={{ width: '60px' }}>Rank</th>
+            <th style={{ width: '200px' }}>Name</th>
             <th>Time</th>
             <th>Points</th>
           </tr>
@@ -32,8 +51,8 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard }) => {
           ) : (
             leaderboard.map((entry) => (
               <tr key={entry.participant_id}>
-                <td>{entry.rank}</td>
-                <td>
+                <td style={{ width: '60px' }}>{entry.rank}</td>
+                <td style={{ width: '200px' }}>
                   {entry.activity_url ? (
                     <a href={entry.activity_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--wmv-purple)', fontWeight: 600, textDecoration: 'none' }}>
                       {entry.name}
@@ -72,7 +91,7 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard }) => {
                                 {effort.is_pr && <span style={{ marginLeft: '8px', color: '#ff6b35' }}>⭐</span>}
                               </div>
                             ))}
-                            <div style={{ borderTop: '1px solid #ccc', paddingTop: '4px', fontWeight: 'bold' }}>
+                            <div style={{ borderTop: '1px solid #ccc', paddingTop: '4px', color: 'var(--wmv-purple)' }}>
                               Total: {entry.time_hhmmss}
                             </div>
                           </div>
