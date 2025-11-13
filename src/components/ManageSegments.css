@@ -17,7 +17,7 @@
   border: none;
   padding: 0.4rem 0.8rem;
   border-radius: 4px;
-  font-size: 0.85rem;
+  font-size: var(--font-sm);
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s;
@@ -70,7 +70,7 @@
 }
 
 .inline-status {
-  font-size: 0.85rem;
+  font-size: var(--font-sm);
   margin-top: 0.35rem;
   color: #666;
 }
@@ -110,7 +110,7 @@
 .message-box {
   padding: 0.75rem 1rem;
   border-radius: 4px;
-  font-size: 0.9rem;
+  font-size: var(--font-sm);
   margin-bottom: 1rem;
   font-weight: 500;
 }

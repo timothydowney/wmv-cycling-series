@@ -7,7 +7,7 @@
 
 .segment-card-title {
   margin: 0 0 0.5rem 0;
-  font-size: 1rem;
+  font-size: var(--font-base);
   color: #333;
   display: flex;
   align-items: center;
@@ -33,12 +33,12 @@
   color: #cc3c00;
   padding: 0.15rem 0.5rem;
   border-radius: 12px;
-  font-size: 0.7rem;
+  font-size: var(--font-xs);
   font-weight: 600;
 }
 
 .segment-card-stats {
-  font-size: 0.85rem;
+  font-size: var(--font-sm);
   color: #555;
   display: flex;
   gap: 0.75rem;
