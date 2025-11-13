@@ -24,15 +24,19 @@ npm run dev:all     # Foreground, colored output, both servers together
 ```bash
 npm run dev:start   # Background, returns immediately, tracks PID
 npm run dev:status  # Check if running
-npm run dev:stop    # Clean shutdown
+npm run dev:stop    # Clean shutdown (normal case)
+npm run dev:cleanup # Force-kill all dev processes (emergency only)
 ```
+
+**Key for agents:** Use `dev:cleanup` if `dev:stop` fails or if you encounter orphaned processes. See `docs/DEV_PROCESS_MANAGEMENT.md` and `AGENT_USAGE.md` for detailed patterns.
 
 ### Cleanup
 ```bash
-npm run stop        # Stops all servers and cleans up ports
+npm run stop        # Alias for dev:stop (clean shutdown)
+npm run dev:cleanup # Emergency: force-kill orphaned processes if dev:stop fails
 ```
 
-**Full documentation:** See [`docs/DEV_PROCESS_MANAGEMENT.md`](../docs/DEV_PROCESS_MANAGEMENT.md) for complete process management guide
+**Full documentation:** See [`docs/DEV_PROCESS_MANAGEMENT.md`](../docs/DEV_PROCESS_MANAGEMENT.md) for complete process management guide and [`AGENT_USAGE.md`](../AGENT_USAGE.md) for agentic workflow patterns.
 
 ---
 
