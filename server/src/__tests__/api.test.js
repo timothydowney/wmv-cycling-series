@@ -8,7 +8,8 @@ const {
   createWeek,
   createActivity,
   createResult,
-  clearAllData
+  clearAllData,
+  makeRequestAsUser
 } = require('./testDataHelpers');
 
 // Mock strava-v3 library to prevent network calls
@@ -27,6 +28,7 @@ jest.mock('strava-v3', () => ({
 const TEST_DB_PATH = path.join(__dirname, '..', '..', 'data', 'test.db');
 process.env.DATABASE_PATH = TEST_DB_PATH;
 process.env.NODE_ENV = 'test';
+process.env.ADMIN_ATHLETE_IDS = '999001'; // Allow test admin access to /admin endpoints
 
 // Remove test database if it exists
 if (fs.existsSync(TEST_DB_PATH)) {
@@ -343,7 +345,7 @@ describe('WMV Backend API', () => {
     });
 
     test('POST /admin/weeks validates segment exists', async () => {
-      const newWeek = {
+      const testWeekData = {
         week_name: 'Invalid Segment Week',
         date: '2025-12-17',
         segment_id: 999,
@@ -353,7 +355,7 @@ describe('WMV Backend API', () => {
 
       const response = await request(app)
         .post('/admin/weeks')
-        .send(newWeek)
+        .send(testWeekData)
         .set('Content-Type', 'application/json');
 
       expect(response.status).toBe(400);
@@ -399,6 +401,51 @@ describe('WMV Backend API', () => {
     test('DELETE /admin/weeks/:id returns 404 for invalid ID', async () => {
       const response = await request(app).delete('/admin/weeks/999');
       expect(response.status).toBe(404);
+    });
+  });
+
+  // Non-admin rejection tests for week management
+  describe('Admin - Week Management - Non-Admin Rejection', () => {
+    const testWeekData = {
+      week_name: 'Test Week',
+      date: '2025-12-25',
+      segment_id: TEST_SEGMENT_1,
+      season_id: TEST_SEASON_ID,
+      required_laps: 1
+    };    test('POST /admin/weeks rejects non-admin with 403', async () => {
+      const response = await makeRequestAsUser(request, app, {
+        method: 'post',
+        path: '/admin/weeks',
+        athleteId: 999999,  // Non-admin athlete ID
+        data: testWeekData
+      });
+
+      expect(response.status).toBe(403);
+      expect(response.body).toHaveProperty('error');
+      expect(response.body.error).toMatch(/admin|forbidden/i);
+    });
+
+    test('PUT /admin/weeks/:id rejects non-admin with 403', async () => {
+      const response = await makeRequestAsUser(request, app, {
+        method: 'put',
+        path: `/admin/weeks/${testWeekId1}`,
+        athleteId: 999999,
+        data: { required_laps: 99 }
+      });
+
+      expect(response.status).toBe(403);
+      expect(response.body).toHaveProperty('error');
+    });
+
+    test('DELETE /admin/weeks/:id rejects non-admin with 403', async () => {
+      const response = await makeRequestAsUser(request, app, {
+        method: 'delete',
+        path: `/admin/weeks/${testWeekId1}`,
+        athleteId: 999999
+      });
+
+      expect(response.status).toBe(403);
+      expect(response.body).toHaveProperty('error');
     });
   });
 
@@ -517,6 +564,51 @@ describe('WMV Backend API', () => {
     test('DELETE /admin/seasons/:id returns 404 for invalid ID', async () => {
       const response = await request(app).delete('/admin/seasons/999');
       expect(response.status).toBe(404);
+    });
+  });
+
+  // Non-admin rejection tests for season management
+  describe('Admin - Season Management - Non-Admin Rejection', () => {
+    const testSeasonData = {
+      name: 'Unauthorized Season',
+      start_date: '2027-01-01',
+      end_date: '2027-12-31',
+      is_active: 0
+    };
+
+    test('POST /admin/seasons rejects non-admin with 403', async () => {
+      const response = await makeRequestAsUser(request, app, {
+        method: 'post',
+        path: '/admin/seasons',
+        athleteId: 999999,
+        data: testSeasonData
+      });
+
+      expect(response.status).toBe(403);
+      expect(response.body).toHaveProperty('error');
+    });
+
+    test('PUT /admin/seasons/:id rejects non-admin with 403', async () => {
+      const response = await makeRequestAsUser(request, app, {
+        method: 'put',
+        path: `/admin/seasons/${TEST_SEASON_ID}`,
+        athleteId: 999999,
+        data: { name: 'Hacked Season' }
+      });
+
+      expect(response.status).toBe(403);
+      expect(response.body).toHaveProperty('error');
+    });
+
+    test('DELETE /admin/seasons/:id rejects non-admin with 403', async () => {
+      const response = await makeRequestAsUser(request, app, {
+        method: 'delete',
+        path: `/admin/seasons/${TEST_SEASON_ID}`,
+        athleteId: 999999
+      });
+
+      expect(response.status).toBe(403);
+      expect(response.body).toHaveProperty('error');
     });
   });
 

@@ -51,6 +51,7 @@ export interface LeaderboardEntry {
   activity_date: string;
   effort_breakdown?: SegmentEffort[] | null;
   strava_effort_id?: number;
+  device_name?: string | null;
 }
 
 export interface WeekLeaderboard {

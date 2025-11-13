@@ -5,7 +5,8 @@ const {
   clearAllData,
   createSeason,
   createSegment,
-  createParticipant
+  createParticipant,
+  makeRequestAsUser
 } = require('./testDataHelpers');
 
 // Mock strava-v3 library to prevent network calls
@@ -24,6 +25,7 @@ jest.mock('strava-v3', () => ({
 const TEST_DB_PATH = path.join(__dirname, '..', '..', 'data', 'coverage-test.db');
 process.env.DATABASE_PATH = TEST_DB_PATH;
 process.env.NODE_ENV = 'test';
+process.env.ADMIN_ATHLETE_IDS = '999001'; // Set admin IDs for tests
 
 // Remove test database if it exists
 if (fs.existsSync(TEST_DB_PATH)) {
@@ -244,6 +246,39 @@ describe('Coverage Improvements - Quick Wins', () => {
         expect(res.body.distance).toBeNull();
         expect(res.body.city).toBeNull();
       });
+    });
+  });
+
+  // ============================================================================
+  // ADMIN SEGMENTS - Non-Admin Rejection Tests
+  // ============================================================================
+
+  describe('Admin Segments - Non-Admin Rejection', () => {
+    test('GET /admin/segments rejects non-admin with 403', async () => {
+      const res = await makeRequestAsUser(request, app, {
+        method: 'get',
+        path: '/admin/segments',
+        athleteId: 999999
+      });
+
+      expect(res.status).toBe(403);
+      expect(res.body).toHaveProperty('error');
+      expect(res.body.error).toMatch(/admin|forbidden/i);
+    });
+
+    test('POST /admin/segments rejects non-admin with 403', async () => {
+      const res = await makeRequestAsUser(request, app, {
+        method: 'post',
+        path: '/admin/segments',
+        athleteId: 999999,
+        data: {
+          strava_segment_id: 777,
+          name: 'Unauthorized Segment'
+        }
+      });
+
+      expect(res.status).toBe(403);
+      expect(res.body).toHaveProperty('error');
     });
   });
 
@@ -502,6 +537,78 @@ describe('Coverage Improvements - Quick Wins', () => {
   });
 
   // ============================================================================
+  // ADMIN SEASONS - Non-Admin Rejection Tests
+  // ============================================================================
+
+  describe('Admin Seasons - Non-Admin Rejection', () => {
+    test('POST /admin/seasons rejects non-admin with 403', async () => {
+      const res = await makeRequestAsUser(request, app, {
+        method: 'post',
+        path: '/admin/seasons',
+        athleteId: 999999,
+        data: {
+          name: 'Unauthorized Season',
+          start_date: '2026-01-01',
+          end_date: '2026-12-31',
+          is_active: false
+        }
+      });
+
+      expect(res.status).toBe(403);
+      expect(res.body).toHaveProperty('error');
+    });
+
+    test('PUT /admin/seasons/:id rejects non-admin with 403', async () => {
+      // First create a season as admin (this will work because of test middleware)
+      const seasonRes = await request(app)
+        .post('/admin/seasons')
+        .send({
+          name: 'Original Season',
+          start_date: '2026-01-01',
+          end_date: '2026-12-31',
+          is_active: false
+        });
+
+      const seasonId = seasonRes.body.id;
+
+      // Now try to update as non-admin
+      const res = await makeRequestAsUser(request, app, {
+        method: 'put',
+        path: `/admin/seasons/${seasonId}`,
+        athleteId: 999999,
+        data: { name: 'Hacked Season' }
+      });
+
+      expect(res.status).toBe(403);
+      expect(res.body).toHaveProperty('error');
+    });
+
+    test('DELETE /admin/seasons/:id rejects non-admin with 403', async () => {
+      // Create a season as admin
+      const seasonRes = await request(app)
+        .post('/admin/seasons')
+        .send({
+          name: 'Season to Delete',
+          start_date: '2026-01-01',
+          end_date: '2026-12-31',
+          is_active: false
+        });
+
+      const seasonId = seasonRes.body.id;
+
+      // Try to delete as non-admin
+      const res = await makeRequestAsUser(request, app, {
+        method: 'delete',
+        path: `/admin/seasons/${seasonId}`,
+        athleteId: 999999
+      });
+
+      expect(res.status).toBe(403);
+      expect(res.body).toHaveProperty('error');
+    });
+  });
+
+  // ============================================================================
   // WEEK MANAGEMENT EDGE CASES - New Coverage
   // ============================================================================
 
@@ -663,6 +770,23 @@ describe('Coverage Improvements - Quick Wins', () => {
       expect(res.body.length).toBe(2);
       expect(res.body[0].name).toBe('Apple Rider');
       expect(res.body[1].name).toBe('Zebra Rider');
+    });
+  });
+
+  // ============================================================================
+  // ADMIN PARTICIPANTS - Non-Admin Rejection Tests
+  // ============================================================================
+
+  describe('Admin Participants - Non-Admin Rejection', () => {
+    test('GET /admin/participants rejects non-admin with 403', async () => {
+      const res = await makeRequestAsUser(request, app, {
+        method: 'get',
+        path: '/admin/participants',
+        athleteId: 999999
+      });
+
+      expect(res.status).toBe(403);
+      expect(res.body).toHaveProperty('error');
     });
   });
 
@@ -1184,6 +1308,41 @@ describe('Coverage Improvements - Quick Wins', () => {
         // Verify season data
         const season = db.prepare('SELECT * FROM season').get();
         expect(season.name).toBe('Round Trip Season');
+      });
+    });
+
+    // ============================================================================
+    // ADMIN EXPORT/IMPORT - Non-Admin Rejection Tests
+    // ============================================================================
+
+    describe('Admin Export/Import - Non-Admin Rejection', () => {
+      test('GET /admin/export-data rejects non-admin with 403', async () => {
+        const res = await makeRequestAsUser(request, app, {
+          method: 'get',
+          path: '/admin/export-data',
+          athleteId: 999999
+        });
+
+        expect(res.status).toBe(403);
+        expect(res.body).toHaveProperty('error');
+      });
+
+      test('POST /admin/import-data rejects non-admin with 403', async () => {
+        const res = await makeRequestAsUser(request, app, {
+          method: 'post',
+          path: '/admin/import-data',
+          athleteId: 999999,
+          data: {
+            data: {
+              segments: [],
+              seasons: [],
+              weeks: []
+            }
+          }
+        });
+
+        expect(res.status).toBe(403);
+        expect(res.body).toHaveProperty('error');
       });
     });
 

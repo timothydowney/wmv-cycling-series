@@ -10,7 +10,8 @@ interface StravaConnectProps {
 function StravaConnect({ onAuthChange }: StravaConnectProps) {
   const [authStatus, setAuthStatus] = useState<AuthStatus>({
     authenticated: false,
-    participant: null
+    participant: null,
+    is_admin: false
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,11 +79,13 @@ function StravaConnect({ onAuthChange }: StravaConnectProps) {
       await disconnect();
       setAuthStatus({
         authenticated: false,
-        participant: null
+        participant: null,
+        is_admin: false
       });
       onAuthChange?.({
         authenticated: false,
-        participant: null
+        participant: null,
+        is_admin: false
       });
     } catch (err) {
       console.error('Failed to disconnect:', err);
