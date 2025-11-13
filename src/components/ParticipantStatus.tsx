@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import './ParticipantStatus.css';
-import { getAdminParticipants } from '../api';
+import { getAdminParticipants, getAuthStatus } from '../api';
 
 interface Participant {
   id: number;
@@ -12,13 +12,35 @@ interface Participant {
 }
 
 function ParticipantStatus() {
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchParticipants();
+    const checkAdmin = async () => {
+      try {
+        const status = await getAuthStatus();
+        setIsAdmin(status.is_admin || false);
+      } catch (error) {
+        console.error('Failed to check admin status:', error);
+        setIsAdmin(false);
+      } finally {
+        setCheckingAuth(false);
+      }
+    };
+
+    checkAdmin();
   }, []);
+
+  useEffect(() => {
+    if (!checkingAuth && isAdmin) {
+      fetchParticipants();
+    } else if (!checkingAuth) {
+      setLoading(false);
+    }
+  }, [checkingAuth, isAdmin]);
 
   const fetchParticipants = async () => {
     try {
@@ -31,6 +53,21 @@ function ParticipantStatus() {
       setLoading(false);
     }
   };
+
+  if (checkingAuth) {
+    return <div className="participant-status">Loading...</div>;
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="participant-status">
+        <div style={{ padding: '2rem', textAlign: 'center' }}>
+          <h2 style={{ color: '#e74c3c', marginBottom: '1rem' }}>Access Denied</h2>
+          <p>You do not have admin permissions to access this page.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return <div className="participant-status">Loading participants...</div>;

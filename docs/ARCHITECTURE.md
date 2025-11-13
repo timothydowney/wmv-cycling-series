@@ -134,6 +134,114 @@ Full implementation: `docs/STRAVA_INTEGRATION.md`
 
 ---
 
+## Authorization & Access Control
+
+The app uses **role-based access control** to distinguish between regular users and admins.
+
+### Architecture
+
+**Admins are identified by Strava athlete ID** (configured via `ADMIN_ATHLETE_IDS` environment variable):
+
+```javascript
+// Helper function parses comma-separated athlete IDs
+function getAdminAthleteIds() {
+  if (!process.env.ADMIN_ATHLETE_IDS) return [];
+  return process.env.ADMIN_ATHLETE_IDS
+    .split(',')
+    .map(id => parseInt(id.trim()))
+    .filter(id => !isNaN(id));
+}
+
+// Middleware protects admin endpoints
+const requireAdmin = (req, res, next) => {
+  // Must be authenticated first
+  if (!req.session.stravaAthleteId) 
+    return res.status(401).json({ error: 'Not authenticated' });
+  
+  // Check if athlete ID is in admin list
+  const adminIds = getAdminAthleteIds();
+  if (!adminIds.includes(req.session.stravaAthleteId))
+    return res.status(403).json({ error: 'Admin access required' });
+  
+  next();
+};
+
+// All admin routes protected
+app.post('/admin/weeks', requireAdmin, handleCreateWeek);
+app.get('/admin/participants', requireAdmin, handleGetParticipants);
+// ... etc
+```
+
+### User Experience
+
+**Regular Users:**
+- Navigation menu shows: "View Leaderboard" and "Disconnect from Strava"
+- Cannot access `/admin/*` pages (403 error + "Access Denied" message)
+- Can view leaderboards and season standings
+- Can connect/disconnect from Strava
+
+**Admins:**
+- Navigation menu shows all options:
+  - View Leaderboard
+  - **Manage Competition** (create/edit weeks)
+  - **Manage Segments** (add/update segments)
+  - **Participant Status** (view connections)
+  - Disconnect from Strava
+- Full access to admin API endpoints
+
+### Configuration
+
+**Add/remove admins** by updating the `ADMIN_ATHLETE_IDS` environment variable:
+
+Development:
+```bash
+# Edit server/.env
+ADMIN_ATHLETE_IDS=12345678,87654321
+
+# Restart servers
+npm run dev:all
+```
+
+Production (Railway):
+```
+Railway Dashboard → Project Settings → Secrets
+ADMIN_ATHLETE_IDS=12345678,87654321
+→ Auto-redeploys with new value
+```
+
+**Safe default:** Empty `ADMIN_ATHLETE_IDS` = no one has admin access
+
+### Security Properties
+
+- ✅ **Immutable identity:** Athlete ID cannot be spoofed or changed
+- ✅ **OAuth-backed:** Admin status requires successful Strava authentication
+- ✅ **Defense-in-depth:**
+  - Backend: API middleware returns 403 for non-admins
+  - Frontend: UI hiding + page-level access checks
+- ✅ **Atomic revocation:** Disconnecting Strava immediately revokes admin access
+- ✅ **Audit logging:** Non-admin access attempts are logged
+
+### Endpoints Protected
+
+All admin endpoints require `requireAdmin` middleware:
+
+| Endpoint | Purpose |
+|----------|---------|
+| `POST /admin/weeks` | Create competition week |
+| `PUT /admin/weeks/:id` | Update week |
+| `DELETE /admin/weeks/:id` | Delete week |
+| `POST /admin/weeks/:id/fetch-results` | Fetch participant activities |
+| `GET /admin/participants` | List connected participants |
+| `GET /admin/segments` | List segments |
+| `POST /admin/segments` | Add segment |
+| `GET /admin/segments/:id/validate` | Validate segment from Strava |
+| `GET /admin/export-data` | Export season data (dev only) |
+| `POST /admin/import-data` | Import season data (dev only) |
+
+For complete details: See `ADMIN_GUIDE.md`
+
+---
+
 ## Scoring System
 
 **Points = Base Points + PR Bonus**

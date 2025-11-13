@@ -44,8 +44,15 @@
   border-bottom: none;
 }
 
-.schedule-table tbody tr:hover {
+.schedule-table tbody tr.upcoming {
   background-color: var(--wmv-orange-light, #fff5f0);
+  font-weight: 500;
+}
+
+.schedule-table tbody tr.upcoming .week-name,
+.schedule-table tbody tr.upcoming .segment-name a {
+  color: var(--wmv-orange);
+  font-weight: 600;
 }
 
 .week-name {

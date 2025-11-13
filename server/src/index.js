@@ -9,7 +9,8 @@ const strava = require('strava-v3');
 const { encryptToken, decryptToken } = require('./encryption');
 const { SCHEMA } = require('./schema');
 
-dotenv.config();
+// Load .env from project root (one level up from server directory)
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 // Configure strava-v3 with credentials from environment (skip if not set for tests)
 if (process.env.STRAVA_CLIENT_ID && process.env.STRAVA_CLIENT_SECRET) {
@@ -89,6 +90,44 @@ app.use(session(sessionConfig));
 
 // Initialize database schema (single source of truth from schema.js)
 db.exec(SCHEMA);
+
+// ========================================
+// AUTHORIZATION HELPERS
+// ========================================
+
+// Helper: Parse and cache admin athlete IDs from environment variable
+function getAdminAthleteIds() {
+  if (!process.env.ADMIN_ATHLETE_IDS) {
+    return [];
+  }
+  return process.env.ADMIN_ATHLETE_IDS
+    .split(',')
+    .map(id => parseInt(id.trim()))
+    .filter(id => !isNaN(id));
+}
+
+// Middleware: Require admin role
+const requireAdmin = (req, res, next) => {
+  // First check: must be authenticated
+  if (!req.session.stravaAthleteId) {
+    return res.status(401).json({ 
+      error: 'Not authenticated. Please connect to Strava first.' 
+    });
+  }
+  
+  // Second check: must be in admin list
+  const adminIds = getAdminAthleteIds();
+  
+  if (!adminIds.includes(req.session.stravaAthleteId)) {
+    console.warn(`[AUTH] Non-admin access attempt by athlete ${req.session.stravaAthleteId} to ${req.path}`);
+    return res.status(403).json({ 
+      error: 'Forbidden. Admin access required.' 
+    });
+  }
+  
+  // Pass through to next handler
+  next();
+};
 
 // Validate activity time window
 function validateActivityTimeWindow(activityDate, week) {
@@ -521,15 +560,21 @@ app.get('/auth/status', (req, res) => {
     
     console.log('[AUTH_STATUS] Found participant:', participant);
     
+    // Check if user is admin
+    const adminIds = getAdminAthleteIds();
+    const isAdmin = adminIds.includes(req.session.stravaAthleteId);
+    
     res.json({
       authenticated: true,
-      participant: participant
+      participant: participant,
+      is_admin: isAdmin
     });
   } else {
     console.log('[AUTH_STATUS] No session found - not authenticated');
     res.json({
       authenticated: false,
-      participant: null
+      participant: null,
+      is_admin: false
     });
   }
 });
@@ -1066,7 +1111,7 @@ app.get('/season/leaderboard', (req, res) => {
 // ========================================
 
 // Create a new season
-app.post('/admin/seasons', (req, res) => {
+app.post('/admin/seasons', requireAdmin, (req, res) => {
   const { name, start_date, end_date, is_active } = req.body;
 
   if (!name || !start_date || !end_date) {
@@ -1095,7 +1140,7 @@ app.post('/admin/seasons', (req, res) => {
 });
 
 // Update an existing season
-app.put('/admin/seasons/:id', (req, res) => {
+app.put('/admin/seasons/:id', requireAdmin, (req, res) => {
   const seasonId = parseInt(req.params.id, 10);
   const { name, start_date, end_date, is_active } = req.body;
 
@@ -1145,7 +1190,7 @@ app.put('/admin/seasons/:id', (req, res) => {
 });
 
 // Delete a season
-app.delete('/admin/seasons/:id', (req, res) => {
+app.delete('/admin/seasons/:id', requireAdmin, (req, res) => {
   const seasonId = parseInt(req.params.id, 10);
 
   const existingSeason = db.prepare('SELECT id FROM season WHERE id = ?').get(seasonId);
@@ -1175,7 +1220,7 @@ app.delete('/admin/seasons/:id', (req, res) => {
 // ========================================
 
 // Create a new week
-app.post('/admin/weeks', (req, res) => {
+app.post('/admin/weeks', requireAdmin, (req, res) => {
   console.log('POST /admin/weeks - Request body:', JSON.stringify(req.body, null, 2));
   
   const { season_id, week_name, date, segment_id, segment_name, required_laps, start_time, end_time } = req.body;
@@ -1281,7 +1326,7 @@ app.post('/admin/weeks', (req, res) => {
 });
 
 // Update an existing week
-app.put('/admin/weeks/:id', (req, res) => {
+app.put('/admin/weeks/:id', requireAdmin, (req, res) => {
   const weekId = parseInt(req.params.id, 10);
   const { season_id, week_name, date, segment_id, required_laps, start_time, end_time } = req.body;
 
@@ -1385,7 +1430,7 @@ app.put('/admin/weeks/:id', (req, res) => {
 });
 
 // Delete a week (and cascade delete activities, efforts, results)
-app.delete('/admin/weeks/:id', (req, res) => {
+app.delete('/admin/weeks/:id', requireAdmin, (req, res) => {
   const weekId = parseInt(req.params.id, 10);
 
   // Check if week exists
@@ -1423,7 +1468,7 @@ app.delete('/admin/weeks/:id', (req, res) => {
 });
 
 // Admin batch fetch results for a week
-app.post('/admin/weeks/:id/fetch-results', async (req, res) => {
+app.post('/admin/weeks/:id/fetch-results', requireAdmin, async (req, res) => {
   const weekId = parseInt(req.params.id, 10);
   
   try {
@@ -1542,7 +1587,7 @@ app.post('/admin/weeks/:id/fetch-results', async (req, res) => {
 });
 
 // Get all participants with connection status (admin endpoint)
-app.get('/admin/participants', (req, res) => {
+app.get('/admin/participants', requireAdmin, (req, res) => {
   try {
     const participants = db.prepare(`
       SELECT 
@@ -1567,7 +1612,7 @@ app.get('/admin/participants', (req, res) => {
 });
 
 // Get all known segments (for autocomplete)
-app.get('/admin/segments', (req, res) => {
+app.get('/admin/segments', requireAdmin, (req, res) => {
   try {
     const segments = db.prepare(`
       SELECT 
@@ -1593,7 +1638,7 @@ app.get('/admin/segments', (req, res) => {
 });
 
 // Create or update a segment in our database
-app.post('/admin/segments', (req, res) => {
+app.post('/admin/segments', requireAdmin, (req, res) => {
   const { strava_segment_id, name, distance, average_grade, city, state, country } = req.body || {};
 
   if (!strava_segment_id || !name) {
@@ -1630,7 +1675,7 @@ app.post('/admin/segments', (req, res) => {
 });
 
 // Validate segment endpoint (checks if segment exists on Strava)
-app.get('/admin/segments/:id/validate', async (req, res) => {
+app.get('/admin/segments/:id/validate', requireAdmin, async (req, res) => {
   const segmentId = req.params.id;
   
   try {
@@ -1691,7 +1736,7 @@ const requireDevelopmentMode = (req, res, next) => {
 };
 
 // GET /admin/export-data - Export segment, season, week data as JSON (excludes participants)
-app.get('/admin/export-data', requireDevelopmentMode, (req, res) => {
+app.get('/admin/export-data', requireDevelopmentMode, requireAdmin, (req, res) => {
   try {
     // Export segments, seasons, and weeks only (not participants - they're tied to OAuth tokens)
     const segments = db.prepare('SELECT strava_segment_id, name, distance, average_grade, city, state, country FROM segment').all();
@@ -1719,7 +1764,7 @@ app.get('/admin/export-data', requireDevelopmentMode, (req, res) => {
 });
 
 // POST /admin/import-data - Import segment, season, week data from JSON (excludes participants)
-app.post('/admin/import-data', requireDevelopmentMode, (req, res) => {
+app.post('/admin/import-data', requireDevelopmentMode, requireAdmin, (req, res) => {
   const { data } = req.body;
 
   if (!data) {
@@ -2052,7 +2097,7 @@ app.get('/utils/inspect-activity/:activityId', async (req, res) => {
 });
 
 // GET /admin/segment/:id - Get detailed information about a specific Strava segment
-app.get('/admin/segment/:id', async (req, res) => {
+app.get('/admin/segment/:id', requireAdmin, async (req, res) => {
   const segmentId = req.params.id;
   
   try {
@@ -2088,7 +2133,7 @@ app.get('/admin/segment/:id', async (req, res) => {
 });
 
 // GET /admin/activity/:id/segments - Get all segments from a specific activity
-app.get('/admin/activity/:id/segments', async (req, res) => {
+app.get('/admin/activity/:id/segments', requireAdmin, async (req, res) => {
   const activityId = req.params.id;
   
   try {
@@ -2125,7 +2170,7 @@ app.get('/admin/activity/:id/segments', async (req, res) => {
 });
 
 // GET /admin/segments/starred - Get authenticated user's starred segments
-app.get('/admin/segments/starred', async (req, res) => {
+app.get('/admin/segments/starred', requireAdmin, async (req, res) => {
   try {
     // Get authenticated user's token
     const stravaAthleteId = req.session?.stravaAthleteId;

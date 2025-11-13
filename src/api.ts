@@ -76,6 +76,7 @@ export interface Participant {
 export interface AuthStatus {
   authenticated: boolean;
   participant: Participant | null;
+  is_admin: boolean;
 }
 
 export interface ActivitySubmission {

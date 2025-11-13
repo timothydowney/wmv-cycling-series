@@ -275,12 +275,22 @@ STRAVA_CLIENT_SECRET=<your-strava-client-secret>
 STRAVA_REDIRECT_URI=https://yourdomain.com/auth/strava/callback
 DATABASE_PATH=/data/wmv.db
 SESSION_SECRET=<generate-random-string>
+ADMIN_ATHLETE_IDS=<comma-separated-athlete-ids>
 ```
 
 **Generate SESSION_SECRET:**
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
+
+**Configure ADMIN_ATHLETE_IDS:**
+- This is a comma-separated list of Strava athlete IDs who should be admins
+- Find your Strava athlete ID:
+  1. Go to [Strava Settings → Profile](https://www.strava.com/settings/profile)
+  2. Look at the URL: `https://www.strava.com/athletes/YOUR_ID_HERE`
+  3. Your athlete ID is the number at the end
+- Example: `ADMIN_ATHLETE_IDS=12345678,87654321`
+- Safe default: If empty or not set, no one has admin access
 
 **Also update on Strava:**
 - Go to https://www.strava.com/settings/api

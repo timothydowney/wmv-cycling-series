@@ -58,9 +58,15 @@ const ScheduleTable: React.FC<Props> = ({ weeks }) => {
   const seasonStart = sortedWeeks.length > 0 ? formatFullDate(sortedWeeks[0].date || sortedWeeks[0].start_time) : '';
   const seasonEnd = sortedWeeks.length > 0 ? formatFullDate(sortedWeeks[sortedWeeks.length - 1].date || sortedWeeks[sortedWeeks.length - 1].start_time) : '';
 
+  // Find the upcoming week (today or in future)
+  const upcomingWeek = sortedWeeks.find(week => {
+    const weekEnd = new Date(week.end_time);
+    return weekEnd >= new Date();
+  });
+
   return (
     <div className="schedule-table-container">
-      <h2>Season Schedule | {seasonStart} to {seasonEnd}</h2>
+      <h2>Season | {seasonStart} to {seasonEnd}</h2>
       <table className="schedule-table">
         <thead>
           <tr>
@@ -73,7 +79,7 @@ const ScheduleTable: React.FC<Props> = ({ weeks }) => {
         </thead>
         <tbody>
           {sortedWeeks.map(week => (
-            <tr key={week.id}>
+            <tr key={week.id} className={upcomingWeek?.id === week.id ? 'upcoming' : ''}>
               <td className="week-name">{week.week_name}</td>
               <td className="week-date">{formatDate(week)}</td>
               <td className="segment-name">
