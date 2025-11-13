@@ -30,9 +30,11 @@ const Footer: React.FC = () => {
           <a href="/PRIVACY_POLICY.md" target="_blank" rel="noopener noreferrer" className="footer-link">
             Privacy
           </a>
-        </div>
-
-        <div className="footer-section footer-attribution">
+          <span className="footer-separator">•</span>
+          <a href="https://github.com/timothydowney/wmv-cycling-series" target="_blank" rel="noopener noreferrer" className="footer-link">
+            GitHub
+          </a>
+          <span className="footer-separator">•</span>
           <a 
             href="https://www.strava.com" 
             target="_blank" 
