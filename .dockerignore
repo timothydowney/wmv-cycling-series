@@ -3,8 +3,9 @@
 # CRITICAL: Only exclude files that are truly not needed in production
 # The Dockerfile builder stage will create what's needed (dist, node_modules)
 
-# Git
-.git
+# Git metadata is REQUIRED for cache invalidation during Docker builds
+# Remove from this list so commits trigger proper rebuilds
+# .git         <- INTENTIONALLY NOT IGNORED (used as cache buster)
 .gitignore
 .github
 
