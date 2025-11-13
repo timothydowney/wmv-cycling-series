@@ -2297,6 +2297,7 @@ app.get('*', (req, res, next) => {
 
   // Do NOT intercept known backend route prefixes
   const apiPrefixes = [
+    '/api',      // REST API prefix (must come first to catch /api/*)
     '/auth',
     '/admin',
     '/weeks',
