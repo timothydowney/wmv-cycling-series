@@ -14,6 +14,14 @@
   --wmv-border: #e0e0e0;
   --wmv-bg-light: #f5f5f5;
 
+  /* Typography Scale - Mobile First */
+  --font-xs: 12px;
+  --font-sm: 14px;
+  --font-base: 14px;
+  --font-lg: 16px;
+  --font-xl: 18px;
+  --font-2xl: 20px;
+
   color-scheme: light;
   color: var(--wmv-text-dark);
   background-color: #ffffff;
@@ -23,6 +31,30 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
+}
+
+/* Tablet Breakpoint (768px - 1024px) */
+@media (min-width: 768px) {
+  :root {
+    --font-xs: 13px;
+    --font-sm: 15px;
+    --font-base: 15px;
+    --font-lg: 18px;
+    --font-xl: 20px;
+    --font-2xl: 24px;
+  }
+}
+
+/* Desktop Breakpoint (1024px+) */
+@media (min-width: 1024px) {
+  :root {
+    --font-xs: 14px;
+    --font-sm: 16px;
+    --font-base: 16px;
+    --font-lg: 20px;
+    --font-xl: 24px;
+    --font-2xl: 32px;
+  }
 }
 
 body {
@@ -38,4 +70,20 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 700;
   color: var(--wmv-purple);
   line-height: 1.3;
+}
+
+h1 {
+  font-size: clamp(1.75rem, 6vw, 2.5rem);
+}
+
+h2 {
+  font-size: clamp(1.25rem, 4vw, 2rem);
+}
+
+h3 {
+  font-size: clamp(1.1rem, 3vw, 1.5rem);
+}
+
+h4, h5, h6 {
+  font-size: clamp(1rem, 2.5vw, 1.25rem);
 }

@@ -4,7 +4,7 @@
 }
 
 .schedule-table-container h2 {
-  font-size: 24px;
+  font-size: var(--font-2xl);
   font-weight: 700;
   color: var(--wmv-purple);
   margin-bottom: 1.5rem;
@@ -28,7 +28,7 @@
   font-weight: 600;
   padding: 12px 16px;
   text-align: left;
-  font-size: 14px;
+  font-size: var(--font-sm);
   border: none;
   background-color: var(--wmv-orange, #f56004);
 }
@@ -36,7 +36,7 @@
 .schedule-table td {
   padding: 12px 16px;
   border-bottom: 1px solid var(--wmv-border, #e0e0e0);
-  font-size: 14px;
+  font-size: var(--font-base);
   color: var(--wmv-text-dark);
 }
 
@@ -83,17 +83,23 @@
     margin-top: 2rem;
   }
 
-  .schedule-table-container h2 {
-    font-size: 20px;
+  .schedule-table th,
+  .schedule-table td {
+    padding: 8px 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .schedule-table-container {
+    margin-top: 1.5rem;
   }
 
   .schedule-table th,
   .schedule-table td {
-    padding: 8px 12px;
-    font-size: 13px;
+    padding: 6px 8px;
   }
 
   .time-window {
-    font-size: 12px;
+    display: none;
   }
 }

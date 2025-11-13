@@ -50,7 +50,7 @@
 
 .navbar-title {
   margin: 0;
-  font-size: 18px;
+  font-size: clamp(1rem, 3vw, 1.25rem);
   font-weight: 700;
   color: var(--wmv-purple);
   white-space: nowrap;
@@ -59,7 +59,7 @@
 }
 
 .navbar-org-link {
-  font-size: 12px;
+  font-size: var(--font-xs);
   font-weight: 600;
   color: var(--wmv-orange);
   text-decoration: none;
@@ -194,14 +194,14 @@
 .profile-name {
   font-weight: 600;
   color: #333;
-  font-size: 14px;
+  font-size: var(--font-sm);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .profile-status {
-  font-size: 12px;
+  font-size: var(--font-xs);
   margin-top: 2px;
 }
 
@@ -220,7 +220,7 @@
   border: none;
   background: none;
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--font-sm);
   color: #333;
   text-align: left;
   transition: background-color 0.2s;
