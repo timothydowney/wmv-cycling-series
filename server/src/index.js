@@ -371,20 +371,19 @@ function storeActivityAndEfforts(stravaAthleteId, weekId, activityData, stravaSe
   console.log(`Storing ${activityData.segmentEfforts.length} segment efforts for activity ${activityDbId}`);
   for (let i = 0; i < activityData.segmentEfforts.length; i++) {
     const effort = activityData.segmentEfforts[i];
-    console.log(`  Effort ${i}: strava_segment_id=${stravaSegmentId}, elapsed_time=${effort.elapsed_time}`);
+    console.log(`  Effort ${i}: strava_segment_id=${stravaSegmentId}, elapsed_time=${effort.elapsed_time}, strava_effort_id=${effort.id}`);
     db.prepare(`
-      INSERT INTO segment_effort (activity_id, strava_segment_id, effort_index, elapsed_seconds, pr_achieved)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(
+        INSERT INTO segment_effort (activity_id, strava_segment_id, strava_effort_id, effort_index, elapsed_seconds, pr_achieved)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(
       activityDbId,
       stravaSegmentId,
+      String(effort.id),
       i,
       effort.elapsed_time,
       effort.pr_rank ? 1 : 0
     );
-  }
-  
-  // Store result
+  }  // Store result
   db.prepare(`
     INSERT OR REPLACE INTO result (week_id, strava_athlete_id, activity_id, total_time_seconds)
     VALUES (?, ?, ?, ?)
@@ -834,14 +833,33 @@ app.get('/seasons/:id/leaderboard', (req, res) => {
 // WEEKS ENDPOINTS
 // ========================================
 
-app.get('/weeks', (req, res) => {
+// Get all seasons
+app.get('/seasons', (req, res) => {
   const rows = db.prepare(`
+    SELECT id, name, start_date, end_date, is_active
+    FROM season
+    ORDER BY start_date DESC
+  `).all();
+  res.json(rows);
+});
+
+app.get('/weeks', (req, res) => {
+  const seasonId = req.query.season_id ? parseInt(req.query.season_id, 10) : null;
+  
+  let query = `
     SELECT w.id, w.season_id, w.week_name, w.date, w.strava_segment_id as segment_id, w.required_laps, 
            w.start_time, w.end_time, s.name as segment_name
     FROM week w
     LEFT JOIN segment s ON w.strava_segment_id = s.strava_segment_id
-    ORDER BY w.date DESC
-  `).all();
+  `;
+  
+  if (seasonId) {
+    query += ` WHERE w.season_id = ${seasonId}`;
+  }
+  
+  query += ' ORDER BY w.date DESC';
+  
+  const rows = db.prepare(query).all();
   res.json(rows);
 });
 
@@ -878,6 +896,7 @@ app.get('/weeks/:id/leaderboard', (req, res) => {
     SELECT 
       a.id as activity_id,
       a.strava_athlete_id as participant_id,
+      a.strava_activity_id,
       p.name,
       SUM(se.elapsed_seconds) as total_time_seconds,
       MAX(se.pr_achieved) as achieved_pr
@@ -885,7 +904,7 @@ app.get('/weeks/:id/leaderboard', (req, res) => {
     JOIN segment_effort se ON a.id = se.activity_id
     JOIN participant p ON a.strava_athlete_id = p.strava_athlete_id
     WHERE a.week_id = ? AND a.validation_status = 'valid' AND se.strava_segment_id = ?
-    GROUP BY a.id, a.strava_athlete_id, p.name
+    GROUP BY a.id, a.strava_athlete_id, a.strava_activity_id, p.name
     ORDER BY total_time_seconds ASC
   `).all(weekId, week.segment_id);
 
@@ -899,7 +918,7 @@ app.get('/weeks/:id/leaderboard', (req, res) => {
     
     // Fetch individual segment efforts for this activity
     const efforts = db.prepare(`
-      SELECT elapsed_seconds, effort_index, pr_achieved
+      SELECT elapsed_seconds, effort_index, pr_achieved, strava_effort_id
       FROM segment_effort
       WHERE activity_id = ? AND strava_segment_id = ?
       ORDER BY effort_index ASC
@@ -912,7 +931,8 @@ app.get('/weeks/:id/leaderboard', (req, res) => {
         lap: e.effort_index + 1,
         time_seconds: e.elapsed_seconds,
         time_hhmmss: new Date(e.elapsed_seconds * 1000).toISOString().substring(11, 19),
-        is_pr: e.pr_achieved ? true : false
+        is_pr: e.pr_achieved ? true : false,
+        strava_effort_id: e.strava_effort_id
       }));
     }
     
@@ -924,7 +944,9 @@ app.get('/weeks/:id/leaderboard', (req, res) => {
       time_hhmmss: new Date(activity.total_time_seconds * 1000).toISOString().substring(11, 19),
       effort_breakdown: effortBreakdown,  // null if only 1 lap, array if multiple
       points: totalPoints,
-      pr_bonus_points: prBonus
+      pr_bonus_points: prBonus,
+      activity_url: `https://www.strava.com/activities/${activity.strava_activity_id}/`,
+      strava_effort_id: efforts.length > 0 ? efforts[0].strava_effort_id : null  // For single-lap linking
     };
   });
   
@@ -1649,6 +1671,143 @@ app.get('/admin/segments/:id/validate', async (req, res) => {
   }
 });
 
+// ========================================
+// DATA EXPORT/IMPORT ENDPOINTS
+// ========================================
+// NOTE: These endpoints are disabled in production for security.
+// They are only available in development for convenient data loading.
+
+// Middleware: Disable export/import endpoints in production
+const requireDevelopmentMode = (req, res, next) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({ 
+      error: 'This endpoint is only available in development mode',
+      endpoint: req.path 
+    });
+  }
+  next();
+};
+
+// GET /admin/export-data - Export segment, season, week data as JSON (excludes participants)
+app.get('/admin/export-data', requireDevelopmentMode, (req, res) => {
+  try {
+    // Export segments, seasons, and weeks only (not participants - they're tied to OAuth tokens)
+    const segments = db.prepare('SELECT strava_segment_id, name, distance, average_grade, city, state, country FROM segment').all();
+    const seasons = db.prepare('SELECT id, name, start_date, end_date, is_active FROM season').all();
+    const weeks = db.prepare('SELECT id, season_id, week_name, date, strava_segment_id, required_laps, start_time, end_time FROM week').all();
+
+    const exportData = {
+      exportedAt: new Date().toISOString(),
+      version: '1.0',
+      data: {
+        segments,
+        seasons,
+        weeks
+      }
+    };
+
+    // Return as downloadable JSON file
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="wmv-export-${new Date().toISOString().split('T')[0]}.json"`);
+    res.json(exportData);
+  } catch (error) {
+    console.error('Export failed:', error);
+    res.status(500).json({ error: 'Failed to export data', details: error.message });
+  }
+});
+
+// POST /admin/import-data - Import segment, season, week data from JSON (excludes participants)
+app.post('/admin/import-data', requireDevelopmentMode, (req, res) => {
+  const { data } = req.body;
+
+  if (!data) {
+    return res.status(400).json({ error: 'Missing data field in request body' });
+  }
+
+  try {
+    // Validate structure (participants excluded - tied to OAuth tokens)
+    const { segments = [], seasons = [], weeks = [] } = data;
+
+    // Wrap everything in a transaction for atomicity
+    const transaction = db.transaction(() => {
+      // Clear existing data (keeping participants, tokens, and auth intact)
+      // Order matters: delete child tables before parents, respecting all FKs
+      db.prepare('DELETE FROM result').run();
+      db.prepare('DELETE FROM segment_effort').run();
+      db.prepare('DELETE FROM activity').run();
+      db.prepare('DELETE FROM week').run();
+      db.prepare('DELETE FROM season').run();
+      db.prepare('DELETE FROM segment').run();
+
+      // Insert segments
+      const insertSegment = db.prepare(`
+        INSERT INTO segment (strava_segment_id, name, distance, average_grade, city, state, country)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+      for (const s of segments) {
+        if (s.strava_segment_id && s.name) {
+          insertSegment.run(
+            s.strava_segment_id,
+            s.name,
+            s.distance || null,
+            s.average_grade || null,
+            s.city || null,
+            s.state || null,
+            s.country || null
+          );
+        }
+      }
+
+      // Insert seasons (must be before weeks)
+      const insertSeason = db.prepare('INSERT INTO season (name, start_date, end_date, is_active) VALUES (?, ?, ?, ?)');
+      const seasonMap = {}; // Map old IDs to new IDs
+      for (const s of seasons) {
+        if (s.name && s.start_date && s.end_date) {
+          const result = insertSeason.run(s.name, s.start_date, s.end_date, s.is_active ? 1 : 0);
+          // Track the mapping: old ID -> new ID
+          seasonMap[s.id] = result.lastInsertRowid;
+        }
+      }
+
+      // Insert weeks (after seasons exist)
+      const insertWeek = db.prepare(`
+        INSERT INTO week (season_id, week_name, date, strava_segment_id, required_laps, start_time, end_time)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+      for (const w of weeks) {
+        if (w.season_id && w.week_name && w.strava_segment_id && w.start_time && w.end_time) {
+          // Use mapped season ID in case it changed
+          const seasonId = seasonMap[w.season_id] || w.season_id;
+          insertWeek.run(
+            seasonId,
+            w.week_name,
+            w.date || null,
+            w.strava_segment_id,
+            w.required_laps || 1,
+            w.start_time,
+            w.end_time
+          );
+        }
+      }
+    });
+
+    // Execute transaction
+    transaction();
+
+    res.json({
+      success: true,
+      imported: {
+        segments: segments.length,
+        seasons: seasons.length,
+        weeks: weeks.length
+      }
+    });
+  } catch (error) {
+    console.error('Import failed:', error);
+    res.status(500).json({ error: 'Failed to import data', details: error.message });
+  }
+});
+
 // Activity submission endpoint
 app.post('/weeks/:id/submit-activity', async (req, res) => {
   const weekId = parseInt(req.params.id, 10);
@@ -1779,11 +1938,12 @@ app.post('/weeks/:id/submit-activity', async (req, res) => {
     for (let i = 0; i < week.required_laps; i++) {
       const effort = segmentEfforts[i];
       db.prepare(`
-        INSERT INTO segment_effort (activity_id, strava_segment_id, effort_index, elapsed_seconds, pr_achieved)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO segment_effort (activity_id, strava_segment_id, strava_effort_id, effort_index, elapsed_seconds, pr_achieved)
+        VALUES (?, ?, ?, ?, ?, ?)
       `).run(
         activityDbId,
         week.strava_segment_id,
+        effort.id,
         i,
         effort.elapsed_time,
         effort.pr_rank ? 1 : 0  // pr_achieved if pr_rank exists

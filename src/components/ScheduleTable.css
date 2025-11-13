@@ -1,0 +1,102 @@
+.schedule-table-container {
+  margin-top: 4rem;
+  margin-bottom: 2rem;
+}
+
+.schedule-table-container h2 {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--wmv-purple);
+  margin-bottom: 1.5rem;
+}
+
+.schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.schedule-table thead {
+  background-color: var(--wmv-orange, #f56004);
+}
+
+.schedule-table th {
+  color: white;
+  font-weight: 600;
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 14px;
+  border: none;
+  background-color: var(--wmv-orange, #f56004);
+}
+
+.schedule-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--wmv-border, #e0e0e0);
+  font-size: 14px;
+  color: var(--wmv-text-dark);
+}
+
+.schedule-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.schedule-table tbody tr:hover {
+  background-color: var(--wmv-orange-light, #fff5f0);
+}
+
+.week-name {
+  font-weight: 600;
+  color: var(--wmv-purple);
+}
+
+.week-date {
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.segment-name a {
+  color: var(--wmv-orange);
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.segment-name a:hover {
+  color: var(--wmv-orange-hover);
+  text-decoration: underline;
+}
+
+.required-laps {
+  text-align: center;
+  font-weight: 500;
+}
+
+.time-window {
+  font-size: 13px;
+  color: var(--wmv-text-light);
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .schedule-table-container {
+    margin-top: 2rem;
+  }
+
+  .schedule-table-container h2 {
+    font-size: 20px;
+  }
+
+  .schedule-table th,
+  .schedule-table td {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .time-window {
+    font-size: 12px;
+  }
+}

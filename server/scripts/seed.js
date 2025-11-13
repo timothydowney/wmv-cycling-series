@@ -20,7 +20,7 @@ const db = new Database(dbPath);
 console.log('🌱 Starting database seed...');
 
 // Check if we already have a season
-const existingSeasons = db.prepare('SELECT COUNT(*) as count FROM seasons').get();
+const existingSeasons = db.prepare('SELECT COUNT(*) as count FROM season').get();
 if (existingSeasons.count > 0) {
   console.log('✅ Database already has seasons. Skipping seed.');
   console.log('   To re-seed, manually delete seasons or use a fresh database.');
@@ -33,7 +33,7 @@ console.log('📊 Creating Fall 2025 season...');
 db.transaction(() => {
   // Create Fall 2025 season (Oct 1 - Dec 31)
   db.prepare(`
-    INSERT INTO seasons (id, name, start_date, end_date, is_active)
+    INSERT INTO season (id, name, start_date, end_date, is_active)
     VALUES (?, ?, ?, ?, ?)
   `).run(1, 'Fall 2025', '2025-10-01', '2025-12-31', 1);
 

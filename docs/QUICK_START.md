@@ -21,17 +21,23 @@ That's it. Installs both frontend and backend dependencies.
 
 ## Run (1 minute)
 
+### For Interactive Development (Recommended)
 ```bash
 npm run dev:all
 ```
 
-Opens two servers:
-- **Frontend:** http://localhost:5173 (React app)
-- **Backend:** http://localhost:3001 (API)
+Opens two servers in your terminal with colored output:
+- **Frontend:** http://localhost:5173 (React app, green)
+- **Backend:** http://localhost:3001 (API, blue)
 
-Both have hot-reload. See colored output (blue = backend, green = frontend).
+Both have hot-reload. Stop with `Ctrl+C`.
 
-To stop: Press `Ctrl+C` once.
+### For Automated/Background Use
+```bash
+npm run dev:start
+npm run dev:status  # Verify running
+npm run dev:stop    # Stop cleanly when done
+```
 
 ## Verify (1 minute)
 

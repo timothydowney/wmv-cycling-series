@@ -36,6 +36,7 @@ export interface SegmentEffort {
   time_seconds: number;
   time_hhmmss: string;
   is_pr?: boolean;
+  strava_effort_id?: number;
 }
 
 export interface LeaderboardEntry {
@@ -49,6 +50,7 @@ export interface LeaderboardEntry {
   activity_url: string;
   activity_date: string;
   effort_breakdown?: SegmentEffort[] | null;
+  strava_effort_id?: number;
 }
 
 export interface WeekLeaderboard {
@@ -136,8 +138,11 @@ export const api = {
     return Array.isArray(data) ? data : data.leaderboard;
   },
 
-  async getWeeks(): Promise<Week[]> {
-    const response = await fetch(`${API_BASE_URL}/weeks`);
+  async getWeeks(seasonId?: number): Promise<Week[]> {
+    const url = seasonId 
+      ? `${API_BASE_URL}/weeks?season_id=${seasonId}`
+      : `${API_BASE_URL}/weeks`;
+    const response = await fetch(url);
     if (!response.ok) throw new Error('Failed to fetch weeks');
     return response.json();
   },

@@ -92,8 +92,15 @@ const NavBar: React.FC<NavBarProps> = ({ onAdminPanelToggle, isAdminPanelOpen: _
   return (
     <nav className="navbar">
       <div className="navbar-left">
-        <img src="/wmv-logo.png" alt="Western Mass Velo" className="navbar-logo" />
-        <h1 className="navbar-title">Zwift Hill Climb/Time Trial Series</h1>
+        <a href="https://westernmassvelo.com/" target="_blank" rel="noopener noreferrer" className="navbar-home-link" title="Western Mass Velo">
+          <img src="/wmv-logo.png" alt="Western Mass Velo" className="navbar-logo" />
+        </a>
+        <div className="navbar-title-section">
+          <h1 className="navbar-title">Zwift Hill Climb/Time Trial Series</h1>
+          <a href="https://westernmassvelo.com/" target="_blank" rel="noopener noreferrer" className="navbar-org-link">
+            Western Mass Velo
+          </a>
+        </div>
       </div>
       
       <div className="navbar-right">
