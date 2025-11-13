@@ -17,7 +17,7 @@
 
 .status-summary p {
   margin-bottom: 0;
-  font-size: 1.1rem;
+  font-size: var(--font-lg);
   color: #333;
 }
 
@@ -39,6 +39,7 @@
   text-align: left;
   border-bottom: 1px solid #ddd;
   color: #333;
+  font-size: var(--font-sm);
 }
 
 .participants-table th {
@@ -63,7 +64,7 @@
   display: inline-block;
   padding: 0.25rem 0.75rem;
   border-radius: 12px;
-  font-size: 0.85rem;
+  font-size: var(--font-sm);
   font-weight: bold;
 }
 
