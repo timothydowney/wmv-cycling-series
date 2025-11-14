@@ -139,7 +139,16 @@ async function listAthleteActivities(accessToken, afterTimestamp, beforeTimestam
     
     return allActivities;
   } catch (error) {
-    throw new Error(`Failed to fetch activities: ${error.message}`);
+    // Handle AggregateError and other error types
+    let errorMsg = error.message || String(error);
+    
+    if (error.errors && Array.isArray(error.errors)) {
+      // AggregateError contains multiple errors
+      const messages = error.errors.map(e => e.message || String(e)).join('; ');
+      errorMsg = `${error.message} [${messages}]`;
+    }
+    
+    throw new Error(`Failed to fetch activities: ${errorMsg}`);
   }
 }
 
