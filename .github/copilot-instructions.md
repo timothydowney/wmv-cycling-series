@@ -103,21 +103,28 @@ npm run check  # Audits, typechecks, lints, builds, tests (everything)
 
 ## Implementation Guidelines
 
+### Code Organization
+- **API routes & middleware:** `server/src/index.js` (Express setup, routes)
+- **API client:** `server/src/stravaClient.js` (Strava API wrapper)
+- **Business logic:** `server/src/activityProcessor.js` (activity matching algorithm)
+- **Database layer:** `server/src/tokenManager.js` (token lifecycle), `server/src/activityStorage.js` (persistence)
+- **Database schema:** `server/src/schema.js` (single source of truth)
+- **Encryption:** `server/src/encryption.js` (AES-256-GCM token encryption)
+- **Frontend:** `src/components/` (React components), `src/api.ts` (HTTP client)
+
 ### When Adding Features
 - **New API endpoint?** → Add tests in `server/src/__tests__/` FIRST or WITH the code
-- **Database change?** → Update schema in `server/src/index.js`
+- **New business logic?** → Create a separate module in `server/src/` with tests
 - **Frontend component?** → Keep in `src/components/`, use existing patterns
-- **API integration?** → Use `src/api.ts` client, add types to `src/types.ts`
+- **Database schema change?** → Update `server/src/schema.js`
+- **Strava API call?** → Use `stravaClient` module functions
 
 ### Testing Standards
 - All endpoints must have tests (happy path + error cases)
-- All business logic must have unit tests
+- All business logic must have unit tests  
 - Aim for >85% coverage
-- Run tests in watch mode during development: `cd server && npm run test:watch`
-
-### Keep Tests Updated
+- Run tests: `npm test` or watch mode: `cd server && npm run test:watch`
 - **CRITICAL:** Update tests WITH code changes, never after
-- Tests should never be commented out or failing
 - Each test should be isolated (no shared mutable state)
 
 ---
@@ -126,184 +133,66 @@ npm run check  # Audits, typechecks, lints, builds, tests (everything)
 
 **Full docs:** See [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md)
 
-- **Frontend:** React 18 + TypeScript + Vite (in `src/`)
-- **Backend:** Express + SQLite + better-sqlite3 (in `server/src/`)
-- **Database:** SQLite (auto-created at `server/data/wmv.db`)
-- **Auth:** Strava OAuth with encrypted token storage (AES-256-GCM)
+**Current stack:**
+- **Frontend:** React 18 + TypeScript + Vite (`src/`)
+- **Backend:** Express + SQLite + better-sqlite3 (`server/src/`)
+- **Database:** SQLite with schema in `server/src/schema.js`
+- **Auth:** Strava OAuth with AES-256-GCM token encryption
 
-### Key Features (All Complete ✅)
-- ✅ Strava OAuth authentication with session persistence
-- ✅ Batch activity fetching from Strava API
+**Key features:**
+- ✅ Strava OAuth with session persistence
+- ✅ Batch activity fetching (pagination + all segment efforts)
 - ✅ Leaderboard calculations (weekly + season)
 - ✅ Admin week/segment management
-- ✅ Token encryption at rest
-- ✅ 144 passing tests (49% coverage)
+- ✅ Token encryption at rest + auto-refresh
+- ✅ 268 passing tests (66.49% coverage)
+
+---
+
+## Security & Compliance
+
+### Current Status
+- ✅ **Token Encryption:** AES-256-GCM at rest (28 tests passing)
+- ✅ **GDPR Compliance:** Privacy policy + automatic data deletion (48-hour SLA)
+- ✅ **OAuth Security:** Per-participant tokens, auto-refresh, no credential sharing
+- ✅ **Session Security:** Secure cookies, proxy configuration, HTTPS enforced
+- ✅ **Production Ready:** Security audit complete, approved for deployment
+
+### Documentation
+- **[SECURITY_AUDIT.md](../docs/SECURITY_AUDIT.md)** - Complete security review (token encryption, session management, secrets, pre-launch checklist)
+- **[PRIVACY_POLICY.md](../PRIVACY_POLICY.md)** - GDPR/CCPA compliance, data retention, user rights, breach notification
+- **[STRAVA_INTEGRATION.md](../docs/STRAVA_INTEGRATION.md)** - API Agreement compliance, OAuth implementation, data handling
+
+### Key Implementation Details
+
+**Token Encryption:**
+- Algorithm: AES-256-GCM (military-grade)
+- Tested: 28 tests passing with tampering detection
+- Transparent: Automatically encrypted on storage, decrypted on retrieval
+- Never logged: Tokens used only for Strava API calls
+
+**Data Deletion (GDPR):**
+- User-triggered: "Disconnect" or "Request Data Deletion" in app
+- Atomic: Single transaction deletes all user data (cascade deletions)
+- SLA: 48 hours for complete removal
+- Logged: Deletion request tracked in audit table
+
+**When Adding Features:**
+1. Check PRIVACY_POLICY.md for data handling requirements
+2. If adding new data collection, update privacy policy
+3. If storing secrets, use encryption (see SECURITY_AUDIT.md)
+4. If modifying auth, verify session tests still pass
+5. Run: `npm run check` (covers tests, lint, audit, build)
 
 ---
 
 ## OAuth & Production
 
-### OAuth Integration Status
-- ✅ **Complete and working**
-- ✅ Session persistence fixed (reverse proxy configuration)
-- ✅ Token encryption implemented (AES-256-GCM)
-- ✅ Production-ready on Railway
+### Current Status
+- ✅ **OAuth Integration:** Complete with session persistence and reverse proxy support
+- ✅ **Production Deployment:** Railway.app (recommended for <100 participants)
 
-**See:** [`docs/STRAVA_INTEGRATION.md`](../docs/STRAVA_INTEGRATION.md), [`docs/OAUTH_SESSION_FIX.md`](../docs/OAUTH_SESSION_FIX.md)
-
-### Production Deployment
-- Platform: **Railway.app** (recommended for <100 participants)
-- Setup time: ~5 minutes
-- Cost: Free tier (~$5 credit), or $0-5/month afterward
-- Auto-deploys from GitHub on push to `main`
-
-**See:** [`docs/DEPLOYMENT.md`](../docs/DEPLOYMENT.md)
-
----
-
-## Compliance & Privacy Requirements ✅ COMPLETE
-
-**Status:** All compliance requirements implemented and tested for production deployment.
-
-### Legal Compliance
-
-**GDPR & Privacy:**
-- ✅ Privacy policy published: [`PRIVACY_POLICY.md`](../PRIVACY_POLICY.md)
-- ✅ User data deletion endpoint: `POST /user/data/delete` (48-hour SLA)
-- ✅ Data access endpoint: `GET /user/data` (for GDPR data access requests)
-- ✅ Data retention: Max 7 days cache per Strava API Agreement
-- ✅ Encryption: AES-256-GCM for all OAuth tokens at rest
-- ✅ Security audit: [`docs/SECURITY_AUDIT.md`](../docs/SECURITY_AUDIT.md) - APPROVED FOR PRODUCTION
-
-**Strava API Agreement:**
-- ✅ Community Application classification (awaiting confirmation from developers@strava.com)
-- ✅ No data monetization or third-party sharing
-- ✅ Proper OAuth scopes: `activity:read`, `profile:read_all`
-- ✅ Token encryption implemented
-- ✅ Strava attribution in UI footer
-- ✅ Privacy notice on login screen
-
-See: [`docs/STRAVA_INTEGRATION.md`](../docs/STRAVA_INTEGRATION.md) - "API Agreement Compliance" section
-
-### Pre-Launch Verification Checklist
-
-**Before Production Deployment, Verify:**
-- [ ] All 144 tests passing: `npm test`
-- [ ] No TypeScript errors: `npm run build`
-- [ ] Privacy policy visible at `/PRIVACY_POLICY.md`
-- [ ] Footer displays "Powered by Strava" link
-- [ ] Login screen shows privacy notice with link to PRIVACY_POLICY.md
-- [ ] Token encryption working (28 encryption tests passing)
-- [ ] Data deletion endpoint tested: `POST /user/data/delete`
-- [ ] Data access endpoint tested: `GET /user/data`
-- [ ] Delete audit trail table populated: `deletion_requests`
-- [ ] OAuth tokens are encrypted in database (not plaintext)
-- [ ] Session cookies marked: `secure=true`, `httpOnly=true`, `sameSite=lax`
-- [ ] HTTPS enforced on production (Railway auto-redirect)
-
-### Running Pre-Launch Checks
-
-```bash
-# Automated compliance check
-npm run check  # Tests, lint, audit, build, type checking
-
-# Manual verification
-npm test       # 144 tests should pass
-npm run build  # No build errors
-
-# Database verification (in Node REPL or via admin UI)
-sqlite3 server/data/wmv.db
-  SELECT COUNT(*) FROM participants;
-  SELECT COUNT(*) FROM participant_tokens;
-  SELECT COUNT(*) FROM deletion_requests;
-```
-
-### Data Handling (Critical)
-
-**User Data Flow:**
-1. User clicks "Connect with Strava"
-2. Privacy notice displayed (link to PRIVACY_POLICY.md)
-3. User redirected to Strava OAuth
-4. User authorizes; Strava returns code
-5. Backend exchanges code for tokens
-6. **Tokens encrypted with AES-256-GCM before storage**
-7. Session created; user sees "Connected as [Name]"
-
-**Deletion Flow (GDPR):**
-1. User clicks "Disconnect from Strava"
-2. Confirmation dialog: "Are you sure?"
-3. `POST /user/data/delete` called
-4. **Atomic transaction** deletes:
-   - Segment efforts (linked to activities)
-   - Activities (linked to results)
-   - Results (linked to participant)
-   - OAuth tokens (encrypted or plaintext)
-   - Participant record
-   - Audit log entry in `deletion_requests`
-5. Session destroyed
-6. User logged out
-7. **48-hour SLA for completion** (implemented as immediate, can be extended)
-
-**No Sensitive Data Stored:**
-- ❌ Passwords (OAuth only)
-- ❌ Email addresses (not collected)
-- ❌ Credit cards (free app)
-- ❌ Private activities (Strava API respects visibility)
-- ❌ Health metrics (only segment times)
-- ❌ Location history (only event day activity)
-
-### API Endpoints Related to Compliance
-
-| Endpoint | Purpose | Protected | Notes |
-|----------|---------|-----------|-------|
-| `POST /auth/strava` | OAuth redirect | Public | Redirects to Strava |
-| `GET /auth/strava/callback` | OAuth callback | Strava | Token exchange, encryption |
-| `GET /auth/status` | Check connection | Public | Returns name + connection status |
-| `POST /auth/disconnect` | Revoke connection | Auth required | Deletes tokens, session |
-| `POST /user/data/delete` | Delete all data | Auth required | **GDPR compliant** (48-hour SLA) |
-| `GET /user/data` | Export data | Auth required | **GDPR data access request** |
-
-### Important: Token Encryption Details
-
-**Implementation:**
-- Algorithm: AES-256-GCM (Advanced Encryption Standard, 256-bit key, Galois/Counter Mode)
-- Key Source: `TOKEN_ENCRYPTION_KEY` environment variable (64 hex chars = 256 bits)
-- IV: Random 128-bit per encryption (prevents replay attacks)
-- Auth Tag: 128-bit HMAC (detects tampering)
-- Storage Format: `IV:AUTHTAG:CIPHERTEXT` (all hexadecimal, safe for database)
-
-**Verification:**
-- Run: `npm test` → Look for "Encryption" test suite (28 tests)
-- All tests should pass ✅
-- No plaintext tokens in database
-
-**Example Test:**
-```bash
-✓ should encrypt and decrypt correctly
-✓ should use random IV (different ciphertexts for same plaintext)
-✓ should detect any bit of tampering (authentication tag)
-```
-
-### When Adding New Features
-
-**CRITICAL: Compliance Must Keep Pace**
-
-If you add any feature that:
-- **Collects new data** → Update PRIVACY_POLICY.md
-- **Stores user data** → Ensure it's deleted in `POST /user/data/delete`
-- **Handles secrets** → Ensure it's encrypted (like tokens)
-- **Modifies auth flow** → Test both deletion and OAuth flows
-- **Changes API response** → Update `GET /user/data` endpoint
-
-**Example: If Adding Email Collection**
-1. Add email field to `participants` table
-2. Update PRIVACY_POLICY.md with email retention policy
-3. Add email to `POST /user/data/delete` deletion query
-4. Add email to `GET /user/data` response
-5. Test deletion endpoint: `DELETE FROM participants WHERE ...` should delete email
-6. Update tests to verify deletion
-7. Update `docs/STRAVA_INTEGRATION.md` compliance section
-8. Run: `npm run check` (tests, lint, audit, build)
+**See:** [`docs/STRAVA_INTEGRATION.md`](../docs/STRAVA_INTEGRATION.md) for OAuth details and [`docs/DEPLOYMENT.md`](../docs/DEPLOYMENT.md) for deployment guide
 
 ---
 
@@ -316,6 +205,42 @@ If you add any feature that:
 - **Create new files only for** user-facing guides that will stay stable (e.g., ADMIN_GUIDE.md, DEPLOYMENT.md)
 
 **Example:** If you refactor leaderboard scoring logic, update `docs/SCORING.md` with the key architectural note, then explain the changes in chat. Don't create `SCORING_ARCHITECTURE.md` as a separate file.
+
+---
+
+## Temporary Documentation Files (For Agent Use)
+
+When generating detailed analysis, review reports, or summaries during development work, save them to a dedicated temp directory to keep them organized and prevent accidental commits.
+
+### Guidelines for Copilot Agent
+
+**When to create temp files:**
+- Comprehensive code reviews or refactoring reports
+- Step-by-step analysis of complex changes
+- Migration guides or detailed validation summaries
+- Architecture diagrams or system overview documents
+
+**Where to save:**
+```bash
+.copilot-temp/                 # Directory (gitignored)
+├── refactoring-review.md
+├── security-audit-2024.md
+├── migration-guide.md
+└── [other analysis files]
+```
+
+**Cleanup before commits:**
+```bash
+rm -rf .copilot-temp/*.md     # Remove temp analysis files before final commit
+```
+
+**Why this matters:**
+- Keeps git history clean (no analysis artifacts)
+- Prevents accidental publication of work-in-progress documentation
+- Makes it easy to share detailed reports with the user without cluttering the repo
+- Allows you to generate helpful visual summaries and reviews
+
+---
 
 ## Project Status (November 2025)
 
