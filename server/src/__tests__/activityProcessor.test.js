@@ -78,72 +78,6 @@ describe('Activity Processor', () => {
     });
   });
 
-  describe('validateActivityTimeWindow', () => {
-    const mockWeek = {
-      id: 1,
-      week_name: 'Test Week',
-      date: '2025-11-19',
-      start_time: '2025-11-19T00:00:00Z',
-      end_time: '2025-11-19T22:00:00Z'
-    };
-
-    test('accepts activity at start time exactly', () => {
-      const result = activityProcessor.validateActivityTimeWindow('2025-11-19T00:00:00Z', mockWeek);
-      expect(result.valid).toBe(true);
-    });
-
-    test('accepts activity at end time exactly', () => {
-      const result = activityProcessor.validateActivityTimeWindow('2025-11-19T22:00:00Z', mockWeek);
-      expect(result.valid).toBe(true);
-    });
-
-    test('accepts activity in middle of window', () => {
-      const result = activityProcessor.validateActivityTimeWindow('2025-11-19T12:00:00Z', mockWeek);
-      expect(result.valid).toBe(true);
-    });
-
-    test('rejects activity before start time', () => {
-      const result = activityProcessor.validateActivityTimeWindow('2025-11-18T23:59:59Z', mockWeek);
-      expect(result.valid).toBe(false);
-      expect(result.message).toContain('before window start');
-    });
-
-    test('rejects activity after end time', () => {
-      const result = activityProcessor.validateActivityTimeWindow('2025-11-19T22:00:01Z', mockWeek);
-      expect(result.valid).toBe(false);
-      expect(result.message).toContain('after window end');
-    });
-
-    test('rejects activity far in future', () => {
-      const result = activityProcessor.validateActivityTimeWindow('2025-11-20T10:00:00Z', mockWeek);
-      expect(result.valid).toBe(false);
-    });
-
-    test('handles custom time window (6am-2pm)', () => {
-      const customWeek = {
-        ...mockWeek,
-        start_time: '2025-11-19T06:00:00Z',
-        end_time: '2025-11-19T14:00:00Z'
-      };
-
-      expect(activityProcessor.validateActivityTimeWindow('2025-11-19T05:59:59Z', customWeek).valid).toBe(false);
-      expect(activityProcessor.validateActivityTimeWindow('2025-11-19T06:00:00Z', customWeek).valid).toBe(true);
-      expect(activityProcessor.validateActivityTimeWindow('2025-11-19T10:00:00Z', customWeek).valid).toBe(true);
-      expect(activityProcessor.validateActivityTimeWindow('2025-11-19T14:00:00Z', customWeek).valid).toBe(true);
-      expect(activityProcessor.validateActivityTimeWindow('2025-11-19T14:00:01Z', customWeek).valid).toBe(false);
-    });
-
-    test('handles different date formats (with milliseconds)', () => {
-      const result = activityProcessor.validateActivityTimeWindow('2025-11-19T12:00:00.000Z', mockWeek);
-      expect(result.valid).toBe(true);
-    });
-
-    test('handles edge case: activity at 00:00:00.000Z boundary', () => {
-      const result = activityProcessor.validateActivityTimeWindow('2025-11-19T00:00:00.000Z', mockWeek);
-      expect(result.valid).toBe(true);
-    });
-  });
-
   describe('findBestQualifyingActivity', () => {
     test('returns null for empty activity list', async () => {
       const result = await activityProcessor.findBestQualifyingActivity([], 123, 1, 'token');
@@ -159,8 +93,8 @@ describe('Activity Processor', () => {
       };
 
       const activities = [
-        { id: 1, start_date_local: '2025-10-27T12:00:00Z' }, // Before window
-        { id: 2, start_date_local: '2025-10-28T12:00:00Z' }  // Within window
+        { id: 1, start_date: '2025-10-27T12:00:00Z' }, // Before window
+        { id: 2, start_date: '2025-10-28T12:00:00Z' }  // Within window
       ];
 
       stravaClient.getActivity.mockResolvedValue(null);
@@ -186,8 +120,8 @@ describe('Activity Processor', () => {
       };
 
       const activities = [
-        { id: 1, start_date_local: '2025-10-28T12:00:00Z' },
-        { id: 2, start_date_local: '2025-10-28T14:00:00Z' }
+        { id: 1, start_date: '2025-10-28T12:00:00Z' },
+        { id: 2, start_date: '2025-10-28T14:00:00Z' }
       ];
 
       stravaClient.getActivity.mockResolvedValue({
@@ -217,7 +151,7 @@ describe('Activity Processor', () => {
       };
 
       const activities = [
-        { id: 1, start_date_local: '2025-10-28T12:00:00Z' }
+        { id: 1, start_date: '2025-10-28T12:00:00Z' }
       ];
 
       stravaClient.getActivity.mockResolvedValue({
@@ -252,7 +186,7 @@ describe('Activity Processor', () => {
       };
 
       const activities = [
-        { id: 1, start_date_local: '2025-10-28T12:00:00Z' }
+        { id: 1, start_date: '2025-10-28T12:00:00Z' }
       ];
 
       stravaClient.getActivity.mockResolvedValue({
@@ -285,8 +219,8 @@ describe('Activity Processor', () => {
       };
 
       const activities = [
-        { id: 1, start_date_local: '2025-10-28T12:00:00Z' },
-        { id: 2, start_date_local: '2025-10-28T13:00:00Z' }
+        { id: 1, start_date: '2025-10-28T12:00:00Z' },
+        { id: 2, start_date: '2025-10-28T13:00:00Z' }
       ];
 
       stravaClient.getActivity
@@ -328,7 +262,7 @@ describe('Activity Processor', () => {
       };
 
       const activities = [
-        { id: 1, start_date_local: '2025-10-28T12:00:00Z' }
+        { id: 1, start_date: '2025-10-28T12:00:00Z' }
       ];
 
       stravaClient.getActivity.mockRejectedValue(new Error('API Error'));
@@ -343,6 +277,76 @@ describe('Activity Processor', () => {
 
       // Should handle error gracefully
       expect(result).toBeNull();
+    });
+
+    test('filters out activities outside time window (timezone edge case)', async () => {
+      // CRITICAL TEST: Ensures we don't process activities outside week's time window
+      // This catches the prod vs dev timezone mismatch issue
+      
+      const week = {
+        start_time: '2025-01-07T00:00:00Z',  // UTC midnight
+        end_time: '2025-01-07T22:00:00Z',    // UTC 10pm
+        strava_segment_id: 100,
+        required_laps: 1
+      };
+
+      const activities = [
+        { id: 1, start_date: '2024-01-06T23:59:59Z' },  // Before window
+        { id: 2, start_date: '2025-01-07T12:00:00Z' },  // Inside window
+        { id: 3, start_date: '2025-01-07T22:00:01Z' },  // After window
+        { id: 4, start_date: '2025-01-08T00:00:00Z' }   // Next day
+      ];
+
+      stravaClient.getActivity.mockResolvedValue({
+        id: 2,
+        name: 'Valid Activity',
+        segment_efforts: [
+          { segment: { id: 100 }, elapsed_time: 600 }
+        ]
+      });
+
+      const result = await activityProcessor.findBestQualifyingActivity(
+        activities,
+        week.strava_segment_id,
+        week.required_laps,
+        'token',
+        week
+      );
+
+      // Should only call getActivity once (for activity #2, the only one in window)
+      expect(stravaClient.getActivity).toHaveBeenCalledTimes(1);
+      expect(stravaClient.getActivity).toHaveBeenCalledWith(2, 'token');
+      
+      // Result should be from the only valid activity
+      expect(result).not.toBeNull();
+      expect(result.id).toBe(2);
+    });
+
+    test('handles week parameter omission gracefully (backward compatibility)', async () => {
+      // If week not provided, should process all activities (old behavior)
+      const activities = [
+        { id: 1, start_date: '2025-10-28T12:00:00Z' }
+      ];
+
+      stravaClient.getActivity.mockResolvedValue({
+        id: 1,
+        name: 'Test Activity',
+        segment_efforts: [
+          { segment: { id: 100 }, elapsed_time: 600 }
+        ]
+      });
+
+      const result = await activityProcessor.findBestQualifyingActivity(
+        activities,
+        100,  // targetSegmentId
+        1,    // requiredLaps
+        'token'
+        // Note: week parameter omitted
+      );
+
+      // Should still work (backward compatibility)
+      expect(result).not.toBeNull();
+      expect(result.id).toBe(1);
     });
   });
 });

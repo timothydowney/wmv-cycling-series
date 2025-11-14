@@ -284,9 +284,9 @@ app.get('/auth/strava/callback', async (req, res) => {
     // Explicitly save session before redirecting (important for some session stores)
     console.log(`[AUTH] Saving session for athlete ${stravaAthleteId}...`);
     console.log('[AUTH] Session data before save:', {
-      stravaAthleteId: req.session.stravaAthleteId,
-      athleteName: req.session.athleteName,
-      sessionId: req.sessionID
+      stravaAthleteId,
+      athleteName,
+      sessionID: req.sessionID
     });
     
     req.session.save((err) => {
@@ -1299,7 +1299,8 @@ app.post('/admin/weeks/:id/fetch-results', requireAdmin, async (req, res) => {
           activities,
           week.strava_segment_id,
           week.required_laps,
-          accessToken
+          accessToken,
+          week  // CRITICAL: Pass week for time window validation
         );
         
         if (bestActivity) {

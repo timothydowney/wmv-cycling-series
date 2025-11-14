@@ -42,61 +42,50 @@ function extractActivityId(input) {
   return null;
 }
 
-/**
- * Validate activity falls within a time window
- * @param {string} activityDateLocal - ISO 8601 datetime (e.g., "2025-10-28T14:30:00Z")
- * @param {Object} week - Week object with { start_time, end_time }
- * @returns {Object} { valid: boolean, message: string }
- */
-function validateActivityTimeWindow(activityDateLocal, week) {
-  try {
-    const activityTime = new Date(activityDateLocal).getTime();
-    const startTime = new Date(week.start_time).getTime();
-    const endTime = new Date(week.end_time).getTime();
-    
-    if (activityTime < startTime) {
-      return {
-        valid: false,
-        message: `Activity ${activityDateLocal} is before window start ${week.start_time}`
-      };
-    }
-    
-    if (activityTime > endTime) {
-      return {
-        valid: false,
-        message: `Activity ${activityDateLocal} is after window end ${week.end_time}`
-      };
-    }
-    
-    return { valid: true, message: 'Activity within time window' };
-  } catch (error) {
-    return { valid: false, message: `Time validation error: ${error.message}` };
-  }
-}
+
 
 /**
  * Find the best qualifying activity among a list
  * 
  * Criteria:
- * 1. Must contain the target segment
- * 2. Must have >= requiredLaps repetitions of the target segment
- * 3. If multiple qualify, select the one with fastest total time
+ * 1. Activity must be within the week's time window (via timezoneManager)
+ * 2. Must contain the target segment
+ * 3. Must have >= requiredLaps repetitions of the target segment
+ * 4. If multiple qualify, select the one with fastest total time
  * 
  * @param {Array} activities - Activities from athlete's Strava account
  * @param {number} targetSegmentId - Strava segment ID to find
  * @param {number} requiredLaps - Minimum repetitions needed
  * @param {string} accessToken - Strava access token (for fetching full details)
+ * @param {Object} week - Week object with { start_time_utc, end_time_utc } from timezoneManager
  * @returns {Promise<Object|null>} Best qualifying activity or null
  */
-async function findBestQualifyingActivity(activities, targetSegmentId, requiredLaps, accessToken) {
+async function findBestQualifyingActivity(activities, targetSegmentId, requiredLaps, accessToken, week) {
   if (!activities || activities.length === 0) {
+    return null;
+  }
+  
+  // Filter activities by time window using timezoneManager
+  const { validateActivityInWeek } = require('./timezoneManager');
+  const validActivitiesByTime = activities.filter(activity => {
+    if (!week) {
+      // If week not provided, accept all activities (backward compat)
+      return true;
+    }
+    
+    const validation = validateActivityInWeek(activity, week);
+    return validation.valid;
+  });
+  
+  if (validActivitiesByTime.length === 0) {
     return null;
   }
   
   let bestActivity = null;
   let bestTime = Infinity;
   
-  for (const activity of activities) {
+  for (let actIdx = 0; actIdx < validActivitiesByTime.length; actIdx++) {
+    const activity = validActivitiesByTime[actIdx];
     try {
       // Fetch full activity details (includes all segment efforts)
       const fullActivity = await stravaClient.getActivity(activity.id, accessToken);
@@ -165,7 +154,6 @@ async function fetchActivitiesInTimeWindow(accessToken, startTime, endTime) {
 
 module.exports = {
   extractActivityId,
-  validateActivityTimeWindow,
   findBestQualifyingActivity,
   fetchActivitiesInTimeWindow
 };
