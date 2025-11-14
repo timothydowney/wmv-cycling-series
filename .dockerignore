@@ -1,0 +1,47 @@
+# Docker build ignore file - excludes files from Docker image during COPY operations
+# PRINCIPLE: Only exclude files that are NOT needed for either build or runtime
+
+# Version control
+.git
+.gitignore
+.github
+
+# IDE/Editor metadata (not needed in image)
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+.editorconfig
+
+# Documentation (not needed in runtime)
+docs
+README.md
+ADMIN_GUIDE.md
+PRIVACY_POLICY.md
+STRAVA_BRANDING.md
+LICENSE
+AGENT_USAGE.md
+
+# Test files - exclude test artifacts and coverage (not needed in production)
+server/coverage
+.nyc_output
+
+# Local environment overrides (must be set in production via Railway secrets)
+.env.local
+.env.*.local
+
+# Node package managers lock files - we use npm ci, not needed if npm-shrinkwrap exists
+# Keep package-lock.json for reproducibility
+# yarn.lock
+# pnpm-lock.yaml
+
+# Temporary/cache files
+*.log
+*.tmp
+tmp/
+temp/
+
+# IDE debug files
+.eslintcache
