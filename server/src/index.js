@@ -6,8 +6,12 @@ const Database = require('better-sqlite3');
 const session = require('express-session');
 const SqliteStore = require('better-sqlite3-session-store')(session);
 const strava = require('strava-v3');
-const { encryptToken, decryptToken } = require('./encryption');
+const { encryptToken } = require('./encryption');
 const { SCHEMA } = require('./schema');
+const stravaClient = require('./stravaClient');
+const activityProcessor = require('./activityProcessor');
+const { getValidAccessToken } = require('./tokenManager');
+const { storeActivityAndEfforts } = require('./activityStorage');
 
 // Load .env from project root (one level up from server directory)
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
@@ -166,306 +170,35 @@ const requireAdmin = (req, res, next) => {
 };
 
 // Validate activity time window
-function validateActivityTimeWindow(activityDate, week) {
-  const activityTime = new Date(activityDate);
-  const startTime = new Date(week.start_time);
-  const endTime = new Date(week.end_time);
-
-  if (activityTime < startTime || activityTime > endTime) {
-    return {
-      valid: false,
-      message: `Activity must be completed between ${startTime.toISOString()} and ${endTime.toISOString()}. Your activity was at ${activityTime.toISOString()}.`
-    };
-  }
-
-  return {
-    valid: true,
-    message: 'Activity time is within the allowed window'
-  };
-}
+// validateActivityTimeWindow is now provided by activityProcessor module
+const validateActivityTimeWindow = activityProcessor.validateActivityTimeWindow;
 
 // Calculate results and rankings for a week
 // ========================================
 // UTILITY FUNCTIONS
 // ========================================
 
-/**
- * Get a valid access token for a participant, refreshing if needed
- * @param {number} stravaAthleteId - The participant's Strava athlete ID
- * @returns {Promise<string>} Valid access token
- */
-async function getValidAccessToken(stravaAthleteId) {
-  const tokenRecord = db.prepare(`
-    SELECT * FROM participant_token WHERE strava_athlete_id = ?
-  `).get(stravaAthleteId);
-  
-  if (!tokenRecord) {
-    throw new Error('Participant not connected to Strava');
-  }
-  
-  // Decrypt the stored refresh token (for checking expiry and refresh)
-  let refreshToken = tokenRecord.refresh_token;
-  try {
-    refreshToken = decryptToken(tokenRecord.refresh_token);
-  } catch (error) {
-    console.warn(`Failed to decrypt refresh token for ${stravaAthleteId}. May be plaintext from before encryption: ${error.message}`);
-    // If decryption fails, assume it's plaintext (migration case)
-  }
-  
-  const now = Math.floor(Date.now() / 1000);  // Current Unix timestamp
-  
-  // Token expires in less than 1 hour? Refresh it proactively
-  if (tokenRecord.expires_at < (now + 3600)) {
-    console.log(`Token expiring soon for participant ${stravaAthleteId}, refreshing...`);
-    
-    try {
-      // Use strava-v3 to refresh the token
-      const newTokenData = await strava.oauth.refreshToken(refreshToken);
-      
-      // Update database with NEW tokens (both access and refresh tokens change!)
-      // Store encrypted
-      db.prepare(`
-        UPDATE participant_token 
-        SET access_token = ?,
-            refresh_token = ?,
-            expires_at = ?,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE strava_athlete_id = ?
-      `).run(
-        encryptToken(newTokenData.access_token),
-        encryptToken(newTokenData.refresh_token),
-        newTokenData.expires_at,
-        stravaAthleteId
-      );
-      
-      // Return the plaintext access token (kept in memory for use)
-      return newTokenData.access_token;
-    } catch (error) {
-      throw new Error(`Failed to refresh token: ${error.message}`);
-    }
-  }
-  
-  // Token still valid, decrypt and return it
-  try {
-    const accessToken = decryptToken(tokenRecord.access_token);
-    return accessToken;
-  } catch (error) {
-    console.warn(`Failed to decrypt access token for ${stravaAthleteId}. May be plaintext from before encryption: ${error.message}`);
-    // If decryption fails, assume it's plaintext (migration case)
-    return tokenRecord.access_token;
-  }
-}
+// getValidAccessToken is now provided by tokenManager module
+// Wrapper to inject db and stravaClient instances for compatibility
+const getValidAccessTokenWrapper = (stravaAthleteId) => 
+  getValidAccessToken(db, stravaClient, stravaAthleteId);
 
-/**
- * Fetch activity details from Strava API using strava-v3
- * @param {string} activityId - Strava activity ID
- * @param {string} accessToken - Valid Strava access token
- * @returns {Promise<Object>} Activity data from Strava
- */
-async function fetchStravaActivity(activityId, accessToken) {
-  try {
-    // Create a client with the user's access token
-    const client = new strava.client(accessToken);
-    
-    // Fetch the activity
-    const activity = await client.activities.get({ id: activityId });
-    
-    return activity;
-  } catch (error) {
-    // Handle strava-v3 specific errors
-    if (error.statusCode === 404) {
-      throw new Error('Activity not found on Strava');
-    } else if (error.statusCode === 401) {
-      throw new Error('Invalid or expired Strava token');
-    }
-    throw new Error(`Strava API error: ${error.message}`);
-  }
-}
+// fetchStravaActivity is now provided by stravaClient module
+const fetchStravaActivity = stravaClient.getActivity;
 
-/**
- * Extract activity ID from Strava URL
- * @param {string} url - Strava activity URL
- * @returns {string|null} Activity ID or null if invalid
- */
-function extractActivityId(url) {
-  // Matches: https://www.strava.com/activities/12345678
-  const match = url.match(/strava\.com\/activities\/(\d+)/);
-  return match ? match[1] : null;
-}
+// extractActivityId is now provided by activityProcessor module
+const extractActivityId = activityProcessor.extractActivityId;
 
-/**
- * Fetch activities from Strava within a time window
- * @param {string} accessToken - Valid Strava access token
- * @param {string} startTime - ISO 8601 start time
- * @param {string} endTime - ISO 8601 end time
- * @returns {Promise<Array>} Activities from Strava
- */
-async function fetchActivitiesOnDay(accessToken, startTime, endTime) {
-  try {
-    const client = new strava.client(accessToken);
-    
-    // Convert to Unix timestamps
-    const after = Math.floor(new Date(startTime).getTime() / 1000);
-    const before = Math.floor(new Date(endTime).getTime() / 1000);
-    
-    console.log('[FETCH] Fetching activities between:');
-    console.log(`[FETCH]   Start time: ${startTime} → ${after} (Unix timestamp)`);
-    console.log(`[FETCH]   End time: ${endTime} → ${before} (Unix timestamp)`);
-    console.log(`[FETCH]   Window: ${(before - after) / 3600} hours`);
-    
-    const activities = await client.athlete.listActivities({
-      after: after,
-      before: before,
-      per_page: 100 // Should be plenty for one day
-    });
-    
-    console.log(`[FETCH] Fetched ${(activities || []).length} activities in time window`);
-    
-    return activities || [];
-  } catch (error) {
-    console.error('[FETCH] Error fetching activities:', error.message);
-    throw new Error(`Failed to fetch activities: ${error.message}`);
-  }
-}
+// fetchActivitiesOnDay is now provided by activityProcessor module
+const fetchActivitiesOnDay = activityProcessor.fetchActivitiesInTimeWindow;
 
-/**
- * Find the best qualifying activity with required segment repetitions
- * @param {Array} activities - List of activities from Strava
- * @param {number} segmentId - Strava segment ID to look for
- * @param {number} requiredLaps - Required number of repetitions
- * @param {string} accessToken - Valid Strava access token
- * @returns {Promise<Object|null>} Best activity or null if none qualify
- */
-async function findBestQualifyingActivity(activities, segmentId, requiredLaps, accessToken) {
-  const client = new strava.client(accessToken);
-  let bestActivity = null;
-  let bestTime = Infinity;
-  
-  console.log(`[FETCH] Looking for segment ${segmentId} (type: ${typeof segmentId}), requiring ${requiredLaps} laps`);
-  console.log(`[FETCH] Checking ${activities.length} activities`);
-  
-  for (const activity of activities) {
-    try {
-      console.log(`[FETCH] Fetching details for activity ${activity.id} (${activity.name})`);
-      
-      // Fetch full activity details (includes segment efforts and device info)
-      const fullActivity = await client.activities.get({ id: activity.id });
-      
-      const totalEfforts = (fullActivity.segment_efforts || []).length;
-      console.log(`[FETCH]   Activity has ${totalEfforts} total segment efforts`);
-      console.log(`[FETCH]   Device: ${fullActivity.device_name || '(unknown)'}`);
-      
-      if (totalEfforts === 0) {
-        console.log('[FETCH]   ✗ No segment efforts, skipping');
-        continue;
-      }
-      
-      // Log first few segment efforts to understand structure
-      console.log(`[FETCH]   First effort segment ID: ${fullActivity.segment_efforts[0].segment.id} (type: ${typeof fullActivity.segment_efforts[0].segment.id})`);
-      
-      // Filter to segment efforts matching our segment
-      const matchingEfforts = (fullActivity.segment_efforts || []).filter(
-        effort => {
-          const targetId = segmentId.toString();
-          const effortId = effort.segment.id.toString();
-          const match = effortId === targetId;
-          
-          if (!match) {
-            console.log(`[FETCH]     Segment ${effortId} !== target ${targetId}`);
-          }
-          return match;
-        }
-      );
-      
-      console.log(`[FETCH]   Found ${matchingEfforts.length} efforts on segment ${segmentId}`);
-      
-      // Check if activity has required number of repetitions
-      if (matchingEfforts.length >= requiredLaps) {
-        console.log(`[FETCH]   ✓ Qualifying! (needs ${requiredLaps}, has ${matchingEfforts.length})`);
-        
-        // Calculate total time (sum of fastest N laps if more than required)
-        const sortedEfforts = matchingEfforts
-          .sort((a, b) => a.elapsed_time - b.elapsed_time)
-          .slice(0, requiredLaps);
-        
-        const totalTime = sortedEfforts.reduce((sum, e) => sum + e.elapsed_time, 0);
-        console.log(`[FETCH]   Total time: ${totalTime}s`);
-        
-        if (totalTime < bestTime) {
-          bestTime = totalTime;
-          bestActivity = {
-            id: fullActivity.id,
-            start_date_local: fullActivity.start_date_local,
-            totalTime: totalTime,
-            segmentEfforts: sortedEfforts,
-            activity_url: `https://www.strava.com/activities/${fullActivity.id}`,
-            device_name: fullActivity.device_name || null
-          };
-          console.log('[FETCH]   New best activity!');
-        }
-      } else {
-        console.log(`[FETCH]   ✗ Not qualifying (needs ${requiredLaps}, has ${matchingEfforts.length})`);
-      }
-    } catch (error) {
-      console.error(`[FETCH] Failed to fetch activity ${activity.id}:`, error.message);
-      console.error('[FETCH] Error stack:', error.stack);
-      // Continue to next activity
-    }
-  }
-  
-  console.log(`[FETCH] Final result: ${bestActivity ? `Found best activity ${bestActivity.id}` : 'No qualifying activities'}`);
-  return bestActivity;
-}
+// findBestQualifyingActivity is now provided by activityProcessor module
+const findBestQualifyingActivity = activityProcessor.findBestQualifyingActivity;
 
-/**
- * Store activity and segment efforts in database (replaces existing if present)
- * @param {number} stravaAthleteId - Strava athlete ID
- * @param {number} weekId - Week ID
- * @param {Object} activityData - Activity data with segmentEfforts
- * @param {number} stravaSegmentId - Strava segment ID (now used directly)
- */
-function storeActivityAndEfforts(stravaAthleteId, weekId, activityData, stravaSegmentId) {
-  // Delete existing activity for this participant/week if exists
-  const existing = db.prepare(`
-    SELECT id FROM activity WHERE week_id = ? AND strava_athlete_id = ?
-  `).get(weekId, stravaAthleteId);
-  
-  if (existing) {
-    db.prepare('DELETE FROM result WHERE activity_id = ?').run(existing.id);
-    db.prepare('DELETE FROM segment_effort WHERE activity_id = ?').run(existing.id);
-    db.prepare('DELETE FROM activity WHERE id = ?').run(existing.id);
-  }
-  
-  // Store new activity
-  const activityResult = db.prepare(`
-    INSERT INTO activity (week_id, strava_athlete_id, strava_activity_id, device_name, validation_status)
-    VALUES (?, ?, ?, ?, 'valid')
-  `).run(weekId, stravaAthleteId, activityData.id, activityData.device_name || null);
-  
-  const activityDbId = activityResult.lastInsertRowid;
-  
-  // Store segment efforts
-  console.log(`Storing ${activityData.segmentEfforts.length} segment efforts for activity ${activityDbId}`);
-  for (let i = 0; i < activityData.segmentEfforts.length; i++) {
-    const effort = activityData.segmentEfforts[i];
-    console.log(`  Effort ${i}: strava_segment_id=${stravaSegmentId}, elapsed_time=${effort.elapsed_time}, strava_effort_id=${effort.id}`);
-    db.prepare(`
-        INSERT INTO segment_effort (activity_id, strava_segment_id, strava_effort_id, effort_index, elapsed_seconds, pr_achieved)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).run(
-      activityDbId,
-      stravaSegmentId,
-      String(effort.id),
-      i,
-      effort.elapsed_time,
-      effort.pr_rank ? 1 : 0
-    );
-  }  // Store result
-  db.prepare(`
-    INSERT OR REPLACE INTO result (week_id, strava_athlete_id, activity_id, total_time_seconds)
-    VALUES (?, ?, ?, ?)
-  `).run(weekId, stravaAthleteId, activityDbId, activityData.totalTime);
-}
+// storeActivityAndEfforts is now provided by activityStorage module
+// Wrapper to inject db instance for compatibility
+const storeActivityAndEffortsWrapper = (stravaAthleteId, weekId, activityData, stravaSegmentId) =>
+  storeActivityAndEfforts(db, stravaAthleteId, weekId, activityData, stravaSegmentId);
 
 // ========================================
 // STATIC FILE SERVING (Frontend)
@@ -511,9 +244,9 @@ app.get('/auth/strava/callback', async (req, res) => {
   }
   
   try {
-    // Exchange authorization code for tokens using strava-v3
+    // Exchange authorization code for tokens using stravaClient
     console.log('Exchanging OAuth code for tokens...');
-    const tokenData = await strava.oauth.getToken(code);
+    const tokenData = await stravaClient.exchangeAuthorizationCode(code);
     
     const stravaAthleteId = tokenData.athlete.id;
     const athleteName = `${tokenData.athlete.firstname} ${tokenData.athlete.lastname}`;
@@ -1550,7 +1283,7 @@ app.post('/admin/weeks/:id/fetch-results', requireAdmin, async (req, res) => {
         console.log(`Fetching activities for ${participant.name} (Strava ID: ${participant.strava_athlete_id})`);
         
         // Get valid token (auto-refreshes if needed)
-        const accessToken = await getValidAccessToken(participant.strava_athlete_id);
+        const accessToken = await getValidAccessTokenWrapper(participant.strava_athlete_id);
         
         // Fetch activities from event day
         const activities = await fetchActivitiesOnDay(
@@ -1573,7 +1306,7 @@ app.post('/admin/weeks/:id/fetch-results', requireAdmin, async (req, res) => {
           console.log(`Best activity for ${participant.name}: ${bestActivity.id} (${bestActivity.totalTime}s)`);
           
           // Store activity and efforts
-          storeActivityAndEfforts(participant.strava_athlete_id, weekId, bestActivity, week.strava_segment_id);
+          storeActivityAndEffortsWrapper(participant.strava_athlete_id, weekId, bestActivity, week.strava_segment_id);
           
           results.push({
             participant_id: participant.strava_athlete_id,
@@ -1730,11 +1463,10 @@ app.get('/admin/segments/:id/validate', requireAdmin, async (req, res) => {
       });
     }
     
-    const accessToken = await getValidAccessToken(tokenRecord.strava_athlete_id);
-    const client = new strava.client(accessToken);
+    const accessToken = await getValidAccessTokenWrapper(tokenRecord.strava_athlete_id);
     
-    // Try to fetch segment details from Strava
-    const segment = await client.segments.get({ id: segmentId });
+    // Try to fetch segment details from Strava using stravaClient
+    const segment = await stravaClient.getSegment(segmentId, accessToken);
     
     res.json({
       id: segment.id,
@@ -1942,7 +1674,7 @@ app.post('/weeks/:id/submit-activity', async (req, res) => {
     // Get valid access token for this participant
     let accessToken;
     try {
-      accessToken = await getValidAccessToken(stravaAthleteId);
+      accessToken = await getValidAccessTokenWrapper(stravaAthleteId);
     } catch (error) {
       return res.status(401).json({ 
         error: 'Strava not connected',
@@ -2059,195 +1791,6 @@ app.post('/weeks/:id/submit-activity', async (req, res) => {
     });
   }
 });
-
-// ========================================
-// UTILITY ENDPOINTS (Development/Admin)
-// ========================================
-// NOTE: These endpoints are commented out until Strava integration is fully implemented
-// They require authenticated Strava access tokens and segment-utils.js
-
-/*
-// GET /utils/inspect-activity/:id - Inspect a Strava activity and extract segment info
-app.get('/utils/inspect-activity/:activityId', async (req, res) => {
-  const activityId = req.params.activityId;
-  
-  try {
-    // Get participant from session
-    const stravaAthleteId = req.session?.stravaAthleteId;
-    if (!stravaAthleteId) {
-      return res.status(401).json({ 
-        error: 'Not authenticated',
-        message: 'You must connect your Strava account first'
-      });
-    }
-    
-    // Get valid access token
-    let accessToken;
-    try {
-      accessToken = await getValidAccessToken(stravaAthleteId);
-    } catch (error) {
-      return res.status(401).json({ 
-        error: 'Strava not connected',
-        message: 'Please reconnect your Strava account',
-        details: error.message
-      });
-    }
-    
-    // Fetch activity details
-    const activity = await fetchStravaActivity(activityId, accessToken);
-    
-    // Helper to format seconds as MM:SS
-    const formatTime = (seconds) => {
-      const mins = Math.floor(seconds / 60);
-      const secs = seconds % 60;
-      return `${mins}:${secs.toString().padStart(2, '0')}`;
-    };
-    
-    // Extract segment information
-    const segments = (activity.segment_efforts || []).map(effort => ({
-      segment_id: effort.segment.id,
-      segment_name: effort.segment.name,
-      segment_url: `https://www.strava.com/segments/${effort.segment.id}`,
-      effort_time: effort.elapsed_time,
-      effort_time_formatted: formatTime(effort.elapsed_time),
-      pr_rank: effort.pr_rank || null,
-      is_pr: !!effort.pr_rank
-    }));
-    
-    // Return activity summary with segment details
-    res.json({
-      activity_id: activity.id,
-      activity_name: activity.name,
-      activity_url: `https://www.strava.com/activities/${activity.id}`,
-      activity_date: activity.start_date_local.split('T')[0],
-      activity_time: activity.start_date_local.split('T')[1],
-      distance: activity.distance,
-      total_segments: segments.length,
-      segments: segments,
-      usage_hint: 'Copy the segment_id from the segment you want to use for a week'
-    });
-    
-  } catch (error) {
-    console.error('Activity inspection error:', error);
-    res.status(500).json({ 
-      error: 'Failed to inspect activity',
-      details: error.message
-    });
-  }
-});
-
-// GET /admin/segment/:id - Get detailed information about a specific Strava segment
-app.get('/admin/segment/:id', requireAdmin, async (req, res) => {
-  const segmentId = req.params.id;
-  
-  try {
-    // Get authenticated user's token
-    const stravaAthleteId = req.session?.stravaAthleteId;
-    if (!stravaAthleteId) {
-      return res.status(401).json({ 
-        error: 'Not authenticated',
-        message: 'You must connect your Strava account first'
-      });
-    }
-
-    const token = await getValidAccessToken(stravaAthleteId);
-    if (!token) {
-      return res.status(401).json({ 
-        error: 'No valid token',
-        message: 'Please reconnect your Strava account'
-      });
-    }
-
-    console.log(`[GET /admin/segment/${segmentId}] Using token for athlete ${stravaAthleteId}`);
-    console.log(`[GET /admin/segment/${segmentId}] Token starts with: ${token.substring(0, 20)}...`);
-
-    const segmentDetails = await getSegmentDetails(segmentId, token);
-    res.json(segmentDetails);
-  } catch (error) {
-    console.error('Error getting segment details:', error);
-    res.status(500).json({ 
-      error: 'Failed to get segment details',
-      message: error.message
-    });
-  }
-});
-
-// GET /admin/activity/:id/segments - Get all segments from a specific activity
-app.get('/admin/activity/:id/segments', requireAdmin, async (req, res) => {
-  const activityId = req.params.id;
-  
-  try {
-    // Get authenticated user's token
-    const stravaAthleteId = req.session?.stravaAthleteId;
-    if (!stravaAthleteId) {
-      return res.status(401).json({ 
-        error: 'Not authenticated',
-        message: 'You must connect your Strava account first'
-      });
-    }
-
-    const token = await getValidAccessToken(stravaAthleteId);
-    if (!token) {
-      return res.status(401).json({ 
-        error: 'No valid token',
-        message: 'Please reconnect your Strava account'
-      });
-    }
-
-    const segments = await getSegmentsFromActivity(activityId, token);
-    res.json({
-      activity_id: activityId,
-      segment_count: segments.length,
-      segments: segments
-    });
-  } catch (error) {
-    console.error('Error getting activity segments:', error);
-    res.status(500).json({ 
-      error: 'Failed to get activity segments',
-      message: error.message
-    });
-  }
-});
-
-// GET /admin/segments/starred - Get authenticated user's starred segments
-app.get('/admin/segments/starred', requireAdmin, async (req, res) => {
-  try {
-    // Get authenticated user's token
-    const stravaAthleteId = req.session?.stravaAthleteId;
-    if (!stravaAthleteId) {
-      return res.status(401).json({ 
-        error: 'Not authenticated',
-        message: 'You must connect your Strava account first'
-      });
-    }
-
-    const token = await getValidAccessToken(stravaAthleteId);
-    if (!token) {
-      return res.status(401).json({ 
-        error: 'No valid token',
-        message: 'Please reconnect your Strava account'
-      });
-    }
-
-    console.log(`[GET /admin/segments/starred] Fetching starred segments`);
-
-    const segments = await getStarredSegments(token);
-    
-    console.log(`[GET /admin/segments/starred] Found ${segments.length} starred segments`);
-    
-    res.json({
-      count: segments.length,
-      segments: segments
-    });
-  } catch (error) {
-    console.error('Error fetching starred segments:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch starred segments',
-      message: error.message
-    });
-  }
-});
-*/
 
 // Export for testing
 module.exports = { app, db, validateActivityTimeWindow, checkAuthorization };

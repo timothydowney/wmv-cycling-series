@@ -1,0 +1,79 @@
+/**
+ * Token Manager - OAuth token lifecycle management
+ * Handles token storage, retrieval, decryption, and refresh
+ */
+
+const { encryptToken, decryptToken } = require('./encryption');
+
+/**
+ * Get a valid access token for a participant, refreshing if needed
+ * @param {Object} db - Better-sqlite3 database instance
+ * @param {Object} stravaClient - Strava API client
+ * @param {number} stravaAthleteId - The participant's Strava athlete ID
+ * @returns {Promise<string>} Valid access token
+ */
+async function getValidAccessToken(db, stravaClient, stravaAthleteId) {
+  const tokenRecord = db.prepare(`
+    SELECT * FROM participant_token WHERE strava_athlete_id = ?
+  `).get(stravaAthleteId);
+  
+  if (!tokenRecord) {
+    throw new Error('Participant not connected to Strava');
+  }
+  
+  // Decrypt the stored refresh token (for checking expiry and refresh)
+  let refreshToken = tokenRecord.refresh_token;
+  try {
+    refreshToken = decryptToken(tokenRecord.refresh_token);
+  } catch (error) {
+    console.warn(`Failed to decrypt refresh token for ${stravaAthleteId}. May be plaintext from before encryption: ${error.message}`);
+    // If decryption fails, assume it's plaintext (migration case)
+  }
+  
+  const now = Math.floor(Date.now() / 1000);  // Current Unix timestamp
+  
+  // Token expires in less than 1 hour? Refresh it proactively
+  if (tokenRecord.expires_at < (now + 3600)) {
+    console.log(`Token expiring soon for participant ${stravaAthleteId}, refreshing...`);
+    
+    try {
+      // Use stravaClient to refresh the token
+      const newTokenData = await stravaClient.refreshAccessToken(refreshToken);
+      
+      // Update database with NEW tokens (both access and refresh tokens change!)
+      // Store encrypted
+      db.prepare(`
+        UPDATE participant_token 
+        SET access_token = ?,
+            refresh_token = ?,
+            expires_at = ?,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE strava_athlete_id = ?
+      `).run(
+        encryptToken(newTokenData.access_token),
+        encryptToken(newTokenData.refresh_token),
+        newTokenData.expires_at,
+        stravaAthleteId
+      );
+      
+      // Return the plaintext access token (kept in memory for use)
+      return newTokenData.access_token;
+    } catch (error) {
+      throw new Error(`Failed to refresh token: ${error.message}`);
+    }
+  }
+  
+  // Token still valid, decrypt and return it
+  try {
+    const accessToken = decryptToken(tokenRecord.access_token);
+    return accessToken;
+  } catch (error) {
+    console.warn(`Failed to decrypt access token for ${stravaAthleteId}. May be plaintext from before encryption: ${error.message}`);
+    // If decryption fails, assume it's plaintext (migration case)
+    return tokenRecord.access_token;
+  }
+}
+
+module.exports = {
+  getValidAccessToken
+};
