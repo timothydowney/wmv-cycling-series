@@ -134,6 +134,36 @@ CREATE TABLE results (
 
 ## Data Flow
 
+### Timezone Architecture
+
+**CRITICAL: Western Mass Velo seasons are always in Eastern Time (America/New_York)**
+
+Time handling is absolute and unambiguous:
+
+1. **Season Timezone**: All WMV seasons use Eastern Time (EST/EDT)
+   - Stored implicitly (future: will add explicit `timezone_name` field to season table)
+
+2. **Week Time Windows**: Stored as ISO 8601 UTC with Z suffix
+   - Example: `start_time: "2025-01-07T00:00:00Z"` means Eastern midnight (UTC-5 in winter)
+   - This is the authoritative time window for filtering activities
+   - Converts properly whether container is UTC, EST, or any other timezone
+
+3. **Activity Times**: Come from Strava as `start_date_local` (athlete's local timezone)
+   - Example: `start_date_local: "2025-01-07T08:30:00Z"` in Strava response
+   - Must be compared directly against week's `[start_time, end_time]` window
+   - Activities OUTSIDE the time window are filtered out
+
+4. **Critical Matching Logic**:
+   - ✅ Fetch activities using Strava API (converts week times to Unix timestamps)
+   - ✅ **Filter activities by time window** (compares `activity.start_date_local` against `[week.start_time, week.end_time]`)
+   - ✅ Select best qualifying activity from remaining activities
+
+**Why This Matters (Dev vs Prod Mismatch)**:
+- **Dev** (Mac, Eastern timezone): Timezone conversions happen implicitly, activities match by luck
+- **Prod** (Docker, UTC): Without explicit time window filtering, activities outside the intended window get processed
+- **Fix**: Always validate `start_date_local` against week's `[start_time, end_time]` before processing
+- **Result**: Consistent behavior across all environments
+
 ### Admin Batch Fetch Workflow (Primary)
 1. Admin triggers `POST /admin/weeks/:id/fetch-results` at end of event day
 2. System retrieves all connected participants (those with OAuth tokens)
