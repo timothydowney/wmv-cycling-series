@@ -1327,12 +1327,21 @@ app.post('/admin/weeks/:id/fetch-results', requireAdmin, async (req, res) => {
           });
         }
       } catch (error) {
-        console.error(`Error processing ${participant.name}:`, error.message);
+        // Better error logging for diagnostics
+        const errorMsg = error.message || String(error);
+        console.error(`Error processing ${participant.name}:`, errorMsg);
+        if (error.stack) {
+          console.error('Stack trace:', error.stack);
+        }
+        if (error.errors && Array.isArray(error.errors)) {
+          console.error('Sub-errors:', error.errors.map(e => e.message || String(e)));
+        }
+        
         results.push({
           participant_id: participant.strava_athlete_id,
           participant_name: participant.name,
           activity_found: false,
-          reason: error.message
+          reason: errorMsg
         });
       }
     }
