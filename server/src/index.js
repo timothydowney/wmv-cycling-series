@@ -1280,7 +1280,7 @@ app.post('/admin/weeks/:id/fetch-results', requireAdmin, async (req, res) => {
     // Process each participant
     for (const participant of participants) {
       try {
-        console.log(`Fetching activities for ${participant.name} (Strava ID: ${participant.strava_athlete_id})`);
+        console.log(`\n[Batch Fetch] Processing ${participant.name} (Strava ID: ${participant.strava_athlete_id})`);
         
         // Get valid token (auto-refreshes if needed)
         const accessToken = await getValidAccessTokenWrapper(participant.strava_athlete_id);
@@ -1292,9 +1292,16 @@ app.post('/admin/weeks/:id/fetch-results', requireAdmin, async (req, res) => {
           week.end_time
         );
         
-        console.log(`Found ${activities.length} activities for ${participant.name}`);
+        console.log(`[Batch Fetch] Found ${activities.length} total activities within time window (${week.start_time} to ${week.end_time})`);
+        if (activities.length > 0) {
+          console.log(`[Batch Fetch] Activities for ${participant.name}:`);
+          for (const act of activities) {
+            console.log(`  - ID: ${act.id}, Name: '${act.name}', Start: ${act.start_date_local}`);
+          }
+        }
         
         // Find best qualifying activity
+        console.log(`[Batch Fetch] Searching for segment ${week.strava_segment_id} (${week.segment_name}), require ${week.required_laps} lap(s)`);
         const bestActivity = await findBestQualifyingActivity(
           activities,
           week.strava_segment_id,
@@ -1304,7 +1311,7 @@ app.post('/admin/weeks/:id/fetch-results', requireAdmin, async (req, res) => {
         );
         
         if (bestActivity) {
-          console.log(`Best activity for ${participant.name}: ${bestActivity.id} (${bestActivity.totalTime}s)`);
+          console.log(`[Batch Fetch] ✓ SUCCESS for ${participant.name}: Activity '${bestActivity.name}' (ID: ${bestActivity.id}, Time: ${Math.round(bestActivity.totalTime / 60)}min, Device: '${bestActivity.device_name || 'unknown'}')`);
           
           // Store activity and efforts
           storeActivityAndEffortsWrapper(participant.strava_athlete_id, weekId, bestActivity, week.strava_segment_id);
@@ -1318,7 +1325,7 @@ app.post('/admin/weeks/:id/fetch-results', requireAdmin, async (req, res) => {
             segment_efforts: bestActivity.segmentEfforts.length
           });
         } else {
-          console.log(`No qualifying activities for ${participant.name}`);
+          console.log(`[Batch Fetch] ✗ No qualifying activities found for ${participant.name}`);
           results.push({
             participant_id: participant.strava_athlete_id,
             participant_name: participant.name,
