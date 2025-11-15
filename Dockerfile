@@ -72,6 +72,15 @@ RUN mkdir -p /data && chown nodejs:nodejs /data
 # Switch to non-root user
 USER nodejs
 
+# ========== TIMEZONE CONFIGURATION ==========
+# WMV is always based in Eastern Time (America/New_York)
+# Setting TZ env var ensures:
+#   1. SQLite CURRENT_TIMESTAMP uses Eastern time
+#   2. Node.js Date objects interpret times correctly
+#   3. DST transitions handled automatically by OS
+#   4. No manual timezone conversion math needed
+ENV TZ=America/New_York
+
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD node -e "require('http').get('http://localhost:' + (process.env.PORT || 3001), (res) => { if (res.statusCode !== 200) throw new Error(res.statusCode) })"
