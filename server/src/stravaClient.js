@@ -71,6 +71,7 @@ async function refreshAccessToken(refreshToken) {
  */
 async function getActivity(activityId, accessToken) {
   try {
+    console.log(`[Strava API] Fetching full activity details for ID: ${activityId}`);
     const client = new strava.client(accessToken);
     
     const activity = await client.activities.get({ id: activityId, include_all_efforts: true });
@@ -79,6 +80,8 @@ async function getActivity(activityId, accessToken) {
       throw new Error('No activity data returned');
     }
     
+    const effortCount = activity.segment_efforts ? activity.segment_efforts.length : 0;
+    console.log(`[Strava API] ✓ Activity ${activityId} loaded: '${activity.name}', ${effortCount} segment efforts, type: '${activity.type}'`);
     return activity;
   } catch (error) {
     if (error.statusCode === 404) {
@@ -109,12 +112,20 @@ async function listAthleteActivities(accessToken, afterTimestamp, beforeTimestam
     const perPage = options.perPage || 100; // Max allowed by Strava
     const includeAllEfforts = options.includeAllEfforts !== false; // Default true
     
+    // Convert timestamps to readable dates for logging
+    const afterDate = new Date(afterTimestamp * 1000).toISOString();
+    const beforeDate = new Date(beforeTimestamp * 1000).toISOString();
+    console.log(`[Strava API] listAthleteActivities: fetching activities between ${afterDate} and ${beforeDate}`);
+    console.log(`  Timestamps: after=${afterTimestamp}, before=${beforeTimestamp}`);
+    console.log(`  Options: perPage=${perPage}, includeAllEfforts=${includeAllEfforts}`);
+    
     let allActivities = [];
     let page = 1;
     let hasMorePages = true;
     
     // Pagination loop: fetch all pages
     while (hasMorePages) {
+      console.log(`[Strava API] Fetching page ${page}...`);
       const activities = await client.athlete.listActivities({
         after: afterTimestamp,
         before: beforeTimestamp,
@@ -123,13 +134,18 @@ async function listAthleteActivities(accessToken, afterTimestamp, beforeTimestam
         include_all_efforts: includeAllEfforts
       });
       
+      console.log(`[Strava API] Page ${page} returned ${activities ? activities.length : 0} activities`);
+      
       if (!activities || activities.length === 0) {
+        console.log(`[Strava API] No more activities on page ${page}, stopping pagination`);
         hasMorePages = false;
       } else {
         allActivities = allActivities.concat(activities);
+        console.log(`[Strava API] Total activities so far: ${allActivities.length}`);
         
         // Stop if we got fewer than perPage items (indicates last page)
         if (activities.length < perPage) {
+          console.log(`[Strava API] Got ${activities.length} activities (< ${perPage}), likely last page`);
           hasMorePages = false;
         }
         
@@ -137,6 +153,7 @@ async function listAthleteActivities(accessToken, afterTimestamp, beforeTimestam
       }
     }
     
+    console.log(`[Strava API] ✓ Fetch complete: ${allActivities.length} total activities returned`);
     return allActivities;
   } catch (error) {
     // Handle AggregateError and other error types

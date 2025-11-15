@@ -67,22 +67,45 @@ async function findBestQualifyingActivity(activities, targetSegmentId, requiredL
   
   // Filter activities by time window using timezoneManager
   const { validateActivityInWeek } = require('./timezoneManager');
-  const validActivitiesByTime = activities.filter(activity => {
+  const validActivitiesByTime = [];
+  const rejectedActivities = [];
+  
+  for (const activity of activities) {
     if (!week) {
       // If week not provided, accept all activities (backward compat)
-      return true;
+      validActivitiesByTime.push(activity);
+      continue;
     }
     
     const validation = validateActivityInWeek(activity, week);
-    return validation.valid;
-  });
+    if (validation.valid) {
+      validActivitiesByTime.push(activity);
+    } else {
+      rejectedActivities.push({
+        id: activity.id,
+        name: activity.name,
+        start_date: activity.start_date,
+        reason: validation.message
+      });
+    }
+  }
   
   console.log(`[Activity Matching] Time window validation: ${validActivitiesByTime.length}/${activities.length} activities within window`);
+  if (rejectedActivities.length > 0) {
+    console.log('[Activity Matching] Rejected activities (outside time window):');
+    for (const rejected of rejectedActivities) {
+      console.log(`  ✗ ID: ${rejected.id}, Name: '${rejected.name}', Reason: ${rejected.reason}`);
+    }
+  }
   
   if (validActivitiesByTime.length > 0) {
     console.log('[Activity Matching] Valid activities by time:');
     for (const act of validActivitiesByTime) {
-      console.log(`  - ID: ${act.id}, Name: '${act.name}', Start: ${act.start_date_local}`);
+      const actUnix = Math.floor(new Date(act.start_date).getTime() / 1000);
+      console.log(`  - ID: ${act.id}, Name: '${act.name}'`);
+      console.log(`    start_date (UTC): ${act.start_date}`);
+      console.log(`    start_date_local: ${act.start_date_local}`);
+      console.log(`    Unix timestamp: ${actUnix}`);
     }
   }
   
@@ -103,6 +126,8 @@ async function findBestQualifyingActivity(activities, targetSegmentId, requiredL
       
       if (!fullActivity.segment_efforts || fullActivity.segment_efforts.length === 0) {
         console.log(`  ⚠ No segment efforts found in activity ${activity.id}`);
+        console.log(`    Activity type: '${fullActivity.type}', distance: ${fullActivity.distance}m, elevation: ${fullActivity.total_elevation_gain}m`);
+        console.log(`    Kudos: ${fullActivity.kudos_count}, commute: ${fullActivity.commute}, trainer: ${fullActivity.trainer}`);
         continue;
       }
       
@@ -186,9 +211,38 @@ async function fetchActivitiesInTimeWindow(accessToken, startTime, endTime) {
   const afterTimestamp = Math.floor(new Date(startTime).getTime() / 1000);
   const beforeTimestamp = Math.floor(new Date(endTime).getTime() / 1000);
   
-  return stravaClient.listAthleteActivities(accessToken, afterTimestamp, beforeTimestamp, {
-    includeAllEfforts: true
-  });
+  // Detailed timezone logging
+  console.log('[Activity Fetch] ========== TIMEZONE ANALYSIS ==========');
+  console.log('[Activity Fetch] Converting time window to Unix timestamps:');
+  console.log(`  Input startTime: '${startTime}'`);
+  console.log(`  Input endTime: '${endTime}'`);
+  console.log(`  → afterTimestamp: ${afterTimestamp}`);
+  console.log(`  → beforeTimestamp: ${beforeTimestamp}`);
+  
+  // Verify conversion by going back
+  const verifyStart = new Date(afterTimestamp * 1000).toISOString();
+  const verifyEnd = new Date(beforeTimestamp * 1000).toISOString();
+  console.log('[Activity Fetch] Verification (reverse conversion):');
+  console.log(`  afterTimestamp ${afterTimestamp} → ${verifyStart}`);
+  console.log(`  beforeTimestamp ${beforeTimestamp} → ${verifyEnd}`);
+  
+  // Show duration
+  const durationSeconds = beforeTimestamp - afterTimestamp;
+  const durationHours = durationSeconds / 3600;
+  console.log(`[Activity Fetch] Window duration: ${durationSeconds} seconds (${durationHours} hours)`);
+  console.log('[Activity Fetch] ========== END TIMEZONE ANALYSIS ==========');
+  
+  try {
+    const activities = await stravaClient.listAthleteActivities(accessToken, afterTimestamp, beforeTimestamp, {
+      includeAllEfforts: true
+    });
+    
+    console.log(`[Activity Fetch] ✓ Retrieved ${activities.length} activities from Strava API`);
+    return activities;
+  } catch (error) {
+    console.error(`[Activity Fetch] ✗ API error: ${error.message}`);
+    throw error;
+  }
 }
 
 module.exports = {

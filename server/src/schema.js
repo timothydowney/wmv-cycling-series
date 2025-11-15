@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS season (
   start_date TEXT NOT NULL,
   end_date TEXT NOT NULL,
   is_active BOOLEAN DEFAULT 0,
+  timezone_name TEXT DEFAULT 'America/New_York',
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 

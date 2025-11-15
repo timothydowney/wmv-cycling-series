@@ -189,9 +189,6 @@ const fetchStravaActivity = stravaClient.getActivity;
 // extractActivityId is now provided by activityProcessor module
 const extractActivityId = activityProcessor.extractActivityId;
 
-// fetchActivitiesOnDay is now provided by activityProcessor module
-const fetchActivitiesOnDay = activityProcessor.fetchActivitiesInTimeWindow;
-
 // findBestQualifyingActivity is now provided by activityProcessor module
 const findBestQualifyingActivity = activityProcessor.findBestQualifyingActivity;
 
@@ -1041,6 +1038,28 @@ app.post('/admin/weeks', requireAdmin, (req, res) => {
   const defaultStartTime = start_time || `${finalDate}T00:00:00Z`;
   const defaultEndTime = end_time || `${finalDate}T22:00:00Z`;
 
+  // CRITICAL: Ensure times have Z suffix (UTC indicator)
+  // Without Z, JavaScript's new Date() interprets as local time, causing wrong Unix timestamps
+  const normalizeTimeWithZ = (timeString) => {
+    if (!timeString) return timeString;
+    if (typeof timeString !== 'string') return timeString;
+    // If it doesn't end with Z and has T, add Z
+    if (timeString.includes('T') && !timeString.endsWith('Z')) {
+      console.warn(`[TIME NORMALIZATION] Adding missing Z suffix to: '${timeString}'`);
+      return timeString + 'Z';
+    }
+    return timeString;
+  };
+  
+  const normalizedStartTime = normalizeTimeWithZ(defaultStartTime);
+  const normalizedEndTime = normalizeTimeWithZ(defaultEndTime);
+  
+  if (normalizedStartTime !== defaultStartTime || normalizedEndTime !== defaultEndTime) {
+    console.warn('[TIME NORMALIZATION] Times were normalized:');
+    console.warn(`  Start: '${defaultStartTime}' → '${normalizedStartTime}'`);
+    console.warn(`  End: '${defaultEndTime}' → '${normalizedEndTime}'`);
+  }
+
   // Ensure segment exists (segment_id is now Strava segment ID)
   if (segment_name && segment_id) {
     // Upsert segment: insert if not exists
@@ -1073,14 +1092,14 @@ app.post('/admin/weeks', requireAdmin, (req, res) => {
       date: finalDate, 
       segment_id: segment_id, 
       required_laps, 
-      start_time: defaultStartTime, 
-      end_time: defaultEndTime 
+      start_time: normalizedStartTime, 
+      end_time: normalizedEndTime 
     });
     
     const result = db.prepare(`
       INSERT INTO week (season_id, week_name, date, strava_segment_id, required_laps, start_time, end_time)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(finalSeasonId, week_name, finalDate, segment_id, required_laps, defaultStartTime, defaultEndTime);
+    `).run(finalSeasonId, week_name, finalDate, segment_id, required_laps, normalizedStartTime, normalizedEndTime);
 
     const newWeek = db.prepare(`
       SELECT w.id, w.season_id, w.week_name, w.date, w.strava_segment_id as segment_id, w.required_laps, 
@@ -1169,13 +1188,34 @@ app.put('/admin/weeks/:id', requireAdmin, (req, res) => {
     updates.push('required_laps = ?');
     values.push(required_laps);
   }
+  
+  // CRITICAL: Normalize times to ensure Z suffix (UTC indicator)
+  const normalizeTimeWithZ = (timeString) => {
+    if (!timeString) return timeString;
+    if (typeof timeString !== 'string') return timeString;
+    // If it doesn't end with Z and has T, add Z
+    if (timeString.includes('T') && !timeString.endsWith('Z')) {
+      console.warn(`[TIME NORMALIZATION] Adding missing Z suffix to: '${timeString}'`);
+      return timeString + 'Z';
+    }
+    return timeString;
+  };
+  
   if (start_time !== undefined) {
+    const normalized = normalizeTimeWithZ(start_time);
+    if (normalized !== start_time) {
+      console.warn(`[TIME NORMALIZATION] Start time normalized: '${start_time}' → '${normalized}'`);
+    }
     updates.push('start_time = ?');
-    values.push(start_time);
+    values.push(normalized);
   }
   if (end_time !== undefined) {
+    const normalized = normalizeTimeWithZ(end_time);
+    if (normalized !== end_time) {
+      console.warn(`[TIME NORMALIZATION] End time normalized: '${end_time}' → '${normalized}'`);
+    }
     updates.push('end_time = ?');
-    values.push(end_time);
+    values.push(normalized);
   }
 
   if (updates.length === 0) {
@@ -1257,6 +1297,81 @@ app.post('/admin/weeks/:id/fetch-results', requireAdmin, async (req, res) => {
       return res.status(404).json({ error: 'Week not found' });
     }
     
+    // Get the season to determine timezone
+    const season = db.prepare(`
+      SELECT id, name, timezone_name FROM season WHERE id = ?
+    `).get(week.season_id);
+    
+    if (!season) {
+      return res.status(404).json({ error: 'Season not found' });
+    }
+    
+    // Use timezone manager to properly convert ET → UTC
+    const { computeWeekBoundaries } = require('./timezoneManager.js');
+    
+    // Extract time components from database strings (format: "2025-10-28T00:00" or "2025-10-28T00:00:00Z")
+    const parseTimeComponents = (isoStr) => {
+      if (!isoStr) return null;
+      const match = isoStr.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/);
+      if (!match) return null;
+      const [, date, hours, minutes, seconds] = match;
+      return {
+        date,
+        time: `${hours}:${minutes}:${seconds || '00'}`
+      };
+    };
+    
+    const startComponents = parseTimeComponents(week.start_time);
+    const endComponents = parseTimeComponents(week.end_time);
+    
+    if (!startComponents || !endComponents) {
+      return res.status(400).json({
+        error: 'Invalid week time format',
+        start_time: week.start_time,
+        end_time: week.end_time
+      });
+    }
+    
+    // CRITICAL: Use season timezone to convert week boundaries properly
+    const seasonTimezone = season.timezone_name || 'America/New_York'; // Default to Eastern
+    console.log(`[Batch Fetch] Season timezone: ${seasonTimezone}`);
+    
+    const boundaries = computeWeekBoundaries(
+      startComponents.date,
+      seasonTimezone,
+      startComponents.time,
+      endComponents.time
+    );
+    
+    if (!boundaries.valid) {
+      return res.status(400).json({
+        error: 'Failed to compute week boundaries',
+        details: boundaries.message
+      });
+    }
+    
+    // ===== WEEK TIMEZONE CONTEXT =====
+    console.log('\n[Batch Fetch] ========== WEEK TIMEZONE CONTEXT ==========');
+    console.log(`[Batch Fetch] Week: ID=${week.id}, Name='${week.week_name}', Date='${week.date}'`);
+    console.log(`[Batch Fetch] Segment: ID=${week.strava_segment_id}, Name='${week.segment_name}'`);
+    console.log(`[Batch Fetch] Required laps: ${week.required_laps}`);
+    console.log('[Batch Fetch] Time window (from database, raw):');
+    console.log(`  start_time: '${week.start_time}'`);
+    console.log(`  end_time: '${week.end_time}'`);
+    console.log(`[Batch Fetch] Season timezone: ${seasonTimezone}`);
+    console.log('[Batch Fetch] Time window (converted to UTC via timezoneManager):');
+    console.log(`  start_time_utc: '${boundaries.start_time_utc}'`);
+    console.log(`  end_time_utc: '${boundaries.end_time_utc}'`);
+    console.log('[Batch Fetch] Unix timestamps:');
+    console.log(`  start_unix: ${boundaries.start_unix} (${new Date(boundaries.start_unix * 1000).toISOString()})`);
+    console.log(`  end_unix: ${boundaries.end_unix} (${new Date(boundaries.end_unix * 1000).toISOString()})`);
+    console.log(`[Batch Fetch] Window duration: ${boundaries.end_unix - boundaries.start_unix} seconds (${(boundaries.end_unix - boundaries.start_unix) / 3600} hours)`);
+    console.log('[Batch Fetch] ========== END WEEK CONTEXT ==========\n');
+    
+    // Use properly converted UTC times
+    const startUnix = boundaries.start_unix;
+    const endUnix = boundaries.end_unix;
+    
     // Get all connected participants (those with valid tokens)
     const participants = db.prepare(`
       SELECT p.strava_athlete_id, p.name, pt.access_token
@@ -1285,14 +1400,16 @@ app.post('/admin/weeks/:id/fetch-results', requireAdmin, async (req, res) => {
         // Get valid token (auto-refreshes if needed)
         const accessToken = await getValidAccessTokenWrapper(participant.strava_athlete_id);
         
-        // Fetch activities from event day
-        const activities = await fetchActivitiesOnDay(
+        // Fetch activities using properly converted UTC timestamps
+        // Pass UTC times directly instead of ambiguous ISO strings from database
+        const activities = await stravaClient.listAthleteActivities(
           accessToken,
-          week.start_time,
-          week.end_time
+          startUnix,  // Unix timestamp for UTC start
+          endUnix,    // Unix timestamp for UTC end
+          { includeAllEfforts: true }
         );
         
-        console.log(`[Batch Fetch] Found ${activities.length} total activities within time window (${week.start_time} to ${week.end_time})`);
+        console.log(`[Batch Fetch] Found ${activities.length} total activities within time window (${boundaries.start_time_utc} to ${boundaries.end_time_utc})`);
         if (activities.length > 0) {
           console.log(`[Batch Fetch] Activities for ${participant.name}:`);
           for (const act of activities) {
@@ -1827,6 +1944,35 @@ if (require.main === module) {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`WMV backend listening on port ${PORT}`);
+    
+    // ===== TIMEZONE DIAGNOSTICS =====
+    const now = new Date();
+    const utcString = now.toISOString();
+    const localString = now.toString();
+    const tzOffsetMinutes = now.getTimezoneOffset();
+    const tzOffsetHours = -tzOffsetMinutes / 60;
+    
+    console.log('[TIMEZONE DIAGNOSTIC] System timezone information:');
+    console.log(`  Current UTC time: ${utcString}`);
+    console.log(`  Current local time: ${localString}`);
+    console.log(`  System timezone offset: UTC${tzOffsetHours >= 0 ? '+' : ''}${tzOffsetHours}`);
+    console.log(`  System timezone name: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
+    
+    // Demonstrate timestamp conversions
+    const exampleDate = new Date('2025-10-28T12:00:00Z'); // UTC noon
+    const exampleUnix = Math.floor(exampleDate.getTime() / 1000);
+    console.log('[TIMEZONE DIAGNOSTIC] Example UTC conversion:');
+    console.log(`  ISO string "2025-10-28T12:00:00Z" → Unix timestamp: ${exampleUnix}`);
+    console.log(`  Back to ISO: ${new Date(exampleUnix * 1000).toISOString()}`);
+    
+    // Check database timezone context
+    const seasonCheck = db.prepare('SELECT * FROM season LIMIT 1').get();
+    if (seasonCheck) {
+      console.log('[TIMEZONE DIAGNOSTIC] Database context:');
+      console.log(`  Active season: ${seasonCheck.name} (${seasonCheck.start_date} to ${seasonCheck.end_date})`);
+    }
+    // ===== END TIMEZONE DIAGNOSTICS =====
+    
     // Startup diagnostics (non-sensitive) for env verification in Railway logs
     const safeEnv = {
       NODE_ENV: process.env.NODE_ENV,
