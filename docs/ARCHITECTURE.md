@@ -290,6 +290,61 @@ npm run build        # Build for production
 **Development:** Defaults work, optional Strava credentials in `.env`
 **Production:** Set on hosting platform (see `docs/DEPLOYMENT.md`)
 
+### Timezone Architecture
+
+**Current Design:** UTC Everywhere (Container + Database + Code)
+
+**Architecture Principle:**
+Everything runs in UTC. Timezone conversion happens ONLY at display time using the browser's local timezone via the `Intl` API.
+
+**Why this approach:**
+- ✅ Simplest possible architecture (no timezone math in code)
+- ✅ Portable (container works anywhere, no hardcoded timezones)
+- ✅ Scales effortlessly (one user in Massachusetts, another in California—same code)
+- ✅ Follows industry best practices (12-Factor App, Unix timestamp standard)
+- ✅ No external dependencies (built-in `Intl.DateTimeFormat()` API)
+- ✅ Production-ready pattern (used by every global SaaS app)
+
+**How it works:**
+
+1. **Database:** All timestamps stored as INTEGER Unix seconds (UTC)
+   - Example: `1731600000` (Nov 14, 2025 18:00 UTC)
+
+2. **Container:** Runs with `TZ=UTC` (no hardcoded timezone)
+   - Logs show UTC times
+   - Portable to any deployment platform
+
+3. **Code logic:** Compares timestamps as plain integers
+   - No offset math, no DST handling, no timezone library
+   - Example: `if (activityUnix >= week.start_at && activityUnix <= week.end_at)`
+
+4. **UI Input:** DateTime-local element → converted to Unix → stored
+   ```javascript
+   const userInput = "2025-11-14T18:00";  // Browser interprets in user's local TZ
+   const unixUtc = Math.floor(new Date(userInput).getTime() / 1000);  // Convert to Unix
+   // Store unixUtc in database
+   ```
+
+5. **UI Display:** Unix → converted back to user's timezone using `Intl` API
+   ```javascript
+   const unixUtc = 1731600000;
+   const date = new Date(unixUtc * 1000);
+   
+   // Show in user's timezone (automatic, no configuration needed)
+   const formatted = new Intl.DateTimeFormat('en-US', {
+     timeZone: undefined,  // undefined = use browser's local timezone
+     year: 'numeric',
+     month: '2-digit',
+     day: '2-digit',
+     hour: '2-digit',
+     minute: '2-digit'
+   }).format(date);
+   // Result: "11/14/2025, 02:00 PM" (if user is in America/New_York)
+   // Result: "11/14/2025, 11:00 AM" (if user is in America/Los_Angeles)
+   ```
+
+**Key principle:** Store everything as UTC. Convert only at display edges using browser's built-in `Intl` API. No timezone library needed. Truly universal.
+
 ---
 
 ## Deployment

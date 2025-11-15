@@ -6,6 +6,8 @@
  * error handling, parameter passing, and pagination logic.
  */
 
+const { isoToUnix } = require('../dateUtils');
+
 // Mock strava-v3 before requiring stravaClient
 const mockStrava = {
   oauth: {
@@ -174,8 +176,8 @@ describe('Strava Client', () => {
 
       mockStrava.client.mockReturnValue(mockClient);
 
-      const after = Math.floor(new Date('2025-10-28T00:00:00Z').getTime() / 1000);
-      const before = Math.floor(new Date('2025-10-28T23:59:59Z').getTime() / 1000);
+      const after = isoToUnix('2025-10-28T00:00:00Z');
+      const before = isoToUnix('2025-10-28T23:59:59Z');
 
       const result = await stravaClient.listAthleteActivities('token123', after, before);
 

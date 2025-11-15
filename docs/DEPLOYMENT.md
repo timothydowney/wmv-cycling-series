@@ -28,6 +28,56 @@ Complete information for deploying WMV Cycling Series to production.
 
 ---
 
+## Container Timezone Configuration
+
+⚠️ **IMPORTANT:** The container runs in UTC. All timestamps are stored and processed in UTC. Timezone conversion happens only at the display layer using the browser's local timezone.
+
+### Why UTC Everywhere?
+
+- ✅ **Simplest architecture:** No timezone math in code
+- ✅ **Portable:** Container works anywhere, no hardcoded timezones
+- ✅ **Standards-compliant:** 12-Factor App principle, Unix timestamp best practice
+- ✅ **No dependencies:** Uses built-in `Intl.DateTimeFormat()` API
+- ✅ **Universal:** Works for users in any timezone automatically
+
+### Current Configuration
+
+**Dockerfile:**
+```dockerfile
+ENV TZ=UTC
+```
+
+**Database:** All timestamps stored as INTEGER Unix seconds
+- Example: `1731600000` represents a specific moment in time (UTC)
+
+**Code:** All calculations use plain integer comparisons
+- No offset math, no DST handling
+- Example: `if (activityUnix >= week.start_at && activityUnix <= week.end_at)`
+
+**Display:** Browser converts Unix to user's local timezone
+```javascript
+const date = new Date(unixUtc * 1000);
+const userLocal = new Intl.DateTimeFormat('en-US', {
+  timeZone: undefined  // Uses browser's local timezone automatically
+}).format(date);
+```
+
+### What This Means for Users
+
+- Admin creates week at "Nov 14, 2025 6:00 PM" on their computer
+- App internally stores as Unix timestamp (UTC equivalent)
+- User in different timezone sees the same event in THEIR local time
+- Example: Same event shows as "6:00 PM EST" (for user in New York) and "3:00 PM PST" (for user in Los Angeles)
+
+### No Configuration Needed
+
+- ✅ Container always runs UTC
+- ✅ Browser automatically detects user's timezone
+- ✅ Conversion happens transparently
+- ✅ Users never see UTC times (unless they explicitly request it)
+
+---
+
 ## CRITICAL: Persistent Volume Configuration (Railway)
 
 ⚠️ **IMPORTANT:** SQLite databases MUST be stored on a persistent volume, not in the ephemeral container filesystem. Without this, your data is deleted every time the app restarts or redeploys.
