@@ -13,9 +13,9 @@ const API_BASE_URL = import.meta.env.REACT_APP_BACKEND_URL || (() => {
 export interface Season {
   id: number;
   name: string;
-  start_date: string;
-  end_date: string;
-  is_active: boolean;
+  start_at: number; // Unix timestamp in seconds
+  end_at: number;   // Unix timestamp in seconds
+  is_active: number;
 }
 
 export interface Week {

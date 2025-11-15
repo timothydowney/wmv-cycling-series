@@ -73,13 +73,14 @@ RUN mkdir -p /data && chown nodejs:nodejs /data
 USER nodejs
 
 # ========== TIMEZONE CONFIGURATION ==========
-# WMV is always based in Eastern Time (America/New_York)
-# Setting TZ env var ensures:
-#   1. SQLite CURRENT_TIMESTAMP uses Eastern time
-#   2. Node.js Date objects interpret times correctly
-#   3. DST transitions handled automatically by OS
-#   4. No manual timezone conversion math needed
-ENV TZ=America/New_York
+# Container runs in UTC. All timestamps stored in database are Unix seconds (UTC).
+# Timezone conversion happens only at display time using browser's Intl API.
+# This approach:
+#   1. Works for users in any timezone without code changes
+#   2. Simplifies all timestamp calculations (plain integer comparison)
+#   3. Follows industry best practices (12-Factor App, standard SaaS pattern)
+#   4. Portable across any deployment platform
+ENV TZ=UTC
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

@@ -12,6 +12,7 @@
  */
 
 const stravaClient = require('./stravaClient');
+const { isoToUnix } = require('./dateUtils');
 
 /**
  * Extract Strava activity ID from various URL formats
@@ -48,7 +49,7 @@ function extractActivityId(input) {
  * Find the best qualifying activity among a list
  * 
  * Criteria:
- * 1. Activity must be within the week's time window (via timezoneManager)
+ * 1. Activity must be within the week's time window (simple Unix comparison)
  * 2. Must contain the target segment
  * 3. Must have >= requiredLaps repetitions of the target segment
  * 4. If multiple qualify, select the one with fastest total time
@@ -57,7 +58,7 @@ function extractActivityId(input) {
  * @param {number} targetSegmentId - Strava segment ID to find
  * @param {number} requiredLaps - Minimum repetitions needed
  * @param {string} accessToken - Strava access token (for fetching full details)
- * @param {Object} week - Week object with { start_time_utc, end_time_utc } from timezoneManager
+ * @param {Object} week - Week object with { start_at, end_at } as INTEGER Unix seconds (UTC)
  * @returns {Promise<Object|null>} Best qualifying activity or null
  */
 async function findBestQualifyingActivity(activities, targetSegmentId, requiredLaps, accessToken, week) {
@@ -65,8 +66,7 @@ async function findBestQualifyingActivity(activities, targetSegmentId, requiredL
     return null;
   }
   
-  // Filter activities by time window using timezoneManager
-  const { validateActivityInWeek } = require('./timezoneManager');
+  // Filter activities by time window using simple integer comparison
   const validActivitiesByTime = [];
   const rejectedActivities = [];
   
@@ -77,15 +77,19 @@ async function findBestQualifyingActivity(activities, targetSegmentId, requiredL
       continue;
     }
     
-    const validation = validateActivityInWeek(activity, week);
-    if (validation.valid) {
+    // Strava provides start_date in UTC ISO format (with Z suffix): "2025-11-15T10:30:45Z"
+    const activityUnixSeconds = isoToUnix(activity.start_date);
+    
+    // week.start_at and week.end_at are already INTEGER Unix seconds (UTC)
+    // Simple integer comparison (no timezone math needed!)
+    if (activityUnixSeconds >= week.start_at && activityUnixSeconds <= week.end_at) {
       validActivitiesByTime.push(activity);
     } else {
       rejectedActivities.push({
         id: activity.id,
         name: activity.name,
         start_date: activity.start_date,
-        reason: validation.message
+        reason: 'Outside time window'
       });
     }
   }
@@ -94,18 +98,15 @@ async function findBestQualifyingActivity(activities, targetSegmentId, requiredL
   if (rejectedActivities.length > 0) {
     console.log('[Activity Matching] Rejected activities (outside time window):');
     for (const rejected of rejectedActivities) {
-      console.log(`  ✗ ID: ${rejected.id}, Name: '${rejected.name}', Reason: ${rejected.reason}`);
+      console.log(`  ✗ ID: ${rejected.id}, Name: '${rejected.name}'`);
     }
   }
   
   if (validActivitiesByTime.length > 0) {
     console.log('[Activity Matching] Valid activities by time:');
     for (const act of validActivitiesByTime) {
-      const actUnix = Math.floor(new Date(act.start_date).getTime() / 1000);
-      console.log(`  - ID: ${act.id}, Name: '${act.name}'`);
-      console.log(`    start_date (UTC): ${act.start_date}`);
-      console.log(`    start_date_local: ${act.start_date_local}`);
-      console.log(`    Unix timestamp: ${actUnix}`);
+      const actUnix = isoToUnix(act.start_date);
+      console.log(`  - ID: ${act.id}, Name: '${act.name}', Unix: ${actUnix}`);
     }
   }
   
@@ -208,8 +209,8 @@ async function findBestQualifyingActivity(activities, targetSegmentId, requiredL
  * @returns {Promise<Array>} All activities within the time window
  */
 async function fetchActivitiesInTimeWindow(accessToken, startTime, endTime) {
-  const afterTimestamp = Math.floor(new Date(startTime).getTime() / 1000);
-  const beforeTimestamp = Math.floor(new Date(endTime).getTime() / 1000);
+  const afterTimestamp = isoToUnix(startTime);
+  const beforeTimestamp = isoToUnix(endTime);
   
   // Detailed timezone logging
   console.log('[Activity Fetch] ========== TIMEZONE ANALYSIS ==========');
@@ -218,13 +219,6 @@ async function fetchActivitiesInTimeWindow(accessToken, startTime, endTime) {
   console.log(`  Input endTime: '${endTime}'`);
   console.log(`  → afterTimestamp: ${afterTimestamp}`);
   console.log(`  → beforeTimestamp: ${beforeTimestamp}`);
-  
-  // Verify conversion by going back
-  const verifyStart = new Date(afterTimestamp * 1000).toISOString();
-  const verifyEnd = new Date(beforeTimestamp * 1000).toISOString();
-  console.log('[Activity Fetch] Verification (reverse conversion):');
-  console.log(`  afterTimestamp ${afterTimestamp} → ${verifyStart}`);
-  console.log(`  beforeTimestamp ${beforeTimestamp} → ${verifyEnd}`);
   
   // Show duration
   const durationSeconds = beforeTimestamp - afterTimestamp;

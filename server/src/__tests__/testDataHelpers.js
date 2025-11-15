@@ -5,6 +5,8 @@
  * Eliminates repetitive INSERT statements and makes tests easier to maintain.
  */
 
+const { isoToUnix, nowUnix } = require('../dateUtils');
+
 /**
  * Create a test participant with optional token
  * @param {Database} db - better-sqlite3 database instance
@@ -26,11 +28,11 @@ function createParticipant(db, stravaAthleteId, name = null, withToken = false) 
     if (typeof withToken === 'object') {
       accessToken = withToken.accessToken || `token_${stravaAthleteId}`;
       refreshToken = withToken.refreshToken || `refresh_${stravaAthleteId}`;
-      expiresAt = withToken.expiresAt || (Math.floor(Date.now() / 1000) + 3600);
+      expiresAt = withToken.expiresAt || (nowUnix() + 3600);
     } else {
       accessToken = `token_${stravaAthleteId}`;
       refreshToken = `refresh_${stravaAthleteId}`;
-      expiresAt = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
+      expiresAt = nowUnix() + 3600; // 1 hour from now
     }
     
     db.prepare('INSERT INTO participant_token (strava_athlete_id, access_token, refresh_token, expires_at) VALUES (?, ?, ?, ?)')
@@ -45,18 +47,21 @@ function createParticipant(db, stravaAthleteId, name = null, withToken = false) 
  * @param {Database} db - better-sqlite3 database instance
  * @param {string} name - Season name (optional, defaults to 'Test Season')
  * @param {boolean} isActive - Whether season is active (default: true)
- * @param {object} options - Additional options { seasonId, ... }
+ * @param {object} options - Additional options { seasonId, startAt, endAt }
  * @returns {object} { seasonId, name }
  */
 function createSeason(db, name = 'Test Season', isActive = true, options = {}) {
+  const startAt = options.startAt || isoToUnix('2025-01-01T00:00:00Z');
+  const endAt = options.endAt || isoToUnix('2025-12-31T23:59:59Z');
+  
   let result;
   if (options.seasonId) {
-    result = db.prepare('INSERT INTO season (id, name, start_date, end_date, is_active) VALUES (?, ?, ?, ?, ?)')
-      .run(options.seasonId, name, '2025-01-01', '2025-12-31', isActive ? 1 : 0);
+    result = db.prepare('INSERT INTO season (id, name, start_at, end_at, is_active) VALUES (?, ?, ?, ?, ?)')
+      .run(options.seasonId, name, startAt, endAt, isActive ? 1 : 0);
     return { seasonId: options.seasonId, name };
   } else {
-    result = db.prepare('INSERT INTO season (name, start_date, end_date, is_active) VALUES (?, ?, ?, ?)')
-      .run(name, '2025-01-01', '2025-12-31', isActive ? 1 : 0);
+    result = db.prepare('INSERT INTO season (name, start_at, end_at, is_active) VALUES (?, ?, ?, ?)')
+      .run(name, startAt, endAt, isActive ? 1 : 0);
     return { seasonId: result.lastInsertRowid, name };
   }
 }
@@ -106,10 +111,14 @@ function createWeek(db, options = {}) {
     throw new Error('createWeek requires seasonId and stravaSegmentId');
   }
   
+  // Convert ISO 8601 times to Unix timestamps (UTC seconds)
+  const startAtUnix = isoToUnix(startTime);
+  const endAtUnix = isoToUnix(endTime);
+  
   const result = db.prepare(`
-    INSERT INTO week (season_id, week_name, date, strava_segment_id, required_laps, start_time, end_time)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(seasonId, weekName, date, stravaSegmentId, requiredLaps, startTime, endTime);
+    INSERT INTO week (season_id, week_name, strava_segment_id, required_laps, start_at, end_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(seasonId, weekName, stravaSegmentId, requiredLaps, startAtUnix, endAtUnix);
   
   return { weekId: result.lastInsertRowid, weekName, date, stravaSegmentId };
 }
@@ -133,26 +142,32 @@ function createActivity(db, options = {}) {
     stravaActivityId,
     stravaSegmentId,
     elapsedSeconds = 1000,
-    prAchieved = false
+    prAchieved = false,
+    activityStartTime = '2025-06-01T10:00:00Z',
+    effortStartTime = '2025-06-01T10:05:00Z'
   } = options;
   
   if (!weekId || !stravaAthleteId || !stravaActivityId || !stravaSegmentId) {
     throw new Error('createActivity requires weekId, stravaAthleteId, stravaActivityId, and stravaSegmentId');
   }
   
+  // Convert ISO 8601 times to Unix timestamps
+  const activityStartAtUnix = isoToUnix(activityStartTime);
+  const effortStartAtUnix = isoToUnix(effortStartTime);
+  
   // Create activity
   const activityResult = db.prepare(`
-    INSERT INTO activity (week_id, strava_athlete_id, strava_activity_id, validation_status)
-    VALUES (?, ?, ?, ?)
-  `).run(weekId, stravaAthleteId, stravaActivityId, 'valid');
+    INSERT INTO activity (week_id, strava_athlete_id, strava_activity_id, start_at, validation_status)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(weekId, stravaAthleteId, stravaActivityId, activityStartAtUnix, 'valid');
   
   const activityId = activityResult.lastInsertRowid;
   
   // Create segment effort
   const effortResult = db.prepare(`
-    INSERT INTO segment_effort (activity_id, strava_segment_id, effort_index, elapsed_seconds, pr_achieved, strava_effort_id)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(activityId, stravaSegmentId, 1, elapsedSeconds, prAchieved ? 1 : 0, String(Math.floor(Math.random() * 1000000000000000000)));
+    INSERT INTO segment_effort (activity_id, strava_segment_id, effort_index, elapsed_seconds, start_at, pr_achieved, strava_effort_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(activityId, stravaSegmentId, 1, elapsedSeconds, effortStartAtUnix, prAchieved ? 1 : 0, String(Math.floor(Math.random() * 1000000000000000000)));
   
   return {
     activityId,

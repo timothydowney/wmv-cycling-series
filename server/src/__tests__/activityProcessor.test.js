@@ -8,6 +8,7 @@
  * that were previously in validation.test.js. Tests are now centralized with the module they test.
  */
 
+const { isoToUnix } = require('../dateUtils');
 const activityProcessor = require('../activityProcessor');
 
 // Mock stravaClient to avoid API calls
@@ -113,8 +114,8 @@ describe('Activity Processor', () => {
 
     test('calls stravaClient.getActivity for each valid activity', async () => {
       const week = {
-        start_time: '2025-10-28T00:00:00Z',
-        end_time: '2025-10-28T22:00:00Z',
+        start_at: isoToUnix('2025-10-28T00:00:00Z'),
+        end_at: isoToUnix('2025-10-28T22:00:00Z'),
         strava_segment_id: 100,
         required_laps: 1
       };
@@ -144,8 +145,8 @@ describe('Activity Processor', () => {
 
     test('selects activity with required segment', async () => {
       const week = {
-        start_time: '2025-10-28T00:00:00Z',
-        end_time: '2025-10-28T22:00:00Z',
+        start_at: isoToUnix('2025-10-28T00:00:00Z'),
+        end_at: isoToUnix('2025-10-28T22:00:00Z'),
         strava_segment_id: 100,
         required_laps: 1
       };
@@ -179,8 +180,8 @@ describe('Activity Processor', () => {
 
     test('requires minimum number of laps', async () => {
       const week = {
-        start_time: '2025-10-28T00:00:00Z',
-        end_time: '2025-10-28T22:00:00Z',
+        start_at: isoToUnix('2025-10-28T00:00:00Z'),
+        end_at: isoToUnix('2025-10-28T22:00:00Z'),
         strava_segment_id: 100,
         required_laps: 3
       };
@@ -212,8 +213,8 @@ describe('Activity Processor', () => {
 
     test('selects fastest qualifying activity', async () => {
       const week = {
-        start_time: '2025-10-28T00:00:00Z',
-        end_time: '2025-10-28T22:00:00Z',
+        start_at: isoToUnix('2025-10-28T00:00:00Z'),
+        end_at: isoToUnix('2025-10-28T22:00:00Z'),
         strava_segment_id: 100,
         required_laps: 2
       };
@@ -255,8 +256,8 @@ describe('Activity Processor', () => {
 
     test('handles API errors gracefully', async () => {
       const week = {
-        start_time: '2025-10-28T00:00:00Z',
-        end_time: '2025-10-28T22:00:00Z',
+        start_at: isoToUnix('2025-10-28T00:00:00Z'),
+        end_at: isoToUnix('2025-10-28T22:00:00Z'),
         strava_segment_id: 100,
         required_laps: 1
       };
@@ -284,8 +285,8 @@ describe('Activity Processor', () => {
       // This catches the prod vs dev timezone mismatch issue
       
       const week = {
-        start_time: '2025-01-07T00:00:00Z',  // UTC midnight
-        end_time: '2025-01-07T22:00:00Z',    // UTC 10pm
+        start_at: isoToUnix('2025-01-07T00:00:00Z'),
+        end_at: isoToUnix('2025-01-07T22:00:00Z'),
         strava_segment_id: 100,
         required_laps: 1
       };

@@ -1,3 +1,4 @@
+const { isoToUnix } = require('../dateUtils');
 const request = require('supertest');
 const path = require('path');
 const fs = require('fs');
@@ -303,11 +304,16 @@ describe('Coverage Improvements - Quick Wins', () => {
       createSegment(db, TEST_SEGMENT_1, 'Test Segment', { distance: 2.0, averageGrade: 5.0, city: 'City', state: 'ST', country: 'Country' });
 
       // Create test week
+      // start_at and end_at are now INTEGER Unix seconds (UTC)
+      // Example: 2025-06-01 06:00 to 18:00 Eastern Time
+      const startAtUnix = isoToUnix('2025-06-01T06:00:00');
+      const endAtUnix = isoToUnix('2025-06-01T18:00:00');
+      
       const result = db.prepare(`
-        INSERT INTO week (season_id, week_name, date, strava_segment_id, required_laps, start_time, end_time)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO week (season_id, week_name, strava_segment_id, required_laps, start_at, end_at)
+        VALUES (?, ?, ?, ?, ?, ?)
         RETURNING id
-      `).get(leaderboardSeasonId, 'Test Week', '2025-06-01', TEST_SEGMENT_1, 1, '06:00', '18:00');
+      `).get(leaderboardSeasonId, 'Test Week', TEST_SEGMENT_1, 1, startAtUnix, endAtUnix);
       testWeekId = result.id;
     });
 
@@ -327,7 +333,6 @@ describe('Coverage Improvements - Quick Wins', () => {
       expect(res.status).toBe(200);
       expect(res.body.week).toHaveProperty('id');
       expect(res.body.week).toHaveProperty('week_name');
-      expect(res.body.week).toHaveProperty('date');
       expect(res.body.week).toHaveProperty('segment_id');
     });
 
@@ -339,15 +344,17 @@ describe('Coverage Improvements - Quick Wins', () => {
       `).run(1111, 'Single Rider');
 
       // Create activity with segment efforts (leaderboard reads from activities now)
+      const activityStartUnix = isoToUnix('2025-06-01T10:00:00');
       const activityId = db.prepare(`
-        INSERT INTO activity (week_id, strava_athlete_id, strava_activity_id, validation_status) VALUES (?, ?, ?, ?)
-      `).run(testWeekId, 1111, 999, 'valid').lastInsertRowid;
+        INSERT INTO activity (week_id, strava_athlete_id, strava_activity_id, start_at, validation_status) VALUES (?, ?, ?, ?, ?)
+      `).run(testWeekId, 1111, 999, activityStartUnix, 'valid').lastInsertRowid;
 
       // Create segment effort
+      const effortStartUnix = isoToUnix('2025-06-01T10:05:00');
       db.prepare(`
-        INSERT INTO segment_effort (activity_id, strava_segment_id, effort_index, elapsed_seconds)
-        VALUES (?, ?, ?, ?)
-      `).run(activityId, TEST_SEGMENT_1, 1, 3600);
+        INSERT INTO segment_effort (activity_id, strava_segment_id, effort_index, elapsed_seconds, start_at)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(activityId, TEST_SEGMENT_1, 1, 3600, effortStartUnix);
 
       const res = await request(app).get(`/weeks/${testWeekId}/leaderboard`);
 
@@ -368,24 +375,28 @@ describe('Coverage Improvements - Quick Wins', () => {
       `).run(2223, 'Rider B');
 
       // Create activities for both riders (leaderboard reads from activities)
+      const activityStartUnixA = isoToUnix('2025-06-01T10:00:00');
+      const activityStartUnixB = isoToUnix('2025-06-01T11:00:00');
       const activityIdA = db.prepare(`
-        INSERT INTO activity (week_id, strava_athlete_id, strava_activity_id, validation_status) VALUES (?, ?, ?, ?)
-      `).run(testWeekId, 2222, 9991, 'valid').lastInsertRowid;
+        INSERT INTO activity (week_id, strava_athlete_id, strava_activity_id, start_at, validation_status) VALUES (?, ?, ?, ?, ?)
+      `).run(testWeekId, 2222, 9991, activityStartUnixA, 'valid').lastInsertRowid;
 
       const activityIdB = db.prepare(`
-        INSERT INTO activity (week_id, strava_athlete_id, strava_activity_id, validation_status) VALUES (?, ?, ?, ?)
-      `).run(testWeekId, 2223, 9992, 'valid').lastInsertRowid;
+        INSERT INTO activity (week_id, strava_athlete_id, strava_activity_id, start_at, validation_status) VALUES (?, ?, ?, ?, ?)
+      `).run(testWeekId, 2223, 9992, activityStartUnixB, 'valid').lastInsertRowid;
 
       // Both riders have same time (tied scores)
+      const effortStartUnixA = isoToUnix('2025-06-01T10:05:00');
+      const effortStartUnixB = isoToUnix('2025-06-01T11:05:00');
       db.prepare(`
-        INSERT INTO segment_effort (activity_id, strava_segment_id, effort_index, elapsed_seconds)
-        VALUES (?, ?, ?, ?)
-      `).run(activityIdA, TEST_SEGMENT_1, 1, 3600);
+        INSERT INTO segment_effort (activity_id, strava_segment_id, effort_index, elapsed_seconds, start_at)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(activityIdA, TEST_SEGMENT_1, 1, 3600, effortStartUnixA);
 
       db.prepare(`
-        INSERT INTO segment_effort (activity_id, strava_segment_id, effort_index, elapsed_seconds)
-        VALUES (?, ?, ?, ?)
-      `).run(activityIdB, TEST_SEGMENT_1, 1, 3600);
+        INSERT INTO segment_effort (activity_id, strava_segment_id, effort_index, elapsed_seconds, start_at)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(activityIdB, TEST_SEGMENT_1, 1, 3600, effortStartUnixB);
 
       const res = await request(app).get(`/weeks/${testWeekId}/leaderboard`);
 
@@ -411,28 +422,31 @@ describe('Coverage Improvements - Quick Wins', () => {
         .post('/admin/seasons')
         .send({
           name: 'Leap Year Season',
-          start_date: '2024-02-28',
-          end_date: '2024-02-29',
+          start_at: isoToUnix('2024-02-28T00:00:00Z'),
+          end_at: isoToUnix('2024-02-29T23:59:59Z'),
           is_active: false
         });
 
       expect(res.status).toBe(201);
-      expect(res.body.start_date).toBe('2024-02-28');
-      expect(res.body.end_date).toBe('2024-02-29');
+      expect(res.body.start_at).toBe(isoToUnix('2024-02-28T00:00:00Z'));
+      expect(res.body.end_at).toBe(isoToUnix('2024-02-29T23:59:59Z'));
     });
 
     test('POST /admin/seasons with start_date = end_date', async () => {
+      const startAt = isoToUnix('2025-06-15T00:00:00Z');
+      const endAt = isoToUnix('2025-06-15T23:59:59Z');
+      
       const res = await request(app)
         .post('/admin/seasons')
         .send({
           name: 'Single Day Season',
-          start_date: '2025-06-15',
-          end_date: '2025-06-15',
+          start_at: startAt,
+          end_at: endAt,
           is_active: false
         });
 
       expect(res.status).toBe(201);
-      expect(res.body.start_date).toBe(res.body.end_date);
+      expect(res.body.start_at).toBeLessThanOrEqual(res.body.end_at);
     });
 
     test('multiple seasons can coexist as inactive', async () => {
@@ -440,8 +454,8 @@ describe('Coverage Improvements - Quick Wins', () => {
         .post('/admin/seasons')
         .send({
           name: 'Season 1',
-          start_date: '2025-01-01',
-          end_date: '2025-03-31',
+          start_at: isoToUnix('2025-01-01T00:00:00Z'),
+          end_at: isoToUnix('2025-03-31T23:59:59Z'),
           is_active: false
         });
 
@@ -449,8 +463,8 @@ describe('Coverage Improvements - Quick Wins', () => {
         .post('/admin/seasons')
         .send({
           name: 'Season 2',
-          start_date: '2025-04-01',
-          end_date: '2025-06-30',
+          start_at: isoToUnix('2025-04-01T00:00:00Z'),
+          end_at: isoToUnix('2025-06-30T23:59:59Z'),
           is_active: false
         });
 
@@ -468,8 +482,8 @@ describe('Coverage Improvements - Quick Wins', () => {
         .post('/admin/seasons')
         .send({
           name: 'First Active',
-          start_date: '2025-01-01',
-          end_date: '2025-03-31',
+          start_at: isoToUnix('2025-01-01T00:00:00Z'),
+          end_at: isoToUnix('2025-03-31T23:59:59Z'),
           is_active: true
         });
 
@@ -480,8 +494,8 @@ describe('Coverage Improvements - Quick Wins', () => {
         .post('/admin/seasons')
         .send({
           name: 'Second Active',
-          start_date: '2025-04-01',
-          end_date: '2025-06-30',
+          start_at: isoToUnix('2025-04-01T00:00:00Z'),
+          end_at: isoToUnix('2025-06-30T23:59:59Z'),
           is_active: true
         });
 
@@ -498,8 +512,8 @@ describe('Coverage Improvements - Quick Wins', () => {
         .post('/admin/seasons')
         .send({
           name: 'Specific Season',
-          start_date: '2025-01-01',
-          end_date: '2025-12-31',
+          start_at: isoToUnix('2025-01-01T00:00:00Z'),
+          end_at: isoToUnix('2025-12-31T23:59:59Z'),
           is_active: false
         });
 
@@ -516,23 +530,23 @@ describe('Coverage Improvements - Quick Wins', () => {
         .post('/admin/seasons')
         .send({
           name: 'Original',
-          start_date: '2025-01-01',
-          end_date: '2025-06-30',
+          start_at: isoToUnix('2025-01-01T00:00:00Z'),
+          end_at: isoToUnix('2025-06-30T23:59:59Z'),
           is_active: false
         });
 
       const seasonId = createRes.body.id;
+      const newEndAt = isoToUnix('2025-12-31T23:59:59Z');
 
       const updateRes = await request(app)
         .put(`/admin/seasons/${seasonId}`)
         .send({
-          start_date: '2025-02-01',
-          end_date: '2025-12-31'
+          start_at: isoToUnix('2025-02-01T00:00:00Z'),
+          end_at: newEndAt
         });
 
       expect(updateRes.status).toBe(200);
-      expect(updateRes.body.start_date).toBe('2025-02-01');
-      expect(updateRes.body.end_date).toBe('2025-12-31');
+      expect(updateRes.body.end_at).toBe(newEndAt);
     });
   });
 
@@ -548,8 +562,8 @@ describe('Coverage Improvements - Quick Wins', () => {
         athleteId: 999999,
         data: {
           name: 'Unauthorized Season',
-          start_date: '2026-01-01',
-          end_date: '2026-12-31',
+          start_at: isoToUnix('2026-01-01T00:00:00Z'),
+          end_at: isoToUnix('2026-12-31T23:59:59Z'),
           is_active: false
         }
       });
@@ -564,8 +578,8 @@ describe('Coverage Improvements - Quick Wins', () => {
         .post('/admin/seasons')
         .send({
           name: 'Original Season',
-          start_date: '2026-01-01',
-          end_date: '2026-12-31',
+          start_at: isoToUnix('2026-01-01T00:00:00Z'),
+          end_at: isoToUnix('2026-12-31T23:59:59Z'),
           is_active: false
         });
 
@@ -589,8 +603,8 @@ describe('Coverage Improvements - Quick Wins', () => {
         .post('/admin/seasons')
         .send({
           name: 'Season to Delete',
-          start_date: '2026-01-01',
-          end_date: '2026-12-31',
+          start_at: isoToUnix('2026-01-01T00:00:00Z'),
+          end_at: isoToUnix('2026-12-31T23:59:59Z'),
           is_active: false
         });
 
@@ -644,13 +658,13 @@ describe('Coverage Improvements - Quick Wins', () => {
           date: '2025-06-02',
           segment_id: TEST_SEGMENT_1,
           required_laps: 2,
-          start_time: '07:00',
-          end_time: '20:00'
+          start_time: '2025-06-02T07:00:00Z',
+          end_time: '2025-06-02T20:00:00Z'
         });
 
       expect(res.status).toBe(201);
-      expect(res.body.start_time).toBe('07:00');
-      expect(res.body.end_time).toBe('20:00');
+      expect(res.body.start_at).toBe(isoToUnix('2025-06-02T07:00:00Z'));
+      expect(res.body.end_at).toBe(isoToUnix('2025-06-02T20:00:00Z'));
     });
 
     test('week date can be in past or future', async () => {
@@ -1027,8 +1041,8 @@ describe('Coverage Improvements - Quick Wins', () => {
             {
               id: 1,
               name: 'Imported Season',
-              start_date: '2025-01-01',
-              end_date: '2025-12-31',
+              start_at: isoToUnix('2025-01-01T00:00:00Z'),
+              end_at: isoToUnix('2025-12-31T23:59:59Z'),
               is_active: 1
             }
           ],
@@ -1037,11 +1051,10 @@ describe('Coverage Improvements - Quick Wins', () => {
               id: 1,
               season_id: 1,
               week_name: 'Imported Week 1',
-              date: '2025-01-07',
               strava_segment_id: 888888,
               required_laps: 2,
-              start_time: '2025-01-07T00:00:00Z',
-              end_time: '2025-01-07T22:00:00Z'
+              start_at: isoToUnix('2025-01-07T00:00:00Z'),
+              end_at: isoToUnix('2025-01-07T22:00:00Z')
             }
           ]
         };
@@ -1078,8 +1091,8 @@ describe('Coverage Improvements - Quick Wins', () => {
             {
               id: 1,
               name: 'Season',
-              start_date: '2025-01-01',
-              end_date: '2025-12-31',
+              start_at: isoToUnix('2025-01-01T00:00:00Z'),
+              end_at: isoToUnix('2025-12-31T23:59:59Z'),
               is_active: 1
             }
           ],
@@ -1088,11 +1101,10 @@ describe('Coverage Improvements - Quick Wins', () => {
               id: 1,
               season_id: 1,
               week_name: 'Week',
-              date: '2025-01-07',
               strava_segment_id: 111111,
               required_laps: 1,
-              start_time: '2025-01-07T00:00:00Z',
-              end_time: '2025-01-07T22:00:00Z'
+              start_at: isoToUnix('2025-01-07T00:00:00Z'),
+              end_at: isoToUnix('2025-01-07T22:00:00Z')
             }
           ]
         };
@@ -1176,14 +1188,14 @@ describe('Coverage Improvements - Quick Wins', () => {
             {
               id: 1,
               name: 'Valid Season',
-              start_date: '2025-01-01',
-              end_date: '2025-12-31',
+              start_at: isoToUnix('2025-01-01T00:00:00Z'),
+              end_at: isoToUnix('2025-12-31T23:59:59Z'),
               is_active: 1
             },
             {
               id: 2,
               name: 'Invalid Season'
-              // Missing required start_date and end_date
+              // Missing required start_at and end_at
             }
           ],
           weeks: []
@@ -1239,8 +1251,8 @@ describe('Coverage Improvements - Quick Wins', () => {
             {
               id: 1,
               name: 'Season',
-              start_date: '2025-01-01',
-              end_date: '2025-12-31',
+              start_at: isoToUnix('2025-01-01T00:00:00Z'),
+              end_at: isoToUnix('2025-12-31T23:59:59Z'),
               is_active: 1
             }
           ],

@@ -12,6 +12,23 @@ const stravaClient = require('./stravaClient');
 const activityProcessor = require('./activityProcessor');
 const { getValidAccessToken } = require('./tokenManager');
 const { storeActivityAndEfforts } = require('./activityStorage');
+const { isoToUnix, unixToISO, nowISO, secondsToHHMMSS, extractDateFromISO, defaultDayTimeWindow } = require('./dateUtils');
+
+/**
+ * Ensure a time string ends with Z (UTC indicator)
+ * @param {string} timeString - Time string potentially missing Z suffix
+ * @returns {string} Time string with Z suffix
+ */
+function normalizeTimeWithZ(timeString) {
+  if (!timeString) return timeString;
+  if (typeof timeString !== 'string') return timeString;
+  // If it doesn't end with Z and has T, add Z
+  if (timeString.includes('T') && !timeString.endsWith('Z')) {
+    console.warn(`[TIME NORMALIZATION] Adding missing Z suffix to: '${timeString}'`);
+    return timeString + 'Z';
+  }
+  return timeString;
+}
 
 // Load .env from project root (one level up from server directory)
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
@@ -268,7 +285,6 @@ const requireAdmin = (req, res, next) => {
 // validateActivityTimeWindow is now provided by activityProcessor module
 const validateActivityTimeWindow = activityProcessor.validateActivityTimeWindow;
 
-// Calculate results and rankings for a week
 // ========================================
 // UTILITY FUNCTIONS
 // ========================================
@@ -510,7 +526,7 @@ app.post('/user/data/delete', (req, res) => {
       db.prepare('DELETE FROM participant_token WHERE strava_athlete_id = ?').run(stravaAthleteId);
       
       // 5. Log deletion request BEFORE deleting participant (foreign key constraint)
-      const deletionTimestamp = new Date().toISOString();
+      const deletionTimestamp = nowISO();
       db.prepare(`
         INSERT INTO deletion_request (strava_athlete_id, requested_at, status, completed_at)
         VALUES (?, ?, ?, ?)
@@ -531,7 +547,7 @@ app.post('/user/data/delete', (req, res) => {
     });
     
     // Return success response
-    const deletionTimestamp = new Date().toISOString();
+    const deletionTimestamp = nowISO();
     
     res.json({
       success: true,
@@ -607,7 +623,7 @@ app.get('/user/data', (req, res) => {
     
     // Return all data
     res.json({
-      exportedAt: new Date().toISOString(),
+      exportedAt: nowISO(),
       participant: {
         name: participant.name,
         stravaAthleteId: participant.strava_athlete_id,
@@ -653,13 +669,13 @@ app.get('/segments', (req, res) => {
 // ========================================
 
 app.get('/seasons', (req, res) => {
-  const seasons = db.prepare('SELECT id, name, start_date, end_date, is_active FROM season ORDER BY start_date DESC').all();
+  const seasons = db.prepare('SELECT id, name, start_at, end_at, is_active FROM season ORDER BY start_at DESC').all();
   res.json(seasons);
 });
 
 app.get('/seasons/:id', (req, res) => {
   const seasonId = parseInt(req.params.id, 10);
-  const season = db.prepare('SELECT id, name, start_date, end_date, is_active FROM season WHERE id = ?').get(seasonId);
+  const season = db.prepare('SELECT id, name, start_at, end_at, is_active FROM season WHERE id = ?').get(seasonId);
   if (!season) return res.status(404).json({ error: 'Season not found' });
   res.json(season);
 });
@@ -667,7 +683,7 @@ app.get('/seasons/:id', (req, res) => {
 app.get('/seasons/:id/leaderboard', (req, res) => {
   const seasonId = parseInt(req.params.id, 10);
   
-  const season = db.prepare('SELECT id, name, start_date, end_date FROM season WHERE id = ?').get(seasonId);
+  const season = db.prepare('SELECT id, name, start_at, end_at FROM season WHERE id = ?').get(seasonId);
   if (!season) return res.status(404).json({ error: 'Season not found' });
 
   // Compute season standings by summing weekly scores calculated on read
@@ -675,7 +691,7 @@ app.get('/seasons/:id/leaderboard', (req, res) => {
   
   // Get all weeks in this season
   const weeks = db.prepare(`
-    SELECT id, week_name, date FROM week WHERE season_id = ? ORDER BY date ASC
+    SELECT id, week_name, start_at FROM week WHERE season_id = ? ORDER BY start_at ASC
   `).all(seasonId);
 
   const allParticipantScores = {};  // { athlete_id: { name, total_points, weeks_completed } }
@@ -741,22 +757,12 @@ app.get('/seasons/:id/leaderboard', (req, res) => {
 // WEEKS ENDPOINTS
 // ========================================
 
-// Get all seasons
-app.get('/seasons', (req, res) => {
-  const rows = db.prepare(`
-    SELECT id, name, start_date, end_date, is_active
-    FROM season
-    ORDER BY start_date DESC
-  `).all();
-  res.json(rows);
-});
-
 app.get('/weeks', (req, res) => {
   const seasonId = req.query.season_id ? parseInt(req.query.season_id, 10) : null;
   
   let query = `
-    SELECT w.id, w.season_id, w.week_name, w.date, w.strava_segment_id as segment_id, w.required_laps, 
-           w.start_time, w.end_time, s.name as segment_name
+    SELECT w.id, w.season_id, w.week_name, w.strava_segment_id as segment_id, w.required_laps, 
+           w.start_at, w.end_at, s.name as segment_name
     FROM week w
     LEFT JOIN segment s ON w.strava_segment_id = s.strava_segment_id
   `;
@@ -765,7 +771,7 @@ app.get('/weeks', (req, res) => {
     query += ` WHERE w.season_id = ${seasonId}`;
   }
   
-  query += ' ORDER BY w.date DESC';
+  query += ' ORDER BY w.start_at DESC';
   
   const rows = db.prepare(query).all();
   res.json(rows);
@@ -774,8 +780,8 @@ app.get('/weeks', (req, res) => {
 app.get('/weeks/:id', (req, res) => {
   const weekId = parseInt(req.params.id, 10);
   const week = db.prepare(`
-    SELECT w.id, w.season_id, w.week_name, w.date, w.strava_segment_id as segment_id, w.required_laps, 
-           w.start_time, w.end_time, s.name as segment_name
+    SELECT w.id, w.season_id, w.week_name, w.strava_segment_id as segment_id, w.required_laps, 
+           w.start_at, w.end_at, s.name as segment_name
     FROM week w
     LEFT JOIN segment s ON w.strava_segment_id = s.strava_segment_id
     WHERE w.id = ?
@@ -787,7 +793,7 @@ app.get('/weeks/:id', (req, res) => {
 app.get('/weeks/:id/leaderboard', (req, res) => {
   const weekId = parseInt(req.params.id, 10);
   const week = db.prepare(`
-    SELECT w.id, w.season_id, w.week_name, w.date, w.strava_segment_id as segment_id, w.required_laps, w.start_time, w.end_time,
+    SELECT w.id, w.season_id, w.week_name, w.strava_segment_id as segment_id, w.required_laps, w.start_at, w.end_at,
            s.name as segment_name
     FROM week w
     LEFT JOIN segment s ON w.strava_segment_id = s.strava_segment_id
@@ -839,7 +845,7 @@ app.get('/weeks/:id/leaderboard', (req, res) => {
       effortBreakdown = efforts.map(e => ({
         lap: e.effort_index + 1,
         time_seconds: e.elapsed_seconds,
-        time_hhmmss: new Date(e.elapsed_seconds * 1000).toISOString().substring(11, 19),
+        time_hhmmss: secondsToHHMMSS(e.elapsed_seconds),
         is_pr: e.pr_achieved ? true : false,
         strava_effort_id: e.strava_effort_id
       }));
@@ -850,7 +856,7 @@ app.get('/weeks/:id/leaderboard', (req, res) => {
       participant_id: activity.participant_id,
       name: activity.name,
       total_time_seconds: activity.total_time_seconds,
-      time_hhmmss: new Date(activity.total_time_seconds * 1000).toISOString().substring(11, 19),
+      time_hhmmss: secondsToHHMMSS(activity.total_time_seconds),
       effort_breakdown: effortBreakdown,  // null if only 1 lap, array if multiple
       points: totalPoints,
       pr_bonus_points: prBonus,
@@ -888,7 +894,7 @@ app.get('/activities/:id/efforts', (req, res) => {
     SELECT 
       se.effort_index,
       se.elapsed_seconds,
-      se.start_time,
+      se.start_at,
       se.pr_achieved,
       s.name as segment_name
     FROM segment_effort se
@@ -905,9 +911,9 @@ app.get('/season/leaderboard', (req, res) => {
   // This ensures total points are always correct even if users delete their data
   // Scoring is computed fresh from activities each time (no stale cached results)
   
-  // Get all weeks (sorted by date for logic clarity)
+  // Get all weeks (sorted by start_at for logic clarity)
   const weeks = db.prepare(`
-    SELECT id, week_name, date FROM week ORDER BY date ASC
+    SELECT id, week_name, start_at FROM week ORDER BY start_at ASC
   `).all();
 
   const allParticipantScores = {};  // { athlete_id: { name, total_points, weeks_completed } }
@@ -977,12 +983,12 @@ app.get('/season/leaderboard', (req, res) => {
 
 // Create a new season
 app.post('/admin/seasons', requireAdmin, (req, res) => {
-  const { name, start_date, end_date, is_active } = req.body;
+  const { name, start_at, end_at, is_active } = req.body;
 
-  if (!name || !start_date || !end_date) {
+  if (!name || start_at === undefined || end_at === undefined) {
     return res.status(400).json({ 
       error: 'Missing required fields',
-      required: ['name', 'start_date', 'end_date']
+      required: ['name', 'start_at', 'end_at']
     });
   }
 
@@ -993,11 +999,11 @@ app.post('/admin/seasons', requireAdmin, (req, res) => {
     }
 
     const result = db.prepare(`
-      INSERT INTO season (name, start_date, end_date, is_active)
+      INSERT INTO season (name, start_at, end_at, is_active)
       VALUES (?, ?, ?, ?)
-    `).run(name, start_date, end_date, is_active ? 1 : 0);
+    `).run(name, start_at, end_at, is_active ? 1 : 0);
 
-    const newSeason = db.prepare('SELECT id, name, start_date, end_date, is_active FROM season WHERE id = ?').get(result.lastInsertRowid);
+    const newSeason = db.prepare('SELECT id, name, start_at, end_at, is_active FROM season WHERE id = ?').get(result.lastInsertRowid);
     res.status(201).json(newSeason);
   } catch (error) {
     res.status(500).json({ error: 'Failed to create season', details: error.message });
@@ -1007,7 +1013,7 @@ app.post('/admin/seasons', requireAdmin, (req, res) => {
 // Update an existing season
 app.put('/admin/seasons/:id', requireAdmin, (req, res) => {
   const seasonId = parseInt(req.params.id, 10);
-  const { name, start_date, end_date, is_active } = req.body;
+  const { name, start_at, end_at, is_active } = req.body;
 
   const existingSeason = db.prepare('SELECT id FROM season WHERE id = ?').get(seasonId);
   if (!existingSeason) {
@@ -1027,13 +1033,13 @@ app.put('/admin/seasons/:id', requireAdmin, (req, res) => {
       updates.push('name = ?');
       values.push(name);
     }
-    if (start_date !== undefined) {
-      updates.push('start_date = ?');
-      values.push(start_date);
+    if (start_at !== undefined) {
+      updates.push('start_at = ?');
+      values.push(start_at);
     }
-    if (end_date !== undefined) {
-      updates.push('end_date = ?');
-      values.push(end_date);
+    if (end_at !== undefined) {
+      updates.push('end_at = ?');
+      values.push(end_at);
     }
     if (is_active !== undefined) {
       updates.push('is_active = ?');
@@ -1047,7 +1053,7 @@ app.put('/admin/seasons/:id', requireAdmin, (req, res) => {
     values.push(seasonId);
     db.prepare(`UPDATE season SET ${updates.join(', ')} WHERE id = ?`).run(...values);
 
-    const updatedSeason = db.prepare('SELECT id, name, start_date, end_date, is_active FROM season WHERE id = ?').get(seasonId);
+    const updatedSeason = db.prepare('SELECT id, name, start_at, end_at, is_active FROM season WHERE id = ?').get(seasonId);
     res.json(updatedSeason);
   } catch (error) {
     res.status(500).json({ error: 'Failed to update season', details: error.message });
@@ -1108,7 +1114,7 @@ app.post('/admin/weeks', requireAdmin, (req, res) => {
   // Extract date from start_time if not provided
   let finalDate = date;
   if (!finalDate && start_time) {
-    finalDate = start_time.split('T')[0];
+    finalDate = extractDateFromISO(start_time);
     console.log('Extracted date from start_time:', finalDate);
   }
 
@@ -1130,30 +1136,24 @@ app.post('/admin/weeks', requireAdmin, (req, res) => {
   }
 
   // Default time window: midnight to 10pm on event date
-  const defaultStartTime = start_time || `${finalDate}T00:00:00Z`;
-  const defaultEndTime = end_time || `${finalDate}T22:00:00Z`;
+  const timeWindow = start_time || end_time ? {
+    start: start_time || `${finalDate}T00:00:00Z`,
+    end: end_time || `${finalDate}T22:00:00Z`
+  } : defaultDayTimeWindow(finalDate);
 
-  // CRITICAL: Ensure times have Z suffix (UTC indicator)
-  // Without Z, JavaScript's new Date() interprets as local time, causing wrong Unix timestamps
-  const normalizeTimeWithZ = (timeString) => {
-    if (!timeString) return timeString;
-    if (typeof timeString !== 'string') return timeString;
-    // If it doesn't end with Z and has T, add Z
-    if (timeString.includes('T') && !timeString.endsWith('Z')) {
-      console.warn(`[TIME NORMALIZATION] Adding missing Z suffix to: '${timeString}'`);
-      return timeString + 'Z';
-    }
-    return timeString;
-  };
+  // Normalize and convert times
+  const normalizedStartTime = normalizeTimeWithZ(timeWindow.start);
+  const normalizedEndTime = normalizeTimeWithZ(timeWindow.end);
   
-  const normalizedStartTime = normalizeTimeWithZ(defaultStartTime);
-  const normalizedEndTime = normalizeTimeWithZ(defaultEndTime);
-  
-  if (normalizedStartTime !== defaultStartTime || normalizedEndTime !== defaultEndTime) {
+  if (normalizedStartTime !== timeWindow.start || normalizedEndTime !== timeWindow.end) {
     console.warn('[TIME NORMALIZATION] Times were normalized:');
-    console.warn(`  Start: '${defaultStartTime}' → '${normalizedStartTime}'`);
-    console.warn(`  End: '${defaultEndTime}' → '${normalizedEndTime}'`);
+    console.warn(`  Start: '${timeWindow.start}' → '${normalizedStartTime}'`);
+    console.warn(`  End: '${timeWindow.end}' → '${normalizedEndTime}'`);
   }
+
+  // Convert ISO 8601 times to Unix timestamps (UTC seconds)
+  const startAtUnix = isoToUnix(normalizedStartTime);
+  const endAtUnix = isoToUnix(normalizedEndTime);
 
   // Ensure segment exists (segment_id is now Strava segment ID)
   if (segment_name && segment_id) {
@@ -1187,18 +1187,18 @@ app.post('/admin/weeks', requireAdmin, (req, res) => {
       date: finalDate, 
       segment_id: segment_id, 
       required_laps, 
-      start_time: normalizedStartTime, 
-      end_time: normalizedEndTime 
+      start_at: normalizedStartTime, 
+      end_at: normalizedEndTime 
     });
     
     const result = db.prepare(`
-      INSERT INTO week (season_id, week_name, date, strava_segment_id, required_laps, start_time, end_time)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(finalSeasonId, week_name, finalDate, segment_id, required_laps, normalizedStartTime, normalizedEndTime);
+      INSERT INTO week (season_id, week_name, strava_segment_id, required_laps, start_at, end_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(finalSeasonId, week_name, segment_id, required_laps, startAtUnix, endAtUnix);
 
     const newWeek = db.prepare(`
-      SELECT w.id, w.season_id, w.week_name, w.date, w.strava_segment_id as segment_id, w.required_laps, 
-             w.start_time, w.end_time, s.name as segment_name
+      SELECT w.id, w.season_id, w.week_name, w.strava_segment_id as segment_id, w.required_laps, 
+             w.start_at, w.end_at, s.name as segment_name
       FROM week w
       LEFT JOIN segment s ON w.strava_segment_id = s.strava_segment_id
       WHERE w.id = ?
@@ -1215,12 +1215,21 @@ app.post('/admin/weeks', requireAdmin, (req, res) => {
 // Update an existing week
 app.put('/admin/weeks/:id', requireAdmin, (req, res) => {
   const weekId = parseInt(req.params.id, 10);
-  const { season_id, week_name, date, segment_id, required_laps, start_time, end_time } = req.body;
+  // Accept both old (date, start_time, end_time) and new (start_at, end_at) parameters for backwards compatibility
+  const { season_id, week_name, date, segment_id, required_laps, start_time, end_time, start_at, end_at } = req.body;
 
   // Check if week exists
   const existingWeek = db.prepare('SELECT id FROM week WHERE id = ?').get(weekId);
   if (!existingWeek) {
     return res.status(404).json({ error: 'Week not found' });
+  }
+
+  // Check if any updates are provided
+  const hasUpdates = season_id !== undefined || week_name !== undefined || date !== undefined || segment_id !== undefined || 
+                     required_laps !== undefined || start_time !== undefined || end_time !== undefined || 
+                     start_at !== undefined || end_at !== undefined;
+  if (!hasUpdates) {
+    return res.status(400).json({ error: 'No fields to update' });
   }
 
   // Build dynamic update query
@@ -1240,9 +1249,42 @@ app.put('/admin/weeks/:id', requireAdmin, (req, res) => {
     updates.push('week_name = ?');
     values.push(week_name);
   }
-  if (date !== undefined) {
-    updates.push('date = ?');
-    values.push(date);
+
+  // Handle timestamp updates (support both old and new parameter names)
+  if (start_at !== undefined) {
+    const unixSeconds = typeof start_at === 'string' ? isoToUnix(start_at) : start_at;
+    updates.push('start_at = ?');
+    values.push(unixSeconds);
+  } else if (start_time !== undefined) {
+    // Old parameter name for backwards compatibility
+    const normalized = normalizeTimeWithZ(start_time);
+    const unixSeconds = isoToUnix(normalized);
+    updates.push('start_at = ?');
+    values.push(unixSeconds);
+  } else if (date !== undefined && (req.body.start_time === undefined && req.body.start_at === undefined)) {
+    // If only date is provided (and no explicit time), compute start_at as midnight on that date
+    const window = defaultDayTimeWindow(date);
+    const startAtUnix = isoToUnix(window.start);
+    updates.push('start_at = ?');
+    values.push(startAtUnix);
+  }
+
+  if (end_at !== undefined) {
+    const unixSeconds = typeof end_at === 'string' ? isoToUnix(end_at) : end_at;
+    updates.push('end_at = ?');
+    values.push(unixSeconds);
+  } else if (end_time !== undefined) {
+    // Old parameter name for backwards compatibility
+    const normalized = normalizeTimeWithZ(end_time);
+    const unixSeconds = isoToUnix(normalized);
+    updates.push('end_at = ?');
+    values.push(unixSeconds);
+  } else if (date !== undefined && (req.body.end_time === undefined && req.body.end_at === undefined)) {
+    // If only date is provided (and no explicit time), compute end_at as 10pm on that date
+    const window = defaultDayTimeWindow(date);
+    const endAtUnix = isoToUnix(window.end);
+    updates.push('end_at = ?');
+    values.push(endAtUnix);
   }
   if (segment_id !== undefined) {
     if (req.body.segment_name !== undefined) {
@@ -1283,35 +1325,6 @@ app.put('/admin/weeks/:id', requireAdmin, (req, res) => {
     updates.push('required_laps = ?');
     values.push(required_laps);
   }
-  
-  // CRITICAL: Normalize times to ensure Z suffix (UTC indicator)
-  const normalizeTimeWithZ = (timeString) => {
-    if (!timeString) return timeString;
-    if (typeof timeString !== 'string') return timeString;
-    // If it doesn't end with Z and has T, add Z
-    if (timeString.includes('T') && !timeString.endsWith('Z')) {
-      console.warn(`[TIME NORMALIZATION] Adding missing Z suffix to: '${timeString}'`);
-      return timeString + 'Z';
-    }
-    return timeString;
-  };
-  
-  if (start_time !== undefined) {
-    const normalized = normalizeTimeWithZ(start_time);
-    if (normalized !== start_time) {
-      console.warn(`[TIME NORMALIZATION] Start time normalized: '${start_time}' → '${normalized}'`);
-    }
-    updates.push('start_time = ?');
-    values.push(normalized);
-  }
-  if (end_time !== undefined) {
-    const normalized = normalizeTimeWithZ(end_time);
-    if (normalized !== end_time) {
-      console.warn(`[TIME NORMALIZATION] End time normalized: '${end_time}' → '${normalized}'`);
-    }
-    updates.push('end_time = ?');
-    values.push(normalized);
-  }
 
   if (updates.length === 0) {
     return res.status(400).json({ error: 'No fields to update' });
@@ -1327,7 +1340,7 @@ app.put('/admin/weeks/:id', requireAdmin, (req, res) => {
     `).run(...values);
 
     const updatedWeek = db.prepare(`
-      SELECT id, week_name, date, strava_segment_id as segment_id, required_laps, start_time, end_time
+      SELECT id, week_name, strava_segment_id as segment_id, required_laps, start_at, end_at
       FROM week WHERE id = ?
     `).get(weekId);
 
@@ -1381,6 +1394,7 @@ app.post('/admin/weeks/:id/fetch-results', requireAdmin, async (req, res) => {
   
   try {
     // Get week details including segment info
+    // NEW SCHEMA: start_at and end_at are already INTEGER Unix seconds (UTC)
     const week = db.prepare(`
       SELECT w.*, s.strava_segment_id, s.name as segment_name
       FROM week w
@@ -1392,80 +1406,20 @@ app.post('/admin/weeks/:id/fetch-results', requireAdmin, async (req, res) => {
       return res.status(404).json({ error: 'Week not found' });
     }
     
-    // Get the season to determine timezone
-    const season = db.prepare(`
-      SELECT id, name, timezone_name FROM season WHERE id = ?
-    `).get(week.season_id);
-    
-    if (!season) {
-      return res.status(404).json({ error: 'Season not found' });
-    }
-    
-    // Use timezone manager to properly convert ET → UTC
-    const { computeWeekBoundaries } = require('./timezoneManager.js');
-    
-    // Extract time components from database strings (format: "2025-10-28T00:00" or "2025-10-28T00:00:00Z")
-    const parseTimeComponents = (isoStr) => {
-      if (!isoStr) return null;
-      const match = isoStr.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/);
-      if (!match) return null;
-      const [, date, hours, minutes, seconds] = match;
-      return {
-        date,
-        time: `${hours}:${minutes}:${seconds || '00'}`
-      };
-    };
-    
-    const startComponents = parseTimeComponents(week.start_time);
-    const endComponents = parseTimeComponents(week.end_time);
-    
-    if (!startComponents || !endComponents) {
-      return res.status(400).json({
-        error: 'Invalid week time format',
-        start_time: week.start_time,
-        end_time: week.end_time
-      });
-    }
-    
-    // CRITICAL: Use season timezone to convert week boundaries properly
-    const seasonTimezone = season.timezone_name || 'America/New_York'; // Default to Eastern
-    console.log(`[Batch Fetch] Season timezone: ${seasonTimezone}`);
-    
-    const boundaries = computeWeekBoundaries(
-      startComponents.date,
-      seasonTimezone,
-      startComponents.time,
-      endComponents.time
-    );
-    
-    if (!boundaries.valid) {
-      return res.status(400).json({
-        error: 'Failed to compute week boundaries',
-        details: boundaries.message
-      });
-    }
-    
-    // ===== WEEK TIMEZONE CONTEXT =====
-    console.log('\n[Batch Fetch] ========== WEEK TIMEZONE CONTEXT ==========');
-    console.log(`[Batch Fetch] Week: ID=${week.id}, Name='${week.week_name}', Date='${week.date}'`);
+    // ===== WEEK TIME CONTEXT =====
+    console.log('\n[Batch Fetch] ========== WEEK TIME CONTEXT ==========');
+    console.log(`[Batch Fetch] Week: ID=${week.id}, Name='${week.week_name}'`);
     console.log(`[Batch Fetch] Segment: ID=${week.strava_segment_id}, Name='${week.segment_name}'`);
     console.log(`[Batch Fetch] Required laps: ${week.required_laps}`);
-    console.log('[Batch Fetch] Time window (from database, raw):');
-    console.log(`  start_time: '${week.start_time}'`);
-    console.log(`  end_time: '${week.end_time}'`);
-    console.log(`[Batch Fetch] Season timezone: ${seasonTimezone}`);
-    console.log('[Batch Fetch] Time window (converted to UTC via timezoneManager):');
-    console.log(`  start_time_utc: '${boundaries.start_time_utc}'`);
-    console.log(`  end_time_utc: '${boundaries.end_time_utc}'`);
-    console.log('[Batch Fetch] Unix timestamps:');
-    console.log(`  start_unix: ${boundaries.start_unix} (${new Date(boundaries.start_unix * 1000).toISOString()})`);
-    console.log(`  end_unix: ${boundaries.end_unix} (${new Date(boundaries.end_unix * 1000).toISOString()})`);
-    console.log(`[Batch Fetch] Window duration: ${boundaries.end_unix - boundaries.start_unix} seconds (${(boundaries.end_unix - boundaries.start_unix) / 3600} hours)`);
+    console.log('[Batch Fetch] Time window (Unix seconds UTC):');
+    console.log(`  start_at: ${week.start_at} (${unixToISO(week.start_at)})`);
+    console.log(`  end_at: ${week.end_at} (${unixToISO(week.end_at)})`);
+    console.log(`[Batch Fetch] Window duration: ${week.end_at - week.start_at} seconds (${(week.end_at - week.start_at) / 3600} hours)`);
     console.log('[Batch Fetch] ========== END WEEK CONTEXT ==========\n');
     
-    // Use properly converted UTC times
-    const startUnix = boundaries.start_unix;
-    const endUnix = boundaries.end_unix;
+    // Use Unix times directly (no conversion needed)
+    const startUnix = week.start_at;
+    const endUnix = week.end_at;
     
     // Get all connected participants (those with valid tokens)
     const participants = db.prepare(`
@@ -1495,8 +1449,7 @@ app.post('/admin/weeks/:id/fetch-results', requireAdmin, async (req, res) => {
         // Get valid token (auto-refreshes if needed)
         const accessToken = await getValidAccessTokenWrapper(participant.strava_athlete_id);
         
-        // Fetch activities using properly converted UTC timestamps
-        // Pass UTC times directly instead of ambiguous ISO strings from database
+        // Fetch activities using Unix timestamps (already UTC)
         const activities = await stravaClient.listAthleteActivities(
           accessToken,
           startUnix,  // Unix timestamp for UTC start
@@ -1504,11 +1457,11 @@ app.post('/admin/weeks/:id/fetch-results', requireAdmin, async (req, res) => {
           { includeAllEfforts: true }
         );
         
-        console.log(`[Batch Fetch] Found ${activities.length} total activities within time window (${boundaries.start_time_utc} to ${boundaries.end_time_utc})`);
+        console.log(`[Batch Fetch] Found ${activities.length} total activities within time window`);
         if (activities.length > 0) {
           console.log(`[Batch Fetch] Activities for ${participant.name}:`);
           for (const act of activities) {
-            console.log(`  - ID: ${act.id}, Name: '${act.name}', Start: ${act.start_date_local}`);
+            console.log(`  - ID: ${act.id}, Strava ID: ${act.strava_activity_id}, Start: ${act.start_at}`);
           }
         }
         
@@ -1519,7 +1472,7 @@ app.post('/admin/weeks/:id/fetch-results', requireAdmin, async (req, res) => {
           week.strava_segment_id,
           week.required_laps,
           accessToken,
-          week  // CRITICAL: Pass week for time window validation
+          week  // Pass week for time window validation
         );
         
         if (bestActivity) {
@@ -1741,11 +1694,11 @@ app.get('/admin/export-data', requireDevelopmentMode, requireAdmin, (req, res) =
   try {
     // Export segments, seasons, and weeks only (not participants - they're tied to OAuth tokens)
     const segments = db.prepare('SELECT strava_segment_id, name, distance, average_grade, city, state, country FROM segment').all();
-    const seasons = db.prepare('SELECT id, name, start_date, end_date, is_active FROM season').all();
-    const weeks = db.prepare('SELECT id, season_id, week_name, date, strava_segment_id, required_laps, start_time, end_time FROM week').all();
+    const seasons = db.prepare('SELECT id, name, start_at, end_at, is_active FROM season').all();
+    const weeks = db.prepare('SELECT id, season_id, week_name, strava_segment_id, required_laps, start_at, end_at FROM week').all();
 
     const exportData = {
-      exportedAt: new Date().toISOString(),
+      exportedAt: nowISO(),
       version: '1.0',
       data: {
         segments,
@@ -1756,7 +1709,7 @@ app.get('/admin/export-data', requireDevelopmentMode, requireAdmin, (req, res) =
 
     // Return as downloadable JSON file
     res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Disposition', `attachment; filename="wmv-export-${new Date().toISOString().split('T')[0]}.json"`);
+    res.setHeader('Content-Disposition', `attachment; filename="wmv-export-${extractDateFromISO(nowISO())}.json"`);
     res.json(exportData);
   } catch (error) {
     console.error('Export failed:', error);
@@ -1807,11 +1760,11 @@ app.post('/admin/import-data', requireDevelopmentMode, requireAdmin, (req, res) 
       }
 
       // Insert seasons (must be before weeks)
-      const insertSeason = db.prepare('INSERT INTO season (name, start_date, end_date, is_active) VALUES (?, ?, ?, ?)');
+      const insertSeason = db.prepare('INSERT INTO season (name, start_at, end_at, is_active) VALUES (?, ?, ?, ?)');
       const seasonMap = {}; // Map old IDs to new IDs
       for (const s of seasons) {
-        if (s.name && s.start_date && s.end_date) {
-          const result = insertSeason.run(s.name, s.start_date, s.end_date, s.is_active ? 1 : 0);
+        if (s.name && s.start_at && s.end_at) {
+          const result = insertSeason.run(s.name, s.start_at, s.end_at, s.is_active ? 1 : 0);
           // Track the mapping: old ID -> new ID
           seasonMap[s.id] = result.lastInsertRowid;
         }
@@ -1819,21 +1772,20 @@ app.post('/admin/import-data', requireDevelopmentMode, requireAdmin, (req, res) 
 
       // Insert weeks (after seasons exist)
       const insertWeek = db.prepare(`
-        INSERT INTO week (season_id, week_name, date, strava_segment_id, required_laps, start_time, end_time)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO week (season_id, week_name, strava_segment_id, required_laps, start_at, end_at)
+        VALUES (?, ?, ?, ?, ?, ?)
       `);
       for (const w of weeks) {
-        if (w.season_id && w.week_name && w.strava_segment_id && w.start_time && w.end_time) {
+        if (w.season_id && w.week_name && w.strava_segment_id && w.start_at && w.end_at) {
           // Use mapped season ID in case it changed
           const seasonId = seasonMap[w.season_id] || w.season_id;
           insertWeek.run(
             seasonId,
             w.week_name,
-            w.date || null,
             w.strava_segment_id,
             w.required_laps || 1,
-            w.start_time,
-            w.end_time
+            w.start_at,
+            w.end_at
           );
         }
       }
@@ -1924,7 +1876,7 @@ app.post('/weeks/:id/submit-activity', async (req, res) => {
     }
 
     // Validate activity date matches week's Tuesday
-    const activityDate = activity.start_date_local.split('T')[0]; // YYYY-MM-DD
+    const activityDate = extractDateFromISO(activity.start_date_local);
     if (activityDate !== week.date) {
       return res.status(400).json({ 
         error: 'Activity date mismatch',
@@ -2030,10 +1982,13 @@ if (require.main === module) {
   const existingSeasons = db.prepare('SELECT COUNT(*) as count FROM season').get();
   if (existingSeasons.count === 0) {
     console.log('🌱 No seasons found. Creating Fall 2025 season...');
+    // Fall 2025: Oct 1 - Dec 31 (Unix timestamps in UTC)
+    const fallStart = isoToUnix('2025-10-01T00:00:00Z');
+    const fallEnd = isoToUnix('2025-12-31T23:59:59Z');
     db.prepare(`
-      INSERT INTO season (id, name, start_date, end_date, is_active)
+      INSERT INTO season (id, name, start_at, end_at, is_active)
       VALUES (?, ?, ?, ?, ?)
-    `).run(1, 'Fall 2025', '2025-10-01', '2025-12-31', 1);
+    `).run(1, 'Fall 2025', fallStart, fallEnd, 1);
     console.log('✅ Fall 2025 season created (Oct 1 - Dec 31)');
   }
 
@@ -2041,8 +1996,8 @@ if (require.main === module) {
     console.log(`WMV backend listening on port ${PORT}`);
     
     // ===== TIMEZONE DIAGNOSTICS =====
-    const now = new Date();
-    const utcString = now.toISOString();
+    const utcString = nowISO();
+    const now = new Date(utcString);
     const localString = now.toString();
     const tzOffsetMinutes = now.getTimezoneOffset();
     const tzOffsetHours = -tzOffsetMinutes / 60;
@@ -2054,17 +2009,17 @@ if (require.main === module) {
     console.log(`  System timezone name: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
     
     // Demonstrate timestamp conversions
-    const exampleDate = new Date('2025-10-28T12:00:00Z'); // UTC noon
-    const exampleUnix = Math.floor(exampleDate.getTime() / 1000);
+    const exampleIso = '2025-10-28T12:00:00Z';
+    const exampleUnix = isoToUnix(exampleIso);
     console.log('[TIMEZONE DIAGNOSTIC] Example UTC conversion:');
-    console.log(`  ISO string "2025-10-28T12:00:00Z" → Unix timestamp: ${exampleUnix}`);
-    console.log(`  Back to ISO: ${new Date(exampleUnix * 1000).toISOString()}`);
+    console.log(`  ISO string "${exampleIso}" → Unix timestamp: ${exampleUnix}`);
+    console.log(`  Back to ISO: ${unixToISO(exampleUnix)}`);
     
     // Check database timezone context
     const seasonCheck = db.prepare('SELECT * FROM season LIMIT 1').get();
     if (seasonCheck) {
       console.log('[TIMEZONE DIAGNOSTIC] Database context:');
-      console.log(`  Active season: ${seasonCheck.name} (${seasonCheck.start_date} to ${seasonCheck.end_date})`);
+      console.log(`  Active season: ${seasonCheck.name} (Unix: ${seasonCheck.start_at} to ${seasonCheck.end_at})`);
     }
     // ===== END TIMEZONE DIAGNOSTICS =====
     

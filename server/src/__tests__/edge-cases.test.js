@@ -1,3 +1,4 @@
+const { isoToUnix } = require('../dateUtils');
 const request = require('supertest');
 const path = require('path');
 const fs = require('fs');
@@ -164,13 +165,16 @@ describe('Edge Cases and Error Handling', () => {
     });
 
     test('Can update just date', async () => {
+      const newDate = '2026-01-13';
       const response = await request(app)
         .put(`/admin/weeks/${weekId}`)
-        .send({ date: '2026-01-13' })
+        .send({ date: newDate })
         .set('Content-Type', 'application/json');
 
       expect(response.status).toBe(200);
-      expect(response.body.date).toBe('2026-01-13');
+      // With new schema, date is converted to start_at (midnight) and end_at (10pm)
+      const expectedStartAt = Math.floor(new Date(`${newDate}T00:00:00Z`).getTime() / 1000);
+      expect(response.body.start_at).toBe(expectedStartAt);
     });
 
     test('Cannot update to invalid segment_id', async () => {
@@ -196,7 +200,7 @@ describe('Edge Cases and Error Handling', () => {
       expect(response.status).toBe(200);
       expect(response.body.week_name).toBe('Multi-Update');
       expect(response.body.required_laps).toBe(7);
-      expect(response.body.start_time).toBe('2026-01-13T05:00:00Z');
+      expect(response.body.start_at).toBe(isoToUnix('2026-01-13T05:00:00Z'));
     });
   });
 

@@ -26,10 +26,9 @@ CREATE TABLE IF NOT EXISTS segment (
 CREATE TABLE IF NOT EXISTS season (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
-  start_date TEXT NOT NULL,
-  end_date TEXT NOT NULL,
+  start_at INTEGER NOT NULL,
+  end_at INTEGER NOT NULL,
   is_active BOOLEAN DEFAULT 0,
-  timezone_name TEXT DEFAULT 'America/New_York',
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -37,11 +36,10 @@ CREATE TABLE IF NOT EXISTS week (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   season_id INTEGER NOT NULL,
   week_name TEXT NOT NULL,
-  date TEXT NOT NULL,
   strava_segment_id INTEGER NOT NULL,
   required_laps INTEGER NOT NULL DEFAULT 1,
-  start_time TEXT NOT NULL,
-  end_time TEXT NOT NULL,
+  start_at INTEGER NOT NULL,
+  end_at INTEGER NOT NULL,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY(season_id) REFERENCES season(id),
   FOREIGN KEY(strava_segment_id) REFERENCES segment(strava_segment_id)
@@ -52,6 +50,7 @@ CREATE TABLE IF NOT EXISTS activity (
   week_id INTEGER NOT NULL,
   strava_athlete_id INTEGER NOT NULL,
   strava_activity_id INTEGER NOT NULL,
+  start_at INTEGER NOT NULL,
   device_name TEXT,
   validation_status TEXT DEFAULT 'valid',
   validation_message TEXT,
@@ -69,7 +68,7 @@ CREATE TABLE IF NOT EXISTS segment_effort (
   strava_effort_id TEXT,
   effort_index INTEGER NOT NULL,
   elapsed_seconds INTEGER NOT NULL,
-  start_time TEXT,
+  start_at INTEGER NOT NULL,
   pr_achieved BOOLEAN DEFAULT 0,
   FOREIGN KEY(activity_id) REFERENCES activity(id),
   FOREIGN KEY(strava_segment_id) REFERENCES segment(strava_segment_id)

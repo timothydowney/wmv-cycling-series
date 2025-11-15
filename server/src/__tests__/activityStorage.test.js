@@ -3,6 +3,7 @@
  * Tests for activity and segment effort persistence
  */
 
+const { isoToUnix } = require('../dateUtils');
 const { storeActivityAndEfforts } = require('../activityStorage');
 
 describe('Activity Storage', () => {
@@ -44,15 +45,18 @@ describe('Activity Storage', () => {
 
       const activityData = {
         id: 9876543210,
+        start_date_local: '2025-06-01T10:00:00Z',
         device_name: 'Garmin Edge 530',
         segmentEfforts: [
           {
             id: 1111111111,
+            start_date: '2025-06-01T10:05:00Z',
             elapsed_time: 720,
             pr_rank: null
           },
           {
             id: 2222222222,
+            start_date: '2025-06-01T10:07:00Z',
             elapsed_time: 710,
             pr_rank: 1 // PR achieved
           }
@@ -62,15 +66,16 @@ describe('Activity Storage', () => {
 
       storeActivityAndEfforts(mockDb, testAthleteId, testWeekId, activityData, testSegmentId);
 
-      // Verify activity was inserted
+      // Verify activity was inserted with Unix timestamp
       expect(mockInsertActivityStatement.run).toHaveBeenCalledWith(
         testWeekId,
         testAthleteId,
         9876543210,
+        isoToUnix('2025-06-01T10:00:00Z'),
         'Garmin Edge 530'
       );
 
-      // Verify segment efforts were inserted
+      // Verify segment efforts were inserted with Unix timestamps
       expect(mockInsertSegmentEffortStatement.run).toHaveBeenCalledTimes(2);
       expect(mockInsertSegmentEffortStatement.run).toHaveBeenNthCalledWith(
         1,
@@ -79,6 +84,7 @@ describe('Activity Storage', () => {
         '1111111111',
         0,
         720,
+        isoToUnix('2025-06-01T10:05:00Z'),
         0 // No PR
       );
       expect(mockInsertSegmentEffortStatement.run).toHaveBeenNthCalledWith(
@@ -88,6 +94,7 @@ describe('Activity Storage', () => {
         '2222222222',
         1,
         710,
+        isoToUnix('2025-06-01T10:07:00Z'),
         1 // PR achieved
       );
 
@@ -125,9 +132,10 @@ describe('Activity Storage', () => {
 
       const activityData = {
         id: 9876543211,
+        start_date_local: '2025-06-01T11:00:00Z',
         device_name: null,
         segmentEfforts: [
-          { id: 3333333333, elapsed_time: 650, pr_rank: null }
+          { id: 3333333333, start_date: '2025-06-01T11:05:00Z', elapsed_time: 650, pr_rank: null }
         ],
         totalTime: 650
       };
@@ -139,11 +147,12 @@ describe('Activity Storage', () => {
       expect(mockDeleteSegmentEffortStatement.run).toHaveBeenCalledWith(existingActivityId);
       expect(mockDeleteActivityStatement.run).toHaveBeenCalledWith(existingActivityId);
 
-      // Verify new activity was inserted
+      // Verify new activity was inserted with Unix timestamp
       expect(mockInsertActivityStatement.run).toHaveBeenCalledWith(
         testWeekId,
         testAthleteId,
         9876543211,
+        isoToUnix('2025-06-01T11:00:00Z'),
         null
       );
     });
@@ -166,20 +175,22 @@ describe('Activity Storage', () => {
 
       const activityData = {
         id: 9876543212,
+        start_date_local: '2025-06-01T12:00:00Z',
         device_name: undefined, // No device name
         segmentEfforts: [
-          { id: 4444444444, elapsed_time: 680, pr_rank: null }
+          { id: 4444444444, start_date: '2025-06-01T12:05:00Z', elapsed_time: 680, pr_rank: null }
         ],
         totalTime: 680
       };
 
       storeActivityAndEfforts(mockDb, testAthleteId, testWeekId, activityData, testSegmentId);
 
-      // Should pass null for device_name when undefined
+      // Should pass null for device_name when undefined and Unix timestamp
       expect(mockInsertActivityStatement.run).toHaveBeenCalledWith(
         testWeekId,
         testAthleteId,
         9876543212,
+        isoToUnix('2025-06-01T12:00:00Z'),
         null
       );
     });
@@ -204,18 +215,19 @@ describe('Activity Storage', () => {
 
       const activityData = {
         id: 9876543213,
+        start_date_local: '2025-06-01T13:00:00Z',
         device_name: 'Garmin Edge 1030+',
         segmentEfforts: [
-          { id: 5555555555, elapsed_time: 600, pr_rank: 1 },
-          { id: 6666666666, elapsed_time: 590, pr_rank: 2 },
-          { id: 7777777777, elapsed_time: 595, pr_rank: null }
+          { id: 5555555555, start_date: '2025-06-01T13:05:00Z', elapsed_time: 600, pr_rank: 1 },
+          { id: 6666666666, start_date: '2025-06-01T13:15:00Z', elapsed_time: 590, pr_rank: 2 },
+          { id: 7777777777, start_date: '2025-06-01T13:25:00Z', elapsed_time: 595, pr_rank: null }
         ],
         totalTime: 1785
       };
 
       storeActivityAndEfforts(mockDb, testAthleteId, testWeekId, activityData, testSegmentId);
 
-      // Should insert 3 segment efforts with correct indices
+      // Should insert 3 segment efforts with correct indices and Unix timestamps
       expect(mockInsertSegmentEffortStatement.run).toHaveBeenCalledTimes(3);
       expect(mockInsertSegmentEffortStatement.run).toHaveBeenNthCalledWith(
         1,
@@ -224,6 +236,7 @@ describe('Activity Storage', () => {
         '5555555555',
         0, // First effort
         600,
+        isoToUnix('2025-06-01T13:05:00Z'),
         1
       );
       expect(mockInsertSegmentEffortStatement.run).toHaveBeenNthCalledWith(
@@ -233,6 +246,7 @@ describe('Activity Storage', () => {
         '6666666666',
         1, // Second effort
         590,
+        isoToUnix('2025-06-01T13:15:00Z'),
         1
       );
       expect(mockInsertSegmentEffortStatement.run).toHaveBeenNthCalledWith(
@@ -242,6 +256,7 @@ describe('Activity Storage', () => {
         '7777777777',
         2, // Third effort
         595,
+        isoToUnix('2025-06-01T13:25:00Z'),
         0
       );
     });
@@ -266,18 +281,19 @@ describe('Activity Storage', () => {
 
       const activityData = {
         id: 9876543214,
+        start_date_local: '2025-06-01T14:00:00Z',
         device_name: null,
         segmentEfforts: [
-          { id: 8888888888, elapsed_time: 700, pr_rank: 1 }, // pr_rank = 1 (truthy)
-          { id: 9999999999, elapsed_time: 710, pr_rank: null }, // pr_rank = null (falsy)
-          { id: 1010101010, elapsed_time: 705, pr_rank: 0 } // pr_rank = 0 (falsy)
+          { id: 8888888888, start_date: '2025-06-01T14:05:00Z', elapsed_time: 700, pr_rank: 1 }, // pr_rank = 1 (truthy)
+          { id: 9999999999, start_date: '2025-06-01T14:15:00Z', elapsed_time: 710, pr_rank: null }, // pr_rank = null (falsy)
+          { id: 1010101010, start_date: '2025-06-01T14:25:00Z', elapsed_time: 705, pr_rank: 0 } // pr_rank = 0 (falsy)
         ],
         totalTime: 2115
       };
 
       storeActivityAndEfforts(mockDb, testAthleteId, testWeekId, activityData, testSegmentId);
 
-      // Check pr_achieved conversion (pr_rank ? 1 : 0)
+      // Check pr_achieved conversion (pr_rank ? 1 : 0) with Unix timestamps
       expect(mockInsertSegmentEffortStatement.run).toHaveBeenNthCalledWith(
         1,
         104,
@@ -285,6 +301,7 @@ describe('Activity Storage', () => {
         '8888888888',
         0,
         700,
+        isoToUnix('2025-06-01T14:05:00Z'),
         1 // pr_rank = 1 → pr_achieved = 1
       );
       expect(mockInsertSegmentEffortStatement.run).toHaveBeenNthCalledWith(
@@ -294,6 +311,7 @@ describe('Activity Storage', () => {
         '9999999999',
         1,
         710,
+        isoToUnix('2025-06-01T14:15:00Z'),
         0 // pr_rank = null → pr_achieved = 0
       );
       expect(mockInsertSegmentEffortStatement.run).toHaveBeenNthCalledWith(
@@ -303,6 +321,7 @@ describe('Activity Storage', () => {
         '1010101010',
         2,
         705,
+        isoToUnix('2025-06-01T14:25:00Z'),
         0 // pr_rank = 0 → pr_achieved = 0
       );
     });

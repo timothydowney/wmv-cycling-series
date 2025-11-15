@@ -3,6 +3,8 @@
  * Handles storing activities, segment efforts, and results atomically
  */
 
+const { isoToUnix } = require('./dateUtils');
+
 /**
  * Store activity and segment efforts in database (replaces existing if present)
  * Atomically deletes existing activity/efforts/results and inserts new ones
@@ -24,11 +26,14 @@ function storeActivityAndEfforts(db, stravaAthleteId, weekId, activityData, stra
     db.prepare('DELETE FROM activity WHERE id = ?').run(existing.id);
   }
   
-  // Store new activity
+  // Convert activity start_date (UTC ISO from Strava) to Unix timestamp
+  const activityStartUnix = isoToUnix(activityData.start_date_local);
+  
+  // Store new activity with start_at (Unix seconds UTC)
   const activityResult = db.prepare(`
-    INSERT INTO activity (week_id, strava_athlete_id, strava_activity_id, device_name, validation_status)
-    VALUES (?, ?, ?, ?, 'valid')
-  `).run(weekId, stravaAthleteId, activityData.id, activityData.device_name || null);
+    INSERT INTO activity (week_id, strava_athlete_id, strava_activity_id, start_at, device_name, validation_status)
+    VALUES (?, ?, ?, ?, ?, 'valid')
+  `).run(weekId, stravaAthleteId, activityData.id, activityStartUnix, activityData.device_name || null);
   
   const activityDbId = activityResult.lastInsertRowid;
   
@@ -36,16 +41,21 @@ function storeActivityAndEfforts(db, stravaAthleteId, weekId, activityData, stra
   console.log(`Storing ${activityData.segmentEfforts.length} segment efforts for activity ${activityDbId}`);
   for (let i = 0; i < activityData.segmentEfforts.length; i++) {
     const effort = activityData.segmentEfforts[i];
+    
+    // Convert effort start_date (UTC ISO from Strava) to Unix timestamp
+    const effortStartUnix = isoToUnix(effort.start_date);
+    
     console.log(`  Effort ${i}: strava_segment_id=${stravaSegmentId}, elapsed_time=${effort.elapsed_time}, strava_effort_id=${effort.id}`);
     db.prepare(`
-        INSERT INTO segment_effort (activity_id, strava_segment_id, strava_effort_id, effort_index, elapsed_seconds, pr_achieved)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO segment_effort (activity_id, strava_segment_id, strava_effort_id, effort_index, elapsed_seconds, start_at, pr_achieved)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       `).run(
       activityDbId,
       stravaSegmentId,
       String(effort.id),
       i,
       effort.elapsed_time,
+      effortStartUnix,
       effort.pr_rank ? 1 : 0
     );
   }

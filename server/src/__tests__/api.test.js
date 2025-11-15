@@ -1,6 +1,7 @@
 const request = require('supertest');
 const path = require('path');
 const fs = require('fs');
+const { isoToUnix } = require('../dateUtils');
 const {
   createSeason,
   createSegment,
@@ -174,8 +175,8 @@ describe('WMV Backend API', () => {
       expect(activeSeason).toBeDefined();
       expect(activeSeason.id).toBe(TEST_SEASON_ID);
       expect(activeSeason).toHaveProperty('name');
-      expect(activeSeason).toHaveProperty('start_date');
-      expect(activeSeason).toHaveProperty('end_date');
+      expect(activeSeason).toHaveProperty('start_at');
+      expect(activeSeason).toHaveProperty('end_at');
     });
 
     test('GET /seasons/:id returns season details', async () => {
@@ -210,8 +211,8 @@ describe('WMV Backend API', () => {
       expect(response.status).toBe(200);
       expect(Array.isArray(response.body)).toBe(true);
       expect(response.body.length).toBe(2); // Our 2 test weeks
-      expect(response.body[0]).toHaveProperty('start_time');
-      expect(response.body[0]).toHaveProperty('end_time');
+      expect(response.body[0]).toHaveProperty('start_at');
+      expect(response.body[0]).toHaveProperty('end_at');
       expect(response.body[0]).toHaveProperty('season_id', TEST_SEASON_ID);
     });
 
@@ -297,7 +298,6 @@ describe('WMV Backend API', () => {
         season_id: TEST_SEASON_ID,
         required_laps: 2
       };
-
       const response = await request(app)
         .post('/admin/weeks')
         .send(newWeek)
@@ -307,8 +307,8 @@ describe('WMV Backend API', () => {
       expect(response.body).toHaveProperty('id');
       expect(response.body.week_name).toBe('Test Week');
       expect(response.body.season_id).toBe(TEST_SEASON_ID);
-      expect(response.body.start_time).toBe('2025-12-03T00:00:00Z');
-      expect(response.body.end_time).toBe('2025-12-03T22:00:00Z');
+      expect(response.body.start_at).toBe(isoToUnix('2025-12-03T00:00:00Z'));
+      expect(response.body.end_at).toBe(isoToUnix('2025-12-03T22:00:00Z'));
 
       createdWeekId = response.body.id;
     });
@@ -330,8 +330,8 @@ describe('WMV Backend API', () => {
         .set('Content-Type', 'application/json');
 
       expect(response.status).toBe(201);
-      expect(response.body.start_time).toBe('2025-12-10T06:00:00Z');
-      expect(response.body.end_time).toBe('2025-12-10T12:00:00Z');
+      expect(response.body.start_at).toBe(isoToUnix('2025-12-10T06:00:00Z'));
+      expect(response.body.end_at).toBe(isoToUnix('2025-12-10T12:00:00Z'));
     });
 
     test('POST /admin/weeks validates required fields', async () => {
@@ -373,7 +373,7 @@ describe('WMV Backend API', () => {
 
       expect(response.status).toBe(200);
       expect(response.body.required_laps).toBe(5);
-      expect(response.body.start_time).toBe('2025-12-03T08:00:00Z');
+      expect(response.body.start_at).toBe(isoToUnix('2025-12-03T08:00:00Z'));
     });
 
     test('PUT /admin/weeks/:id returns 404 for invalid ID', async () => {
@@ -467,8 +467,8 @@ describe('WMV Backend API', () => {
     test('POST /admin/seasons creates new season', async () => {
       const newSeason = {
         name: 'Test Season 2026',
-        start_date: '2026-01-01',
-        end_date: '2026-12-31',
+        start_at: isoToUnix('2026-01-01T00:00:00Z'),
+        end_at: isoToUnix('2026-12-31T23:59:59Z'),
         is_active: 0
       };
 
@@ -488,8 +488,8 @@ describe('WMV Backend API', () => {
     test('POST /admin/seasons deactivates other seasons when creating active season', async () => {
       const newSeason = {
         name: 'New Active Season',
-        start_date: '2027-01-01',
-        end_date: '2027-12-31',
+        start_at: isoToUnix('2027-01-01T00:00:00Z'),
+        end_at: isoToUnix('2027-12-31T23:59:59Z'),
         is_active: 1
       };
 
@@ -526,13 +526,13 @@ describe('WMV Backend API', () => {
         .put(`/admin/seasons/${createdSeasonId}`)
         .send({
           name: 'Updated Test Season',
-          end_date: '2026-11-30'
+          end_at: isoToUnix('2026-11-30T23:59:59Z')
         })
         .set('Content-Type', 'application/json');
 
       expect(response.status).toBe(200);
       expect(response.body.name).toBe('Updated Test Season');
-      expect(response.body.end_date).toBe('2026-11-30');
+      expect(response.body.end_at).toBe(isoToUnix('2026-11-30T23:59:59Z'));
     });
 
     test('PUT /admin/seasons/:id returns 404 for invalid ID', async () => {

@@ -30,7 +30,7 @@ const SeasonSelector: React.FC<Props> = ({ seasons, selectedSeasonId, setSelecte
       >
         {seasons.map(season => (
           <option key={season.id} value={season.id}>
-            {season.name} ({new Date(season.start_date).getFullYear()})
+            {season.name}
           </option>
         ))}
       </select>
