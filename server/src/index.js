@@ -33,6 +33,63 @@ const CLIENT_BASE_URL = process.env.CLIENT_BASE_URL || 'http://localhost:5173';
 // In production (Railway): /data/wmv.db (persistent volume mounted in railway.toml)
 const DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, '..', 'data', 'wmv.db');
 
+// Log database startup information for troubleshooting mount/path issues
+console.log('========== DATABASE INITIALIZATION ==========');
+console.log(`[DB] NODE_ENV: ${process.env.NODE_ENV || 'undefined'}`);
+console.log(`[DB] DATABASE_PATH env var: ${process.env.DATABASE_PATH || '(not set - using default)'}`);
+console.log(`[DB] Resolved DB_PATH: ${DB_PATH}`);
+console.log(`[DB] Absolute DB_PATH: ${path.resolve(DB_PATH)}`);
+
+// Check if database file exists and gather stats
+const fs = require('fs');
+const dbDir = path.dirname(DB_PATH);
+const dbAbsolutePath = path.resolve(DB_PATH);
+
+try {
+  const stats = fs.statSync(dbAbsolutePath);
+  console.log('[DB] ✓ Database file EXISTS');
+  console.log(`[DB]   Size: ${stats.size} bytes`);
+  console.log(`[DB]   Last modified: ${stats.mtime.toISOString()}`);
+  console.log(`[DB]   Created: ${stats.birthtime.toISOString()}`);
+  console.log(`[DB]   Is file: ${stats.isFile()}`);
+} catch (err) {
+  if (err.code === 'ENOENT') {
+    console.log('[DB] ✗ Database file DOES NOT EXIST - will be created on first connection');
+  } else {
+    console.log(`[DB] ✗ ERROR checking database file: ${err.message}`);
+  }
+}
+
+// Check if directory exists and is writable
+try {
+  const dirStats = fs.statSync(dbDir);
+  console.log(`[DB] ✓ Database directory EXISTS: ${dbDir}`);
+  console.log(`[DB]   Is directory: ${dirStats.isDirectory()}`);
+  
+  // Check write permissions by attempting to access parent directory
+  try {
+    fs.accessSync(dbDir, fs.constants.W_OK);
+    console.log('[DB]   Directory is WRITABLE');
+  } catch (err) {
+    console.log(`[DB]   WARNING: Directory may NOT be writable: ${err.message}`);
+  }
+} catch (err) {
+  if (err.code === 'ENOENT') {
+    console.log(`[DB] ✗ Database directory DOES NOT EXIST: ${dbDir}`);
+    console.log('[DB]   Attempting to create directory...');
+    try {
+      require('fs').mkdirSync(dbDir, { recursive: true });
+      console.log(`[DB] ✓ Successfully created directory: ${dbDir}`);
+    } catch (createErr) {
+      console.log(`[DB] ✗ FAILED to create directory: ${createErr.message}`);
+    }
+  } else {
+    console.log(`[DB] ✗ ERROR checking directory: ${err.message}`);
+  }
+}
+
+console.log('==========================================');
+
 const app = express();
 
 // CRITICAL: Trust reverse proxy (Railway uses nginx proxy)
@@ -73,7 +130,17 @@ const sessionConfig = {
 
 // Initialize DB first (needed for session store)
 // Database path uses persistent /data volume on Railway, local dev folder otherwise
+console.log('[DB] Connecting to database...');
 const db = new Database(DB_PATH);
+console.log('[DB] ✓ Database connection opened successfully');
+
+// Verify database is readable by attempting a simple query
+try {
+  const userVersion = db.prepare('PRAGMA user_version').get();
+  console.log(`[DB] ✓ Database is readable - PRAGMA user_version: ${JSON.stringify(userVersion)}`);
+} catch (err) {
+  console.log(`[DB] ✗ ERROR reading database: ${err.message}`);
+}
 
 // Only use persistent session store in non-test environments
 // In test mode, use default MemoryStore to avoid open database handles
@@ -109,7 +176,35 @@ if (process.env.NODE_ENV === 'test') {
 }
 
 // Initialize database schema (single source of truth from schema.js)
-db.exec(SCHEMA);
+console.log('[DB] Initializing database schema...');
+try {
+  db.exec(SCHEMA);
+  console.log('[DB] ✓ Schema initialized successfully');
+  
+  // Log table information
+  const tables = db.prepare(`
+    SELECT name FROM sqlite_master 
+    WHERE type='table' AND name NOT LIKE 'sqlite_%'
+    ORDER BY name
+  `).all();
+  
+  console.log(`[DB] ✓ Database has ${tables.length} tables: ${tables.map(t => t.name).join(', ')}`);
+  
+  // Log row counts for key tables
+  const tablesToCheck = ['participant', 'week', 'season', 'activity', 'result', 'segment'];
+  console.log('[DB] Row counts:');
+  for (const tableName of tablesToCheck) {
+    try {
+      const count = db.prepare(`SELECT COUNT(*) as cnt FROM ${tableName}`).get().cnt;
+      console.log(`[DB]   ${tableName}: ${count} rows`);
+    } catch (e) {
+      // Table might not exist, skip
+    }
+  }
+} catch (err) {
+  console.log(`[DB] ✗ ERROR initializing schema: ${err.message}`);
+  throw err;
+}
 
 // ========================================
 // AUTHORIZATION HELPERS
