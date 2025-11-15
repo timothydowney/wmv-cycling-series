@@ -77,6 +77,15 @@ async function findBestQualifyingActivity(activities, targetSegmentId, requiredL
     return validation.valid;
   });
   
+  console.log(`[Activity Matching] Time window validation: ${validActivitiesByTime.length}/${activities.length} activities within window`);
+  
+  if (validActivitiesByTime.length > 0) {
+    console.log('[Activity Matching] Valid activities by time:');
+    for (const act of validActivitiesByTime) {
+      console.log(`  - ID: ${act.id}, Name: '${act.name}', Start: ${act.start_date_local}`);
+    }
+  }
+  
   if (validActivitiesByTime.length === 0) {
     return null;
   }
@@ -86,21 +95,39 @@ async function findBestQualifyingActivity(activities, targetSegmentId, requiredL
   
   for (let actIdx = 0; actIdx < validActivitiesByTime.length; actIdx++) {
     const activity = validActivitiesByTime[actIdx];
+    console.log(`[Activity Matching] Processing activity ${actIdx + 1}/${validActivitiesByTime.length}: ID=${activity.id}, Name='${activity.name}'`);
+    
     try {
       // Fetch full activity details (includes all segment efforts)
       const fullActivity = await stravaClient.getActivity(activity.id, accessToken);
       
       if (!fullActivity.segment_efforts || fullActivity.segment_efforts.length === 0) {
+        console.log(`  ⚠ No segment efforts found in activity ${activity.id}`);
         continue;
       }
+      
+      console.log(`  ✓ Found ${fullActivity.segment_efforts.length} total segment efforts`);
       
       // Filter to segment efforts matching our target segment
       const matchingEfforts = fullActivity.segment_efforts.filter(
         effort => effort.segment.id === targetSegmentId
       );
       
+      // Log what segments we found vs what we were looking for
+      if (matchingEfforts.length === 0) {
+        const foundSegmentIds = [...new Set(fullActivity.segment_efforts.map(e => e.segment.id))];
+        console.log(`  ✗ Target segment ${targetSegmentId} NOT found. Found segment IDs: ${foundSegmentIds.join(', ')}`);
+        console.log('    Segment names in activity:');
+        [...new Set(fullActivity.segment_efforts.map(e => e.segment.name))].forEach(name => {
+          console.log(`      - '${name}'`);
+        });
+      } else {
+        console.log(`  ✓ Found ${matchingEfforts.length} matching segment efforts for target segment ${targetSegmentId}`);
+      }
+      
       // Check if this activity qualifies
       if (matchingEfforts.length < requiredLaps) {
+        console.log(`  ✗ Insufficient repetitions: found ${matchingEfforts.length}, need ${requiredLaps}`);
         continue;
       }
       
@@ -110,9 +137,13 @@ async function findBestQualifyingActivity(activities, targetSegmentId, requiredL
         .slice(0, requiredLaps);
       
       const totalTime = sortedEfforts.reduce((sum, e) => sum + e.elapsed_time, 0);
+      const totalTimeFormatted = Math.round(totalTime / 60); // in minutes
+      
+      console.log(`  ✓ Qualifying activity: ${requiredLaps} efforts, total time: ${totalTimeFormatted} min (${totalTime}s)`);
       
       // Keep track of best activity
       if (totalTime < bestTime) {
+        console.log(`  ★ New best activity! (previous best: ${bestTime === Infinity ? 'none' : Math.round(bestTime / 60) + ' min'})`);
         bestTime = totalTime;
         bestActivity = {
           id: fullActivity.id,
@@ -123,12 +154,20 @@ async function findBestQualifyingActivity(activities, targetSegmentId, requiredL
           activity_url: `https://www.strava.com/activities/${fullActivity.id}`,
           device_name: fullActivity.device_name || null
         };
+      } else {
+        console.log(`  → Not better than current best (${Math.round(bestTime / 60)} min)`);
       }
     } catch (error) {
       // Log but continue to next activity
-      console.error(`Error processing activity ${activity.id}:`, error.message);
+      console.error(`✗ Error processing activity ${activity.id}:`, error.message);
       continue;
     }
+  }
+  
+  if (bestActivity) {
+    console.log(`[Activity Matching] ★ Selected best activity: ID=${bestActivity.id}, Name='${bestActivity.name}', Time=${Math.round(bestActivity.totalTime / 60)}min, Device='${bestActivity.device_name || 'unknown'}'`);
+  } else {
+    console.log('[Activity Matching] ✗ No qualifying activities found');
   }
   
   return bestActivity;
