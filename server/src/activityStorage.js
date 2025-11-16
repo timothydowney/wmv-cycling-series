@@ -1,6 +1,35 @@
 /**
  * Activity Storage - Activity and segment effort persistence
  * Handles storing activities, segment efforts, and results atomically
+ * 
+ * ⚠️ CRITICAL: Strava API Field Formats
+ * 
+ * When processing Strava activity responses, use these fields:
+ * 
+ * Activity level:
+ *   - start_date: "2018-02-16T14:52:54Z" (UTC with Z suffix) ✅ USE THIS
+ *   - start_date_local: "2018-02-16T06:52:54" (athlete's local timezone) ❌ DON'T USE
+ *   - timezone: "(GMT-08:00) America/Los_Angeles" (athlete's timezone)
+ *   - utc_offset: -28800 (offset in seconds from UTC)
+ * 
+ * Segment effort level (also in activity.segment_efforts[]):
+ *   - start_date: "2018-02-16T14:52:54Z" (UTC with Z suffix) ✅ USE THIS
+ *   - start_date_local: "2018-02-16T06:52:54" (athlete's local timezone) ❌ DON'T USE
+ * 
+ * Why this matters:
+ * Using start_date_local would cause timezone bugs because it's the athlete's local time,
+ * not UTC. Always use start_date which has the Z suffix indicating UTC time.
+ * All database timestamps are stored as Unix seconds (UTC-based), so we must convert
+ * from UTC ISO strings (start_date) not local timezone strings (start_date_local).
+ * 
+ * Conversion flow:
+ *   Strava API → start_date (UTC ISO string with Z)
+ *                    ↓
+ *            isoToUnix() converts to Unix seconds
+ *                    ↓
+ *            Database stored as INTEGER Unix seconds (UTC)
+ *                    ↓
+ *            API returns numbers, frontend formats with browser timezone
  */
 
 const { isoToUnix } = require('./dateUtils');
@@ -26,8 +55,10 @@ function storeActivityAndEfforts(db, stravaAthleteId, weekId, activityData, stra
     db.prepare('DELETE FROM activity WHERE id = ?').run(existing.id);
   }
   
-  // Convert activity start_date (UTC ISO from Strava) to Unix timestamp
-  const activityStartUnix = isoToUnix(activityData.start_date_local);
+  // Convert activity start_date to Unix timestamp
+  // NOTE: Use start_date (UTC with Z suffix), NOT start_date_local (athlete's local timezone)
+  // Strava API: start_date="2018-02-16T14:52:54Z" (UTC), start_date_local="2018-02-16T06:52:54" (local)
+  const activityStartUnix = isoToUnix(activityData.start_date);
   
   // Store new activity with start_at (Unix seconds UTC)
   const activityResult = db.prepare(`
@@ -42,7 +73,8 @@ function storeActivityAndEfforts(db, stravaAthleteId, weekId, activityData, stra
   for (let i = 0; i < activityData.segmentEfforts.length; i++) {
     const effort = activityData.segmentEfforts[i];
     
-    // Convert effort start_date (UTC ISO from Strava) to Unix timestamp
+    // Convert effort start_date to Unix timestamp
+    // NOTE: Use start_date (UTC), NOT start_date_local (athlete's local timezone)
     const effortStartUnix = isoToUnix(effort.start_date);
     
     console.log(`  Effort ${i}: strava_segment_id=${stravaSegmentId}, elapsed_time=${effort.elapsed_time}, strava_effort_id=${effort.id}`);

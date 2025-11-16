@@ -134,35 +134,47 @@ CREATE TABLE results (
 
 ## Data Flow
 
-### Timezone Architecture
+### Timestamp Strategy (Critical for Consistency)
 
-**CRITICAL: Western Mass Velo seasons are always in Eastern Time (America/New_York)**
+**Golden Rule:** ISO strings with Z suffix (from Strava) → Unix seconds internally → Browser timezone at display
 
-Time handling is absolute and unambiguous:
+1. **From Strava API (Input)**
+   - Strava returns `start_date_local` as ISO 8601 UTC: `"2025-10-28T14:30:00Z"`
+   - Always includes Z suffix (means UTC, not timezone-dependent parsing)
+   - Pass directly to `isoToUnix()` for conversion to Unix seconds
 
-1. **Season Timezone**: All WMV seasons use Eastern Time (EST/EDT)
-   - Stored implicitly (future: will add explicit `timezone_name` field to season table)
+2. **Internal Storage (Database & Code)**
+   - Store all timestamps as **INTEGER Unix seconds** (UTC-based)
+   - Example: `1730126400` (Oct 28, 2025 14:30:00 UTC)
+   - All date/time fields: `start_at`, `end_at`, `start_at` (INTEGER type)
+   - No timezone assumptions in database layer - timestamps are absolute points in time
+   - Code logic: Compare timestamps as plain integers (no offset math, no DST handling)
 
-2. **Week Time Windows**: Stored as ISO 8601 UTC with Z suffix
-   - Example: `start_time: "2025-01-07T00:00:00Z"` means Eastern midnight (UTC-5 in winter)
-   - This is the authoritative time window for filtering activities
-   - Converts properly whether container is UTC, EST, or any other timezone
+3. **API Responses (Backend → Frontend)**
+   - Return timestamps as **numbers** (Unix seconds)
+   - Example: `{ "week": { "start_at": 1730126400, "end_at": 1730212800 } }`
+   - Never return ISO strings from API - always raw Unix
+   - Frontend consumes raw Unix and formats at display time
 
-3. **Activity Times**: Come from Strava as `start_date_local` (athlete's local timezone)
-   - Example: `start_date_local: "2025-01-07T08:30:00Z"` in Strava response
-   - Must be compared directly against week's `[start_time, end_time]` window
-   - Activities OUTSIDE the time window are filtered out
+4. **Frontend Display (Edge)**
+   - Convert Unix seconds to user's browser timezone using `Intl.DateTimeFormat()`
+   - Use formatters from `src/utils/dateUtils.ts` for display
+   - Each user automatically sees their local time without config needed
 
-4. **Critical Matching Logic**:
-   - ✅ Fetch activities using Strava API (converts week times to Unix timestamps)
-   - ✅ **Filter activities by time window** (compares `activity.start_date_local` against `[week.start_time, week.end_time]`)
-   - ✅ Select best qualifying activity from remaining activities
+**Why This Approach:**
+- ✅ Zero timezone math in code (no offset calculations, no DST)
+- ✅ Portable everywhere (container runs UTC, deployment irrelevant)
+- ✅ Matches Strava format (ISO+Z consistent with API source)
+- ✅ Browser-aware (each user sees their local time)
+- ✅ Testable (Unix timestamps deterministic, no timezone assumptions)
 
-**Why This Matters (Dev vs Prod Mismatch)**:
-- **Dev** (Mac, Eastern timezone): Timezone conversions happen implicitly, activities match by luck
-- **Prod** (Docker, UTC): Without explicit time window filtering, activities outside the intended window get processed
-- **Fix**: Always validate `start_date_local` against week's `[start_time, end_time]` before processing
-- **Result**: Consistent behavior across all environments
+**Common Mistakes to Avoid:**
+- ❌ Don't store ISO strings in database (breaks comparisons, timezone-dependent)
+- ❌ Don't return ISO strings from API (forces frontend to re-parse)
+- ❌ Don't use `new Date(isoString)` without Z suffix (timezone-dependent parsing)
+- ✅ DO always use Z suffix on ISO strings (explicit UTC)
+- ✅ DO convert to Unix immediately at input
+- ✅ DO format only at display edge using `Intl` API
 
 ### Admin Batch Fetch Workflow (Primary)
 1. Admin triggers `POST /admin/weeks/:id/fetch-results` at end of event day

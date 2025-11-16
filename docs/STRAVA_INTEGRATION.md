@@ -35,6 +35,27 @@ Western Mass Velo's app integrates with Strava to automatically fetch participan
 
 ---
 
+## ⚠️ CRITICAL: Strava API Timestamp Fields
+
+When processing Strava activity and segment effort responses, **always use the UTC timestamp fields**, never local timezone fields.
+
+**Activity Response Fields:**
+- `start_date`: `"2018-02-16T14:52:54Z"` (UTC with Z suffix) ✅ **USE THIS**
+- `start_date_local`: `"2018-02-16T06:52:54"` (athlete's local timezone, no Z) ❌ **NEVER USE THIS**
+- `timezone`: `"(GMT-08:00) America/Los_Angeles"`
+- `utc_offset`: `-28800`
+
+**Segment Effort Response Fields:**
+- `start_date`: `"2007-09-15T08:15:29Z"` (UTC with Z suffix) ✅ **USE THIS**
+- `start_date_local`: `"2007-09-15T09:15:29"` (athlete's local timezone) ❌ **NEVER USE THIS**
+
+**Why This Matters:**
+Using `start_date_local` causes timestamps to be stored with the athlete's timezone offset, replicating the original timezone bug. The database stores all timestamps as UTC-based Unix seconds—any timestamp conversions must use UTC fields (`start_date` with Z suffix).
+
+**Verification:** This is verified against the official [Strava API v3 reference](https://developers.strava.com/docs/reference/) which includes actual sample responses showing this field structure for Activity, SegmentEffort, and Lap objects.
+
+---
+
 ## Step-by-Step Implementation
 
 ### Step 1: User Initiates Connection

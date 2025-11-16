@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import './WeekManager.css';
 import { getWeeks, Week, createWeek, updateWeek, deleteWeek, fetchWeekResults } from '../api';
+import { formatUnixDate, formatUnixTime } from '../utils/dateUtils';
 import SegmentInput from './SegmentInput';
 
 interface WeekFormData {
@@ -8,8 +9,10 @@ interface WeekFormData {
   segment_id: number;
   segment_name: string;
   required_laps: number;
-  start_time: string; // ISO 8601 format
-  end_time: string;   // ISO 8601 format
+  // Display format: datetime-local inputs use YYYY-MM-DDTHH:MM format
+  // We convert to/from Unix timestamps for API
+  start_time: string;
+  end_time: string;
 }
 
 interface WeekManagerProps {
@@ -37,10 +40,8 @@ function WeekManager({ onFetchResults }: WeekManagerProps) {
   const fetchWeeks = async () => {
     try {
       const data = await getWeeks();
-      // Sort weeks by end_time ascending (oldest first, so Week 1 appears at top)
-      const sortedWeeks = [...data].sort((a, b) => 
-        new Date(a.end_time).getTime() - new Date(b.end_time).getTime()
-      );
+      // Sort weeks by start_at ascending (oldest first, so Week 1 appears at top)
+      const sortedWeeks = [...data].sort((a, b) => a.start_at - b.start_at);
       setWeeks(sortedWeeks);
     } catch (err) {
       console.error('Failed to fetch weeks:', err);
@@ -68,8 +69,18 @@ function WeekManager({ onFetchResults }: WeekManagerProps) {
       return;
     }
     
+    // Convert datetime-local strings to Unix timestamps for API submission
+    const datetimeLocalToUnix = (datetimeLocalStr: string): number => {
+      const date = new Date(datetimeLocalStr);
+      return Math.floor(date.getTime() / 1000);
+    };
+    
     const submitData = {
-      ...formData
+      week_name: formData.week_name,
+      segment_id: formData.segment_id,
+      required_laps: formData.required_laps,
+      start_at: datetimeLocalToUnix(formData.start_time),
+      end_at: datetimeLocalToUnix(formData.end_time)
     };
     
     console.log('Submitting week form data:', submitData);
@@ -110,14 +121,24 @@ function WeekManager({ onFetchResults }: WeekManagerProps) {
   };
 
   const handleEdit = (week: Week) => {
+    // Convert Unix timestamps to datetime-local format for form editing
+    const unixToDatetimeLocal = (unix: number): string => {
+      const date = new Date(unix * 1000);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    };
+
     setFormData({
       week_name: week.week_name,
-      // strava_segment_id is already a number when present; fall back to segment_id
       segment_id: week.strava_segment_id ?? week.segment_id,
       segment_name: week.segment_name || '',
       required_laps: week.required_laps,
-      start_time: week.start_time,
-      end_time: week.end_time
+      start_time: unixToDatetimeLocal(week.start_at),
+      end_time: unixToDatetimeLocal(week.end_at)
     });
     setEditingWeekId(week.id);
     setIsCreating(true);
@@ -206,8 +227,8 @@ function WeekManager({ onFetchResults }: WeekManagerProps) {
                   <td>{week.week_name}</td>
                   <td>{week.segment_name || 'Unknown Segment'}</td>
                   <td>{week.required_laps}</td>
-                  <td>{new Date(week.start_time).toLocaleString()}</td>
-                  <td>{new Date(week.end_time).toLocaleString()}</td>
+                  <td>{formatUnixDate(week.start_at)} {formatUnixTime(week.start_at)}</td>
+                  <td>{formatUnixDate(week.end_at)} {formatUnixTime(week.end_at)}</td>
                   <td>
                     <div className="action-buttons">
                       <button 

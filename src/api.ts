@@ -22,11 +22,10 @@ export interface Week {
   id: number;
   season_id: number;
   week_name: string;
-  date: string;
-  segment_id: number; // This is now the Strava segment ID
+  segment_id: number; // This is the Strava segment ID
   required_laps: number;
-  start_time: string;
-  end_time: string;
+  start_at: number; // Unix timestamp in seconds (UTC)
+  end_at: number;   // Unix timestamp in seconds (UTC)
   segment_name?: string;
   strava_segment_id?: number; // Same as segment_id (for backwards compatibility)
 }

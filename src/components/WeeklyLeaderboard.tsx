@@ -1,6 +1,7 @@
 import React from 'react';
 import { Week, LeaderboardEntry } from '../api';
 import { formatLapCount } from '../utils/lapFormatter';
+import { formatUnixDate } from '../utils/dateUtils';
 
 interface Props {
   week: Week | null;
@@ -13,12 +14,7 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard }) => {
   }
 
   // Format date like "November 11, 2025"
-  const dateObj = new Date(week.date);
-  const formattedDate = dateObj.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
+  const formattedDate = formatUnixDate(week.start_at);
 
   return (
     <div>
