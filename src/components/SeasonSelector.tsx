@@ -26,7 +26,11 @@ const SeasonSelector: React.FC<Props> = ({ seasons, selectedSeasonId, setSelecte
         id="season-select"
         className="season-selector-dropdown"
         value={selectedSeasonId || ''}
-        onChange={(e) => setSelectedSeasonId(parseInt(e.target.value))}
+        onChange={(e) => {
+          const seasonId = parseInt(e.target.value);
+          console.log(`[SeasonSelector] Season changed to: ${seasonId}`);
+          setSelectedSeasonId(seasonId);
+        }}
       >
         {seasons.map(season => (
           <option key={season.id} value={season.id}>

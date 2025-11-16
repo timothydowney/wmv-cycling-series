@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { getSeasonLeaderboard, SeasonStanding } from '../api';
 
-const SeasonLeaderboard: React.FC = () => {
+interface Props {
+  seasonId: number;
+}
+
+const SeasonLeaderboard: React.FC<Props> = ({ seasonId }) => {
   const [standings, setStandings] = useState<SeasonStanding[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -11,7 +15,7 @@ const SeasonLeaderboard: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        const data = await getSeasonLeaderboard();
+        const data = await getSeasonLeaderboard(seasonId);
         setStandings(data);
       } catch (err) {
         setError('Failed to load season standings');
@@ -22,7 +26,7 @@ const SeasonLeaderboard: React.FC = () => {
     };
 
     fetchSeasonStandings();
-  }, []);
+  }, [seasonId]);
 
   if (loading) {
     return <div>Loading season standings...</div>;

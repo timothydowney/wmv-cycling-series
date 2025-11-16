@@ -758,22 +758,23 @@ app.get('/seasons/:id/leaderboard', (req, res) => {
 // ========================================
 
 app.get('/weeks', (req, res) => {
-  const seasonId = req.query.season_id ? parseInt(req.query.season_id, 10) : null;
+  const seasonId = parseInt(req.query.season_id, 10);
   
-  let query = `
+  // season_id is required - UI is responsible for managing season state
+  if (!seasonId || isNaN(seasonId)) {
+    return res.status(400).json({ error: 'season_id query parameter is required' });
+  }
+  
+  const query = `
     SELECT w.id, w.season_id, w.week_name, w.strava_segment_id as segment_id, w.required_laps, 
            w.start_at, w.end_at, s.name as segment_name
     FROM week w
     LEFT JOIN segment s ON w.strava_segment_id = s.strava_segment_id
+    WHERE w.season_id = ?
+    ORDER BY w.start_at DESC
   `;
   
-  if (seasonId) {
-    query += ` WHERE w.season_id = ${seasonId}`;
-  }
-  
-  query += ' ORDER BY w.start_at DESC';
-  
-  const rows = db.prepare(query).all();
+  const rows = db.prepare(query).all(seasonId);
   res.json(rows);
 });
 
@@ -904,77 +905,6 @@ app.get('/activities/:id/efforts', (req, res) => {
   `).all(activityId);
 
   res.json(efforts);
-});
-
-app.get('/season/leaderboard', (req, res) => {
-  // IMPORTANT: Compute season standings by summing weekly scores calculated on read
-  // This ensures total points are always correct even if users delete their data
-  // Scoring is computed fresh from activities each time (no stale cached results)
-  
-  // Get all weeks (sorted by start_at for logic clarity)
-  const weeks = db.prepare(`
-    SELECT id, week_name, start_at FROM week ORDER BY start_at ASC
-  `).all();
-
-  const allParticipantScores = {};  // { athlete_id: { name, total_points, weeks_completed } }
-
-  // Compute from activities (source of truth)
-  weeks.forEach(week => {
-    const activities = db.prepare(`
-      SELECT 
-        a.id as activity_id,
-        a.strava_athlete_id as participant_id,
-        p.name,
-        SUM(se.elapsed_seconds) as total_time_seconds,
-        MAX(se.pr_achieved) as achieved_pr
-      FROM activity a
-      JOIN segment_effort se ON a.id = se.activity_id
-      JOIN participant p ON a.strava_athlete_id = p.strava_athlete_id
-      WHERE a.week_id = ? AND a.validation_status = 'valid'
-      GROUP BY a.id, a.strava_athlete_id, p.name
-      ORDER BY total_time_seconds ASC
-    `).all(week.id);
-
-    const totalParticipants = activities.length;
-    
-    // Compute scores for this week
-    activities.forEach((activity, index) => {
-      const rank = index + 1;
-      const basePoints = (totalParticipants - rank) + 1;
-      const prBonus = activity.achieved_pr ? 1 : 0;
-      const weekPoints = basePoints + prBonus;
-
-      if (!allParticipantScores[activity.participant_id]) {
-        allParticipantScores[activity.participant_id] = {
-          strava_athlete_id: activity.participant_id,
-          name: activity.name,
-          total_points: 0,
-          weeks_completed: 0
-        };
-      }
-
-      allParticipantScores[activity.participant_id].total_points += weekPoints;
-      allParticipantScores[activity.participant_id].weeks_completed += 1;
-    });
-  });
-
-  // Convert to sorted array
-  const seasonResults = Object.entries(allParticipantScores)
-    .map(([id, data]) => ({
-      id: parseInt(id),
-      strava_athlete_id: data.strava_athlete_id,
-      name: data.name,
-      total_points: data.total_points,
-      weeks_completed: data.weeks_completed
-    }))
-    .sort((a, b) => {
-      if (b.total_points !== a.total_points) {
-        return b.total_points - a.total_points;
-      }
-      return b.weeks_completed - a.weeks_completed;
-    });
-
-  res.json(seasonResults);
 });
 
 // ========================================

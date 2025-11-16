@@ -16,6 +16,10 @@ function AdminPanel({ onFetchResults, seasons, selectedSeasonId, onSeasonChange 
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log(`[AdminPanel] selectedSeasonId changed to: ${selectedSeasonId}`);
+  }, [selectedSeasonId]);
+
+  useEffect(() => {
     const checkAdmin = async () => {
       try {
         const status = await getAuthStatus();

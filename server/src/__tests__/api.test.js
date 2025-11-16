@@ -47,13 +47,14 @@ describe('WMV Backend API', () => {
   const TEST_ATHLETE_2 = 1001002; // Test Athlete 2
   const TEST_ATHLETE_3 = 1001003; // Test Athlete 3
   
-  let testWeekId1, testActivityId1, testActivityId2;
+  let testSeasonId1, testWeekId1, testActivityId1, testActivityId2;
 
   beforeAll(() => {
     clearAllData(db);
 
     // Create test season
     const season = createSeason(db, 'Test Season 2025', true);
+    testSeasonId1 = season.seasonId;
 
     // Create test segments
     createSegment(db, TEST_SEGMENT_1, 'Test Segment 1');
@@ -207,13 +208,13 @@ describe('WMV Backend API', () => {
 
   describe('Weeks', () => {
     test('GET /weeks returns array with time windows', async () => {
-      const response = await request(app).get('/weeks');
+      const response = await request(app).get(`/weeks?season_id=${testSeasonId1}`);
       expect(response.status).toBe(200);
       expect(Array.isArray(response.body)).toBe(true);
       expect(response.body.length).toBe(2); // Our 2 test weeks
       expect(response.body[0]).toHaveProperty('start_at');
       expect(response.body[0]).toHaveProperty('end_at');
-      expect(response.body[0]).toHaveProperty('season_id', TEST_SEASON_ID);
+      expect(response.body[0]).toHaveProperty('season_id', testSeasonId1);
     });
 
     test('GET /weeks/:id returns week details', async () => {
@@ -255,17 +256,22 @@ describe('WMV Backend API', () => {
       expect(ranks).toEqual(sortedRanks);
     });
 
-    test('GET /season/leaderboard returns season standings', async () => {
-      const response = await request(app).get('/season/leaderboard');
+    test('GET /seasons/:id/leaderboard returns season standings for specific season', async () => {
+      const response = await request(app).get(`/seasons/${testSeasonId1}/leaderboard`);
       expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body[0]).toHaveProperty('total_points');
-      expect(response.body[0]).toHaveProperty('weeks_completed');
+      expect(response.body).toHaveProperty('season');
+      expect(response.body).toHaveProperty('leaderboard');
+      expect(Array.isArray(response.body.leaderboard)).toBe(true);
+      if (response.body.leaderboard.length > 0) {
+        expect(response.body.leaderboard[0]).toHaveProperty('total_points');
+        expect(response.body.leaderboard[0]).toHaveProperty('weeks_completed');
+      }
     });
 
-    test('GET /season/leaderboard is sorted by total_points desc', async () => {
-      const response = await request(app).get('/season/leaderboard');
-      const points = response.body.map(e => e.total_points);
+    test('GET /seasons/:id/leaderboard is sorted by total_points desc', async () => {
+      const response = await request(app).get(`/seasons/${testSeasonId1}/leaderboard`);
+      expect(response.status).toBe(200);
+      const points = response.body.leaderboard.map(e => e.total_points);
       const sortedPoints = [...points].sort((a, b) => b - a);
       expect(points).toEqual(sortedPoints);
     });
@@ -293,10 +299,11 @@ describe('WMV Backend API', () => {
     test('POST /admin/weeks creates new week with defaults', async () => {
       const newWeek = {
         week_name: 'Test Week',
-        date: '2025-12-03',
         segment_id: TEST_SEGMENT_1, // Lookout Mountain Climb Strava segment ID
-        season_id: TEST_SEASON_ID,
-        required_laps: 2
+        season_id: testSeasonId1,
+        required_laps: 2,
+        start_at: isoToUnix('2025-12-03T00:00:00Z'),
+        end_at: isoToUnix('2025-12-03T22:00:00Z')
       };
       const response = await request(app)
         .post('/admin/weeks')
@@ -306,7 +313,7 @@ describe('WMV Backend API', () => {
       expect(response.status).toBe(201);
       expect(response.body).toHaveProperty('id');
       expect(response.body.week_name).toBe('Test Week');
-      expect(response.body.season_id).toBe(TEST_SEASON_ID);
+      expect(response.body.season_id).toBe(testSeasonId1);
       expect(response.body.start_at).toBe(isoToUnix('2025-12-03T00:00:00Z'));
       expect(response.body.end_at).toBe(isoToUnix('2025-12-03T22:00:00Z'));
 
@@ -316,12 +323,11 @@ describe('WMV Backend API', () => {
     test('POST /admin/weeks creates week with custom time window', async () => {
       const newWeek = {
         week_name: 'Early Bird Week',
-        date: '2025-12-10',
         segment_id: TEST_SEGMENT_2, // Champs-Élysées Strava segment ID
-        season_id: TEST_SEASON_ID,
+        season_id: testSeasonId1,
         required_laps: 1,
-        start_time: '2025-12-10T06:00:00Z',
-        end_time: '2025-12-10T12:00:00Z'
+        start_at: isoToUnix('2025-12-10T06:00:00Z'),
+        end_at: isoToUnix('2025-12-10T12:00:00Z')
       };
 
       const response = await request(app)
@@ -344,13 +350,14 @@ describe('WMV Backend API', () => {
       expect(response.body).toHaveProperty('error');
     });
 
-    test('POST /admin/weeks validates segment exists', async () => {
+    test('POST /admin/weeks auto-creates non-existent segment', async () => {
       const testWeekData = {
-        week_name: 'Invalid Segment Week',
-        date: '2025-12-17',
+        week_name: 'Auto-Create Segment Week',
         segment_id: 999,
-        season_id: TEST_SEASON_ID,
-        required_laps: 1
+        season_id: testSeasonId1,
+        required_laps: 1,
+        start_at: isoToUnix('2025-12-17T00:00:00Z'),
+        end_at: isoToUnix('2025-12-17T22:00:00Z')
       };
 
       const response = await request(app)
@@ -358,8 +365,8 @@ describe('WMV Backend API', () => {
         .send(testWeekData)
         .set('Content-Type', 'application/json');
 
-      expect(response.status).toBe(400);
-      expect(response.body.error).toMatch(/segment/i);
+      expect(response.status).toBe(201);
+      expect(response.body.segment_id).toBe(999);
     });
 
     test('PUT /admin/weeks/:id updates week fields', async () => {

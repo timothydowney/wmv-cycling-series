@@ -34,18 +34,55 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
   });
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
+  // Debug: log season changes
   useEffect(() => {
-    fetchWeeks();
+    console.log(`[WeekManager] seasonId prop changed to: ${seasonId}`);
   }, [seasonId]);
 
-  const fetchWeeks = async () => {
+  useEffect(() => {
+    const loadWeeks = async () => {
+      if (!seasonId) {
+        console.log(`[WeekManager] Skipping load - seasonId is ${seasonId}`);
+        return;
+      }
+      console.log(`[WeekManager] Loading weeks for seasonId=${seasonId}`);
+      try {
+        const data = await getWeeks(seasonId);
+        console.log(`[WeekManager] API returned ${data.length} weeks:`, data);
+        // Sort weeks by start_at ascending (oldest first, so Week 1 appears at top)
+        const sortedWeeks = [...data].sort((a, b) => a.start_at - b.start_at);
+        setWeeks(sortedWeeks);
+        console.log(`[WeekManager] Loaded ${sortedWeeks.length} weeks for season ${seasonId}`, sortedWeeks);
+      } catch (err) {
+        console.error('[WeekManager] Failed to fetch weeks:', err);
+      }
+      
+      // Clear form when season changes
+      setEditingWeekId(null);
+      setIsCreating(false);
+      setFormData({
+        week_name: '',
+        segment_id: 0,
+        segment_name: '',
+        required_laps: 1,
+        start_time: '',
+        end_time: ''
+      });
+    };
+
+    loadWeeks();
+  }, [seasonId]);
+
+  // Refetch weeks (called after create/update/delete)
+  const refetchWeeks = async () => {
+    if (!seasonId) return;
     try {
       const data = await getWeeks(seasonId);
-      // Sort weeks by start_at ascending (oldest first, so Week 1 appears at top)
       const sortedWeeks = [...data].sort((a, b) => a.start_at - b.start_at);
       setWeeks(sortedWeeks);
+      console.log(`[WeekManager] Refetched ${sortedWeeks.length} weeks for season ${seasonId}`);
     } catch (err) {
-      console.error('Failed to fetch weeks:', err);
+      console.error('[WeekManager] Failed to refetch weeks:', err);
     }
   };
 
@@ -130,7 +167,7 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
       });
       
       // Refresh weeks list
-      await fetchWeeks();
+      await refetchWeeks();
       
       // Clear message after 3 seconds
       setTimeout(() => setMessage(null), 3000);
@@ -172,7 +209,7 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
     try {
       await deleteWeek(weekId);
       setMessage({ type: 'success', text: 'Week deleted successfully!' });
-      await fetchWeeks();
+      await refetchWeeks();
       setTimeout(() => setMessage(null), 3000);
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message });

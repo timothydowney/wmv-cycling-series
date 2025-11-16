@@ -129,10 +129,8 @@ export const api = {
     return response.json();
   },
 
-  async getSeasonLeaderboard(seasonId?: number): Promise<SeasonStanding[]> {
-    const url = seasonId 
-      ? `${API_BASE_URL}/seasons/${seasonId}/leaderboard`
-      : `${API_BASE_URL}/season/leaderboard`;
+  async getSeasonLeaderboard(seasonId: number): Promise<SeasonStanding[]> {
+    const url = `${API_BASE_URL}/seasons/${seasonId}/leaderboard`;
     const response = await fetch(url);
     if (!response.ok) throw new Error('Failed to fetch season leaderboard');
     const data = await response.json();
@@ -180,10 +178,8 @@ export const api = {
     return response.json();
   },
 
-  async getWeeks(seasonId?: number): Promise<Week[]> {
-    const url = seasonId 
-      ? `${API_BASE_URL}/weeks?season_id=${seasonId}`
-      : `${API_BASE_URL}/weeks`;
+  async getWeeks(seasonId: number): Promise<Week[]> {
+    const url = `${API_BASE_URL}/weeks?season_id=${seasonId}`;
     const response = await fetch(url);
     if (!response.ok) throw new Error('Failed to fetch weeks');
     return response.json();
@@ -397,8 +393,8 @@ export async function deleteSeason(seasonId: number): Promise<{ message: string 
   return api.deleteSeason(seasonId);
 }
 
-export async function getWeeks(): Promise<Week[]> {
-  return api.getWeeks();
+export async function getWeeks(seasonId: number): Promise<Week[]> {
+  return api.getWeeks(seasonId);
 }
 
 export async function getWeek(id: number): Promise<Week> {
@@ -409,7 +405,7 @@ export async function getWeekLeaderboard(id: number): Promise<WeekLeaderboard> {
   return api.getWeekLeaderboard(id);
 }
 
-export async function getSeasonLeaderboard(seasonId?: number): Promise<SeasonStanding[]> {
+export async function getSeasonLeaderboard(seasonId: number): Promise<SeasonStanding[]> {
   return api.getSeasonLeaderboard(seasonId);
 }
 

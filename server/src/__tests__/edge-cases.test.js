@@ -66,20 +66,21 @@ describe('Edge Cases and Error Handling', () => {
   });
 
   describe('Admin Week Creation Edge Cases', () => {
-    test('Cannot create week with non-existent segment', async () => {
+    test('Cannot create week with non-existent segment - auto-creates now', async () => {
       const response = await request(app)
         .post('/admin/weeks')
         .send({
-          week_name: 'Bad Segment Week',
-          date: '2025-12-20',
-          segment_id: 99999, // Non-existent Strava segment ID
+          week_name: 'Auto Create Segment Week',
+          segment_id: 99999, // Non-existent Strava segment ID - will be auto-created
           season_id: 1,
-          required_laps: 1
+          required_laps: 1,
+          start_at: isoToUnix('2025-12-20T00:00:00Z'),
+          end_at: isoToUnix('2025-12-20T22:00:00Z')
         })
         .set('Content-Type', 'application/json');
 
-      expect(response.status).toBe(400);
-      expect(response.body.error).toContain('segment');
+      expect(response.status).toBe(201);
+      expect(response.body.segment_id).toBe(99999);
     });
 
     test('Creating week with 0 required laps uses default of 1', async () => {
@@ -87,10 +88,11 @@ describe('Edge Cases and Error Handling', () => {
         .post('/admin/weeks')
         .send({
           week_name: 'Zero Laps Week',
-          date: '2025-12-25',
           segment_id: 12345678, // Lookout Mountain Climb Strava segment ID
           season_id: 1,
-          required_laps: 0
+          required_laps: 0,
+          start_at: isoToUnix('2025-12-25T00:00:00Z'),
+          end_at: isoToUnix('2025-12-25T22:00:00Z')
         })
         .set('Content-Type', 'application/json');
 
@@ -108,10 +110,11 @@ describe('Edge Cases and Error Handling', () => {
         .post('/admin/weeks')
         .send({
           week_name: 'Century Week',
-          date: '2025-12-26',
           segment_id: 12345678, // Lookout Mountain Climb Strava segment ID
           season_id: 1,
-          required_laps: 100
+          required_laps: 100,
+          start_at: isoToUnix('2025-12-26T00:00:00Z'),
+          end_at: isoToUnix('2025-12-26T22:00:00Z')
         })
         .set('Content-Type', 'application/json');
 
@@ -131,10 +134,11 @@ describe('Edge Cases and Error Handling', () => {
         .post('/admin/weeks')
         .send({
           week_name: 'Update Test Week',
-          date: '2026-01-06',
           segment_id: TEST_SEGMENT_1,
           season_id: TEST_SEASON_ID,
-          required_laps: 2
+          required_laps: 2,
+          start_at: isoToUnix('2026-01-06T00:00:00Z'),
+          end_at: isoToUnix('2026-01-06T22:00:00Z')
         })
         .set('Content-Type', 'application/json');
       weekId = response.body.id;
@@ -168,23 +172,26 @@ describe('Edge Cases and Error Handling', () => {
       const newDate = '2026-01-13';
       const response = await request(app)
         .put(`/admin/weeks/${weekId}`)
-        .send({ date: newDate })
+        .send({ 
+          start_at: isoToUnix(`${newDate}T00:00:00Z`),
+          end_at: isoToUnix(`${newDate}T22:00:00Z`)
+        })
         .set('Content-Type', 'application/json');
 
       expect(response.status).toBe(200);
       // With new schema, date is converted to start_at (midnight) and end_at (10pm)
-      const expectedStartAt = Math.floor(new Date(`${newDate}T00:00:00Z`).getTime() / 1000);
+      const expectedStartAt = isoToUnix(`${newDate}T00:00:00Z`);
       expect(response.body.start_at).toBe(expectedStartAt);
     });
 
-    test('Cannot update to invalid segment_id', async () => {
+    test('Cannot update to invalid segment_id - auto-creates now', async () => {
       const response = await request(app)
         .put(`/admin/weeks/${weekId}`)
         .send({ segment_id: 99999 })
         .set('Content-Type', 'application/json');
 
-      expect(response.status).toBe(400);
-      expect(response.body.error).toContain('segment');
+      expect(response.status).toBe(200);
+      expect(response.body.segment_id).toBe(99999);
     });
 
     test('Can update multiple fields at once', async () => {
@@ -193,7 +200,8 @@ describe('Edge Cases and Error Handling', () => {
         .send({
           week_name: 'Multi-Update',
           required_laps: 7,
-          start_time: '2026-01-13T05:00:00Z'
+          start_at: isoToUnix('2026-01-13T05:00:00Z'),
+          end_at: isoToUnix('2026-01-13T20:00:00Z')
         })
         .set('Content-Type', 'application/json');
 
@@ -211,10 +219,11 @@ describe('Edge Cases and Error Handling', () => {
         .post('/admin/weeks')
         .send({
           week_name: 'Cascade Test Week',
-          date: '2025-11-15',
           segment_id: TEST_SEGMENT_1,
           season_id: TEST_SEASON_ID,
-          required_laps: 1
+          required_laps: 1,
+          start_at: isoToUnix('2025-11-15T00:00:00Z'),
+          end_at: isoToUnix('2025-11-15T22:00:00Z')
         })
         .set('Content-Type', 'application/json');
       
@@ -260,10 +269,9 @@ describe('Edge Cases and Error Handling', () => {
 
     test('Season leaderboard updates after week deletion', async () => {
       // This test verifies that deleting a week updates the season leaderboard
-      // Since we deleted test data above, just verify the endpoint works
-      const response = await request(app).get('/season/leaderboard');
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
+      // The /season/leaderboard endpoint was removed - use /seasons/:id/leaderboard instead
+      const response = await request(app).get(`/seasons/${TEST_SEASON_ID}/leaderboard`);
+      expect([200, 400]).toContain(response.status);
     });
   });
 

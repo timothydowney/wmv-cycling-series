@@ -157,10 +157,14 @@ function App() {
   };
 
   // Refresh leaderboard when week changes
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (selectedWeekId === null) return;
+    if (selectedWeekId === null) {
+      setSelectedWeek(null);
+      setWeekLeaderboard([]);
+      return;
+    }
     fetchLeaderboard(selectedWeekId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedWeekId]);
 
   // Handler for when results are fetched - refresh leaderboard
@@ -271,7 +275,7 @@ function App() {
               leaderboard={weekLeaderboard}
             />
 
-            <SeasonLeaderboard />
+            {selectedSeasonId && <SeasonLeaderboard seasonId={selectedSeasonId} />}
 
             <ScheduleTable weeks={weeks} season={selectedSeason || undefined} />
 

@@ -639,9 +639,10 @@ describe('Coverage Improvements - Quick Wins', () => {
         .send({
           season_id: TEST_SEASON_ID,
           week_name: 'Minimal Week',
-          date: '2025-06-01',
           segment_id: TEST_SEGMENT_1,
-          required_laps: 1
+          required_laps: 1,
+          start_at: isoToUnix('2025-06-01T00:00:00Z'),
+          end_at: isoToUnix('2025-06-01T22:00:00Z')
         });
 
       expect(res.status).toBe(201);
@@ -655,11 +656,10 @@ describe('Coverage Improvements - Quick Wins', () => {
         .send({
           season_id: TEST_SEASON_ID,
           week_name: 'Custom Times Week',
-          date: '2025-06-02',
           segment_id: TEST_SEGMENT_1,
           required_laps: 2,
-          start_time: '2025-06-02T07:00:00Z',
-          end_time: '2025-06-02T20:00:00Z'
+          start_at: isoToUnix('2025-06-02T07:00:00Z'),
+          end_at: isoToUnix('2025-06-02T20:00:00Z')
         });
 
       expect(res.status).toBe(201);
@@ -673,9 +673,10 @@ describe('Coverage Improvements - Quick Wins', () => {
         .send({
           season_id: TEST_SEASON_ID,
           week_name: 'Past Week',
-          date: '2020-01-01',
           segment_id: TEST_SEGMENT_1,
-          required_laps: 1
+          required_laps: 1,
+          start_at: isoToUnix('2020-01-01T00:00:00Z'),
+          end_at: isoToUnix('2020-01-01T22:00:00Z')
         });
 
       const futureRes = await request(app)
@@ -683,9 +684,10 @@ describe('Coverage Improvements - Quick Wins', () => {
         .send({
           season_id: TEST_SEASON_ID,
           week_name: 'Future Week',
-          date: '2099-12-31',
           segment_id: TEST_SEGMENT_1,
-          required_laps: 1
+          required_laps: 1,
+          start_at: isoToUnix('2099-12-31T00:00:00Z'),
+          end_at: isoToUnix('2099-12-31T22:00:00Z')
         });
 
       expect(pastRes.status).toBe(201);
