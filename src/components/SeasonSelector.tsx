@@ -21,7 +21,7 @@ const SeasonSelector: React.FC<Props> = ({ seasons, selectedSeasonId, setSelecte
 
   return (
     <div className="season-selector-container">
-      <label htmlFor="season-select" className="season-selector-label">Select Season:</label>
+      <label htmlFor="season-select" className="season-selector-label">Season:</label>
       <select
         id="season-select"
         className="season-selector-dropdown"

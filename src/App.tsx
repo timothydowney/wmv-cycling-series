@@ -275,7 +275,7 @@ function App() {
               leaderboard={weekLeaderboard}
             />
 
-            {selectedSeasonId && <SeasonLeaderboard seasonId={selectedSeasonId} />}
+            {selectedSeason && <SeasonLeaderboard season={selectedSeason} />}
 
             <ScheduleTable weeks={weeks} season={selectedSeason || undefined} />
 
