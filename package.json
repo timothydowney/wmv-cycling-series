@@ -39,6 +39,7 @@
     "prepare": "node scripts/install-hooks.cjs"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "strava-api-client": "^1.4.0"

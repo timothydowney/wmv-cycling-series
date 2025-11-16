@@ -210,28 +210,79 @@
 }
 
 .action-buttons button {
-  padding: 0.4rem 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
   border: none;
-  border-radius: 4px;
-  font-size: 0.85rem;
+  border-radius: 6px;
   cursor: pointer;
-  font-weight: bold;
+  transition: all 0.2s ease;
+  background: transparent;
+  color: inherit;
 }
 
-.edit-btn {
-  background: #007bff;
-  color: white;
+.action-buttons button svg {
+  width: 28px;
+  height: 28px;
+  stroke-width: 1.5;
 }
 
-.edit-btn:hover {
-  background: #0056b3;
+.action-buttons .season-action-edit {
+  color: #007bff;
 }
 
-.delete-btn {
-  background: #dc3545;
-  color: white;
+.action-buttons .season-action-edit:hover {
+  transform: scale(1.1);
 }
 
-.delete-btn:hover {
-  background: #bd2130;
+.action-buttons .season-action-delete {
+  color: #dc3545;
+}
+
+.action-buttons .season-action-delete:hover {
+  transform: scale(1.1);
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: transparent;
+  color: inherit;
+}
+
+.icon-button svg {
+  width: 28px;
+  height: 28px;
+  stroke-width: 1.5;
+}
+
+.season-action-edit {
+  color: #007bff;
+  background: transparent;
+}
+
+.season-action-edit:hover {
+  transform: scale(1.1);
+  background: transparent;
+}
+
+.season-action-delete {
+  color: #dc3545;
+  background: transparent;
+}
+
+.season-action-delete:hover {
+  transform: scale(1.1);
+  background: transparent;
 }
