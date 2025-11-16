@@ -3,6 +3,7 @@ import './WeekManager.css';
 import { getWeeks, Week, createWeek, updateWeek, deleteWeek, fetchWeekResults } from '../api';
 import { formatUnixDate, formatUnixTime } from '../utils/dateUtils';
 import SegmentInput from './SegmentInput';
+import { PencilIcon, TrashIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 
 interface WeekFormData {
   week_name: string;
@@ -289,22 +290,25 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
                   <td>
                     <div className="action-buttons">
                       <button 
-                        className="edit-btn"
+                        className="icon-button edit-btn"
                         onClick={() => handleEdit(week)}
+                        title="Edit week"
                       >
-                        Edit
+                        <PencilIcon width={28} height={28} />
                       </button>
                       <button 
-                        className="fetch-btn"
-                        onClick={() => handleFetchResults(week.id)}
-                      >
-                        Fetch Results
-                      </button>
-                      <button 
-                        className="delete-btn"
+                        className="icon-button delete-btn"
                         onClick={() => handleDelete(week.id)}
+                        title="Delete week"
                       >
-                        Delete
+                        <TrashIcon width={28} height={28} />
+                      </button>
+                      <button 
+                        className="icon-button fetch-btn"
+                        onClick={() => handleFetchResults(week.id)}
+                        title="Refresh data from Strava"
+                      >
+                        <ArrowPathIcon width={28} height={28} />
                       </button>
                     </div>
                   </td>
@@ -347,11 +351,16 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
           <SegmentInput
             value={{ id: formData.segment_id, name: formData.segment_name }}
             onChange={(segmentId, segmentName) => {
-              setFormData(prev => ({
-                ...prev,
-                segment_id: segmentId,
-                segment_name: segmentName
-              }));
+              setFormData(prev => {
+                // Auto-fill week_name with segment_name if week_name is empty
+                const newWeekName = !prev.week_name && segmentName ? segmentName : prev.week_name;
+                return {
+                  ...prev,
+                  segment_id: segmentId,
+                  segment_name: segmentName,
+                  week_name: newWeekName
+                };
+              });
             }}
           />
 

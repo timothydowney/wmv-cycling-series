@@ -180,37 +180,94 @@
 }
 
 .action-buttons button {
-  padding: 0.4rem 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
   border: none;
-  border-radius: 4px;
-  font-size: 0.85rem;
+  border-radius: 6px;
   cursor: pointer;
-  font-weight: bold;
+  transition: all 0.2s ease;
+  background: transparent;
+  color: inherit;
 }
 
-.edit-btn {
-  background: #007bff;
-  color: white;
+.action-buttons button svg {
+  width: 28px;
+  height: 28px;
+  stroke-width: 1.5;
 }
 
-.edit-btn:hover {
-  background: #0056b3;
+.action-buttons .edit-btn {
+  color: #007bff;
 }
 
-.fetch-btn {
-  background: #28a745;
-  color: white;
+.action-buttons .edit-btn:hover {
+  transform: scale(1.1);
 }
 
-.fetch-btn:hover {
-  background: #1e7e34;
+.action-buttons .fetch-btn {
+  color: #28a745;
 }
 
-.delete-btn {
-  background: #dc3545;
-  color: white;
+.action-buttons .fetch-btn:hover {
+  transform: scale(1.1);
 }
 
-.delete-btn:hover {
-  background: #bd2130;
+.action-buttons .delete-btn {
+  color: #dc3545;
+}
+
+.action-buttons .delete-btn:hover {
+  transform: scale(1.1);
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: transparent;
+  color: inherit;
+}
+
+.icon-button svg {
+  width: 28px;
+  height: 28px;
+  stroke-width: 1.5;
+}
+
+.icon-button.edit-btn {
+  color: #007bff;
+}
+
+.icon-button.edit-btn:hover {
+  transform: scale(1.1);
+  background: transparent;
+}
+
+.icon-button.fetch-btn {
+  color: #28a745;
+}
+
+.icon-button.fetch-btn:hover {
+  transform: scale(1.1);
+  background: transparent;
+}
+
+.icon-button.delete-btn {
+  color: #dc3545;
+}
+
+.icon-button.delete-btn:hover {
+  transform: scale(1.1);
+  background: transparent;
 }

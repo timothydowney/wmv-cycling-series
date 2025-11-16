@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import './SeasonManager.css';
 import { getSeasons, Season, createSeason, updateSeason, deleteSeason } from '../api';
 import { formatUnixDate, dateToUnixStart, dateToUnixEnd, unixToDateLocal } from '../utils/dateUtils';
+import { PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 interface SeasonFormData {
   name: string;
@@ -188,16 +189,18 @@ function SeasonManager({ onSeasonsChanged }: Props) {
                   <td>
                     <div className="action-buttons">
                       <button
-                        className="edit-btn"
+                        className="icon-button season-action-edit"
                         onClick={() => handleEdit(season)}
+                        title="Edit season"
                       >
-                        Edit
+                        <PencilIcon width={28} height={28} />
                       </button>
                       <button
-                        className="delete-btn"
+                        className="icon-button season-action-delete"
                         onClick={() => handleDelete(season.id)}
+                        title="Delete season"
                       >
-                        Delete
+                        <TrashIcon width={28} height={28} />
                       </button>
                     </div>
                   </td>
