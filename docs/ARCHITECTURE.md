@@ -290,60 +290,96 @@ npm run build        # Build for production
 **Development:** Defaults work, optional Strava credentials in `.env`
 **Production:** Set on hosting platform (see `docs/DEPLOYMENT.md`)
 
-### Timezone Architecture
+### Timestamp Architecture (Critical)
 
-**Current Design:** UTC Everywhere (Container + Database + Code)
+**Golden Rule:** Timestamps flow as ISO strings with Z suffix (from Strava) → Unix seconds internally (database) → Browser timezone at display (user sees local time)
 
-**Architecture Principle:**
-Everything runs in UTC. Timezone conversion happens ONLY at display time using the browser's local timezone via the `Intl` API.
+#### ⚠️ Strava API Field Usage (CRITICAL)
 
-**Why this approach:**
-- ✅ Simplest possible architecture (no timezone math in code)
-- ✅ Portable (container works anywhere, no hardcoded timezones)
-- ✅ Scales effortlessly (one user in Massachusetts, another in California—same code)
-- ✅ Follows industry best practices (12-Factor App, Unix timestamp standard)
-- ✅ No external dependencies (built-in `Intl.DateTimeFormat()` API)
-- ✅ Production-ready pattern (used by every global SaaS app)
+When processing Strava API responses, **ALWAYS use `start_date` (UTC), NEVER use `start_date_local` (local timezone)**.
 
-**How it works:**
+**Strava Response Fields:**
 
-1. **Database:** All timestamps stored as INTEGER Unix seconds (UTC)
-   - Example: `1731600000` (Nov 14, 2025 18:00 UTC)
+| Field | Format | Timezone | Usage |
+|-------|--------|----------|-------|
+| `start_date` | `"2025-10-28T14:52:54Z"` | UTC (has Z) | ✅ **USE THIS** |
+| `start_date_local` | `"2025-10-28T06:52:54"` | Athlete's local (no Z) | ❌ **NEVER USE** |
+| `timezone` | `"(GMT-08:00) America/Los_Angeles"` | Info only | Reference only |
+| `utc_offset` | `-28800` | Seconds offset | Reference only |
 
-2. **Container:** Runs with `TZ=UTC` (no hardcoded timezone)
-   - Logs show UTC times
-   - Portable to any deployment platform
+**Why This Matters:**
+- Using `start_date_local` causes timestamps to be stored with athlete's timezone offset
+- This replicates the original timezone bug
+- Always use `start_date` which has explicit Z suffix (UTC, unambiguous)
 
-3. **Code logic:** Compares timestamps as plain integers
-   - No offset math, no DST handling, no timezone library
-   - Example: `if (activityUnix >= week.start_at && activityUnix <= week.end_at)`
+**Code Example:**
+```javascript
+// CORRECT: Use start_date (UTC)
+const unixSeconds = isoToUnix(activityData.start_date);  // ✅
 
-4. **UI Input:** DateTime-local element → converted to Unix → stored
-   ```javascript
-   const userInput = "2025-11-14T18:00";  // Browser interprets in user's local TZ
-   const unixUtc = Math.floor(new Date(userInput).getTime() / 1000);  // Convert to Unix
-   // Store unixUtc in database
-   ```
+// WRONG: Using start_date_local causes timezone bug
+const unixSeconds = isoToUnix(activityData.start_date_local);  // ❌
+```
 
-5. **UI Display:** Unix → converted back to user's timezone using `Intl` API
-   ```javascript
-   const unixUtc = 1731600000;
-   const date = new Date(unixUtc * 1000);
-   
-   // Show in user's timezone (automatic, no configuration needed)
-   const formatted = new Intl.DateTimeFormat('en-US', {
-     timeZone: undefined,  // undefined = use browser's local timezone
-     year: 'numeric',
-     month: '2-digit',
-     day: '2-digit',
-     hour: '2-digit',
-     minute: '2-digit'
-   }).format(date);
-   // Result: "11/14/2025, 02:00 PM" (if user is in America/New_York)
-   // Result: "11/14/2025, 11:00 AM" (if user is in America/Los_Angeles)
-   ```
+**Applies To:**
+- Activity responses: `start_date` ✅ vs `start_date_local` ❌
+- Segment effort responses: `start_date` ✅ vs `start_date_local` ❌
+- Lap responses: `start_date` ✅ vs `start_date_local` ❌
 
-**Key principle:** Store everything as UTC. Convert only at display edges using browser's built-in `Intl` API. No timezone library needed. Truly universal.
+#### 1. From Strava API (Input)
+- Strava returns `start_date` as ISO 8601 UTC: `"2025-10-28T14:30:00Z"`
+- **Always includes Z suffix** (explicit UTC marker, not timezone-dependent parsing)
+- Never use `start_date_local` (athlete's timezone, causes bugs)
+- Pass `start_date` directly to `isoToUnix()` for conversion to Unix seconds
+
+#### 2. Internal Storage (Database & Code)
+- Store all timestamps as **INTEGER Unix seconds** (UTC-based)
+- Example: `1730126400` (Oct 28, 2025 14:30:00 UTC)
+- All date/time fields: `start_at`, `end_at` (INTEGER type)
+- **No timezone assumptions** - Unix timestamps are absolute points in time
+- Code logic: Compare timestamps as plain integers (no offset math, no DST handling)
+  ```javascript
+  if (activityUnix >= week.start_at && activityUnix <= week.end_at) { /* match */ }
+  ```
+
+#### 3. API Responses (Backend → Frontend)
+- Return timestamps as **numbers** (Unix seconds), never as strings
+- Example: `{ "week": { "start_at": 1730126400, "end_at": 1730212800 } }`
+- Frontend consumes raw Unix numbers and formats at display time
+
+#### 4. Frontend Display (Browser)
+- Convert Unix seconds to user's **local timezone** using `Intl.DateTimeFormat()`
+- Use formatters from `src/utils/dateUtils.ts`:
+  - `formatUnixDate(unix)` → "October 28, 2025" (user's timezone)
+  - `formatUnixTime(unix)` → "2:30 PM" (user's timezone)
+  - `formatUnixDateShort(unix)` → "Oct 28" (user's timezone)
+  - `formatUnixTimeRange(start, end)` → "2:30 PM - 4:00 PM" (user's timezone)
+
+#### Why This Approach
+- ✅ **Zero timezone math in code** - no offset calculations, no DST handling
+- ✅ **Portable everywhere** - container runs UTC, deployment location irrelevant
+- ✅ **Matches Strava format** - consistent with API source (ISO+Z)
+- ✅ **Browser-aware** - each user sees their local time automatically
+- ✅ **Testable** - Unix timestamps are deterministic, no timezone assumptions
+- ✅ **No external deps** - uses built-in `Intl` API (available in all modern browsers and Node.js)
+
+#### Common Mistakes to Avoid
+- ❌ **Don't:** Use `start_date_local` from Strava (causes timezone offset bugs)
+- ❌ **Don't:** Store ISO strings in database (breaks comparisons, timezone-dependent)
+- ❌ **Don't:** Return ISO strings from API (forces frontend to re-parse)
+- ❌ **Don't:** Use `new Date(isoString)` without Z suffix (timezone-dependent parsing)
+- ❌ **Don't:** Display UTC times to users (show local timezone instead)
+- ❌ **Don't:** Hardcode offsets or DST handling in code
+- ✅ **DO:** Always use `start_date` from Strava API, never `start_date_local`
+- ✅ **DO:** Always use Z suffix on ISO strings (explicit UTC)
+- ✅ **DO:** Convert to Unix immediately at input boundary
+- ✅ **DO:** Format only at display edge using `Intl` API
+
+#### Container Configuration
+- **Dockerfile:** `TZ=UTC` (all container processes run UTC)
+- **Code:** `Math.floor(Date.now() / 1000)` for Unix seconds
+- **Database:** All timestamps as INTEGER (Unix seconds)
+- **Result:** Identical behavior in dev, test, and production environments
 
 ---
 

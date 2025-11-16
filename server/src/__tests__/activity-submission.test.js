@@ -127,7 +127,7 @@ describe('Activity Submission API', () => {
       const mockClient = new strava.client('test_access_token');
       mockClient.activities.get.mockResolvedValueOnce({
         id: 88776655, // Made-up Strava activity ID
-        start_date_local: '2025-01-01T08:00:00Z', // Wrong date (not matching week date)
+        start_date: '2025-01-01T08:00:00Z', // Wrong date (not matching week date)
         segment_efforts: []
       });
 
@@ -141,7 +141,7 @@ describe('Activity Submission API', () => {
       const mockClient = new strava.client('test_access_token');
       mockClient.activities.get.mockResolvedValueOnce({
         id: 88776655,
-        start_date_local: '2025-11-12T08:00:00Z',
+        start_date: '2025-11-12T08:00:00Z',
         segment_efforts: [
           { segment: { id: 11223344 }, elapsed_time: 885 } // Wrong segment ID (not testSegmentId)
         ]
@@ -155,7 +155,7 @@ describe('Activity Submission API', () => {
       const mockClient = new strava.client('test_access_token');
       mockClient.activities.get.mockResolvedValueOnce({
         id: 88776655,
-        start_date_local: '2025-11-12T08:00:00Z',
+        start_date: '2025-11-12T08:00:00Z',
         segment_efforts: [
           { segment: { id: testSegmentId }, elapsed_time: 885 } // Only 1 lap when 2 required
         ]

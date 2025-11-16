@@ -164,8 +164,8 @@ describe('Strava Client', () => {
   describe('listAthleteActivities', () => {
     test('fetches activities within time window', async () => {
       const mockActivities = [
-        { id: 1, name: 'Activity 1', start_date_local: '2025-10-28T10:00:00Z' },
-        { id: 2, name: 'Activity 2', start_date_local: '2025-10-28T14:00:00Z' }
+        { id: 1, name: 'Activity 1', start_date: '2025-10-28T10:00:00Z' },
+        { id: 2, name: 'Activity 2', start_date: '2025-10-28T14:00:00Z' }
       ];
 
       const mockClient = {

@@ -16,6 +16,7 @@ type ViewMode = 'leaderboard' | 'admin' | 'participants' | 'segments';
 function App() {
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(null);
+  const [selectedSeason, setSelectedSeason] = useState<Season | null>(null);
   const [weeks, setWeeks] = useState<Week[]>([]);
   const [selectedWeekId, setSelectedWeekId] = useState<number | null>(null);
   const [selectedWeek, setSelectedWeek] = useState<Week | null>(null);
@@ -39,39 +40,30 @@ function App() {
         }
         
         // Find the current season (season that contains today's date)
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const now = Math.floor(Date.now() / 1000); // Current Unix timestamp in seconds
         
         const currentSeason = seasonsData.find(season => {
-          const startDate = new Date(season.start_date);
-          const endDate = new Date(season.end_date);
-          startDate.setHours(0, 0, 0, 0);
-          endDate.setHours(0, 0, 0, 0);
-          return startDate <= today && today <= endDate;
+          return season.start_at <= now && now <= season.end_at;
         });
         
         // If no current season, use the most recent one
-        const selectedSeason = currentSeason || seasonsData[0];
-        setSelectedSeasonId(selectedSeason.id);
+        const selectedSeasonObj = currentSeason || seasonsData[0];
+        setSelectedSeasonId(selectedSeasonObj.id);
+        setSelectedSeason(selectedSeasonObj);
         
         // Fetch weeks for the selected season
-        const weeksData = await api.getWeeks(selectedSeason.id);
+        const weeksData = await api.getWeeks(selectedSeasonObj.id);
         setWeeks(weeksData);
         
         if (weeksData.length > 0) {
           // Select the most recent week (closest to today, preferring past/current weeks)
-          const sortedWeeks = [...weeksData].sort((a, b) => {
-            const dateA = new Date(a.date || a.start_time);
-            const dateB = new Date(b.date || b.start_time);
-            return dateB.getTime() - dateA.getTime();
-          });
+          const now = Math.floor(Date.now() / 1000); // Current Unix timestamp in seconds
+          const today = Math.floor(now / 86400) * 86400; // Midnight today in Unix seconds
+          
+          const sortedWeeks = [...weeksData].sort((a, b) => b.start_at - a.start_at);
           
           // Find most recent week that is today or in the past
-          const pastWeek = sortedWeeks.find(week => {
-            const weekDate = new Date(week.date || week.start_time);
-            weekDate.setHours(0, 0, 0, 0);
-            return weekDate <= today;
-          });
+          const pastWeek = sortedWeeks.find(week => week.start_at <= today);
           
           setSelectedWeekId(pastWeek ? pastWeek.id : sortedWeeks[0].id);
         }
@@ -91,6 +83,12 @@ function App() {
     const fetchWeeksForSeason = async () => {
       if (selectedSeasonId === null) return;
       try {
+        // Find the season object to get its dates
+        const seasonObj = seasons.find(s => s.id === selectedSeasonId);
+        if (seasonObj) {
+          setSelectedSeason(seasonObj);
+        }
+        
         const weeksData = await api.getWeeks(selectedSeasonId);
         setWeeks(weeksData);
         
@@ -99,20 +97,12 @@ function App() {
         
         if (weeksData.length > 0) {
           // Select the most recent week
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
+          const now = Math.floor(Date.now() / 1000); // Current Unix timestamp in seconds
+          const today = Math.floor(now / 86400) * 86400; // Midnight today in Unix seconds
           
-          const sortedWeeks = [...weeksData].sort((a, b) => {
-            const dateA = new Date(a.date || a.start_time);
-            const dateB = new Date(b.date || b.start_time);
-            return dateB.getTime() - dateA.getTime();
-          });
+          const sortedWeeks = [...weeksData].sort((a, b) => b.start_at - a.start_at);
           
-          const pastWeek = sortedWeeks.find(week => {
-            const weekDate = new Date(week.date || week.start_time);
-            weekDate.setHours(0, 0, 0, 0);
-            return weekDate <= today;
-          });
+          const pastWeek = sortedWeeks.find(week => week.start_at <= today);
           
           setSelectedWeekId(pastWeek ? pastWeek.id : sortedWeeks[0].id);
         }
@@ -122,7 +112,7 @@ function App() {
     };
 
     fetchWeeksForSeason();
-  }, [selectedSeasonId]);
+  }, [selectedSeasonId, seasons]);
 
   // Refresh weeks when switching back to leaderboard view
   useEffect(() => {
@@ -133,22 +123,14 @@ function App() {
           setWeeks(weeksData);
           // If no week is selected but we have weeks, select the most recent past/current week
           if (selectedWeekId === null && weeksData.length > 0) {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            const now = Math.floor(Date.now() / 1000); // Current Unix timestamp in seconds
+            const todayMidnight = Math.floor(now / 86400) * 86400; // Midnight today in Unix seconds
             
             // Sort weeks by date (descending - most recent first)
-            const sortedWeeks = [...weeksData].sort((a, b) => {
-              const dateA = new Date(a.date || a.start_time);
-              const dateB = new Date(b.date || b.start_time);
-              return dateB.getTime() - dateA.getTime();
-            });
+            const sortedWeeks = [...weeksData].sort((a, b) => b.start_at - a.start_at);
             
             // Find most recent week that is today or in the past
-            const pastWeek = sortedWeeks.find(week => {
-              const weekDate = new Date(week.date || week.start_time);
-              weekDate.setHours(0, 0, 0, 0);
-              return weekDate <= today;
-            });
+            const pastWeek = sortedWeeks.find(week => week.start_at <= todayMidnight);
             
             setSelectedWeekId(pastWeek ? pastWeek.id : sortedWeeks[0].id);
           }
@@ -263,7 +245,7 @@ function App() {
 
             <SeasonLeaderboard />
 
-            <ScheduleTable weeks={weeks} />
+            <ScheduleTable weeks={weeks} season={selectedSeason || undefined} />
 
             <Footer />
           </>

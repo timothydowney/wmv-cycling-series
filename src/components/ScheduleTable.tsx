@@ -1,68 +1,32 @@
 import React from 'react';
-import { Week } from '../api';
+import { Week, Season } from '../api';
+import { formatUnixDate, formatUnixTime } from '../utils/dateUtils';
 import './ScheduleTable.css';
 
 interface Props {
   weeks: Week[];
+  season?: Season;
 }
 
-const ScheduleTable: React.FC<Props> = ({ weeks }) => {
-  const formatDate = (week: Week) => {
-    if (week.date) {
-      const date = new Date(week.date);
-      return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-      });
-    }
-    if (week.start_time) {
-      const date = new Date(week.start_time);
-      return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-      });
-    }
-    return 'TBD';
-  };
+const ScheduleTable: React.FC<Props> = ({ weeks, season }) => {
+  // Sort weeks by start_at date
+  const sortedWeeks = [...weeks].sort((a, b) => a.start_at - b.start_at);
 
-  const formatFullDate = (dateString: string) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
-
-  const formatTime = (time: string) => {
-    if (!time) return '—';
-    const date = new Date(time);
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
-  };
-
-  // Sort weeks by date
-  const sortedWeeks = [...weeks].sort((a, b) => {
-    const dateA = new Date(a.date || a.start_time);
-    const dateB = new Date(b.date || b.start_time);
-    return dateA.getTime() - dateB.getTime();
-  });
-
-  // Get season start and end dates from first and last week
-  const seasonStart = sortedWeeks.length > 0 ? formatFullDate(sortedWeeks[0].date || sortedWeeks[0].start_time) : '';
-  const seasonEnd = sortedWeeks.length > 0 ? formatFullDate(sortedWeeks[sortedWeeks.length - 1].date || sortedWeeks[sortedWeeks.length - 1].start_time) : '';
+  // Get season start and end dates - prefer season prop, fallback to weeks
+  let seasonStart = '';
+  let seasonEnd = '';
+  
+  if (season) {
+    seasonStart = formatUnixDate(season.start_at);
+    seasonEnd = formatUnixDate(season.end_at);
+  } else if (sortedWeeks.length > 0) {
+    seasonStart = formatUnixDate(sortedWeeks[0].start_at);
+    seasonEnd = formatUnixDate(sortedWeeks[sortedWeeks.length - 1].start_at);
+  }
 
   // Find the upcoming week (today or in future)
-  const upcomingWeek = sortedWeeks.find(week => {
-    const weekEnd = new Date(week.end_time);
-    return weekEnd >= new Date();
-  });
+  const now = Math.floor(Date.now() / 1000); // Current Unix timestamp in seconds
+  const upcomingWeek = sortedWeeks.find(week => week.end_at >= now);
 
   return (
     <div className="schedule-table-container">
@@ -81,7 +45,7 @@ const ScheduleTable: React.FC<Props> = ({ weeks }) => {
           {sortedWeeks.map(week => (
             <tr key={week.id} className={upcomingWeek?.id === week.id ? 'upcoming' : ''}>
               <td className="week-name">{week.week_name}</td>
-              <td className="week-date">{formatDate(week)}</td>
+              <td className="week-date">{formatUnixDate(week.start_at)}</td>
               <td className="segment-name">
                 <a 
                   href={`https://www.strava.com/segments/${week.segment_id}`}
@@ -94,7 +58,7 @@ const ScheduleTable: React.FC<Props> = ({ weeks }) => {
               </td>
               <td className="required-laps">{week.required_laps}</td>
               <td className="time-window">
-                {formatTime(week.start_time)} – {formatTime(week.end_time)}
+                {formatUnixTime(week.start_at)} – {formatUnixTime(week.end_at)}
               </td>
             </tr>
           ))}

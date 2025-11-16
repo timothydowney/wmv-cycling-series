@@ -45,7 +45,7 @@ describe('Activity Storage', () => {
 
       const activityData = {
         id: 9876543210,
-        start_date_local: '2025-06-01T10:00:00Z',
+        start_date: '2025-06-01T10:00:00Z',
         device_name: 'Garmin Edge 530',
         segmentEfforts: [
           {
@@ -132,7 +132,7 @@ describe('Activity Storage', () => {
 
       const activityData = {
         id: 9876543211,
-        start_date_local: '2025-06-01T11:00:00Z',
+        start_date: '2025-06-01T11:00:00Z',
         device_name: null,
         segmentEfforts: [
           { id: 3333333333, start_date: '2025-06-01T11:05:00Z', elapsed_time: 650, pr_rank: null }
@@ -175,7 +175,7 @@ describe('Activity Storage', () => {
 
       const activityData = {
         id: 9876543212,
-        start_date_local: '2025-06-01T12:00:00Z',
+        start_date: '2025-06-01T12:00:00Z',
         device_name: undefined, // No device name
         segmentEfforts: [
           { id: 4444444444, start_date: '2025-06-01T12:05:00Z', elapsed_time: 680, pr_rank: null }

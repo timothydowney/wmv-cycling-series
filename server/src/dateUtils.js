@@ -9,7 +9,11 @@
  * Convert ISO 8601 datetime string to Unix timestamp (UTC seconds)
  * Replaces: Math.floor(new Date(isoString).getTime() / 1000)
  * 
- * @param {string} isoString - ISO 8601 datetime (e.g., "2025-01-15T14:30:00Z" or "2025-01-15T14:30:00")
+ * NOTE: Always use Z suffix (UTC indicator) for consistency with Strava API format.
+ *       Without Z, the string is parsed as browser/process local timezone, which varies by environment.
+ *       Use Z suffix to ensure identical behavior everywhere (dev, prod, tests).
+ * 
+ * @param {string} isoString - ISO 8601 datetime with Z suffix (e.g., "2025-01-15T14:30:00Z")
  * @returns {number|null} Unix timestamp in seconds, or null if invalid
  * 
  * @example
