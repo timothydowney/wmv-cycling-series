@@ -17,9 +17,10 @@ interface WeekFormData {
 
 interface WeekManagerProps {
   onFetchResults?: () => void;
+  seasonId?: number;  // Filter weeks by season
 }
 
-function WeekManager({ onFetchResults }: WeekManagerProps) {
+function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
   const [weeks, setWeeks] = useState<Week[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [editingWeekId, setEditingWeekId] = useState<number | null>(null);
@@ -35,11 +36,11 @@ function WeekManager({ onFetchResults }: WeekManagerProps) {
 
   useEffect(() => {
     fetchWeeks();
-  }, []);
+  }, [seasonId]);
 
   const fetchWeeks = async () => {
     try {
-      const data = await getWeeks();
+      const data = await getWeeks(seasonId);
       // Sort weeks by start_at ascending (oldest first, so Week 1 appears at top)
       const sortedWeeks = [...data].sort((a, b) => a.start_at - b.start_at);
       setWeeks(sortedWeeks);
@@ -62,9 +63,24 @@ function WeekManager({ onFetchResults }: WeekManagerProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate segment is selected
+    // Validate all required fields
+    const errors: string[] = [];
+    
     if (!formData.segment_id || !formData.segment_name) {
-      setMessage({ type: 'error', text: 'Please select or enter a valid segment' });
+      errors.push('Segment');
+    }
+    if (!formData.start_time) {
+      errors.push('Start Date/Time');
+    }
+    if (!formData.end_time) {
+      errors.push('End Date/Time');
+    }
+    
+    if (errors.length > 0) {
+      setMessage({ 
+        type: 'error', 
+        text: `Missing required fields: ${errors.join(', ')}` 
+      });
       setTimeout(() => setMessage(null), 5000);
       return;
     }
@@ -75,9 +91,13 @@ function WeekManager({ onFetchResults }: WeekManagerProps) {
       return Math.floor(date.getTime() / 1000);
     };
     
+    // Use segment_name as default if week_name is not provided
+    const week_name = formData.week_name?.trim() || formData.segment_name;
+    
     const submitData = {
-      week_name: formData.week_name,
+      week_name,
       segment_id: formData.segment_id,
+      segment_name: formData.segment_name,
       required_laps: formData.required_laps,
       start_at: datetimeLocalToUnix(formData.start_time),
       end_at: datetimeLocalToUnix(formData.end_time)

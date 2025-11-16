@@ -8,10 +8,11 @@ import NavBar from './components/NavBar';
 import AdminPanel from './components/AdminPanel';
 import ParticipantStatus from './components/ParticipantStatus';
 import ManageSegments from './components/ManageSegments';
+import SeasonManager from './components/SeasonManager';
 import Footer from './components/Footer';
 import { api, getWeekLeaderboard, Week, Season, LeaderboardEntry } from './api';
 
-type ViewMode = 'leaderboard' | 'admin' | 'participants' | 'segments';
+type ViewMode = 'leaderboard' | 'admin' | 'participants' | 'segments' | 'seasons';
 
 function App() {
   const [seasons, setSeasons] = useState<Season[]>([]);
@@ -169,6 +170,19 @@ function App() {
     }
   };
 
+  // Handler for when seasons are changed in SeasonManager - refresh seasons list
+  const handleSeasonsChanged = async () => {
+    try {
+      const seasonsData = await api.getSeasons();
+      setSeasons(seasonsData);
+      
+      // Return to leaderboard to show updated season selector
+      setViewMode('leaderboard');
+    } catch (err) {
+      console.error('Failed to refresh seasons:', err);
+    }
+  };
+
   if (loading) {
     return (
       <>
@@ -178,6 +192,7 @@ function App() {
           onParticipantsClick={() => setViewMode('participants')}
           onLeaderboardClick={() => setViewMode('leaderboard')}
           onManageSegmentsClick={() => setViewMode('segments')}
+          onManageSeasonsClick={() => setViewMode('seasons')}
         />
         <div className="app app-content">
           <p>Loading...</p>
@@ -195,6 +210,7 @@ function App() {
           onParticipantsClick={() => setViewMode('participants')}
           onLeaderboardClick={() => setViewMode('leaderboard')}
           onManageSegmentsClick={() => setViewMode('segments')}
+          onManageSeasonsClick={() => setViewMode('seasons')}
         />
         <div className="app app-content">
           <div className="error">{error}</div>
@@ -211,11 +227,17 @@ function App() {
         onParticipantsClick={() => setViewMode('participants')}
         onLeaderboardClick={() => setViewMode('leaderboard')}
         onManageSegmentsClick={() => setViewMode('segments')}
+        onManageSeasonsClick={() => setViewMode('seasons')}
       />
       
       <div className="app app-content">
         {viewMode === 'admin' ? (
-          <AdminPanel onFetchResults={handleFetchResults} />
+          <AdminPanel 
+            onFetchResults={handleFetchResults}
+            seasons={seasons}
+            selectedSeasonId={selectedSeasonId}
+            onSeasonChange={setSelectedSeasonId}
+          />
         ) : viewMode === 'participants' ? (
           <div>
             <h1 style={{ marginBottom: '2rem' }}>Participant Status</h1>
@@ -226,6 +248,12 @@ function App() {
             <h1 style={{ marginBottom: '1rem' }}>Manage Segments</h1>
             <p className="admin-subtitle" style={{ marginTop: 0 }}>Add new Strava segments and manage known segments</p>
             <ManageSegments />
+          </div>
+        ) : viewMode === 'seasons' ? (
+          <div>
+            <h1 style={{ marginBottom: '1rem' }}>Manage Seasons</h1>
+            <p className="admin-subtitle" style={{ marginTop: 0 }}>Add, edit, and remove seasons for the Zwift Hill Climb/Time Trial Series</p>
+            <SeasonManager onSeasonsChanged={handleSeasonsChanged} />
           </div>
         ) : (
           <>

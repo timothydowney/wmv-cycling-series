@@ -1094,7 +1094,7 @@ app.delete('/admin/seasons/:id', requireAdmin, (req, res) => {
 app.post('/admin/weeks', requireAdmin, (req, res) => {
   console.log('POST /admin/weeks - Request body:', JSON.stringify(req.body, null, 2));
   
-  const { season_id, week_name, date, segment_id, segment_name, required_laps, start_time, end_time } = req.body;
+  const { season_id, week_name, segment_id, segment_name, required_laps, start_at, end_at } = req.body;
 
   // Auto-select active season if not provided
   let finalSeasonId = season_id;
@@ -1111,20 +1111,13 @@ app.post('/admin/weeks', requireAdmin, (req, res) => {
     console.log('Using active season:', finalSeasonId);
   }
 
-  // Extract date from start_time if not provided
-  let finalDate = date;
-  if (!finalDate && start_time) {
-    finalDate = extractDateFromISO(start_time);
-    console.log('Extracted date from start_time:', finalDate);
-  }
-
-  // Validate required fields
-  if (!week_name || !finalDate || !segment_id || !required_laps) {
-    console.error('Missing required fields:', { week_name, finalDate, segment_id, required_laps });
+  // Validate required fields (all in Unix timestamp format now)
+  if (!week_name || !segment_id || !required_laps || start_at === undefined || end_at === undefined) {
+    console.error('Missing required fields:', { week_name, segment_id, required_laps, start_at, end_at });
     return res.status(400).json({ 
       error: 'Missing required fields',
-      required: ['week_name', 'date (or start_time)', 'segment_id', 'required_laps'],
-      received: { week_name, date: finalDate, segment_id, required_laps }
+      required: ['week_name', 'segment_id', 'required_laps', 'start_at', 'end_at'],
+      received: { week_name, segment_id, required_laps, start_at, end_at }
     });
   }
 
@@ -1135,66 +1128,38 @@ app.post('/admin/weeks', requireAdmin, (req, res) => {
     return res.status(400).json({ error: 'Invalid season_id' });
   }
 
-  // Default time window: midnight to 10pm on event date
-  const timeWindow = start_time || end_time ? {
-    start: start_time || `${finalDate}T00:00:00Z`,
-    end: end_time || `${finalDate}T22:00:00Z`
-  } : defaultDayTimeWindow(finalDate);
-
-  // Normalize and convert times
-  const normalizedStartTime = normalizeTimeWithZ(timeWindow.start);
-  const normalizedEndTime = normalizeTimeWithZ(timeWindow.end);
-  
-  if (normalizedStartTime !== timeWindow.start || normalizedEndTime !== timeWindow.end) {
-    console.warn('[TIME NORMALIZATION] Times were normalized:');
-    console.warn(`  Start: '${timeWindow.start}' → '${normalizedStartTime}'`);
-    console.warn(`  End: '${timeWindow.end}' → '${normalizedEndTime}'`);
-  }
-
-  // Convert ISO 8601 times to Unix timestamps (UTC seconds)
-  const startAtUnix = isoToUnix(normalizedStartTime);
-  const endAtUnix = isoToUnix(normalizedEndTime);
-
   // Ensure segment exists (segment_id is now Strava segment ID)
-  if (segment_name && segment_id) {
-    // Upsert segment: insert if not exists
+  if (segment_id) {
+    // Check if segment already exists
     const existingSegment = db.prepare('SELECT strava_segment_id FROM segment WHERE strava_segment_id = ?').get(segment_id);
     if (!existingSegment) {
-      console.log('Creating new segment:', segment_id, segment_name);
+      // Segment doesn't exist - create it
+      // If segment_name provided, use it; otherwise use segment_id as name
+      const segmentName = segment_name || `Segment ${segment_id}`;
+      console.log('Creating new segment:', segment_id, segmentName);
       db.prepare(`
         INSERT INTO segment (strava_segment_id, name)
         VALUES (?, ?)
-      `).run(segment_id, segment_name);
+      `).run(segment_id, segmentName);
     }
-  } else if (!segment_id) {
-    return res.status(400).json({ error: 'segment_id is required' });
   } else {
-    // segment_id provided without segment_name - must exist in database
-    const existingSegment = db.prepare('SELECT strava_segment_id FROM segment WHERE strava_segment_id = ?').get(segment_id);
-    if (!existingSegment) {
-      console.error('Invalid segment_id:', segment_id);
-      return res.status(400).json({ 
-        error: 'Invalid segment_id',
-        message: 'Segment does not exist. Provide segment_name to create it, or use an existing segment.'
-      });
-    }
+    return res.status(400).json({ error: 'segment_id is required' });
   }
 
   try {
     console.log('Inserting week:', { 
       season_id: finalSeasonId, 
       week_name, 
-      date: finalDate, 
       segment_id: segment_id, 
       required_laps, 
-      start_at: normalizedStartTime, 
-      end_at: normalizedEndTime 
+      start_at, 
+      end_at 
     });
     
     const result = db.prepare(`
       INSERT INTO week (season_id, week_name, strava_segment_id, required_laps, start_at, end_at)
       VALUES (?, ?, ?, ?, ?, ?)
-    `).run(finalSeasonId, week_name, segment_id, required_laps, startAtUnix, endAtUnix);
+    `).run(finalSeasonId, week_name, segment_id, required_laps, start_at, end_at);
 
     const newWeek = db.prepare(`
       SELECT w.id, w.season_id, w.week_name, w.strava_segment_id as segment_id, w.required_laps, 

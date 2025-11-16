@@ -21,3 +21,11 @@
   color: var(--wmv-text-light, #666);
   font-size: var(--font-lg);
 }
+
+.admin-season-selector-wrapper {
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  border-left: 4px solid var(--wmv-orange, #f56004);
+}

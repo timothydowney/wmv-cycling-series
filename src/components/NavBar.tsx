@@ -8,6 +8,7 @@ interface NavBarProps {
   onParticipantsClick?: () => void;
   onLeaderboardClick?: () => void;
   onManageSegmentsClick?: () => void;
+  onManageSeasonsClick?: () => void;
 }
 
 interface AthleteInfo {
@@ -17,7 +18,7 @@ interface AthleteInfo {
   profile?: string;
 }
 
-const NavBar: React.FC<NavBarProps> = ({ onAdminPanelToggle, isAdminPanelOpen: _isAdminPanelOpen, onParticipantsClick, onLeaderboardClick, onManageSegmentsClick }) => {
+const NavBar: React.FC<NavBarProps> = ({ onAdminPanelToggle, isAdminPanelOpen: _isAdminPanelOpen, onParticipantsClick, onLeaderboardClick, onManageSegmentsClick, onManageSeasonsClick }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -177,6 +178,16 @@ const NavBar: React.FC<NavBarProps> = ({ onAdminPanelToggle, isAdminPanelOpen: _
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                           </svg>
                           Manage Competition
+                        </button>
+                        <button className="menu-item" onClick={() => {
+                          if (onManageSeasonsClick) onManageSeasonsClick();
+                          setIsMenuOpen(false);
+                        }}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="menu-icon">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                              d="M8 7V3m8 4V3m-9 8h10m5 0a2 2 0 01-2 2H4a2 2 0 01-2-2m14-6a2 2 0 011 1.732m-14-1.732a2 2 0 00-1 1.732m14 0a2 2 0 01-2 2m-2-2a2 2 0 01-2-2m2 2a2 2 0 01 2 2v3" />
+                          </svg>
+                          Manage Seasons
                         </button>
                         <button className="menu-item" onClick={() => {
                           if (onManageSegmentsClick) onManageSegmentsClick();
