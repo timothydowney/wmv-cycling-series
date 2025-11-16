@@ -236,29 +236,41 @@ function App() {
       
       <div className="app app-content">
         {viewMode === 'admin' ? (
-          <AdminPanel 
-            onFetchResults={handleFetchResults}
-            seasons={seasons}
-            selectedSeasonId={selectedSeasonId}
-            onSeasonChange={setSelectedSeasonId}
-          />
+          <>
+            <AdminPanel 
+              onFetchResults={handleFetchResults}
+              seasons={seasons}
+              selectedSeasonId={selectedSeasonId}
+              onSeasonChange={setSelectedSeasonId}
+            />
+            <Footer />
+          </>
         ) : viewMode === 'participants' ? (
-          <div>
-            <h1 style={{ marginBottom: '2rem' }}>Participant Status</h1>
-            <ParticipantStatus />
-          </div>
+          <>
+            <div>
+              <h1 style={{ marginBottom: '2rem' }}>Participant Status</h1>
+              <ParticipantStatus />
+            </div>
+            <Footer />
+          </>
         ) : viewMode === 'segments' ? (
-          <div>
-            <h1 style={{ marginBottom: '1rem' }}>Manage Segments</h1>
-            <p className="admin-subtitle" style={{ marginTop: 0 }}>Add new Strava segments and manage known segments</p>
-            <ManageSegments />
-          </div>
+          <>
+            <div>
+              <h1 style={{ marginBottom: '1rem' }}>Manage Segments</h1>
+              <p className="admin-subtitle" style={{ marginTop: 0 }}>Add new Strava segments and manage known segments</p>
+              <ManageSegments />
+            </div>
+            <Footer />
+          </>
         ) : viewMode === 'seasons' ? (
-          <div>
-            <h1 style={{ marginBottom: '1rem' }}>Manage Seasons</h1>
-            <p className="admin-subtitle" style={{ marginTop: 0 }}>Add, edit, and remove seasons for the Zwift Hill Climb/Time Trial Series</p>
-            <SeasonManager onSeasonsChanged={handleSeasonsChanged} />
-          </div>
+          <>
+            <div>
+              <h1 style={{ marginBottom: '1rem' }}>Manage Seasons</h1>
+              <p className="admin-subtitle" style={{ marginTop: 0 }}>Add, edit, and remove seasons for the Zwift Hill Climb/Time Trial Series</p>
+              <SeasonManager onSeasonsChanged={handleSeasonsChanged} />
+            </div>
+            <Footer />
+          </>
         ) : (
           <>
             <SeasonWeekSelectors

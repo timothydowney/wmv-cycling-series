@@ -190,16 +190,6 @@ const NavBar: React.FC<NavBarProps> = ({ onAdminPanelToggle, isAdminPanelOpen: _
                           Manage Seasons
                         </button>
                         <button className="menu-item" onClick={() => {
-                          if (onManageSegmentsClick) onManageSegmentsClick();
-                          setIsMenuOpen(false);
-                        }}>
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="menu-icon">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                              d="M3 7h18M3 12h18M3 17h18" />
-                          </svg>
-                          Manage Segments
-                        </button>
-                        <button className="menu-item" onClick={() => {
                           if (onParticipantsClick) onParticipantsClick();
                           setIsMenuOpen(false);
                         }}>
