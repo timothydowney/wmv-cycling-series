@@ -9,27 +9,28 @@ interface Props {
 }
 
 const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard }) => {
-  if (!week) {
-    return null;
-  }
-
-  // Format date like "November 11, 2025"
-  const formattedDate = formatUnixDate(week.start_at);
+  // Always render the component - show a generic title if no week selected
+  const formattedDate = week ? formatUnixDate(week.start_at) : null;
+  const title = week ? (
+    <h2>
+      {formattedDate} |&nbsp;
+      <a 
+        href={`https://www.strava.com/segments/${week.segment_id}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ color: 'var(--wmv-purple)', textDecoration: 'none' }}
+      >
+        {week.week_name}
+      </a>
+      &nbsp;| {formatLapCount(week.required_laps)}
+    </h2>
+  ) : (
+    <h2>Weekly Leaderboard</h2>
+  );
 
   return (
-    <div>
-      <h2>
-        {formattedDate} |&nbsp;
-        <a 
-          href={`https://www.strava.com/segments/${week.segment_id}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: 'var(--wmv-purple)', textDecoration: 'none' }}
-        >
-          {week.week_name}
-        </a>
-        &nbsp;| {formatLapCount(week.required_laps)}
-      </h2>
+    <div style={{ marginBottom: '2rem' }}>
+      {title}
       <table style={{ width: '100%' }}>
         <thead>
           <tr>
