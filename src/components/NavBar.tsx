@@ -7,7 +7,6 @@ interface NavBarProps {
   isAdminPanelOpen: boolean;
   onParticipantsClick?: () => void;
   onLeaderboardClick?: () => void;
-  onManageSegmentsClick?: () => void;
   onManageSeasonsClick?: () => void;
 }
 
@@ -18,7 +17,7 @@ interface AthleteInfo {
   profile?: string;
 }
 
-const NavBar: React.FC<NavBarProps> = ({ onAdminPanelToggle, isAdminPanelOpen: _isAdminPanelOpen, onParticipantsClick, onLeaderboardClick, onManageSegmentsClick, onManageSeasonsClick }) => {
+const NavBar: React.FC<NavBarProps> = ({ onAdminPanelToggle, isAdminPanelOpen: _isAdminPanelOpen, onParticipantsClick, onLeaderboardClick, onManageSeasonsClick }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
