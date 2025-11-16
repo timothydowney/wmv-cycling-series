@@ -13,7 +13,7 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard }) => {
   const formattedDate = week ? formatUnixDate(week.start_at) : null;
   const title = week ? (
     <h2>
-      {formattedDate} |&nbsp;
+      Week | {formattedDate} |&nbsp;
       <a 
         href={`https://www.strava.com/segments/${week.segment_id}`}
         target="_blank"
@@ -25,7 +25,7 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard }) => {
       &nbsp;| {formatLapCount(week.required_laps)}
     </h2>
   ) : (
-    <h2>Weekly Leaderboard</h2>
+    <h2>Week | Leaderboard</h2>
   );
 
   return (

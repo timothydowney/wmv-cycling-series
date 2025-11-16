@@ -30,7 +30,7 @@ const ScheduleTable: React.FC<Props> = ({ weeks, season }) => {
 
   return (
     <div className="schedule-table-container">
-      <h2>Season | {seasonStart} to {seasonEnd}</h2>
+      <h2>Schedule | {season?.name || 'Unknown'} | {seasonStart} to {seasonEnd}</h2>
       <table className="schedule-table">
         <thead>
           <tr>

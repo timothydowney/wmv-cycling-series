@@ -1,21 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { getSeasonLeaderboard, SeasonStanding } from '../api';
 
+import { Season } from '../api';
+
 interface Props {
-  seasonId: number;
+  season?: Season;
 }
 
-const SeasonLeaderboard: React.FC<Props> = ({ seasonId }) => {
+const SeasonLeaderboard: React.FC<Props> = ({ season }) => {
   const [standings, setStandings] = useState<SeasonStanding[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchSeasonStandings = async () => {
+      if (!season?.id) return;
       try {
         setLoading(true);
         setError(null);
-        const data = await getSeasonLeaderboard(seasonId);
+        const data = await getSeasonLeaderboard(season.id);
         setStandings(data);
       } catch (err) {
         setError('Failed to load season standings');
@@ -26,7 +29,7 @@ const SeasonLeaderboard: React.FC<Props> = ({ seasonId }) => {
     };
 
     fetchSeasonStandings();
-  }, [seasonId]);
+  }, [season?.id]);
 
   if (loading) {
     return <div>Loading season standings...</div>;
@@ -38,7 +41,7 @@ const SeasonLeaderboard: React.FC<Props> = ({ seasonId }) => {
 
   return (
     <div>
-      <h2>Season Leaderboard</h2>
+      <h2>Season | {season?.name || 'Unknown'} | Leaderboard</h2>
       <table style={{ width: '100%' }}>
         <thead>
           <tr>

@@ -23,7 +23,7 @@ const WeekSelector: React.FC<Props> = ({ weeks, selectedWeekId, setSelectedWeekI
 
   return (
     <div className="week-selector-container">
-      <label htmlFor="week-select" className="week-selector-label">Select Week:</label>
+      <label htmlFor="week-select" className="week-selector-label">Week:</label>
       <select
         id="week-select"
         className="week-selector-dropdown"
