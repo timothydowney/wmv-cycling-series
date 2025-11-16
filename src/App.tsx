@@ -195,7 +195,6 @@ function App() {
           isAdminPanelOpen={viewMode === 'admin'}
           onParticipantsClick={() => setViewMode('participants')}
           onLeaderboardClick={() => setViewMode('leaderboard')}
-          onManageSegmentsClick={() => setViewMode('segments')}
           onManageSeasonsClick={() => setViewMode('seasons')}
         />
         <div className="app app-content">
@@ -213,7 +212,6 @@ function App() {
           isAdminPanelOpen={viewMode === 'admin'}
           onParticipantsClick={() => setViewMode('participants')}
           onLeaderboardClick={() => setViewMode('leaderboard')}
-          onManageSegmentsClick={() => setViewMode('segments')}
           onManageSeasonsClick={() => setViewMode('seasons')}
         />
         <div className="app app-content">
@@ -230,7 +228,6 @@ function App() {
         isAdminPanelOpen={viewMode === 'admin'}
         onParticipantsClick={() => setViewMode('participants')}
         onLeaderboardClick={() => setViewMode('leaderboard')}
-        onManageSegmentsClick={() => setViewMode('segments')}
         onManageSeasonsClick={() => setViewMode('seasons')}
       />
       
