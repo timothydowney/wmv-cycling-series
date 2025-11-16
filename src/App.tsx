@@ -142,7 +142,7 @@ function App() {
     };
 
     refreshWeeks();
-  }, [viewMode, selectedSeasonId]); // Refresh when viewMode or season changes
+  }, [viewMode, selectedSeasonId, selectedWeekId]);
 
   // Function to fetch/refresh leaderboard
   const fetchLeaderboard = async (weekId: number) => {
