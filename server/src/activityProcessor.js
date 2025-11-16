@@ -174,7 +174,7 @@ async function findBestQualifyingActivity(activities, targetSegmentId, requiredL
         bestActivity = {
           id: fullActivity.id,
           name: fullActivity.name,
-          start_date_local: fullActivity.start_date_local,
+          start_date: fullActivity.start_date,
           totalTime: totalTime,
           segmentEfforts: sortedEfforts,
           activity_url: `https://www.strava.com/activities/${fullActivity.id}`,

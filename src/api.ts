@@ -140,6 +140,46 @@ export const api = {
     return Array.isArray(data) ? data : data.leaderboard;
   },
 
+  async createSeason(data: Partial<Season>): Promise<Season> {
+    const response = await fetch(`${API_BASE_URL}/admin/seasons`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to create season');
+    }
+    return response.json();
+  },
+
+  async updateSeason(seasonId: number, data: Partial<Season>): Promise<Season> {
+    const response = await fetch(`${API_BASE_URL}/admin/seasons/${seasonId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to update season');
+    }
+    return response.json();
+  },
+
+  async deleteSeason(seasonId: number): Promise<{ message: string }> {
+    const response = await fetch(`${API_BASE_URL}/admin/seasons/${seasonId}`, {
+      method: 'DELETE',
+      credentials: 'include'
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to delete season');
+    }
+    return response.json();
+  },
+
   async getWeeks(seasonId?: number): Promise<Week[]> {
     const url = seasonId 
       ? `${API_BASE_URL}/weeks?season_id=${seasonId}`
@@ -343,6 +383,18 @@ export async function getSeasons(): Promise<Season[]> {
 
 export async function getSeason(id: number): Promise<Season> {
   return api.getSeason(id);
+}
+
+export async function createSeason(data: Partial<Season>): Promise<Season> {
+  return api.createSeason(data);
+}
+
+export async function updateSeason(seasonId: number, data: Partial<Season>): Promise<Season> {
+  return api.updateSeason(seasonId, data);
+}
+
+export async function deleteSeason(seasonId: number): Promise<{ message: string }> {
+  return api.deleteSeason(seasonId);
 }
 
 export async function getWeeks(): Promise<Week[]> {

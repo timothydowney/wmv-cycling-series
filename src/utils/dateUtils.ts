@@ -6,6 +6,83 @@
  */
 
 /**
+ * Convert date input (YYYY-MM-DD) to Unix timestamp for start of day in user's local timezone
+ * @param dateStr Date string in format YYYY-MM-DD
+ * @returns Unix timestamp in seconds for 00:00:00 in user's local timezone
+ */
+export function dateToUnixStart(dateStr: string): number {
+  const date = new Date(`${dateStr}T00:00:00`);  // No Z - uses browser's local timezone
+  return Math.floor(date.getTime() / 1000);
+}
+
+/**
+ * Convert date input (YYYY-MM-DD) to Unix timestamp for end of day in user's local timezone
+ * @param dateStr Date string in format YYYY-MM-DD
+ * @returns Unix timestamp in seconds for 23:59:59 in user's local timezone
+ */
+export function dateToUnixEnd(dateStr: string): number {
+  const date = new Date(`${dateStr}T23:59:59`);  // No Z - uses browser's local timezone
+  return Math.floor(date.getTime() / 1000);
+}
+
+/**
+ * Convert Unix timestamp to date string (YYYY-MM-DD) in user's local timezone
+ * @param unixSeconds Unix timestamp in seconds
+ * @returns Date string in format YYYY-MM-DD
+ */
+export function unixToDateLocal(unixSeconds: number): string {
+  const date = new Date(unixSeconds * 1000);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Convert datetime-local input format to Unix timestamp (seconds)
+ * @param datetimeLocalStr datetime-local format string (YYYY-MM-DDTHH:MM)
+ * @returns Unix timestamp in seconds (UTC)
+ */
+export function datetimeLocalToUnix(datetimeLocalStr: string): number {
+  const date = new Date(datetimeLocalStr);
+  return Math.floor(date.getTime() / 1000);
+}
+
+/**
+ * Convert Unix timestamp (seconds) to datetime-local input format
+ * @param unixSeconds Unix timestamp in seconds (UTC)
+ * @returns datetime-local format string (YYYY-MM-DDTHH:MM)
+ */
+export function unixToDatetimeLocal(unixSeconds: number): string {
+  const date = new Date(unixSeconds * 1000);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+/**
+ * Convert ISO 8601 string (with Z suffix) to Unix timestamp (seconds)
+ * @param isoString ISO 8601 UTC string (e.g., "2025-10-28T14:30:00Z")
+ * @returns Unix timestamp in seconds (UTC)
+ */
+export function isoToUnix(isoString: string): number {
+  const date = new Date(isoString);
+  return Math.floor(date.getTime() / 1000);
+}
+
+/**
+ * Convert ISO 8601 string (with Z suffix) to datetime-local input format
+ * @param isoString ISO 8601 UTC string (e.g., "2025-10-28T14:30:00Z")
+ * @returns datetime-local format string (YYYY-MM-DDTHH:MM)
+ */
+export function isoToDatetimeLocal(isoString: string): string {
+  return unixToDatetimeLocal(isoToUnix(isoString));
+}
+
+/**
  * Convert Unix timestamp (UTC seconds) to locale date string
  * @param unixSeconds Unix timestamp in seconds (UTC)
  * @param options Intl.DateTimeFormat options

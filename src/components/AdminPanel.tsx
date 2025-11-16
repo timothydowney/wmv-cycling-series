@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react';
 import './AdminPanel.css';
 import WeekManager from './WeekManager';
-import { getAuthStatus } from '../api';
+import { getAuthStatus, Season } from '../api';
+import SeasonSelector from './SeasonSelector';
 
 interface AdminPanelProps {
   onFetchResults?: () => void;
+  seasons: Season[];
+  selectedSeasonId: number | null;
+  onSeasonChange: (seasonId: number) => void;
 }
 
-function AdminPanel({ onFetchResults }: AdminPanelProps) {
+function AdminPanel({ onFetchResults, seasons, selectedSeasonId, onSeasonChange }: AdminPanelProps) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -45,11 +49,23 @@ function AdminPanel({ onFetchResults }: AdminPanelProps) {
   return (
     <div className="admin-panel">
       <div className="admin-header">
-        <h1>Competition Management</h1>
-        <p className="admin-subtitle">Manage weeks, segments, and results for the Zwift Hill Climb/Time Trial Series</p>
+        <h1>Manage Competition</h1>
+        <p className="admin-subtitle">Create weeks, manage segments, and fetch results for the Zwift Hill Climb/Time Trial Series</p>
       </div>
 
-      <WeekManager onFetchResults={onFetchResults} />
+      {seasons.length > 0 && (
+        <div className="admin-season-selector-wrapper">
+          <SeasonSelector
+            seasons={seasons}
+            selectedSeasonId={selectedSeasonId}
+            setSelectedSeasonId={onSeasonChange}
+          />
+        </div>
+      )}
+
+      {selectedSeasonId && (
+        <WeekManager onFetchResults={onFetchResults} seasonId={selectedSeasonId} />
+      )}
     </div>
   );
 }

@@ -286,9 +286,11 @@ npm run check  # Audits, typechecks, lints, builds, tests (everything)
 
 ## Temporary Documentation Files (For Agent Use)
 
-When generating detailed analysis, review reports, or summaries during development work, save them to a dedicated temp directory to keep them organized and prevent accidental commits.
+When generating detailed analysis, review reports, or summaries during development work, save them to `.copilot-temp/` directory to keep them organized and prevent accidental commits.
 
 ### Guidelines for Copilot Agent
+
+**IMPORTANT: Use `.copilot-temp/` ONLY. Never create files in `/tmp/` or other system directories.**
 
 **When to create temp files:**
 - Comprehensive code reviews or refactoring reports
@@ -298,12 +300,23 @@ When generating detailed analysis, review reports, or summaries during developme
 
 **Where to save:**
 ```bash
-.copilot-temp/                 # Directory (gitignored)
+.copilot-temp/                 # Directory (gitignored) - ONLY valid location
 ├── refactoring-review.md
 ├── security-audit-2024.md
 ├── migration-guide.md
 └── [other analysis files]
 ```
+
+**Do NOT:**
+- ❌ Create temp files in `/tmp/` or other system directories
+- ❌ Use `cat` or `run_in_terminal` commands to display file contents (wastes tokens)
+- ❌ Display full file contents to the user unless explicitly requested
+
+**DO:**
+- ✅ Save analysis/summaries to `.copilot-temp/[descriptive-name].md`
+- ✅ Reference files by name in conversation ("See `.copilot-temp/refactoring-review.md` for details")
+- ✅ Let the user read files directly if they need full content (they can open in editor)
+- ✅ Use `read_file` only when you need to reference specific content from your own temp files
 
 **Cleanup before commits:**
 ```bash
@@ -313,8 +326,9 @@ rm -rf .copilot-temp/*.md     # Remove temp analysis files before final commit
 **Why this matters:**
 - Keeps git history clean (no analysis artifacts)
 - Prevents accidental publication of work-in-progress documentation
-- Makes it easy to share detailed reports with the user without cluttering the repo
-- Allows you to generate helpful visual summaries and reviews
+- `.copilot-temp/` is already gitignored and properly set up
+- Avoids wasting tokens on unnecessary file I/O and display operations
+- Maintains focus on task completion rather than documentation artifacts
 
 ---
 
