@@ -619,8 +619,8 @@ describe('WMV Backend API', () => {
     });
   });
 
-  // NOTE: Activity submission tests removed - they require authentication and Strava API mocking
-  // See activity-submission.test.js for comprehensive activity submission tests with proper mocking
+  // NOTE: Manual activity submission endpoint deprecated
+  // Use admin batch fetch (POST /admin/weeks/:id/fetch-results) instead
 
   describe('PR Tracking in Efforts', () => {
     test('GET /activities/:id/efforts includes pr_achieved flag', async () => {

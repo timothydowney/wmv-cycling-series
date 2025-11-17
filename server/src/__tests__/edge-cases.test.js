@@ -295,7 +295,6 @@ describe('Edge Cases and Error Handling', () => {
     });
   });
 
-  // NOTE: Boundary value tests for activity submission removed
-  // They require authentication and Strava API mocking
-  // See activity-submission.test.js for comprehensive activity submission tests
+  // NOTE: Manual activity submission endpoint deprecated
+  // Use admin batch fetch (POST /admin/weeks/:id/fetch-results) instead
 });

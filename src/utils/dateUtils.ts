@@ -64,25 +64,6 @@ export function unixToDatetimeLocal(unixSeconds: number): string {
 }
 
 /**
- * Convert ISO 8601 string (with Z suffix) to Unix timestamp (seconds)
- * @param isoString ISO 8601 UTC string (e.g., "2025-10-28T14:30:00Z")
- * @returns Unix timestamp in seconds (UTC)
- */
-export function isoToUnix(isoString: string): number {
-  const date = new Date(isoString);
-  return Math.floor(date.getTime() / 1000);
-}
-
-/**
- * Convert ISO 8601 string (with Z suffix) to datetime-local input format
- * @param isoString ISO 8601 UTC string (e.g., "2025-10-28T14:30:00Z")
- * @returns datetime-local format string (YYYY-MM-DDTHH:MM)
- */
-export function isoToDatetimeLocal(isoString: string): string {
-  return unixToDatetimeLocal(isoToUnix(isoString));
-}
-
-/**
  * Convert Unix timestamp (UTC seconds) to locale date string
  * @param unixSeconds Unix timestamp in seconds (UTC)
  * @param options Intl.DateTimeFormat options
@@ -139,21 +120,4 @@ export function formatUnixDateShort(
     month: 'short',
     day: 'numeric'
   }).format(date);
-}
-
-/**
- * Convert Unix timestamp to time range string
- * @param startUnix Start time in Unix seconds (UTC)
- * @param endUnix End time in Unix seconds (UTC)
- * @returns Time range string (e.g., "12:00 AM – 10:00 PM")
- */
-export function formatUnixTimeRange(
-  startUnix: number | null | undefined,
-  endUnix: number | null | undefined
-): string {
-  if (!startUnix || !endUnix) return '— —';
-  
-  const startStr = formatUnixTime(startUnix);
-  const endStr = formatUnixTime(endUnix);
-  return `${startStr} – ${endStr}`;
 }
