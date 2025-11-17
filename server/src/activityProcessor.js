@@ -3,7 +3,6 @@
  * 
  * Handles the business logic for:
  * - Finding qualifying activities for competitions
- * - Extracting activity information from URLs
  * - Validating activities against time windows
  * - Processing segment efforts
  * 
@@ -13,37 +12,6 @@
 
 const stravaClient = require('./stravaClient');
 const { isoToUnix } = require('./dateUtils');
-
-/**
- * Extract Strava activity ID from various URL formats
- * Supports:
- *  - https://www.strava.com/activities/12345678
- *  - https://www.strava.com/activities/12345678/
- *  - www.strava.com/activities/12345678
- *  - 12345678 (raw ID)
- * 
- * @param {string} input - Activity URL or ID
- * @returns {string|null} Activity ID or null if invalid format
- */
-function extractActivityId(input) {
-  if (!input) return null;
-  
-  // Try to match URL pattern
-  const match = input.match(/\/activities\/(\d+)/);
-  if (match && match[1]) {
-    return match[1];
-  }
-  
-  // Try to parse as raw number
-  const numMatch = input.match(/^\d+$/);
-  if (numMatch) {
-    return numMatch[0];
-  }
-  
-  return null;
-}
-
-
 
 /**
  * Find the best qualifying activity among a list
@@ -199,48 +167,6 @@ async function findBestQualifyingActivity(activities, targetSegmentId, requiredL
   return bestActivity;
 }
 
-/**
- * Fetch activities for a time window
- * Converts ISO 8601 times to Unix timestamps and calls Strava API
- * 
- * @param {string} accessToken - Strava access token (athlete's personal token)
- * @param {string} startTime - ISO 8601 datetime (e.g., "2025-10-28T00:00:00Z")
- * @param {string} endTime - ISO 8601 datetime (e.g., "2025-10-28T22:00:00Z")
- * @returns {Promise<Array>} All activities within the time window
- */
-async function fetchActivitiesInTimeWindow(accessToken, startTime, endTime) {
-  const afterTimestamp = isoToUnix(startTime);
-  const beforeTimestamp = isoToUnix(endTime);
-  
-  // Detailed timezone logging
-  console.log('[Activity Fetch] ========== TIMEZONE ANALYSIS ==========');
-  console.log('[Activity Fetch] Converting time window to Unix timestamps:');
-  console.log(`  Input startTime: '${startTime}'`);
-  console.log(`  Input endTime: '${endTime}'`);
-  console.log(`  → afterTimestamp: ${afterTimestamp}`);
-  console.log(`  → beforeTimestamp: ${beforeTimestamp}`);
-  
-  // Show duration
-  const durationSeconds = beforeTimestamp - afterTimestamp;
-  const durationHours = durationSeconds / 3600;
-  console.log(`[Activity Fetch] Window duration: ${durationSeconds} seconds (${durationHours} hours)`);
-  console.log('[Activity Fetch] ========== END TIMEZONE ANALYSIS ==========');
-  
-  try {
-    const activities = await stravaClient.listAthleteActivities(accessToken, afterTimestamp, beforeTimestamp, {
-      includeAllEfforts: true
-    });
-    
-    console.log(`[Activity Fetch] ✓ Retrieved ${activities.length} activities from Strava API`);
-    return activities;
-  } catch (error) {
-    console.error(`[Activity Fetch] ✗ API error: ${error.message}`);
-    throw error;
-  }
-}
-
 module.exports = {
-  extractActivityId,
-  findBestQualifyingActivity,
-  fetchActivitiesInTimeWindow
+  findBestQualifyingActivity
 };

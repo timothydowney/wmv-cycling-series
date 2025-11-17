@@ -5,7 +5,7 @@
  * Eliminates repetitive INSERT statements and makes tests easier to maintain.
  */
 
-const { isoToUnix, nowUnix } = require('../dateUtils');
+const { isoToUnix } = require('../dateUtils');
 
 /**
  * Create a test participant with optional token
@@ -28,11 +28,11 @@ function createParticipant(db, stravaAthleteId, name = null, withToken = false) 
     if (typeof withToken === 'object') {
       accessToken = withToken.accessToken || `token_${stravaAthleteId}`;
       refreshToken = withToken.refreshToken || `refresh_${stravaAthleteId}`;
-      expiresAt = withToken.expiresAt || (nowUnix() + 3600);
+      expiresAt = withToken.expiresAt || (Math.floor(Date.now() / 1000) + 3600);
     } else {
       accessToken = `token_${stravaAthleteId}`;
       refreshToken = `refresh_${stravaAthleteId}`;
-      expiresAt = nowUnix() + 3600; // 1 hour from now
+      expiresAt = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
     }
     
     db.prepare('INSERT INTO participant_token (strava_athlete_id, access_token, refresh_token, expires_at) VALUES (?, ?, ?, ?)')
