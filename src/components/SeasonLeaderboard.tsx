@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getSeasonLeaderboard, SeasonStanding } from '../api';
+import { useCurrentUser } from '../hooks/useCurrentUser';
 
 import { Season } from '../api';
 
@@ -11,6 +12,7 @@ const SeasonLeaderboard: React.FC<Props> = ({ season }) => {
   const [standings, setStandings] = useState<SeasonStanding[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const userAthleteId = useCurrentUser();
 
   useEffect(() => {
     const fetchSeasonStandings = async () => {
@@ -57,8 +59,10 @@ const SeasonLeaderboard: React.FC<Props> = ({ season }) => {
               <td colSpan={4}>No season results yet</td>
             </tr>
           ) : (
-            standings.map((standing, index) => (
-              <tr key={standing.id}>
+            standings.map((standing, index) => {
+              const isCurrentUser = userAthleteId !== null && userAthleteId === standing.strava_athlete_id;
+              return (
+              <tr key={standing.id} style={isCurrentUser ? { backgroundColor: 'var(--wmv-orange-light, #fff5f0)', fontWeight: 500 } : {}}>
                 <td style={{ width: '60px' }}>{index + 1}</td>
                 <td style={{ width: '200px' }}>
                   <a 
@@ -73,7 +77,8 @@ const SeasonLeaderboard: React.FC<Props> = ({ season }) => {
                 <td>{standing.total_points}</td>
                 <td>{standing.weeks_completed}</td>
               </tr>
-            ))
+            );
+            })
           )}
         </tbody>
       </table>
