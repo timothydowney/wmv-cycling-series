@@ -719,6 +719,7 @@ app.get('/seasons/:id/leaderboard', (req, res) => {
   const seasonResults = Object.entries(allParticipantScores)
     .map(([id, data]) => ({
       id: parseInt(id),
+      strava_athlete_id: parseInt(id),
       name: data.name,
       total_points: data.total_points,
       weeks_completed: data.weeks_completed

@@ -2,6 +2,7 @@ import React from 'react';
 import { Week, LeaderboardEntry } from '../api';
 import { formatLapCount } from '../utils/lapFormatter';
 import { formatUnixDate } from '../utils/dateUtils';
+import { useCurrentUser } from '../hooks/useCurrentUser';
 
 interface Props {
   week: Week | null;
@@ -9,6 +10,8 @@ interface Props {
 }
 
 const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard }) => {
+  const userAthleteId = useCurrentUser();
+
   // Always render the component - show a generic title if no week selected
   const formattedDate = week ? formatUnixDate(week.start_at) : null;
   const title = week ? (
@@ -47,8 +50,10 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard }) => {
               <td colSpan={5}>No results yet for this week</td>
             </tr>
           ) : (
-            leaderboard.map((entry) => (
-              <tr key={entry.participant_id}>
+            leaderboard.map((entry) => {
+              const isCurrentUser = userAthleteId !== null && userAthleteId === entry.participant_id;
+              return (
+              <tr key={entry.participant_id} style={isCurrentUser ? { backgroundColor: 'var(--wmv-orange-light, #fff5f0)', fontWeight: 500 } : {}}>
                 <td style={{ width: '60px' }}>{entry.rank}</td>
                 <td style={{ width: '200px' }}>
                   {entry.activity_url ? (
@@ -115,7 +120,8 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard }) => {
                 <td>{entry.points}{entry.pr_bonus_points > 0 ? ` + ${entry.pr_bonus_points}` : ''}</td>
                 <td>{entry.device_name || '—'}</td>
               </tr>
-            ))
+            );
+            })
           )}
         </tbody>
       </table>
