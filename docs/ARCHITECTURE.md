@@ -22,8 +22,6 @@ Vite dev server on http://localhost:5173
   - `WeeklyLeaderboard` - Week results display
   - `SeasonLeaderboard` - Season standings
   - `WeekSelector` - Week picker
-  - `StravaConnect` - OAuth connection button
-  - `ActivitySubmission` - Activity submission form
   - `AdminPanel` - Admin controls
   - `ManageSegments` - Segment management
 

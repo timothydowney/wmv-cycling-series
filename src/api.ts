@@ -79,21 +79,6 @@ export interface AuthStatus {
   is_admin: boolean;
 }
 
-export interface ActivitySubmission {
-  activity_url: string;
-}
-
-export interface SubmissionResponse {
-  message: string;
-  activity: {
-    id: number;
-    strava_activity_id: string;
-    date: string;
-    laps: number;
-    segment: string;
-  };
-}
-
 // Segment interfaces
 export interface AdminSegment {
   id: number; // same as strava_segment_id
@@ -218,24 +203,6 @@ export const api = {
     return response.json();
   },
 
-  async submitActivity(weekId: number, data: ActivitySubmission): Promise<SubmissionResponse> {
-    const response = await fetch(`${API_BASE_URL}/weeks/${weekId}/submit-activity`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include', // Important: include cookies for session
-      body: JSON.stringify(data),
-    });
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || error.error || 'Failed to submit activity');
-    }
-    
-    return response.json();
-  },
-
   getConnectUrl(): string {
     return `${API_BASE_URL}/auth/strava`;
   },
@@ -281,14 +248,6 @@ export const api = {
       credentials: 'include'
     });
     if (!response.ok) throw new Error('Failed to fetch participants');
-    return response.json();
-  },
-
-  async fetchWeekForAdmin(weekId: number): Promise<Week> {
-    const response = await fetch(`${API_BASE_URL}/admin/weeks/${weekId}`, {
-      credentials: 'include'
-    });
-    if (!response.ok) throw new Error('Failed to fetch week');
     return response.json();
   },
 
@@ -341,35 +300,6 @@ export const api = {
     return response.json();
   },
 
-  async getKnownSegments(): Promise<AdminSegment[]> {
-    const response = await fetch(`${API_BASE_URL}/admin/segments`, {
-      credentials: 'include'
-    });
-    if (!response.ok) throw new Error('Failed to fetch segments');
-    return response.json();
-  },
-
-  async getStarredSegments(): Promise<any[]> {
-    const response = await fetch(`${API_BASE_URL}/admin/segments/starred`, {
-      credentials: 'include'
-    });
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      throw new Error(err.error || err.message || 'Failed to fetch starred segments');
-    }
-    return response.json().then((data: any) => data.segments || data);
-  },
-
-  async inspectSegment(segmentId: number): Promise<any> {
-    const response = await fetch(`${API_BASE_URL}/admin/segment/${segmentId}`, {
-      credentials: 'include'
-    });
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      throw new Error(err.error || err.message || 'Failed to inspect segment');
-    }
-    return response.json();
-  }
 };
 
 // Named exports for convenience (used by components)
@@ -417,10 +347,6 @@ export async function disconnect(): Promise<{ success: boolean; message: string 
   return api.disconnect();
 }
 
-export async function submitActivity(weekId: number, data: ActivitySubmission): Promise<SubmissionResponse> {
-  return api.submitActivity(weekId, data);
-}
-
 export function getConnectUrl(): string {
   return api.getConnectUrl();
 }
@@ -441,10 +367,6 @@ export async function getAdminParticipants(): Promise<any[]> {
   return api.getAdminParticipants();
 }
 
-export async function fetchWeekForAdmin(weekId: number): Promise<Week> {
-  return api.fetchWeekForAdmin(weekId);
-}
-
 export async function createWeek(data: Partial<Week>): Promise<Week> {
   return api.createWeek(data);
 }
@@ -459,16 +381,4 @@ export async function deleteWeek(weekId: number): Promise<{ message: string }> {
 
 export async function fetchWeekResults(weekId: number): Promise<any> {
   return api.fetchWeekResults(weekId);
-}
-
-export async function getKnownSegments(): Promise<AdminSegment[]> {
-  return api.getKnownSegments();
-}
-
-export async function getStarredSegments(): Promise<any[]> {
-  return api.getStarredSegments();
-}
-
-export async function inspectSegment(segmentId: number): Promise<any> {
-  return api.inspectSegment(segmentId);
 }
