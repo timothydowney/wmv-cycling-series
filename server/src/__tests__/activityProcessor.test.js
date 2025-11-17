@@ -3,9 +3,6 @@
  * 
  * Tests for activity processing logic, independent of Strava API
  * These can be run without making actual API calls by mocking the stravaClient module
- * 
- * NOTE: This file consolidates tests for extractActivityId() and validateActivityTimeWindow()
- * that were previously in validation.test.js. Tests are now centralized with the module they test.
  */
 
 const { isoToUnix } = require('../dateUtils');
@@ -24,60 +21,8 @@ describe('Activity Processor', () => {
     jest.clearAllMocks();
   });
 
-  describe('extractActivityId', () => {
-    test('extracts ID from full Strava URL', () => {
-      const url = 'https://www.strava.com/activities/12345678';
-      expect(activityProcessor.extractActivityId(url)).toBe('12345678');
-    });
-
-    test('extracts ID from Strava URL with trailing slash', () => {
-      const url = 'https://www.strava.com/activities/12345678/';
-      expect(activityProcessor.extractActivityId(url)).toBe('12345678');
-    });
-
-    test('extracts ID from www URL', () => {
-      const url = 'www.strava.com/activities/12345678';
-      expect(activityProcessor.extractActivityId(url)).toBe('12345678');
-    });
-
-    test('extracts ID from URL with query params', () => {
-      const url = 'https://www.strava.com/activities/12345678?effort_id=99';
-      expect(activityProcessor.extractActivityId(url)).toBe('12345678');
-    });
-
-    test('parses raw numeric ID', () => {
-      expect(activityProcessor.extractActivityId('12345678')).toBe('12345678');
-    });
-
-    test('returns null for invalid format', () => {
-      expect(activityProcessor.extractActivityId('invalid')).toBeNull();
-    });
-
-    test('returns null for empty string', () => {
-      expect(activityProcessor.extractActivityId('')).toBeNull();
-    });
-
-    test('returns null for null input', () => {
-      expect(activityProcessor.extractActivityId(null)).toBeNull();
-    });
-
-    test('returns null for undefined input', () => {
-      expect(activityProcessor.extractActivityId(undefined)).toBeNull();
-    });
-
-    test('handles various URL formats', () => {
-      const urls = [
-        'https://www.strava.com/activities/987654321',
-        'http://strava.com/activities/111222333',
-        'strava.com/activities/444555666',
-        '777888999'
-      ];
-      const expected = ['987654321', '111222333', '444555666', '777888999'];
-      urls.forEach((url, idx) => {
-        expect(activityProcessor.extractActivityId(url)).toBe(expected[idx]);
-      });
-    });
-  });
+  // NOTE: extractActivityId tests removed - function was deprecated and is no longer exported
+  // This was only used for manual activity submission which has been replaced by admin batch fetch
 
   describe('findBestQualifyingActivity', () => {
     test('returns null for empty activity list', async () => {

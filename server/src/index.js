@@ -281,26 +281,12 @@ const requireAdmin = (req, res, next) => {
   next();
 };
 
-// Validate activity time window
-// validateActivityTimeWindow is now provided by activityProcessor module
-const validateActivityTimeWindow = activityProcessor.validateActivityTimeWindow;
-
 // ========================================
 // UTILITY FUNCTIONS
 // ========================================
 
-// getValidAccessToken is now provided by tokenManager module
-// Wrapper to inject db and stravaClient instances for compatibility
-const getValidAccessTokenWrapper = (stravaAthleteId) => 
-  getValidAccessToken(db, stravaClient, stravaAthleteId);
-
-// findBestQualifyingActivity is now provided by activityProcessor module
-const findBestQualifyingActivity = activityProcessor.findBestQualifyingActivity;
-
-// storeActivityAndEfforts is now provided by activityStorage module
-// Wrapper to inject db instance for compatibility
-const storeActivityAndEffortsWrapper = (stravaAthleteId, weekId, activityData, stravaSegmentId) =>
-  storeActivityAndEfforts(db, stravaAthleteId, weekId, activityData, stravaSegmentId);
+// Import module functions directly (no wrappers needed)
+const { findBestQualifyingActivity } = activityProcessor;
 
 // ========================================
 // STATIC FILE SERVING (Frontend)
@@ -1336,7 +1322,7 @@ app.post('/admin/weeks/:id/fetch-results', requireAdmin, async (req, res) => {
         console.log(`\n[Batch Fetch] Processing ${participant.name} (Strava ID: ${participant.strava_athlete_id})`);
         
         // Get valid token (auto-refreshes if needed)
-        const accessToken = await getValidAccessTokenWrapper(participant.strava_athlete_id);
+        const accessToken = await getValidAccessToken(db, stravaClient, participant.strava_athlete_id);
         
         // Fetch activities using Unix timestamps (already UTC)
         const activities = await stravaClient.listAthleteActivities(
@@ -1368,7 +1354,7 @@ app.post('/admin/weeks/:id/fetch-results', requireAdmin, async (req, res) => {
           console.log(`[Batch Fetch] ✓ SUCCESS for ${participant.name}: Activity '${bestActivity.name}' (ID: ${bestActivity.id}, Time: ${Math.round(bestActivity.totalTime / 60)}min, Device: '${bestActivity.device_name || 'unknown'}')`);
           
           // Store activity and efforts
-          storeActivityAndEffortsWrapper(participant.strava_athlete_id, weekId, bestActivity, week.strava_segment_id);
+          storeActivityAndEfforts(db, participant.strava_athlete_id, weekId, bestActivity, week.strava_segment_id);
           
           results.push({
             participant_id: participant.strava_athlete_id,
@@ -1534,7 +1520,7 @@ app.get('/admin/segments/:id/validate', requireAdmin, async (req, res) => {
       });
     }
     
-    const accessToken = await getValidAccessTokenWrapper(tokenRecord.strava_athlete_id);
+    const accessToken = await getValidAccessToken(db, stravaClient, tokenRecord.strava_athlete_id);
     
     // Try to fetch segment details from Strava using stravaClient
     const segment = await stravaClient.getSegment(segmentId, accessToken);
@@ -1561,7 +1547,7 @@ app.get('/admin/segments/:id/validate', requireAdmin, async (req, res) => {
   }
 });
 // Export for testing
-module.exports = { app, db, validateActivityTimeWindow, checkAuthorization };
+module.exports = { app, db, checkAuthorization };
 
 // Only start server if not being imported for tests
 if (require.main === module) {

@@ -70,19 +70,6 @@ function nowISO() {
 }
 
 /**
- * Get current timestamp as Unix seconds
- * Replaces: Math.floor(Date.now() / 1000) or Math.floor(new Date().getTime() / 1000)
- * 
- * @returns {number} Current time as Unix timestamp in seconds (UTC)
- * 
- * @example
- *   nowUnix() → 1736947845
- */
-function nowUnix() {
-  return Math.floor(Date.now() / 1000);
-}
-
-/**
  * Convert seconds to HH:MM:SS format
  * Useful for displaying durations and elapsed times
  * 
@@ -104,25 +91,6 @@ function secondsToHHMMSS(seconds) {
   return [hours, minutes, secs]
     .map(val => String(val).padStart(2, '0'))
     .join(':');
-}
-
-/**
- * Extract date part from ISO datetime string (YYYY-MM-DD)
- * Replaces: "2025-01-15T14:30:00Z".split('T')[0]
- * 
- * @param {string} isoString - ISO 8601 datetime (e.g., "2025-01-15T14:30:00Z")
- * @returns {string|null} Date part (e.g., "2025-01-15") or null if invalid
- * 
- * @example
- *   extractDateFromISO("2025-01-15T14:30:00Z") → "2025-01-15"
- *   extractDateFromISO("2025-01-15") → "2025-01-15"
- */
-function extractDateFromISO(isoString) {
-  if (!isoString || typeof isoString !== 'string') return null;
-  
-  // Handle both full datetime and date-only strings
-  const match = isoString.match(/^(\d{4}-\d{2}-\d{2})/);
-  return match ? match[1] : null;
 }
 
 /**
@@ -152,8 +120,6 @@ module.exports = {
   isoToUnix,
   unixToISO,
   nowISO,
-  nowUnix,
   secondsToHHMMSS,
-  extractDateFromISO,
   defaultDayTimeWindow
 };

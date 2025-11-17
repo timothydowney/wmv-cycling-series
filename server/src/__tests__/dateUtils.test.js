@@ -2,9 +2,7 @@ const {
   isoToUnix,
   unixToISO,
   nowISO,
-  nowUnix,
   secondsToHHMMSS,
-  extractDateFromISO,
   defaultDayTimeWindow
 } = require('../dateUtils');
 
@@ -205,42 +203,7 @@ describe('Date Utilities', () => {
     });
   });
 
-  describe('nowUnix()', () => {
-    it('should return current time as Unix timestamp (integer)', () => {
-      const unix = nowUnix();
-      expect(Number.isInteger(unix)).toBe(true);
-      expect(unix).toBeGreaterThan(1700000000); // After Nov 15, 2023
-    });
-
-    it('should return a positive integer', () => {
-      const unix = nowUnix();
-      expect(unix).toBeGreaterThan(0);
-    });
-
-    it('should return different values when called multiple times', (done) => {
-      const unix1 = nowUnix();
-      setTimeout(() => {
-        const unix2 = nowUnix();
-        expect(unix2).toBeGreaterThanOrEqual(unix1);
-        done();
-      }, 5);
-    });
-
-    it('should be close to current time', () => {
-      const before = Math.floor(Date.now() / 1000);
-      const unix = nowUnix();
-      const after = Math.floor(Date.now() / 1000);
-      expect(unix).toBeGreaterThanOrEqual(before);
-      expect(unix).toBeLessThanOrEqual(after + 1);
-    });
-
-    it('should match isoToUnix(nowISO()) approximately', () => {
-      const unix1 = nowUnix();
-      const unix2 = isoToUnix(nowISO());
-      // Allow 1 second tolerance due to timing
-      expect(Math.abs(unix1 - unix2)).toBeLessThanOrEqual(1);
-    });
-  });
+  // NOTE: nowUnix() was removed - use Math.floor(Date.now() / 1000) inline instead
 
   describe('secondsToHHMMSS()', () => {
     it('should convert 0 seconds to 00:00:00', () => {
@@ -323,61 +286,6 @@ describe('Date Utilities', () => {
     it('should handle boundary between minutes and hours', () => {
       expect(secondsToHHMMSS(3599)).toBe('00:59:59');
       expect(secondsToHHMMSS(3600)).toBe('01:00:00');
-    });
-  });
-
-  describe('extractDateFromISO()', () => {
-    it('should extract date from full ISO datetime', () => {
-      expect(extractDateFromISO('2025-01-15T14:30:00Z')).toBe('2025-01-15');
-    });
-
-    it('should extract date from ISO datetime without Z', () => {
-      expect(extractDateFromISO('2025-01-15T14:30:00')).toBe('2025-01-15');
-    });
-
-    it('should extract date from date-only string', () => {
-      expect(extractDateFromISO('2025-01-15')).toBe('2025-01-15');
-    });
-
-    it('should handle dates with different months', () => {
-      expect(extractDateFromISO('2025-12-31T23:59:59Z')).toBe('2025-12-31');
-      expect(extractDateFromISO('2025-01-01T00:00:00Z')).toBe('2025-01-01');
-    });
-
-    it('should handle leap year dates', () => {
-      expect(extractDateFromISO('2024-02-29T12:00:00Z')).toBe('2024-02-29');
-    });
-
-    it('should return null for null input', () => {
-      expect(extractDateFromISO(null)).toBeNull();
-    });
-
-    it('should return null for undefined input', () => {
-      expect(extractDateFromISO(undefined)).toBeNull();
-    });
-
-    it('should return null for empty string', () => {
-      expect(extractDateFromISO('')).toBeNull();
-    });
-
-    it('should return null for non-string input', () => {
-      expect(extractDateFromISO(123456)).toBeNull();
-      expect(extractDateFromISO({})).toBeNull();
-    });
-
-    it('should return null for invalid date format', () => {
-      expect(extractDateFromISO('2025-1-15')).toBeNull(); // Missing zero padding
-      expect(extractDateFromISO('invalid')).toBeNull();
-      expect(extractDateFromISO('25-01-15')).toBeNull(); // Wrong year format
-    });
-
-    it('should handle dates with milliseconds', () => {
-      expect(extractDateFromISO('2025-01-15T14:30:00.123Z')).toBe('2025-01-15');
-    });
-
-    it('should handle UTC offset notation', () => {
-      // Some systems use +00:00 instead of Z
-      expect(extractDateFromISO('2025-01-15T14:30:00+00:00')).toBe('2025-01-15');
     });
   });
 
@@ -471,11 +379,11 @@ describe('Date Utilities', () => {
       expect(backToISO).toContain('Z');
     });
 
-    it('should create time window and extract date consistently', () => {
+    it('should create time window consistently', () => {
       const dateStr = '2025-01-15';
       const window = defaultDayTimeWindow(dateStr);
-      const extracted = extractDateFromISO(window.start);
-      expect(extracted).toBe(dateStr);
+      expect(window.start).toBe('2025-01-15T00:00:00Z');
+      expect(window.end).toBe('2025-01-15T22:00:00Z');
     });
 
     it('should convert activity duration correctly', () => {
@@ -533,8 +441,8 @@ describe('Date Utilities', () => {
 
     it('should handle midnight at year boundary', () => {
       const iso = '2025-01-01T00:00:00Z';
-      const extracted = extractDateFromISO(iso);
-      expect(extracted).toBe('2025-01-01');
+      const unix = isoToUnix(iso);
+      expect(typeof unix).toBe('number');
       expect(secondsToHHMMSS(0)).toBe('00:00:00');
     });
   });
