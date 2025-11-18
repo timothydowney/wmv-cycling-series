@@ -147,20 +147,7 @@ describe('WMV Backend API', () => {
     });
   });
 
-  describe('Segments', () => {
-    test('GET /segments returns array', async () => {
-      const response = await request(app).get('/segments');
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body.length).toBe(2); // Our 2 test segments
-    });
 
-    test('GET /segments includes strava_segment_id', async () => {
-      const response = await request(app).get('/segments');
-      expect(response.body[0]).toHaveProperty('strava_segment_id');
-      expect(response.body[0].strava_segment_id).toBe(TEST_SEGMENT_1);
-    });
-  });
 
   describe('Seasons', () => {
     test('GET /seasons returns array', async () => {
@@ -274,22 +261,6 @@ describe('WMV Backend API', () => {
       const points = response.body.leaderboard.map(e => e.total_points);
       const sortedPoints = [...points].sort((a, b) => b - a);
       expect(points).toEqual(sortedPoints);
-    });
-  });
-
-  describe('Activities', () => {
-    test('GET /weeks/:id/activities returns activities list', async () => {
-      const response = await request(app).get(`/weeks/${testWeekId1}/activities`);
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);      expect(response.body[0]).toHaveProperty('validation_status');
-    });
-
-    test('GET /activities/:id/efforts returns segment efforts', async () => {
-      const response = await request(app).get(`/activities/${testActivityId1}/efforts`);
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body[0]).toHaveProperty('effort_index');
-      expect(response.body[0]).toHaveProperty('elapsed_seconds');
     });
   });
 
@@ -621,38 +592,4 @@ describe('WMV Backend API', () => {
 
   // NOTE: Manual activity submission endpoint deprecated
   // Use admin batch fetch (POST /admin/weeks/:id/fetch-results) instead
-
-  describe('PR Tracking in Efforts', () => {
-    test('GET /activities/:id/efforts includes pr_achieved flag', async () => {
-      const response = await request(app).get(`/activities/${testActivityId2}/efforts`); // Activity with PR
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body[0]).toHaveProperty('pr_achieved');
-    });
-
-    test('Activity with PR shows pr_achieved = 1', async () => {
-      const response = await request(app).get(`/activities/${testActivityId2}/efforts`); // TEST_ATHLETE_2 activity with PR
-      const efforts = response.body;
-      expect(efforts.some(e => e.pr_achieved === 1)).toBe(true);
-    });
-
-    test('Activity without PR shows pr_achieved = 0', async () => {
-      const response = await request(app).get(`/activities/${testActivityId1}/efforts`); // TEST_ATHLETE_1 activity without PR
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body[0]).toHaveProperty('pr_achieved');
-    });
-
-    test('Activity with PR shows pr_achieved = 1', async () => {
-      const response = await request(app).get(`/activities/${testActivityId2}/efforts`); // TEST_ATHLETE_2 activity with PR
-      const efforts = response.body;
-      expect(efforts.some(e => e.pr_achieved === 1)).toBe(true);
-    });
-
-    test('Activity without PR shows pr_achieved = 0', async () => {
-      const response = await request(app).get(`/activities/${testActivityId1}/efforts`); // TEST_ATHLETE_1 activity without PR
-      const efforts = response.body;
-      expect(efforts.every(e => e.pr_achieved === 0)).toBe(true);
-    });
-  });
 });

@@ -16,12 +16,10 @@ const BatchFetchService = require('./services/BatchFetchService');
 const WeekService = require('./services/WeekService');
 const SeasonService = require('./services/SeasonService');
 const ParticipantService = require('./services/ParticipantService');
-const UserDataService = require('./services/UserDataService');
-
+const AuthorizationService = require('./services/AuthorizationService');
 // Route modules (lazily loaded to avoid circular dependencies)
 const routes = {
   auth: require('./routes/auth'),
-  userData: require('./routes/userData'),
   public: require('./routes/public'),
   seasons: require('./routes/seasons'),
   weeks: require('./routes/weeks'),
@@ -30,12 +28,7 @@ const routes = {
   fallback: require('./routes/fallback')
 };
 
-/**
- * Ensure a time string ends with Z (UTC indicator)
- * @param {string} timeString - Time string potentially missing Z suffix
- * @returns {string} Time string with Z suffix
- */
-// Moved to dateUtils.js - now imported above
+
 
 // Load .env from project root (one level up from server directory)
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
@@ -238,6 +231,9 @@ function getAdminAthleteIds() {
     .filter(id => !isNaN(id));
 }
 
+// Initialize AuthorizationService with dependencies
+const authorizationService = new AuthorizationService(getAdminAthleteIds);
+
 // Initialize LoginService with dependencies
 const loginService = new LoginService(db, stravaClient, encryptToken, getAdminAthleteIds);
 
@@ -253,55 +249,17 @@ const seasonService = new SeasonService(db);
 // Initialize ParticipantService with dependencies
 const participantService = new ParticipantService(db);
 
-// Initialize UserDataService with dependencies
-const userDataService = new UserDataService(db, nowISO);
-
-// ========================================
+// =========================================
 // AUTHORIZATION HELPERS
-// ========================================
 
-// Helper: Check if a user is authenticated and optionally if they're an admin
-// This is extracted as a mockable function for testing
-function checkAuthorization(req, adminRequired = false) {
-  // First check: must be authenticated
-  if (!req.session.stravaAthleteId) {
-    return {
-      authorized: false,
-      statusCode: 401,
-      message: 'Not authenticated. Please connect to Strava first.'
-    };
-  }
-  
-  // Second check: if admin required, verify admin status
-  if (adminRequired) {
-    const adminIds = getAdminAthleteIds();
-    if (!adminIds.includes(req.session.stravaAthleteId)) {
-      console.warn(`[AUTH] Non-admin access attempt by athlete ${req.session.stravaAthleteId} to ${req.path}`);
-      return {
-        authorized: false,
-        statusCode: 403,
-        message: 'Forbidden. Admin access required.'
-      };
-    }
-  }
-  
-  return {
-    authorized: true,
-    statusCode: 200
-  };
-}
+// Create requireAdmin middleware from AuthorizationService
+const requireAdmin = authorizationService.createRequireAdminMiddleware();
 
-// Middleware: Require admin role
-const requireAdmin = (req, res, next) => {
-  const authCheck = checkAuthorization(req, true);
-  
-  if (!authCheck.authorized) {
-    return res.status(authCheck.statusCode).json({ error: authCheck.message });
-  }
-  
-  // Pass through to next handler
-  next();
+// Export checkAuthorization for testing
+const checkAuthorization = (req, adminRequired = false) => {
+  return authorizationService.checkAuthorization(req.session.stravaAthleteId, adminRequired);
 };
+// ========================================
 
 // ========================================
 // HELPER & MIDDLEWARE OBJECTS
@@ -313,8 +271,7 @@ const services = {
   batchFetchService,
   weekService,
   seasonService,
-  participantService,
-  userDataService
+  participantService
 };
 
 // Helpers object for route handlers
@@ -349,9 +306,6 @@ app.use(express.static(path.join(__dirname, '../../dist')));
 // Auth routes
 app.use('/auth', routes.auth(services, helpers));
 
-// User data routes
-app.use('/user', routes.userData(services));
-
 // Public routes (no authentication required)
 app.use(routes.public(services, helpers));  // /health, /participants, /segments
 
@@ -366,23 +320,6 @@ app.use('/admin/weeks', routes.weeks(services, middleware));
 app.use('/admin/seasons', routes.seasons(services, middleware));
 app.use('/admin/participants', routes.participants(services, middleware));
 app.use('/admin/segments', routes.segments(services, middleware));
-
-// Segment effort details endpoint
-app.get('/activities/:id/efforts', async (req, res) => {
-  try {
-    const { id: activityId } = req.params;
-    const efforts = db.prepare(`
-      SELECT se.* FROM segment_effort se
-      WHERE se.activity_id = ?
-      ORDER BY se.effort_index ASC
-    `).all(activityId);
-    
-    res.json(efforts);
-  } catch (error) {
-    console.error('Failed to fetch segment efforts:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
 
 // SPA fallback: catch-all to serve index.html for client-side routing
 app.use(routes.fallback());
