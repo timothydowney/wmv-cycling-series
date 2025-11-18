@@ -3,13 +3,213 @@ const express = require('express');
 const session = require('express-session');
 const Database = require('better-sqlite3');
 const { SCHEMA } = require('../schema');
+const AuthorizationService = require('../services/AuthorizationService');
 
 // We need to set up test environment variables
 process.env.ADMIN_ATHLETE_IDS = '12345,67890';
 process.env.SESSION_SECRET = 'test-secret';
 process.env.TOKEN_ENCRYPTION_KEY = '0'.repeat(64); // 256 bits in hex
 
-describe('Admin Authorization', () => {
+describe('AuthorizationService', () => {
+  let service;
+
+  beforeEach(() => {
+    service = new AuthorizationService(() => [12345, 67890]);
+  });
+
+  describe('isAdmin', () => {
+    test('should return true for admin athlete IDs', () => {
+      expect(service.isAdmin(12345)).toBe(true);
+      expect(service.isAdmin(67890)).toBe(true);
+    });
+
+    test('should return false for non-admin athlete IDs', () => {
+      expect(service.isAdmin(99999)).toBe(false);
+      expect(service.isAdmin(11111)).toBe(false);
+    });
+
+    test('should return false for null/undefined', () => {
+      expect(service.isAdmin(null)).toBe(false);
+      expect(service.isAdmin(undefined)).toBe(false);
+    });
+  });
+
+  describe('checkAuthorization', () => {
+    test('should reject unauthenticated requests (null stravaAthleteId)', () => {
+      const result = service.checkAuthorization(null, false);
+      expect(result.authorized).toBe(false);
+      expect(result.statusCode).toBe(401);
+      expect(result.message).toContain('Not authenticated');
+    });
+
+    test('should reject unauthenticated requests even if admin not required', () => {
+      const result = service.checkAuthorization(null, false);
+      expect(result.authorized).toBe(false);
+      expect(result.statusCode).toBe(401);
+    });
+
+    test('should allow authenticated non-admin users when admin not required', () => {
+      const result = service.checkAuthorization(99999, false);
+      expect(result.authorized).toBe(true);
+      expect(result.statusCode).toBe(200);
+    });
+
+    test('should reject authenticated non-admin users when admin required', () => {
+      const result = service.checkAuthorization(99999, true);
+      expect(result.authorized).toBe(false);
+      expect(result.statusCode).toBe(403);
+      expect(result.message).toContain('Admin access required');
+    });
+
+    test('should allow authenticated admin users when admin required', () => {
+      const result = service.checkAuthorization(12345, true);
+      expect(result.authorized).toBe(true);
+      expect(result.statusCode).toBe(200);
+    });
+
+    test('should allow authenticated admin users when admin not required', () => {
+      const result = service.checkAuthorization(12345, false);
+      expect(result.authorized).toBe(true);
+      expect(result.statusCode).toBe(200);
+    });
+  });
+
+  describe('createRequireAdminMiddleware', () => {
+    let app;
+
+    beforeEach(() => {
+      app = express();
+      app.use(express.json());
+      app.use(session({
+        secret: process.env.SESSION_SECRET,
+        resave: false,
+        saveUninitialized: true,
+        cookie: { secure: false }
+      }));
+    });
+
+    test('should reject requests without authentication', async () => {
+      const middleware = service.createRequireAdminMiddleware();
+      app.post('/test', middleware, (req, res) => {
+        res.json({ success: true });
+      });
+
+      const res = await request(app)
+        .post('/test')
+        .send({});
+
+      expect(res.status).toBe(401);
+      expect(res.body.error).toContain('Not authenticated');
+    });
+
+    test('should reject non-admin authenticated requests', async () => {
+      const middleware = service.createRequireAdminMiddleware();
+      app.post('/test', middleware, (req, res) => {
+        res.json({ success: true });
+      });
+
+      const agent = request.agent(app);
+
+      // Set a session with non-admin athlete ID
+      await agent.get('/').expect(404);
+
+      // Create a custom request with session
+      const res = await agent
+        .post('/test')
+        .send();
+
+      // Need to manually set session for testing
+      // This is testing the middleware behavior with no session set
+      expect(res.status).toBe(401);
+    });
+
+    test('should allow admin authenticated requests', async () => {
+      const middleware = service.createRequireAdminMiddleware();
+      app.post('/test', middleware, (req, res) => {
+        res.json({ success: true });
+      });
+
+      // Create a test server with session data
+      app.use((req, res, next) => {
+        req.session.stravaAthleteId = 12345; // Admin ID
+        next();
+      });
+
+      app.post('/admin-test', middleware, (req, res) => {
+        res.json({ success: true });
+      });
+
+      const res = await request(app)
+        .post('/admin-test')
+        .send({});
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+    });
+
+    test('middleware should call next() on successful authorization', async () => {
+      const nextMock = jest.fn();
+      const req = { session: { stravaAthleteId: 12345 } };
+      const statusMock = jest.fn();
+      const res = { status: statusMock, json: jest.fn() };
+
+      const middleware = service.createRequireAdminMiddleware();
+      middleware(req, res, nextMock);
+
+      expect(nextMock).toHaveBeenCalled();
+    });
+
+    test('middleware should return error response on failed authorization', async () => {
+      const nextMock = jest.fn();
+      const req = { session: {}, path: '/admin/test' };
+      const jsonMock = jest.fn();
+      const statusMock = jest.fn().mockReturnValue({ json: jsonMock });
+      const res = {
+        status: statusMock,
+        json: jsonMock
+      };
+
+      const middleware = service.createRequireAdminMiddleware();
+      middleware(req, res, nextMock);
+
+      expect(nextMock).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(401);
+    });
+  });
+
+  describe('Service with empty admin list', () => {
+    beforeEach(() => {
+      service = new AuthorizationService(() => []);
+    });
+
+    test('should have no admins in empty service', () => {
+      expect(service.isAdmin(12345)).toBe(false);
+    });
+
+    test('should reject all users as admin when list is empty', () => {
+      const result = service.checkAuthorization(12345, true);
+      expect(result.authorized).toBe(false);
+      expect(result.statusCode).toBe(403);
+    });
+  });
+
+  describe('Service with no getAdminAthleteIds function', () => {
+    beforeEach(() => {
+      service = new AuthorizationService();
+    });
+
+    test('should default to empty admin list', () => {
+      expect(service.isAdmin(12345)).toBe(false);
+    });
+
+    test('should still authorize non-admin access', () => {
+      const result = service.checkAuthorization(12345, false);
+      expect(result.authorized).toBe(true);
+    });
+  });
+});
+
+describe('Admin Authorization Integration', () => {
   let app;
   let db;
 

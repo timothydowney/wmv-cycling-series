@@ -837,6 +837,17 @@ describe('Coverage Improvements - Quick Wins', () => {
       db.prepare('DELETE FROM segment').run();
     });
 
+    test('GET /admin/segments/:id/validate with no connected participants', async () => {
+      // Clean up any participant tokens
+      db.prepare('DELETE FROM participant_token').run();
+
+      const res = await request(app)
+        .get('/admin/segments/12345/validate');
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('No connected participants');
+    });
+
     test('POST /admin/segments with only strava_segment_id', async () => {
       const res = await request(app)
         .post('/admin/segments')
