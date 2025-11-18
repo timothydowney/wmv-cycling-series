@@ -18,6 +18,18 @@ const SeasonService = require('./services/SeasonService');
 const ParticipantService = require('./services/ParticipantService');
 const UserDataService = require('./services/UserDataService');
 
+// Route modules (lazily loaded to avoid circular dependencies)
+const routes = {
+  auth: require('./routes/auth'),
+  userData: require('./routes/userData'),
+  public: require('./routes/public'),
+  seasons: require('./routes/seasons'),
+  weeks: require('./routes/weeks'),
+  participants: require('./routes/participants'),
+  segments: require('./routes/segments'),
+  fallback: require('./routes/fallback')
+};
+
 /**
  * Ensure a time string ends with Z (UTC indicator)
  * @param {string} timeString - Time string potentially missing Z suffix
@@ -114,13 +126,6 @@ app.use(cors({
   credentials: true // Important: allow cookies to be sent
 }));
 app.use(express.json());
-
-// Helper to compute request base URL behind proxies (Railway)
-function getBaseUrl(req) {
-  const proto = (req.headers['x-forwarded-proto'] || req.protocol || 'http').toString();
-  const host = (req.headers['x-forwarded-host'] || req.get('host') || '').toString();
-  return `${proto}://${host}`;
-}
 
 // Session configuration for OAuth
 // Based on express-session best practices and Passport.js patterns
@@ -299,611 +304,90 @@ const requireAdmin = (req, res, next) => {
 };
 
 // ========================================
+// HELPER & MIDDLEWARE OBJECTS
+// ========================================
+
+// Services object for route handlers
+const services = {
+  loginService,
+  batchFetchService,
+  weekService,
+  seasonService,
+  participantService,
+  userDataService
+};
+
+// Helpers object for route handlers
+const helpers = {
+  getBaseUrl: (req) => {
+    // Use CLIENT_BASE_URL if configured, otherwise build from request
+    if (CLIENT_BASE_URL) return CLIENT_BASE_URL;
+    return `${req.protocol}://${req.get('host')}`;
+  },
+  CLIENT_BASE_URL,
+  db
+};
+
+// Middleware object for route handlers
+const middleware = {
+  requireAdmin,
+  db,
+  getValidAccessToken,
+  stravaClient
+};
+
+// ========================================
 // STATIC FILE SERVING (Frontend)
 // ========================================
 
 // Serve built frontend from dist/ directory
 app.use(express.static(path.join(__dirname, '../../dist')));
 
-// ========================================
-// AUTHENTICATION ROUTES
-// ========================================
+// ===== ROUTE REGISTRATION =====
+// Register modular route handlers
 
-// GET /auth/strava - Initiate OAuth flow
-app.get('/auth/strava', (req, res) => {
-  // Compute redirect URI with safe fallback if env not set
-  const computedRedirect = `${getBaseUrl(req)}/auth/strava/callback`;
-  const redirectUri = process.env.STRAVA_REDIRECT_URI || computedRedirect;
+// Auth routes
+app.use('/auth', routes.auth(services, helpers));
 
-  // Helpful runtime trace (does not log secrets)
-  console.log('[AUTH] Using STRAVA_REDIRECT_URI:', redirectUri);
-  console.log('[AUTH] Using CLIENT_BASE_URL:', CLIENT_BASE_URL || '(not set, will fallback)');
+// User data routes
+app.use('/user', routes.userData(services));
 
-  const stravaAuthUrl = 'https://www.strava.com/oauth/authorize?' +
-    new URLSearchParams({
-      client_id: process.env.STRAVA_CLIENT_ID,
-      redirect_uri: redirectUri,
-      response_type: 'code',
-      approval_prompt: 'auto',  // 'force' to always show consent screen
-      scope: 'activity:read,profile:read_all'
-    });
+// Public routes (no authentication required)
+app.use(routes.public(services, helpers));  // /health, /participants, /segments
 
-  console.log('Redirecting to Strava OAuth:', stravaAuthUrl);
-  res.redirect(stravaAuthUrl);
-});
+// Public leaderboard routes (authenticated but not admin-only)
+// These allow users to view weeks, seasons, and leaderboards
+app.use('/weeks', routes.weeks(services, middleware));
+app.use('/seasons', routes.seasons(services, middleware));
 
-// GET /auth/strava/callback - Handle OAuth callback
-app.get('/auth/strava/callback', async (req, res) => {
-  const { code, scope } = req.query;
-  
-  if (!code) {
-    console.error('OAuth callback missing authorization code');
-    return res.redirect(`${CLIENT_BASE_URL}?error=authorization_denied`);
-  }
-  
+// Admin management routes (admin-only)
+// These allow admins to create, update, delete weeks and seasons
+app.use('/admin/weeks', routes.weeks(services, middleware));
+app.use('/admin/seasons', routes.seasons(services, middleware));
+app.use('/admin/participants', routes.participants(services, middleware));
+app.use('/admin/segments', routes.segments(services, middleware));
+
+// Segment effort details endpoint
+app.get('/activities/:id/efforts', async (req, res) => {
   try {
-    // Use LoginService to exchange code and create session
-    await loginService.exchangeCodeAndCreateSession(code, req.session, scope);
+    const { id: activityId } = req.params;
+    const efforts = db.prepare(`
+      SELECT se.* FROM segment_effort se
+      WHERE se.activity_id = ?
+      ORDER BY se.effort_index ASC
+    `).all(activityId);
     
-    const stravaAthleteId = req.session.stravaAthleteId;
-    const athleteName = req.session.athleteName;
-    
-    // Explicitly save session before redirecting (important for some session stores)
-    console.log(`[AUTH] Saving session for athlete ${stravaAthleteId}...`);
-    console.log('[AUTH] Session data before save:', {
-      stravaAthleteId,
-      athleteName,
-      sessionID: req.sessionID
-    });
-    
-    req.session.save((err) => {
-      if (err) {
-        console.error('[AUTH] Session save error:', err);
-        return res.redirect(`${CLIENT_BASE_URL}?error=session_error`);
-      }
-      
-      console.log(`[AUTH] Session saved successfully for athlete ${stravaAthleteId}`);
-      console.log(`[AUTH] Session ID: ${req.sessionID}`);
-      
-      // Redirect to dashboard with safe fallback to request base URL
-      const baseUrl = CLIENT_BASE_URL || getBaseUrl(req);
-      const finalRedirect = `${baseUrl}?connected=true`;
-      
-      console.log(`[AUTH] Redirecting to ${finalRedirect}`);
-      // The rolling: true option in sessionConfig ensures the Set-Cookie header is sent
-      res.redirect(finalRedirect);
-    });
+    res.json(efforts);
   } catch (error) {
-    console.error('OAuth callback error:', error);
-    res.redirect(`${CLIENT_BASE_URL}?error=server_error`);
+    console.error('Failed to fetch segment efforts:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
-// GET /auth/status - Check authentication status
-app.get('/auth/status', (req, res) => {
-  console.log(`[AUTH_STATUS] Checking status. Session ID: ${req.sessionID}`);
-  console.log('[AUTH_STATUS] Session data:', {
-    stravaAthleteId: req.session.stravaAthleteId,
-    athleteName: req.session.athleteName
-  });
-  
-  try {
-    if (!req.session.stravaAthleteId) {
-      console.log('[AUTH_STATUS] No session found - not authenticated');
-      return res.json({
-        authenticated: false,
-        participant: null,
-        is_admin: false
-      });
-    }
-    
-    // Use LoginService to get full auth status
-    const status = loginService.getAuthStatus(req.session.stravaAthleteId);
-    console.log('[AUTH_STATUS] Auth status:', status);
-    res.json(status);
-  } catch (error) {
-    console.error('Error getting auth status:', error);
-    res.status(500).json({ error: 'Failed to get auth status' });
-  }
-});
+// SPA fallback: catch-all to serve index.html for client-side routing
+app.use(routes.fallback());
+// ===== END ROUTE REGISTRATION =====
 
-// POST /auth/disconnect - Disconnect Strava account
-app.post('/auth/disconnect', (req, res) => {
-  if (!req.session.stravaAthleteId) {
-    return res.status(401).json({ error: 'Not authenticated' });
-  }
-  
-  const stravaAthleteId = req.session.stravaAthleteId;
-  
-  try {
-    // Use LoginService to disconnect (delete tokens)
-    loginService.disconnectStrava(stravaAthleteId);
-    
-    // Destroy session
-    req.session.destroy((err) => {
-      if (err) {
-        console.error('Session destruction error:', err);
-        return res.status(500).json({ error: 'Failed to disconnect' });
-      }
-      res.json({ success: true, message: 'Disconnected from Strava' });
-    });
-  } catch (error) {
-    console.error('Error disconnecting Strava:', error);
-    res.status(500).json({ error: 'Failed to disconnect from Strava' });
-  }
-});
-
-// ========================================
-// USER DATA & PRIVACY
-// ========================================
-
-/**
- * DELETE /user/data
- * 
- * Request complete deletion of user data (GDPR compliance)
- * User must be authenticated
- * Deletion completes within 48 hours
- * 
- * Response:
- * {
- *   "success": true,
- *   "message": "Data deletion request submitted",
- *   "timestamp": "2025-11-11T12:00:00Z",
- *   "deletionDeadline": "2025-11-13T12:00:00Z"
- * }
- */
-app.post('/user/data/delete', (req, res) => {
-  // Require authentication
-  if (!req.session.stravaAthleteId) {
-    return res.status(401).json({ error: 'Not authenticated. Please connect to Strava first.' });
-  }
-
-  const stravaAthleteId = req.session.stravaAthleteId;
-
-  try {
-    const result = userDataService.deleteUserData(stravaAthleteId);
-
-    // Destroy session after data deletion
-    req.session.destroy((err) => {
-      if (err) {
-        console.warn('[USER_DATA] Session destruction error during data deletion:', err);
-      }
-    });
-
-    res.json(result);
-  } catch (error) {
-    console.error('[USER_DATA] Error during data deletion:', error);
-    res.status(500).json({
-      error: 'Failed to delete data',
-      message: error.message || 'An unexpected error occurred',
-      contact: 'Please contact admins@westmassvel.org if the problem persists'
-    });
-  }
-});
-
-/**
- * GET /user/data
- * 
- * Retrieve all personal data we hold about the user (GDPR Data Access)
- * User must be authenticated
- */
-app.get('/user/data', (req, res) => {
-  if (!req.session.stravaAthleteId) {
-    return res.status(401).json({ error: 'Not authenticated' });
-  }
-
-  const stravaAthleteId = req.session.stravaAthleteId;
-
-  try {
-    const data = userDataService.getUserData(stravaAthleteId);
-    res.json(data);
-  } catch (error) {
-    if (error.message === 'Participant not found') {
-      return res.status(404).json({ error: 'Participant not found' });
-    }
-    console.error('[USER_DATA] Error retrieving user data:', error);
-    res.status(500).json({
-      error: 'Failed to retrieve data',
-      message: error.message
-    });
-  }
-});
-
-// ========================================
-// PUBLIC ROUTES
-// ========================================
-
-// Routes
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
-});
-
-app.get('/participants', (req, res) => {
-  try {
-    const participants = participantService.getAllParticipants();
-    res.json(participants);
-  } catch (error) {
-    console.error('Failed to get participants:', error);
-    res.status(500).json({ error: 'Failed to get participants', details: error.message });
-  }
-});
-
-app.get('/segments', (req, res) => {
-  const rows = db.prepare('SELECT strava_segment_id, name FROM segment').all();
-  res.json(rows);
-});
-
-// ========================================
-// SEASONS ENDPOINTS
-// ========================================
-
-app.get('/seasons', (req, res) => {
-  try {
-    const seasons = seasonService.getAllSeasons();
-    res.json(seasons);
-  } catch (error) {
-    console.error('Failed to get seasons:', error);
-    res.status(500).json({ error: 'Failed to get seasons', details: error.message });
-  }
-});
-
-app.get('/seasons/:id', (req, res) => {
-  const seasonId = parseInt(req.params.id, 10);
-  try {
-    const season = seasonService.getSeasonById(seasonId);
-    res.json(season);
-  } catch (error) {
-    if (error.message === 'Season not found') {
-      return res.status(404).json({ error: 'Season not found' });
-    }
-    console.error('Failed to get season:', error);
-    res.status(500).json({ error: 'Failed to get season', details: error.message });
-  }
-});
-
-app.get('/seasons/:id/leaderboard', (req, res) => {
-  const seasonId = parseInt(req.params.id, 10);
-  try {
-    const result = seasonService.getSeasonLeaderboard(seasonId);
-    res.json(result);
-  } catch (error) {
-    if (error.message === 'Season not found') {
-      return res.status(404).json({ error: 'Season not found' });
-    }
-    console.error('Failed to get season leaderboard:', error);
-    res.status(500).json({ error: 'Failed to get season leaderboard', details: error.message });
-  }
-});
-
-// ========================================
-// WEEKS ENDPOINTS
-// ========================================
-
-app.get('/weeks', (req, res) => {
-  const seasonId = parseInt(req.query.season_id, 10);
-  
-  // season_id is required - UI is responsible for managing season state
-  if (!seasonId || isNaN(seasonId)) {
-    return res.status(400).json({ error: 'season_id query parameter is required' });
-  }
-  
-  try {
-    const weeks = weekService.getAllWeeks(seasonId);
-    res.json(weeks);
-  } catch (error) {
-    console.error('Failed to get weeks:', error);
-    res.status(500).json({ error: 'Failed to get weeks', details: error.message });
-  }
-});
-
-app.get('/weeks/:id', (req, res) => {
-  const weekId = parseInt(req.params.id, 10);
-  
-  try {
-    const week = weekService.getWeekById(weekId);
-    res.json(week);
-  } catch (error) {
-    if (error.message === 'Week not found') {
-      return res.status(404).json({ error: 'Week not found' });
-    }
-    console.error('Failed to get week:', error);
-    res.status(500).json({ error: 'Failed to get week', details: error.message });
-  }
-});
-
-app.get('/weeks/:id/leaderboard', (req, res) => {
-  const weekId = parseInt(req.params.id, 10);
-  
-  try {
-    const result = weekService.getWeekLeaderboard(weekId);
-    res.json(result);
-  } catch (error) {
-    if (error.message === 'Week not found') {
-      return res.status(404).json({ error: 'Week not found' });
-    }
-    console.error('Failed to get week leaderboard:', error);
-    res.status(500).json({ error: 'Failed to get week leaderboard', details: error.message });
-  }
-});
-
-app.get('/weeks/:id/activities', (req, res) => {
-  const weekId = parseInt(req.params.id, 10);
-  
-  try {
-    const activities = weekService.getWeekActivities(weekId);
-    res.json(activities);
-  } catch (error) {
-    console.error('Failed to get week activities:', error);
-    res.status(500).json({ error: 'Failed to get week activities', details: error.message });
-  }
-});
-
-app.get('/activities/:id/efforts', (req, res) => {
-  const activityId = parseInt(req.params.id, 10);
-  const efforts = db.prepare(`
-    SELECT 
-      se.effort_index,
-      se.elapsed_seconds,
-      se.start_at,
-      se.pr_achieved,
-      s.name as segment_name
-    FROM segment_effort se
-    JOIN segment s ON se.strava_segment_id = s.strava_segment_id
-    WHERE se.activity_id = ?
-    ORDER BY se.effort_index ASC
-  `).all(activityId);
-
-  res.json(efforts);
-});
-
-// ========================================
-// ADMIN ENDPOINTS - Season Management
-// ========================================
-
-// Create a new season
-app.post('/admin/seasons', requireAdmin, (req, res) => {
-  try {
-    const newSeason = seasonService.createSeason(req.body);
-    res.status(201).json(newSeason);
-  } catch (error) {
-    console.error('Failed to create season:', error);
-    res.status(400).json({ error: 'Failed to create season', details: error.message });
-  }
-});
-
-// Update an existing season
-app.put('/admin/seasons/:id', requireAdmin, (req, res) => {
-  const seasonId = parseInt(req.params.id, 10);
-  try {
-    const updatedSeason = seasonService.updateSeason(seasonId, req.body);
-    res.json(updatedSeason);
-  } catch (error) {
-    if (error.message === 'Season not found') {
-      return res.status(404).json({ error: 'Season not found' });
-    }
-    if (error.message === 'No fields to update') {
-      return res.status(400).json({ error: 'No fields to update' });
-    }
-    console.error('Failed to update season:', error);
-    res.status(400).json({ error: 'Failed to update season', details: error.message });
-  }
-});
-
-// Delete a season
-app.delete('/admin/seasons/:id', requireAdmin, (req, res) => {
-  const seasonId = parseInt(req.params.id, 10);
-  try {
-    const result = seasonService.deleteSeason(seasonId);
-    res.json(result);
-  } catch (error) {
-    if (error.message === 'Season not found') {
-      return res.status(404).json({ error: 'Season not found' });
-    }
-    if (error.message.includes('Cannot delete season with existing weeks')) {
-      const match = error.message.match(/(\d+)\s+week/);
-      const weekCount = match ? parseInt(match[1], 10) : 0;
-      return res.status(400).json({ error: error.message, weeks_count: weekCount });
-    }
-    console.error('Failed to delete season:', error);
-    res.status(500).json({ error: 'Failed to delete season', details: error.message });
-  }
-});
-
-// ========================================
-// ADMIN ENDPOINTS - Week Management
-// ========================================
-
-// Create a new week
-app.post('/admin/weeks', requireAdmin, (req, res) => {
-  try {
-    const newWeek = weekService.createWeek(req.body);
-    res.status(201).json(newWeek);
-  } catch (error) {
-    console.error('Failed to create week:', error);
-    res.status(400).json({ error: 'Failed to create week', details: error.message });
-  }
-});
-
-// Update an existing week
-app.put('/admin/weeks/:id', requireAdmin, (req, res) => {
-  const weekId = parseInt(req.params.id, 10);
-
-  try {
-    const updatedWeek = weekService.updateWeek(weekId, req.body);
-    res.json(updatedWeek);
-  } catch (error) {
-    if (error.message === 'Week not found') {
-      return res.status(404).json({ error: 'Week not found' });
-    }
-    if (error.message === 'No fields to update' || error.message === 'Invalid season_id' || error.message.includes('Invalid segment_id')) {
-      return res.status(400).json({ error: error.message });
-    }
-    console.error('Failed to update week:', error);
-    res.status(400).json({ error: 'Failed to update week', details: error.message });
-  }
-});
-
-// Delete a week (and cascade delete activities, efforts, results)
-app.delete('/admin/weeks/:id', requireAdmin, (req, res) => {
-  const weekId = parseInt(req.params.id, 10);
-
-  try {
-    const result = weekService.deleteWeek(weekId);
-    res.json(result);
-  } catch (error) {
-    if (error.message === 'Week not found') {
-      return res.status(404).json({ error: 'Week not found' });
-    }
-    console.error('Failed to delete week:', error);
-    res.status(500).json({ error: 'Failed to delete week', details: error.message });
-  }
-});
-
-// Admin batch fetch results for a week
-app.post('/admin/weeks/:id/fetch-results', requireAdmin, async (req, res) => {
-  const weekId = parseInt(req.params.id, 10);
-  
-  try {
-    // Use BatchFetchService to fetch and store results
-    const summary = await batchFetchService.fetchWeekResults(weekId);
-    
-    res.json(summary);
-  } catch (error) {
-    console.error('Batch fetch error:', error);
-    
-    // Check if it's a "Week not found" error
-    if (error.message === 'Week not found') {
-      return res.status(404).json({ 
-        error: 'Week not found'
-      });
-    }
-    
-    res.status(500).json({ 
-      error: 'Failed to fetch results',
-      details: error.message
-    });
-  }
-});
-
-// Get all participants with connection status (admin endpoint)
-app.get('/admin/participants', requireAdmin, (req, res) => {
-  try {
-    const participants = participantService.getAllParticipantsWithStatus();
-    res.json(participants);
-  } catch (error) {
-    console.error('Failed to get participants:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch participants',
-      details: error.message
-    });
-  }
-});
-
-// Get all known segments (for autocomplete)
-app.get('/admin/segments', requireAdmin, (req, res) => {
-  try {
-    const segments = db.prepare(`
-      SELECT 
-        strava_segment_id as id,
-        strava_segment_id,
-        name,
-        distance,
-        average_grade,
-        city,
-        state,
-        country
-      FROM segment ORDER BY name
-    `).all();
-    
-    res.json(segments);
-  } catch (error) {
-    console.error('Failed to get segments:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch segments',
-      details: error.message
-    });
-  }
-});
-
-// Create or update a segment in our database
-app.post('/admin/segments', requireAdmin, (req, res) => {
-  const { strava_segment_id, name, distance, average_grade, city, state, country } = req.body || {};
-
-  if (!strava_segment_id || !name) {
-    return res.status(400).json({
-      error: 'Missing required fields',
-      required: ['strava_segment_id', 'name']
-    });
-  }
-
-  try {
-    // Upsert segment by Strava ID with metadata
-    db.prepare(`
-      INSERT INTO segment (strava_segment_id, name, distance, average_grade, city, state, country)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(strava_segment_id) DO UPDATE SET 
-        name = excluded.name,
-        distance = excluded.distance,
-        average_grade = excluded.average_grade,
-        city = excluded.city,
-        state = excluded.state,
-        country = excluded.country
-    `).run(strava_segment_id, name, distance, average_grade, city, state, country);
-
-    const saved = db.prepare(`
-      SELECT strava_segment_id as id, strava_segment_id, name, distance, average_grade, city, state, country
-      FROM segment WHERE strava_segment_id = ?
-    `).get(strava_segment_id);
-
-    return res.status(201).json(saved);
-  } catch (error) {
-    console.error('Failed to upsert segment:', error);
-    return res.status(500).json({ error: 'Failed to save segment', details: error.message });
-  }
-});
-
-// Validate segment endpoint (checks if segment exists on Strava)
-app.get('/admin/segments/:id/validate', requireAdmin, async (req, res) => {
-  const segmentId = req.params.id;
-  
-  try {
-    // Get any connected participant's token to query Strava API
-    const tokenRecord = db.prepare(`
-      SELECT access_token, strava_athlete_id FROM participant_token LIMIT 1
-    `).get();
-    
-    if (!tokenRecord) {
-      return res.status(400).json({ 
-        error: 'No connected participants available to validate segment' 
-      });
-    }
-    
-    const accessToken = await getValidAccessToken(db, stravaClient, tokenRecord.strava_athlete_id);
-    
-    // Try to fetch segment details from Strava using stravaClient
-    const segment = await stravaClient.getSegment(segmentId, accessToken);
-    
-    res.json({
-      id: segment.id,
-      name: segment.name,
-      distance: segment.distance,
-      average_grade: segment.average_grade,
-      city: segment.city,
-      state: segment.state,
-      country: segment.country
-    });
-  } catch (error) {
-    console.error('Segment validation error:', error);
-    if (error.statusCode === 404) {
-      res.status(404).json({ error: 'Segment not found on Strava' });
-    } else {
-      res.status(500).json({ 
-        error: 'Failed to validate segment',
-        details: error.message
-      });
-    }
-  }
-});
 // Export for testing
 module.exports = { app, db, checkAuthorization };
 
@@ -972,29 +456,3 @@ if (require.main === module) {
     }
   });
 }
-
-// ======================================================
-// SPA FALLBACK (must be registered LAST)
-// If no API/static route matched above, serve index.html
-// This ensures client-side routes like /connect work in prod
-// ======================================================
-app.get('*', (req, res, next) => {
-  // Let static assets (with extensions) and explicit API/admin paths fall through
-  if (req.path.includes('.')) return next();
-
-  // Do NOT intercept known backend route prefixes
-  const apiPrefixes = [
-    '/auth',
-    '/admin',
-    '/weeks',
-    '/seasons',
-    '/season',
-    '/participants',
-    '/activities',
-    '/health'
-  ];
-  if (apiPrefixes.some(p => req.path.startsWith(p))) return next();
-
-  // Otherwise, serve SPA entrypoint
-  res.sendFile(path.join(__dirname, '../../dist/index.html'));
-});
