@@ -116,10 +116,33 @@ function defaultDayTimeWindow(dateISO) {
   };
 }
 
+/**
+ * Ensure a time string ends with Z (UTC indicator)
+ * Useful for normalizing timestamps that may have been stringified or transmitted without the Z suffix
+ * 
+ * @param {string} timeString - Time string potentially missing Z suffix (e.g., "2025-01-15T14:30:00")
+ * @returns {string} Time string with Z suffix (e.g., "2025-01-15T14:30:00Z")
+ * 
+ * @example
+ *   normalizeTimeWithZ("2025-01-15T14:30:00") → "2025-01-15T14:30:00Z"
+ *   normalizeTimeWithZ("2025-01-15T14:30:00Z") → "2025-01-15T14:30:00Z" (unchanged)
+ */
+function normalizeTimeWithZ(timeString) {
+  if (!timeString) return timeString;
+  if (typeof timeString !== 'string') return timeString;
+  // If it doesn't end with Z and has T, add Z
+  if (timeString.includes('T') && !timeString.endsWith('Z')) {
+    console.warn(`[TIME NORMALIZATION] Adding missing Z suffix to: '${timeString}'`);
+    return timeString + 'Z';
+  }
+  return timeString;
+}
+
 module.exports = {
   isoToUnix,
   unixToISO,
   nowISO,
   secondsToHHMMSS,
-  defaultDayTimeWindow
+  defaultDayTimeWindow,
+  normalizeTimeWithZ
 };
