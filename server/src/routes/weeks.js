@@ -74,22 +74,6 @@ module.exports = (services, middleware) => {
   });
 
   /**
-   * GET /weeks/:id/activities
-   * Get all activities for a week
-   */
-  router.get('/:id/activities', (req, res) => {
-    const weekId = parseInt(req.params.id, 10);
-    
-    try {
-      const activities = weekService.getWeekActivities(weekId);
-      res.json(activities);
-    } catch (error) {
-      console.error('Failed to get week activities:', error);
-      res.status(500).json({ error: 'Failed to get week activities', details: error.message });
-    }
-  });
-
-  /**
    * POST /admin/weeks
    * Create a new week (admin only)
    */

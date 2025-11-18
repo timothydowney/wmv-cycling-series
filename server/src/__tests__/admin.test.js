@@ -807,23 +807,6 @@ describe('Coverage Improvements - Quick Wins', () => {
   });
 
   // ============================================================================
-  // PUBLIC PARTICIPANTS - New Coverage
-  // ============================================================================
-
-  describe('GET /participants', () => {
-    test('endpoint is accessible', async () => {
-      const res = await request(app).get('/participants');
-
-      // May be 200 or have participants data
-      expect([200, 500]).toContain(res.status);
-      // If it works, should be array
-      if (res.status === 200) {
-        expect(Array.isArray(res.body)).toBe(true);
-      }
-    });
-  });
-
-  // ============================================================================
   // WEEK NOT FOUND ERROR - New Coverage
   // ============================================================================
 
@@ -840,14 +823,6 @@ describe('Coverage Improvements - Quick Wins', () => {
 
       expect(res.status).toBe(404);
       expect(res.body.error).toBeDefined();
-    });
-
-    test('GET /weeks/:id/activities returns empty for non-existent week', async () => {
-      const res = await request(app).get('/weeks/99999/activities');
-
-      expect(res.status).toBe(200);
-      expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body.length).toBe(0);
     });
   });
 
