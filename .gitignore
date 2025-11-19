@@ -61,4 +61,6 @@ test-project/
 server/dist/
 *.tsbuildinfo
 *.js.map
+# Exclude generated .d.ts, but keep manually created ones in src/types/
 *.d.ts
+!server/src/types/*.d.ts
