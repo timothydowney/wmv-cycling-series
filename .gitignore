@@ -56,3 +56,9 @@ test-project/
 
 # Copilot temporary analysis files
 .copilot-temp/
+
+# TypeScript build artifacts
+server/dist/
+*.tsbuildinfo
+*.js.map
+*.d.ts

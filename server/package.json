@@ -4,15 +4,17 @@
   "version": "0.1.0",
   "description": "Backend API for Western Mass Velo leaderboard app",
   "type": "commonjs",
-  "main": "src/index.js",
+  "main": "dist/index.js",
   "scripts": {
-    "start": "node src/index.js",
+    "start": "node dist/index.js",
+    "compile": "tsc",
     "predev": "node check-node.js",
-    "dev": "NODE_ENV=development nodemon src/index.js",
+    "dev": "NODE_ENV=development nodemon --exec tsx src/index.ts",
     "test": "NODE_ENV=test jest --coverage --runInBand",
     "test:watch": "NODE_ENV=test jest --watch",
-    "lint": "eslint src/",
-    "lint:fix": "eslint src/ --fix",
+    "lint": "eslint src/ --ext .ts,.js",
+    "lint:fix": "eslint src/ --ext .ts,.js --fix",
+    "type-check": "tsc --noEmit",
     "audit": "npm audit || true",
     "seed": "node scripts/seed.js",
     "export:season": "node scripts/export-season-data.js",
@@ -31,9 +33,21 @@
     "strava-v3": "^2.2.1"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.8",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.25",
+    "@types/express-session": "^1.17.10",
+    "@types/jest": "^29.5.8",
+    "@types/node": "^20.19.25",
+    "@types/supertest": "^6.0.3",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
     "eslint": "^8.45.0",
     "jest": "^30.2.0",
     "nodemon": "^3.1.10",
-    "supertest": "^7.1.4"
+    "supertest": "^7.1.4",
+    "ts-jest": "^29.4.5",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
   }
 }

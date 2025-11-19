@@ -29,10 +29,14 @@ Vite dev server on http://localhost:5173
 
 Express app on http://localhost:3001
 
-**Structure:**
-- `server/src/index.js` - Express setup, routes, DB schema
+**Structure (Pure TypeScript):**
+- `server/src/index.ts` - Express setup, routes, middleware
+- `server/src/routes/` - Route handlers (`.ts` files)
+- `server/src/services/` - Business logic services (`.ts` files)
+- `server/src/schema.ts` - Database schema
+- `server/src/__tests__/` - Jest test suite (TypeScript test files)
+- `server/dist/` - Compiled JavaScript output (production)
 - `server/data/wmv.db` - SQLite database
-- `server/src/__tests__/` - Jest test suite
 - `server/scripts/` - Database seed/import/export helpers
 
 **Routes:**

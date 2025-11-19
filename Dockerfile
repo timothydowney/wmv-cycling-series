@@ -29,6 +29,9 @@ COPY . .
 # Build frontend
 RUN npm run build:frontend
 
+# Compile TypeScript to JavaScript
+RUN cd server && npm run compile
+
 ############################################
 # Stage 2: Production runtime (no rebuilds)
 # We copy pre-built artifacts & node_modules
@@ -52,8 +55,10 @@ COPY --from=builder --chown=nodejs:nodejs /app/package*.json ./
 COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 
 ## Copy server code + its node_modules (contains better-sqlite3 compiled in builder)
-COPY --from=builder --chown=nodejs:nodejs /app/server ./server
+## Also copy compiled TypeScript output (dist folder)
+COPY --from=builder --chown=nodejs:nodejs /app/server/dist ./server/dist
 COPY --from=builder --chown=nodejs:nodejs /app/server/node_modules ./server/node_modules
+COPY --from=builder --chown=nodejs:nodejs /app/server/package*.json ./server/
 
 ## Copy built frontend assets
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
