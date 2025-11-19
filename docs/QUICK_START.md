@@ -88,8 +88,9 @@ npm run dev:all
 ## Next Steps
 
 ### To Explore the Code
-- Frontend: `src/App.tsx` → `src/components/`
-- Backend: `server/src/index.js`
+- Frontend: `src/App.tsx` → `src/components/` (TypeScript + React)
+- Backend: `server/src/index.ts` → `server/src/routes/` and `server/src/services/` (Pure TypeScript)
+- Tests: `server/src/__tests__/` (TypeScript test files with Jest + ts-jest)
 - Database: `server/data/wmv.db` (SQLite)
 
 ### To Run Tests

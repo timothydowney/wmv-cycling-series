@@ -180,26 +180,30 @@ npm run check  # Audits, typechecks, lints, builds, tests (everything)
 ## Implementation Guidelines
 
 ### Code Organization
-- **API routes & middleware:** `server/src/index.js` (Express setup, routes)
-- **API client:** `server/src/stravaClient.js` (Strava API wrapper)
-- **Business logic:** `server/src/activityProcessor.js` (activity matching algorithm)
-- **Database layer:** `server/src/tokenManager.js` (token lifecycle), `server/src/activityStorage.js` (persistence)
-- **Database schema:** `server/src/schema.js` (single source of truth)
-- **Encryption:** `server/src/encryption.js` (AES-256-GCM token encryption)
-- **Frontend:** `src/components/` (React components), `src/api.ts` (HTTP client)
+- **API routes & middleware:** `server/src/index.ts` (Express setup, TypeScript)
+- **Routes:** `server/src/routes/` (TypeScript route handlers)
+- **Services:** `server/src/services/` (TypeScript business logic)
+- **Database layer:** `server/src/services/activityService.ts` (activity operations), `server/src/schema.ts` (schema)
+- **Encryption:** `server/src/encryption.ts` (AES-256-GCM token encryption, TypeScript)
+- **Strava API client:** `server/src/stravaClient.ts` (Strava API wrapper, TypeScript)
+- **Frontend:** `src/components/` (React TypeScript components), `src/api.ts` (HTTP client)
+- **Note:** All backend code is pure TypeScript (`.ts` files only, no JavaScript)
 
 ### When Adding Features
-- **New API endpoint?** → Add tests in `server/src/__tests__/` FIRST or WITH the code
-- **New business logic?** → Create a separate module in `server/src/` with tests
-- **Frontend component?** → Keep in `src/components/`, use existing patterns
-- **Database schema change?** → Update `server/src/schema.js`
-- **Strava API call?** → Use `stravaClient` module functions
+- **New API endpoint?** → Add TypeScript route in `server/src/routes/` with tests in `server/src/__tests__/`
+- **New business logic?** → Create TypeScript service in `server/src/services/` with unit tests
+- **Frontend component?** → Keep in `src/components/`, write TypeScript + React
+- **Database schema change?** → Update `server/src/schema.ts` (TypeScript)
+- **Strava API call?** → Use `server/src/stravaClient.ts` (TypeScript wrapper)
+- **All backend code must be TypeScript** (`.ts` files only, no JavaScript)
 
 ### Testing Standards
 - All endpoints must have tests (happy path + error cases)
 - All business logic must have unit tests  
 - Aim for >85% coverage
-- Run tests: `npm test` or watch mode: `cd server && npm run test:watch`
+- Run tests: `npm test` (runs TypeScript tests via Jest + ts-jest)
+- Watch mode: `cd server && npm run test:watch`
+- Test files: `server/src/__tests__/*.test.ts` (all TypeScript)
 - **CRITICAL:** Update tests WITH code changes, never after
 - Each test should be isolated (no shared mutable state)
 
@@ -211,9 +215,10 @@ npm run check  # Audits, typechecks, lints, builds, tests (everything)
 
 **Current stack:**
 - **Frontend:** React 18 + TypeScript + Vite (`src/`)
-- **Backend:** Express + SQLite + better-sqlite3 (`server/src/`)
-- **Database:** SQLite with schema in `server/src/schema.js`
+- **Backend:** Express + TypeScript + SQLite + better-sqlite3 (`server/src/`)
+- **Database:** SQLite with schema in `server/src/schema.ts`
 - **Auth:** Strava OAuth with AES-256-GCM token encryption
+- **Build:** TypeScript compiled to CommonJS for production
 
 **Key features:**
 - ✅ Strava OAuth with session persistence
@@ -221,7 +226,7 @@ npm run check  # Audits, typechecks, lints, builds, tests (everything)
 - ✅ Leaderboard calculations (weekly + season)
 - ✅ Admin week/segment management
 - ✅ Token encryption at rest + auto-refresh
-- ✅ 268 passing tests (66.49% coverage)
+- ✅ 276 passing tests (71.28% coverage) - Pure TypeScript
 
 ---
 
@@ -353,8 +358,10 @@ rm -rf .copilot-temp/*.md     # Remove temp analysis files before final commit
 
 ```
 Root Commands:
-  npm run dev:all          → Start both servers
-  npm run stop             → Kill all processes
+  npm run dev:all          → Start both servers (interactive)
+  npm run dev:start        → Start servers in background
+  npm run dev:stop         → Stop background servers
+  npm run stop             → Alias for dev:stop
   npm run build            → Build both frontend & backend
   npm run check            → Run all pre-commit checks
   npm test                 → Run backend test suite
@@ -362,8 +369,10 @@ Root Commands:
 Key Files:
   src/App.tsx              → Main React component
   src/api.ts               → Backend API client (all typed)
-  server/src/index.js      → Express server + all endpoints
-  server/src/encryption.js → Token encryption logic
+  server/src/index.ts      → Express server + all endpoints (TypeScript)
+  server/src/encryption.ts → Token encryption logic (TypeScript)
+  server/tsconfig.json     → TypeScript configuration (compiles to CommonJS)
+  server/dist/             → Compiled JavaScript output (production)
   .nvmrc                   → Node version (24)
   docs/                    → Comprehensive documentation
 ```
