@@ -12,10 +12,11 @@ if (fs.existsSync(hooksDir)) {
 
 set -e
 
-echo "Running pre-commit linters..."
+echo "Running pre-commit checks..."
+npm run typecheck
 npm run lint:all
 
-echo "✓ All linters passed!"
+echo "✓ All checks passed!"
 exit 0
 `;
 
