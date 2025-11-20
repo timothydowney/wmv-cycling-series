@@ -9,8 +9,10 @@ import AdminPanel from './components/AdminPanel';
 import ParticipantStatus from './components/ParticipantStatus';
 import ManageSegments from './components/ManageSegments';
 import SeasonManager from './components/SeasonManager';
+import StravaConnectInfoBox from './components/StravaConnectInfoBox';
 import Footer from './components/Footer';
 import { api, getWeekLeaderboard, Week, Season, LeaderboardEntry } from './api';
+import { useCurrentUser } from './hooks/useCurrentUser';
 
 type ViewMode = 'leaderboard' | 'admin' | 'participants' | 'segments' | 'seasons';
 
@@ -25,6 +27,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('leaderboard');
+  const userAthleteId = useCurrentUser();
 
   useEffect(() => {
     const fetchSeasonsAndWeeks = async () => {
@@ -270,6 +273,7 @@ function App() {
           </>
         ) : (
           <>
+            <StravaConnectInfoBox show={userAthleteId === null} />
             <SeasonWeekSelectors
               seasons={seasons}
               selectedSeasonId={selectedSeasonId}

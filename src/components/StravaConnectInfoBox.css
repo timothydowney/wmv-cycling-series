@@ -1,0 +1,116 @@
+.strava-connect-infobox {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  background: linear-gradient(135deg, #fcf0e8 0%, #fff5f0 100%);
+  border: 2px solid #FC5200;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.infobox-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  flex: 1;
+  margin-right: 40px;
+}
+
+.infobox-text {
+  flex: 1;
+}
+
+.infobox-text h3 {
+  margin: 0 0 8px 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--wmv-purple);
+}
+
+.infobox-text p {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #555;
+  line-height: 1.5;
+}
+
+.strava-connect-button-infobox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: opacity 0.2s ease;
+}
+
+.strava-connect-button-infobox:hover {
+  opacity: 0.85;
+}
+
+.strava-connect-button-infobox img {
+  height: 48px;
+  width: auto;
+}
+
+.infobox-dismiss {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: white;
+  border: 1px solid #FC5200;
+  cursor: pointer;
+  color: #FC5200;
+  transition: all 0.2s ease;
+  border-radius: 4px;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.infobox-dismiss:hover {
+  background-color: #FC5200;
+  color: white;
+  border-color: #d83d00;
+}
+
+.infobox-dismiss svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2.5;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .strava-connect-infobox {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .infobox-content {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .strava-connect-button-infobox img {
+    height: 44px;
+  }
+
+  .infobox-text h3 {
+    font-size: 1rem;
+  }
+
+  .infobox-text p {
+    font-size: 0.9rem;
+  }
+}
