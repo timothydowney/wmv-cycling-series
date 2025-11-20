@@ -30,7 +30,7 @@ COPY . .
 RUN npm run build:frontend
 
 # Compile TypeScript to JavaScript
-RUN cd server && npm run compile
+RUN cd server && npm run build
 
 ############################################
 # Stage 2: Production runtime (no rebuilds)
