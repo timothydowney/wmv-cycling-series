@@ -51,60 +51,35 @@ function deletePidFile() {
 function startServers() {
   console.log('[dev-server] Starting dev servers with concurrently...');
   
-  // Spawn concurrently process
+  // Spawn concurrently process in detached mode
+  // This allows the child to outlive the parent process
   const child = spawn('npm', ['run', 'dev:all'], {
     stdio: 'inherit',
+    detached: true,  // Creates new process group; child survives parent exit
     cwd: process.cwd()
   });
 
-  // Write the PARENT process PID (this script's child, which is concurrently)
+  // Write the child process PID to file for later cleanup
   writePidFile(child.pid);
   console.log(`[dev-server] Server started with PID ${child.pid}`);
-  console.log(`[dev-server] PID written to ${PID_FILE}`);
+  console.log(`[dev-server] Servers running in background on:`);
+  console.log(`[dev-server]   - Frontend: http://localhost:5173`);
+  console.log(`[dev-server]   - Backend: http://localhost:3001`);
   
-  // CRITICAL: Ensure PID file is written before this process keeps running
-  // This prevents race conditions where child exits before parent can write file
+  // CRITICAL: Ensure PID file is written before this parent exits
   if (!fs.existsSync(PID_FILE)) {
     console.error('[dev-server] FATAL: Failed to write PID file');
     process.exit(1);
   }
   
-  // Keep this parent process alive to handle signals
-  // The child process will be killed when we receive a signal
-  process.stdin.resume();
-
-  // Handle parent process termination signals
-  const signals = ['SIGTERM', 'SIGINT'];
-  signals.forEach(signal => {
-    process.on(signal, () => {
-      console.log(`\n[dev-server] Received ${signal}, terminating servers...`);
-      
-      // Send SIGTERM to the concurrently process
-      // This will cascade SIGTERM to all child processes (nodemon, vite, etc)
-      if (child.pid) {
-        process.kill(child.pid, 'SIGTERM');
-      }
-      
-      // Give it a moment to shutdown gracefully
-      setTimeout(() => {
-        deletePidFile();
-        process.exit(0);
-      }, 2000);
-    });
-  });
-
-  // Handle child process exit
-  child.on('exit', (code, signal) => {
-    console.log(`[dev-server] Servers exited with code ${code}, signal ${signal}`);
-    deletePidFile();
-    process.exit(code || 0);
-  });
-
-  child.on('error', (error) => {
-    console.error('[dev-server] Failed to start servers:', error.message);
-    deletePidFile();
-    process.exit(1);
-  });
+  // Unref the child so it doesn't keep the parent process alive
+  // This allows the parent (this script) to exit
+  child.unref();
+  
+  // Exit this parent process immediately
+  // The child process continues running in background
+  console.log('[dev-server] Parent process exiting (servers continue in background)');
+  process.exit(0);
 }
 
 function stopServers() {

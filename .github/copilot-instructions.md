@@ -7,10 +7,11 @@ Western Mass Velo cycling competition tracker: React + TypeScript frontend with 
 ## Quick Commands
 
 ```bash
-npm run dev:all              # Interactive development (both servers, Ctrl+C to stop)
-npm run dev:start            # Start servers in background
-npm run dev:stop             # Stop background servers
-npm run dev:cleanup          # Emergency: force-kill orphaned dev processes
+npm run dev:all              # Interactive: both servers with output (Ctrl+C to stop)
+npm start                    # Automated: start both servers in background, returns immediately
+npm stop                     # Stop background servers cleanly
+npm status                   # Check if servers running
+npm cleanup                  # Emergency: force-kill orphaned dev processes
 npm test                     # Run all backend tests
 npm run build                # Production build
 npm run lint:all             # Lint everything
@@ -19,6 +20,25 @@ npm run lint:fix             # Auto-fix linting errors
 ```
 
 **Node.js 24.x REQUIRED** (for `better-sqlite3`). Check: `node --version`
+
+### Development Options
+
+**Interactive Development (Recommended for Local Work)**
+```bash
+npm run dev:all
+```
+- Shows both servers in one terminal with colored output
+- Stop with Ctrl+C
+- Good for debugging and watching logs
+
+**Background Operation (For Agents & Automation)**
+```bash
+npm start          # Returns immediately; servers run in background
+npm status         # Check if running
+npm stop           # Stop cleanly
+```
+- Perfect for CI/CD, testing workflows, and agentic development
+- Servers on http://localhost:3001 (backend) and http://localhost:5173 (frontend)
 
 ---
 

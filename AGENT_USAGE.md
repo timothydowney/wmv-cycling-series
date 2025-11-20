@@ -8,21 +8,23 @@ When an agentic workflow (like Copilot) runs terminal commands:
 - This leaves orphaned processes that can't be cleaned up
 - The .dev.pid file may not be created in time
 
-## The Issue with `npm run dev:start`
+## The Issue (Now Resolved)
+
+Previously, `npm start` had issues with true background operation. This has been fixed:
 
 ```bash
-npm run dev:start
+npm start
 # This spawns: npm -> node scripts/dev-server.cjs -> npm run dev:all -> concurrently -> nodemon + vite
-# BUT: The terminal returns immediately (before .dev.pid is written)
-# RESULT: Orphaned processes that can't be stopped
+# NEW: Properly daemonized with detached: true and child.unref()
+# RESULT: Returns immediately AND child processes continue in background
 ```
 
-## Solution: DON'T Use Dev Servers During Agentic Work
+## Solution: Use npm start (Now Truly Safe for Agents)
 
-### ❌ DON'T DO THIS (It will orphan processes):
+### ✅ DO THIS (Now works correctly):
 ```bash
 run_in_terminal({
-  command: "npm run dev:start",
+  command: "npm start",
   isBackground: true
 })
 ```
@@ -55,10 +57,10 @@ run_in_terminal({
 
 ## If Orphaned Processes Appear
 
-Use the new safe cleanup command that only targets dev server processes:
+Use the safe cleanup command:
 
 ```bash
-npm run dev:cleanup
+npm cleanup
 ```
 
 This will:
@@ -78,9 +80,10 @@ The cleanup script uses specific patterns to identify dev server processes:
 
 ## Summary for Agents
 
-1. **Don't start dev servers unless explicitly asked by user**
-2. **Always use blocking terminal commands for one-off tasks (test, build, lint)**
-3. **If cleanup needed, use `npm run dev:cleanup`** (safe and specific)
-4. **Never use broad pkill patterns** - let the script manager handle it
-5. **If user wants dev servers, tell them:** "Run `npm run dev:all` in your terminal"
+1. **Start dev servers with `npm start`** - Now properly daemonized for agents
+2. **Check status with `npm status`** - Verify servers are running
+3. **Stop gracefully with `npm stop`** - Clean shutdown
+4. **Use `npm cleanup` if needed** - Emergency: force-kill orphaned processes
+5. **Don't use broad pkill patterns** - Let the script manager handle it
+6. **For one-off tasks** (test, build, lint) - Use blocking terminal commands
 

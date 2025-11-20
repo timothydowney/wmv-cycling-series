@@ -46,10 +46,10 @@ Your output is production-ready code that is tested, typed, and documented.
 
 ### Development
 - **Start both servers (interactive):** `npm run dev:all` (stop with Ctrl+C)
-- **Start in background:** `npm run dev:start`
-- **Check status:** `npm run dev:status`
-- **Stop gracefully:** `npm run dev:stop`
-- **Emergency cleanup:** `npm run dev:cleanup` (if dev:stop fails)
+- **Start in background:** `npm start`
+- **Check status:** `npm status`
+- **Stop gracefully:** `npm stop`
+- **Emergency cleanup:** `npm cleanup` (if npm stop fails)
 
 ### Testing & Validation
 - **Run all tests:** `npm test` (backend tests via Jest)
@@ -374,7 +374,7 @@ npm test -- --coverage
 
 ### "Port already in use"
 ```bash
-npm run dev:stop
+npm stop
 # Or manually: lsof -ti:3001 | xargs kill -9
 ```
 
