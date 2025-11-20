@@ -17,7 +17,10 @@ export default (): Router => {
    * This allows client-side routing to work
    */
   router.get('*', (_req: Request, res: Response): void => {
-    const indexPath = path.join(process.cwd(), 'dist', 'index.html');
+    // Serve index.html from the compiled frontend build
+    // __dirname is /app/server/dist (compiled location)
+    // We need to go up to /app and then into dist
+    const indexPath = path.join(__dirname, '../../dist', 'index.html');
     res.sendFile(indexPath);
   });
 
