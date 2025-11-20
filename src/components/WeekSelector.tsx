@@ -10,6 +10,8 @@ interface Props {
 }
 
 const WeekSelector: React.FC<Props> = ({ weeks, selectedWeekId, setSelectedWeekId }) => {
+  // Sort weeks by date (chronological order)
+  const sortedWeeks = [...weeks].sort((a, b) => a.start_at - b.start_at);
 
   if (weeks.length === 0) {
     return (
@@ -30,9 +32,9 @@ const WeekSelector: React.FC<Props> = ({ weeks, selectedWeekId, setSelectedWeekI
         value={selectedWeekId || ''}
         onChange={(e) => setSelectedWeekId(parseInt(e.target.value))}
       >
-        {weeks.map(week => (
+        {sortedWeeks.map((week, index) => (
           <option key={week.id} value={week.id}>
-            {week.week_name} ({formatUnixDateShort(week.start_at)})
+            {index + 1}. {week.week_name} ({formatUnixDateShort(week.start_at)})
           </option>
         ))}
       </select>

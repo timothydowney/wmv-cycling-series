@@ -10,19 +10,25 @@ Complete information for deploying WMV Cycling Series to production.
 
 1. Create account at [railway.app](https://railway.app) (sign in with GitHub)
 2. Click "New Project" → "Deploy from GitHub repo" → select `strava-ncc-scrape`
-3. Set environment variables in Railway dashboard:
+3. **⚠️ CRITICAL - Create Persistent Volume (Manual Step):**
+   - Go to Service Settings → Volumes
+   - Click "Add Volume"
+   - Mount path: `/data`, Size: `5GB`
+   - Save/Create
+4. Set environment variables in Railway dashboard:
    - `NODE_ENV=production`
    - `PORT=3001`
    - `CLIENT_BASE_URL=https://yourapp.railway.app` (use your Railway URL)
    - `STRAVA_CLIENT_ID` (from [strava.com/settings/api](https://www.strava.com/settings/api))
    - `STRAVA_CLIENT_SECRET` (from [strava.com/settings/api](https://www.strava.com/settings/api))
    - `STRAVA_REDIRECT_URI=https://yourapp.railway.app/auth/strava/callback`
-   - `DATABASE_PATH=/data/wmv.db` (CRITICAL: Must match volume mount in railway.toml)
+   - `DATABASE_PATH=/data/wmv.db` (CRITICAL: Must match volume mount)
+   - `RAILWAY_RUN_UID=0` (CRITICAL: Allows non-root user to write to persistent volume)
    - `SESSION_SECRET` (generate: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`)
-4. Update Strava OAuth app: Change "Authorization Callback Domain" to `yourapp.railway.app`
-5. Push code to `main` branch → Railway auto-deploys
-6. Visit your Railway URL and test the OAuth flow
-7. Done! App is live.
+5. Update Strava OAuth app: Change "Authorization Callback Domain" to `yourapp.railway.app`
+6. Push code to `main` branch → Railway auto-deploys
+7. Visit your Railway URL and test the OAuth flow
+8. Verify data persists after a redeploy by checking logs for `[DB] ✓ Database file EXISTS`
 
 **See sections below for detailed troubleshooting and advanced setup.**
 
@@ -90,19 +96,46 @@ Railway containers have two types of storage:
 
 If you store databases in the wrong place (e.g., `/app/server/data/`), they will be recreated fresh every time Railway restarts the container.
 
-### The Solution
+### The Solution - Two Required Steps
 
-1. **In Railway Dashboard:**
-   - Go to your project
-   - Click on "Settings" → "Volumes"
-   - Create a new volume (or use existing)
-   - Mount it at `/data` in your application
+#### Step 1: Create the Persistent Volume in Railway Dashboard
 
-2. **In Environment Variables:**
-   - Set `DATABASE_PATH=/data/wmv.db` (main database)
-   - Set `SESSION_DATABASE_PATH=/data/sessions.db` (session storage)
+**⚠️ THIS MUST BE DONE MANUALLY - Not Automatic!**
 
-3. **Why `/data`?**
+1. Go to Railway dashboard → Select your project/service
+2. Go to "Settings" tab
+3. Scroll to "Volumes" section
+4. Click "Create Volume" or "Add Volume"
+5. **Configure:**
+   - Mount path: `/data`
+   - Size: `5GB` (can be increased later if needed)
+6. **Save/Create**
+
+This creates the persistent volume that survives redeploys. The `railway.toml` configuration file alone is NOT enough - you must also create the volume in the Railway web UI.
+
+#### Step 2: Set Required Environment Variables
+
+**In Railway Variables/Secrets:**
+
+- `DATABASE_PATH=/data/wmv.db` (main database)
+- `RAILWAY_RUN_UID=0` (CRITICAL: Allows non-root user to write to volume)
+
+**Why `RAILWAY_RUN_UID=0`?**
+
+Railway mounts volumes as the root user, but your Docker image runs as a non-root user (`nodejs`). Without this variable, your app cannot write to the persistent volume due to permission restrictions. See [Railway Volume Permissions Documentation](https://docs.railway.com/develop/volumes#permissions).
+
+#### Step 3: Verify Configuration
+
+Your `railway.toml` already has the correct volume configuration:
+```toml
+[[volumes]]
+mountPath = "/data"
+size = "5GB"
+```
+
+But `railway.toml` alone doesn't create the volume - it only describes it. The manual web UI creation (Step 1) is necessary.
+
+### Why `/data`?**
    - This path must match your persistent volume mount point
    - Anything in `/app/` is ephemeral and will be lost
    - The Dockerfile creates this directory and ensures proper permissions
@@ -116,8 +149,19 @@ After deployment:
    DATABASE_PATH: '/app/server/data/wmv.db'  ❌ Bad (ephemeral)
    ```
 
-2. Make changes, restart the app, verify changes persist
-3. If data disappears on restart, check volume configuration
+2. Look for success message in logs:
+   ```
+   [DB] ✓ Database file EXISTS
+   [DB]   Directory is WRITABLE
+   ```
+   If you see permission errors, verify `RAILWAY_RUN_UID=0` is set.
+
+3. Make changes, restart the app, verify changes persist
+4. If data disappears on restart, check:
+   - [ ] Volume is created in Railway web UI (Settings → Volumes)
+   - [ ] Volume is mounted at `/data`
+   - [ ] `DATABASE_PATH=/data/wmv.db` env var is set
+   - [ ] `RAILWAY_RUN_UID=0` env var is set
 
 ### What Gets Stored Where
 
@@ -324,9 +368,15 @@ STRAVA_CLIENT_ID=170916
 STRAVA_CLIENT_SECRET=8b6e881a410ba3f4313c85b88796d982f38a59a9
 STRAVA_REDIRECT_URI=https://yourdomain.com/auth/strava/callback
 DATABASE_PATH=/data/wmv.db
+RAILWAY_RUN_UID=0
 SESSION_SECRET=<generate-random-string>
 ADMIN_ATHLETE_IDS=<comma-separated-athlete-ids>
 ```
+
+**CRITICAL VARIABLES:**
+
+- `DATABASE_PATH=/data/wmv.db` - Must point to persistent volume (not `/app/*`)
+- `RAILWAY_RUN_UID=0` - **REQUIRED** for non-root user to write to persistent volume (see Volume Permissions section)
 
 **Generate SESSION_SECRET:**
 ```bash

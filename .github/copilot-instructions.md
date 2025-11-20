@@ -1,42 +1,24 @@
 # GitHub Copilot Instructions - Strava NCC Scrape
 
-## Project Summary
-Western Mass Velo cycling competition tracker: React + TypeScript frontend with Node.js Express backend. **Status: Feature-complete and production-ready on Railway.**
+Western Mass Velo cycling competition tracker: React + TypeScript frontend with Node.js Express backend. **Feature-complete and production-ready on Railway.**
 
 ---
 
-## Critical Requirements
+## Quick Commands
 
-### Node.js Version: 24.x ONLY
-- **Required for:** `better-sqlite3` native module
-- **Check:** `node --version` (must be v24.x.x)
-- **Fix:** `nvm install 24 && nvm use 24` (or use `npx -p node@24` prefix)
-
-### Development: Two Options
-
-#### For Interactive Development (Recommended)
 ```bash
-npm run dev:all     # Foreground, colored output, both servers together
-                    # Stop: Ctrl+C
+npm run dev:all              # Interactive development (both servers, Ctrl+C to stop)
+npm run dev:start            # Start servers in background
+npm run dev:stop             # Stop background servers
+npm run dev:cleanup          # Emergency: force-kill orphaned dev processes
+npm test                     # Run all backend tests
+npm run build                # Production build
+npm run lint:all             # Lint everything
+npm run check                # Full pre-commit checks (audit, typecheck, lint, build, test)
+npm run lint:fix             # Auto-fix linting errors
 ```
 
-#### For Automated/Agentic Use (Recommended for Scripts)
-```bash
-npm run dev:start   # Background, returns immediately, tracks PID
-npm run dev:status  # Check if running
-npm run dev:stop    # Clean shutdown (normal case)
-npm run dev:cleanup # Force-kill all dev processes (emergency only)
-```
-
-**Key for agents:** Use `dev:cleanup` if `dev:stop` fails or if you encounter orphaned processes. See `docs/DEV_PROCESS_MANAGEMENT.md` and `AGENT_USAGE.md` for detailed patterns.
-
-### Cleanup
-```bash
-npm run stop        # Alias for dev:stop (clean shutdown)
-npm run dev:cleanup # Emergency: force-kill orphaned processes if dev:stop fails
-```
-
-**Full documentation:** See [`docs/DEV_PROCESS_MANAGEMENT.md`](../docs/DEV_PROCESS_MANAGEMENT.md) for complete process management guide and [`AGENT_USAGE.md`](../AGENT_USAGE.md) for agentic workflow patterns.
+**Node.js 24.x REQUIRED** (for `better-sqlite3`). Check: `node --version`
 
 ---
 
@@ -116,25 +98,6 @@ const unixSeconds = isoToUnix(activityData.start_date_local);  // ❌
 
 ---
 
-## Quick Diagnosis Guide
-
-### "CORS errors" or "Failed to load from backend"
-→ Check both servers running: `lsof -ti:3001` and `lsof -ti:5173`
-
-### "better-sqlite3 build error"
-→ Wrong Node version. Run: `node --version` (must be 24.x)
-
-### "Port already in use"
-→ Run: `npm run stop`
-
-### "OAuth not working locally"
-→ Check `src/api.ts` - should use `http://localhost:3001` for local dev
-
-### "Tests failing" or "Build broken"
-→ Run: `npm install && npm run build && npm test`
-
----
-
 ## Pre-Commit Workflow
 
 **Before committing, ALWAYS:**
@@ -177,119 +140,209 @@ npm run check  # Audits, typechecks, lints, builds, tests (everything)
 
 ---
 
-## Implementation Guidelines
+## Implementation Standards
 
-### Code Organization
-- **API routes & middleware:** `server/src/index.ts` (Express setup, TypeScript)
-- **Routes:** `server/src/routes/` (TypeScript route handlers)
-- **Services:** `server/src/services/` (TypeScript business logic)
-- **Database layer:** `server/src/services/activityService.ts` (activity operations), `server/src/schema.ts` (schema)
-- **Encryption:** `server/src/encryption.ts` (AES-256-GCM token encryption, TypeScript)
-- **Strava API client:** `server/src/stravaClient.ts` (Strava API wrapper, TypeScript)
-- **Frontend:** `src/components/` (React TypeScript components), `src/api.ts` (HTTP client)
-- **Note:** All backend code is pure TypeScript (`.ts` files only, no JavaScript)
+**Backend:** All code is TypeScript (`.ts` files only in `server/src/`)
 
-### When Adding Features
-- **New API endpoint?** → Add TypeScript route in `server/src/routes/` with tests in `server/src/__tests__/`
-- **New business logic?** → Create TypeScript service in `server/src/services/` with unit tests
-- **Frontend component?** → Keep in `src/components/`, write TypeScript + React
-- **Database schema change?** → Update `server/src/schema.ts` (TypeScript)
-- **Strava API call?** → Use `server/src/stravaClient.ts` (TypeScript wrapper)
-- **All backend code must be TypeScript** (`.ts` files only, no JavaScript)
+**Frontend:** React 18 + TypeScript in `src/components/` and `src/utils/`
 
-### Testing Standards
-- All endpoints must have tests (happy path + error cases)
-- All business logic must have unit tests  
-- Aim for >85% coverage
-- Run tests: `npm test` (runs TypeScript tests via Jest + ts-jest)
+**API client:** `src/api.ts` handles all backend calls
+
+**Tests:** All endpoints and business logic must have tests (happy path + error cases). Aim for >85% coverage.
+- Run: `npm test` (Jest + ts-jest)
 - Watch mode: `cd server && npm run test:watch`
 - Test files: `server/src/__tests__/*.test.ts` (all TypeScript)
-- **CRITICAL:** Update tests WITH code changes, never after
-- Each test should be isolated (no shared mutable state)
+- **Critical:** Update tests WITH code changes, never after
 
 ---
 
-## Architecture Overview
+## Code Style Examples
 
-**Full docs:** See [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md)
+### TypeScript Naming Conventions
 
-**Current stack:**
+```typescript
+// ✅ GOOD - Clear, descriptive names following conventions
+function getUserActivitiesForWeek(userId: number, weekId: number): Activity[] {
+  return db.prepare(
+    'SELECT * FROM activities WHERE user_id = ? AND week_id = ?'
+  ).all(userId, weekId);
+}
+
+class ActivityService {
+  private db: Database;
+  private logger: Logger;
+  
+  async fetchActivitiesFromStrava(athleteId: number): Promise<void> {
+    // Implementation
+  }
+}
+
+const MAX_RETRIES = 3;
+const API_TIMEOUT_MS = 5000;
+
+// ❌ BAD - Vague names, no clear intent
+function get(x, y) {
+  return db.prepare('SELECT * FROM activities WHERE user_id = ? AND week_id = ?').all(x, y);
+}
+
+const max = 3;
+const timeout = 5000;
+```
+
+**Rules:**
+- Functions/methods: `camelCase` (`getUserActivities`, `fetchSegmentEfforts`)
+- Classes: `PascalCase` (`ActivityService`, `TokenManager`)
+- Constants: `UPPER_SNAKE_CASE` (`MAX_RETRIES`, `API_KEY`)
+- Private members: Prefix with `_` or use `private` keyword (`_cache`, `private db`)
+
+### React Component Patterns
+
+```typescript
+// ✅ GOOD - Typed props, clear component logic
+interface WeeklyLeaderboardProps {
+  weekId: number;
+  onRefresh?: () => Promise<void>;
+}
+
+export const WeeklyLeaderboard: React.FC<WeeklyLeaderboardProps> = ({ weekId, onRefresh }) => {
+  const [results, setResults] = useState<LeaderboardResult[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const handleFetchResults = async () => {
+    setLoading(true);
+    try {
+      const data = await api.getWeekLeaderboard(weekId);
+      setResults(data);
+    } catch (error) {
+      console.error('Failed to fetch results:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="weekly-leaderboard">
+      {/* JSX */}
+    </div>
+  );
+};
+
+// ❌ BAD - No prop typing, mixed concerns
+function Leaderboard(props) {
+  const [results, setResults] = useState();
+  
+  useEffect(() => {
+    api.getWeekLeaderboard(props.weekId)
+      .then(setResults)
+      .catch(err => alert(err)); // Bad error handling
+  });
+  
+  return <div>{results?.map(r => <div>{r.name}</div>)}</div>;
+}
+```
+
+**Rules:**
+- Always type props with `interface` (never `any`)
+- Use `React.FC<Props>` for functional components
+- Handle errors explicitly (not with `alert()`)
+- Keep components focused on single responsibility
+
+### Error Handling
+
+```typescript
+// ✅ GOOD - Explicit error handling
+try {
+  const token = await getValidAccessToken(participantId);
+  if (!token) {
+    throw new Error('Participant not connected to Strava');
+  }
+  const activities = await stravaClient.getActivities(token);
+  return activities;
+} catch (error) {
+  logger.error('Failed to fetch activities', { participantId, error });
+  throw new Error(`Activity fetch failed for participant ${participantId}`);
+}
+
+// ❌ BAD - Silent failures, no context
+try {
+  const activities = await stravaClient.getActivities(token);
+  return activities;
+} catch (e) {
+  console.log('error'); // No context
+  return [];  // Silent failure
+}
+```
+
+**Rules:**
+- Always provide context in error messages (what failed, why, for what resource)
+- Use `logger` for production, `console.error` for development
+- Never silently swallow errors (no empty catch blocks)
+- Re-throw with context when appropriate
+
+---
+
+## Boundaries (3-Tier System)
+
+### ✅ **Always Do**
+- Write **TypeScript only** in backend (`server/src/` must be `.ts` files, no `.js`)
+- Write **unit tests for new features** (include both happy path and error cases)
+- **Verify Node version** before starting dev (`node --version` must be 24.x)
+- **Check `git status` before committing** to verify you're only adding intended files
+- **Run linter before committing** (`npm run lint:all` must pass)
+- **Use `start_date` from Strava** API (UTC), never `start_date_local` (local timezone)
+- **Convert timestamps to Unix seconds** immediately at input boundary
+- **Format timestamps at display edge** using browser timezone via `Intl.DateTimeFormat()`
+
+### ⚠️ **Ask First (Before Proceeding)**
+- Database schema changes (discuss impact on migrations)
+- Adding new dependencies (verify no conflicts)
+- Modifying production config or environment variables
+- Creating new major features (discuss scope)
+- Changing authentication or session handling
+- Modifying the leaderboard scoring logic (complex, deletion-safe architecture)
+
+### 🚫 **Never Do**
+- Commit secrets, API keys, or `.env` values to git
+- Use `start_date_local` from Strava (causes timezone bugs)
+- Create temporary files outside `.copilot-temp/` directory
+- Edit `node_modules/` or generated files
+- Use `git add .` (always use specific file paths)
+- Commit generated files (build outputs, coverage reports)
+- Store plaintext OAuth tokens (must encrypt at rest in production)
+- Remove failing tests without user authorization
+- Modify code logic to "fix" a linting error (use `npm run lint:fix` for style)
+
+---
+
+## Architecture (Essential Details)
+
 - **Frontend:** React 18 + TypeScript + Vite (`src/`)
-- **Backend:** Express + TypeScript + SQLite + better-sqlite3 (`server/src/`)
-- **Database:** SQLite with schema in `server/src/schema.ts`
+- **Backend:** Express + TypeScript + SQLite (`server/src/`)
 - **Auth:** Strava OAuth with AES-256-GCM token encryption
-- **Build:** TypeScript compiled to CommonJS for production
+- **Build:** TypeScript compiles to CommonJS for production
 
-**Key features:**
-- ✅ Strava OAuth with session persistence
-- ✅ Batch activity fetching (pagination + all segment efforts)
-- ✅ Leaderboard calculations (weekly + season)
-- ✅ Admin week/segment management
-- ✅ Token encryption at rest + auto-refresh
-- ✅ 276 passing tests (71.28% coverage) - Pure TypeScript
+**See:** [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) for complete system design
 
 ---
 
-## Security & Compliance
+## Security
 
-### Current Status
-- ✅ **Token Encryption:** AES-256-GCM at rest (28 tests passing)
-- ✅ **GDPR Compliance:** Privacy policy + automatic data deletion (48-hour SLA)
-- ✅ **OAuth Security:** Per-participant tokens, auto-refresh, no credential sharing
-- ✅ **Session Security:** Secure cookies, proxy configuration, HTTPS enforced
-- ✅ **Production Ready:** Security audit complete, approved for deployment
+✅ **Current Status:**
+- Token encryption: AES-256-GCM at rest
+- GDPR compliant with 48-hour data deletion SLA
+- OAuth per-participant with auto-refresh
+- Secure cookies + proxy configuration
+- Production-ready security audit complete
 
-### Documentation
-- **[SECURITY_AUDIT.md](../docs/SECURITY_AUDIT.md)** - Complete security review (token encryption, session management, secrets, pre-launch checklist)
-- **[PRIVACY_POLICY.md](../PRIVACY_POLICY.md)** - GDPR/CCPA compliance, data retention, user rights, breach notification
-- **[STRAVA_INTEGRATION.md](../docs/STRAVA_INTEGRATION.md)** - API Agreement compliance, OAuth implementation, data handling
+**Key principle:** Never commit secrets, API keys, or plaintext OAuth tokens. Encrypt tokens at rest in production.
 
-### Key Implementation Details
+**When adding features:** Check [`docs/PRIVACY_POLICY.md`](../PRIVACY_POLICY.md) for data handling requirements and [`docs/SECURITY_AUDIT.md`](../docs/SECURITY_AUDIT.md) for security patterns.
 
-**Token Encryption:**
-- Algorithm: AES-256-GCM (military-grade)
-- Tested: 28 tests passing with tampering detection
-- Transparent: Automatically encrypted on storage, decrypted on retrieval
-- Never logged: Tokens used only for Strava API calls
-
-**Data Deletion (GDPR):**
-- User-triggered: "Disconnect" or "Request Data Deletion" in app
-- Atomic: Single transaction deletes all user data (cascade deletions)
-- SLA: 48 hours for complete removal
-- Logged: Deletion request tracked in audit table
-
-**When Adding Features:**
-1. Check PRIVACY_POLICY.md for data handling requirements
-2. If adding new data collection, update privacy policy
-3. If storing secrets, use encryption (see SECURITY_AUDIT.md)
-4. If modifying auth, verify session tests still pass
-5. Run: `npm run check` (covers tests, lint, audit, build)
+**See:** [`docs/STRAVA_INTEGRATION.md`](../docs/STRAVA_INTEGRATION.md) for OAuth details and [`docs/DEPLOYMENT.md`](../docs/DEPLOYMENT.md) for production setup
 
 ---
 
-## OAuth & Production
-
-### Current Status
-- ✅ **OAuth Integration:** Complete with session persistence and reverse proxy support
-- ✅ **Production Deployment:** Railway.app (recommended for <100 participants)
-
-**See:** [`docs/STRAVA_INTEGRATION.md`](../docs/STRAVA_INTEGRATION.md) for OAuth details and [`docs/DEPLOYMENT.md`](../docs/DEPLOYMENT.md) for deployment guide
-
----
-
-## Documentation Philosophy
-
-**Keep documentation focused for external readers.** Avoid creating new markdown files for implementation details you're working on—instead:
-
-- **Update existing docs** when you change features (e.g., `docs/SCORING.md`, `docs/API.md`)
-- **Tell the user in chat** about refactorings, fixes, and internal architecture improvements
-- **Create new files only for** user-facing guides that will stay stable (e.g., ADMIN_GUIDE.md, DEPLOYMENT.md)
-
-**Example:** If you refactor leaderboard scoring logic, update `docs/SCORING.md` with the key architectural note, then explain the changes in chat. Don't create `SCORING_ARCHITECTURE.md` as a separate file.
-
----
-
-## Temporary Documentation Files (For Agent Use)
+## Temporary Analysis Files
 
 When generating detailed analysis, review reports, or summaries during development work, save them to `.copilot-temp/` directory to keep them organized and prevent accidental commits.
 
@@ -337,82 +390,13 @@ rm -rf .copilot-temp/*.md     # Remove temp analysis files before final commit
 
 ---
 
-## Project Status (November 2025)
+## Getting Help
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Backend API | ✅ Complete | All endpoints functional, 150 tests passing |
-| Frontend UI | ✅ Complete | Leaderboards, admin panel, segment management |
-| Strava OAuth | ✅ Complete | Session persistence + token refresh working |
-| Activity Fetching | ✅ Complete | Batch fetch endpoint implemented and tested |
-| Token Encryption | ✅ Complete | AES-256-GCM at rest, automatic refresh |
-| Admin Features | ✅ Complete | Week/segment/season management |
-| Leaderboard Scoring | ✅ Refactored | Compute-on-read architecture, deletion-safe |
-| Testing | ✅ Comprehensive | 150 tests, 48.78% coverage, all passing |
-| Production Deploy | ✅ Verified | Railway deployment working, tested |
-| Database | ✅ Optimized | SQLite with proper schema, test data seeding |
-
----
-
-## File Structure
-
-```
-Root Commands:
-  npm run dev:all          → Start both servers (interactive)
-  npm run dev:start        → Start servers in background
-  npm run dev:stop         → Stop background servers
-  npm run stop             → Alias for dev:stop
-  npm run build            → Build both frontend & backend
-  npm run check            → Run all pre-commit checks
-  npm test                 → Run backend test suite
-
-Key Files:
-  src/App.tsx              → Main React component
-  src/api.ts               → Backend API client (all typed)
-  server/src/index.ts      → Express server + all endpoints (TypeScript)
-  server/src/encryption.ts → Token encryption logic (TypeScript)
-  server/tsconfig.json     → TypeScript configuration (compiles to CommonJS)
-  server/dist/             → Compiled JavaScript output (production)
-  .nvmrc                   → Node version (24)
-  docs/                    → Comprehensive documentation
-```
-
----
-
-## Debugging Production Issues
-
-### Session/OAuth Failing in Production
-→ Check reverse proxy configuration in [`docs/DEPLOYMENT.md`](../docs/DEPLOYMENT.md) - "CRITICAL: Reverse Proxy Configuration" section
-
-### Activity Fetching Failing
-→ Verify Strava tokens are valid and not expired (auto-refresh happens automatically)
-
-### Database Issues
-→ See [`docs/DATABASE_DESIGN.md`](../docs/DATABASE_DESIGN.md)
-
-### General Production Troubleshooting
-→ See [`docs/DEPLOYMENT.md`](../docs/DEPLOYMENT.md) - "Troubleshooting Production" section
-
----
-
-## Important Documentation
-
-Start here based on your role:
-
-| Role | Start Here |
-|------|-----------|
-| **First time?** | [`docs/QUICK_START.md`](../docs/QUICK_START.md) |
-| **Want to understand architecture?** | [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) |
-| **Ready to deploy?** | [`docs/DEPLOYMENT.md`](../docs/DEPLOYMENT.md) |
-| **Manage competitions?** | [`ADMIN_GUIDE.md`](../ADMIN_GUIDE.md) |
-| **See all docs** | [`docs/README.md`](../docs/README.md) |
-
----
-
-## When to Ask For Help
-
-- **Stuck on setup?** → Check `docs/QUICK_START.md`
-- **Unsure about structure?** → Check `docs/ARCHITECTURE.md`
-- **Tests failing?** → Run `npm install && npm test`
-- **OAuth broken locally?** → Check `src/api.ts` uses localhost correctly
-- **Production not working?** → Check `docs/DEPLOYMENT.md` + Railway logs
+**Quick Start:** [`docs/QUICK_START.md`](../docs/QUICK_START.md)
+**Architecture:** [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md)
+**API Reference:** [`docs/API.md`](../docs/API.md)
+**Database:** [`docs/DATABASE_DESIGN.md`](../docs/DATABASE_DESIGN.md)
+**Deployment:** [`docs/DEPLOYMENT.md`](../docs/DEPLOYMENT.md)
+**Admin Guide:** [`ADMIN_GUIDE.md`](../ADMIN_GUIDE.md)
+**Scoring:** [`docs/SCORING.md`](../docs/SCORING.md)
+**All Docs:** [`docs/README.md`](../docs/README.md)

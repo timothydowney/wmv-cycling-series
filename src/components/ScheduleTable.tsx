@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Week, Season } from '../api';
 import { formatUnixDate, formatUnixTime } from '../utils/dateUtils';
 import './ScheduleTable.css';
@@ -9,6 +9,8 @@ interface Props {
 }
 
 const ScheduleTable: React.FC<Props> = ({ weeks, season }) => {
+  const [expandedWeekId, setExpandedWeekId] = useState<number | null>(null);
+
   // Sort weeks by start_at date
   const sortedWeeks = [...weeks].sort((a, b) => a.start_at - b.start_at);
 
@@ -28,6 +30,10 @@ const ScheduleTable: React.FC<Props> = ({ weeks, season }) => {
   const now = Math.floor(Date.now() / 1000); // Current Unix timestamp in seconds
   const upcomingWeek = sortedWeeks.find(week => week.end_at >= now);
 
+  const toggleTimeWindow = (weekId: number) => {
+    setExpandedWeekId(expandedWeekId === weekId ? null : weekId);
+  };
+
   return (
     <div className="schedule-table-container">
       <h2>Schedule | {season?.name || 'Unknown'} | {seasonStart} to {seasonEnd}</h2>
@@ -38,29 +44,48 @@ const ScheduleTable: React.FC<Props> = ({ weeks, season }) => {
             <th>Date</th>
             <th>Course / Segment</th>
             <th>Laps</th>
-            <th>Time Window</th>
+            <th className="participants-header">Participants</th>
           </tr>
         </thead>
         <tbody>
-          {sortedWeeks.map(week => (
-            <tr key={week.id} className={upcomingWeek?.id === week.id ? 'upcoming' : ''}>
-              <td className="week-name">{week.week_name}</td>
-              <td className="week-date">{formatUnixDate(week.start_at)}</td>
-              <td className="segment-name">
-                <a 
-                  href={`https://www.strava.com/segments/${week.segment_id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title="View on Strava"
-                >
-                  {week.segment_name || `Segment ${week.segment_id}`}
-                </a>
-              </td>
-              <td className="required-laps">{week.required_laps}</td>
-              <td className="time-window">
-                {formatUnixTime(week.start_at)} – {formatUnixTime(week.end_at)}
-              </td>
-            </tr>
+          {sortedWeeks.map((week, index) => (
+            <React.Fragment key={week.id}>
+              <tr className={upcomingWeek?.id === week.id ? 'upcoming' : ''}>
+                <td className="week-name">{index + 1}. {week.week_name}</td>
+                <td className="week-date">
+                  <div className="date-with-info">
+                    <span>{formatUnixDate(week.start_at)}</span>
+                    <button
+                      className="time-info-btn"
+                      onClick={() => toggleTimeWindow(week.id)}
+                      title="Show time window"
+                      aria-label="Show time window"
+                    >
+                      ⓘ
+                    </button>
+                  </div>
+                  {expandedWeekId === week.id && (
+                    <div className="time-window-popup">
+                      {formatUnixTime(week.start_at)} – {formatUnixTime(week.end_at)}
+                    </div>
+                  )}
+                </td>
+                <td className="segment-name">
+                  <a 
+                    href={`https://www.strava.com/segments/${week.segment_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="View on Strava"
+                  >
+                    {week.segment_name || `Segment ${week.segment_id}`}
+                  </a>
+                </td>
+                <td className="required-laps">{week.required_laps}</td>
+                <td className="participants-count">
+                  {week.participants_count ? week.participants_count : '-'}
+                </td>
+              </tr>
+            </React.Fragment>
           ))}
         </tbody>
       </table>

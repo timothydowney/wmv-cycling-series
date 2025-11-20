@@ -7,16 +7,17 @@ import { useCurrentUser } from '../hooks/useCurrentUser';
 interface Props {
   week: Week | null;
   leaderboard: LeaderboardEntry[];
+  weekNumber?: number;
 }
 
-const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard }) => {
+const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard, weekNumber }) => {
   const userAthleteId = useCurrentUser();
 
   // Always render the component - show a generic title if no week selected
   const formattedDate = week ? formatUnixDate(week.start_at) : null;
   const title = week ? (
     <h2>
-      Week | {formattedDate} |&nbsp;
+      Week {weekNumber} | {formattedDate} |&nbsp;
       <a 
         href={`https://www.strava.com/segments/${week.segment_id}`}
         target="_blank"

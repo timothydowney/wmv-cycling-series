@@ -218,6 +218,51 @@ describe('WMV Backend API', () => {
       expect(response.status).toBe(404);
       expect(response.body).toHaveProperty('error');
     });
+
+    test('GET /weeks includes participants_count for weeks with results', async () => {
+      const response = await request(app).get(`/weeks?season_id=${testSeasonId1}`);
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body)).toBe(true);
+      
+      // Week 1 should have 2 participants with valid results
+      const week1 = response.body.find(w => w.id === testWeekId1);
+      expect(week1).toBeDefined();
+      expect(week1).toHaveProperty('participants_count');
+      expect(week1.participants_count).toBe(2);
+    });
+
+    test('GET /weeks/:id includes participants_count', async () => {
+      const response = await request(app).get(`/weeks/${testWeekId1}`);
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('participants_count');
+      expect(response.body.participants_count).toBe(2);
+    });
+
+    test('GET /weeks counts only participants with valid results', async () => {
+      // Create a new week with no results
+      const newWeek = createWeek(db, {
+        seasonId: testSeasonId1,
+        stravaSegmentId: TEST_SEGMENT_1,
+        weekName: 'Empty Week',
+        date: '2025-11-19'
+      });
+
+      const response = await request(app).get(`/weeks/${newWeek.weekId}`);
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('participants_count');
+      // Should be 0 or not counted, depending on implementation
+      expect(response.body.participants_count).toBe(0);
+    });
+
+    test('GET /weeks shows participants_count as 0 for future weeks with no results', async () => {
+      const response = await request(app).get(`/weeks?season_id=${testSeasonId1}`);
+      expect(response.status).toBe(200);
+      
+      // Week 2 was created but has no results
+      const week2 = response.body.find(w => w.week_name === 'Test Week 2');
+      expect(week2).toBeDefined();
+      expect(week2.participants_count).toBe(0);
+    });
   });
 
   describe('Leaderboards', () => {
