@@ -7,15 +7,15 @@
   "main": "dist/index.js",
   "scripts": {
     "start": "node dist/index.js",
-    "compile": "tsc",
+    "build": "tsc",
     "predev": "node check-node.js",
     "dev": "NODE_ENV=development nodemon --exec tsx src/index.ts",
     "test": "NODE_ENV=test jest --coverage --runInBand",
     "test:watch": "NODE_ENV=test jest --watch",
     "lint": "eslint src/ --ext .ts,.js",
     "lint:fix": "eslint src/ --ext .ts,.js --fix",
-    "type-check": "tsc --noEmit",
-    "audit": "npm audit || true",
+    "typecheck": "tsc --noEmit",
+    "audit": "npm audit",
     "seed": "node scripts/seed.js",
     "export:season": "node scripts/export-season-data.js",
     "import:season": "node scripts/import-season-data.js"

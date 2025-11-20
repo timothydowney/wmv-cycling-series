@@ -17,12 +17,12 @@ npm run dev:all
 - Want to see live output from both servers
 - Want natural output coloring (blue = backend, green = frontend)
 
-### Automated/Agentic Use (Recommended for Scripts & CI/CD)
+### Automated/Agentic Use (For Scripts & Agents)
 ```bash
-npm run dev:start   # Start once, background process
-npm run dev:status  # Check if running
-npm run dev:stop    # Stop cleanly (normal case)
-npm run dev:cleanup # Stop forcefully (emergency only)
+npm start          # Start once, background process
+npm status         # Check if running
+npm stop           # Stop cleanly (normal case)
+npm cleanup        # Stop forcefully (emergency only)
 ```
 **When to use:**
 - Running in background while you do other work
@@ -31,8 +31,8 @@ npm run dev:cleanup # Stop forcefully (emergency only)
 - Agentic/programmatic workflows
 
 **Stopping strategy:**
-- **Normal:** Try `npm run dev:stop` first
-- **If that fails:** Use `npm run dev:cleanup` to force-kill all dev processes
+- **Normal:** Use `npm stop`
+- **If that fails:** Use `npm cleanup` to force-kill all dev processes
 - **Emergency:** If you need guaranteed cleanup regardless of state
 
 ## Why This Matters
@@ -51,32 +51,32 @@ If processes aren't shut down properly, you get:
 
 ## The Solution: Process PID Tracking
 
-For automated use, we use a `.dev.pid` file to track the parent process:
+For automated use, we use a `.dev.pid` file to track the child process:
 
-1. **`npm run dev:start`** - Starts servers and writes parent PID to `.dev.pid`
-2. **`npm run dev:stop`** - Reads PID, sends SIGTERM (graceful shutdown), then SIGKILL if needed
-3. **`npm run dev:status`** - Shows if servers are running
-4. **`npm run dev:cleanup`** - Emergency: kills all orphaned dev processes (no tracking needed)
+1. **`npm start`** - Starts servers and writes child PID to `.dev.pid`, returns immediately
+2. **`npm stop`** - Reads PID, sends SIGTERM (graceful shutdown), then SIGKILL if needed
+3. **`npm status`** - Shows if servers are running
+4. **`npm cleanup`** - Emergency: kills all orphaned dev processes (no tracking needed)
 
 ## Usage
 
 ### Starting Servers
 
 ```bash
-npm run dev:start
+npm start
 ```
 
 This:
-- Starts concurrently (parent process)
+- Starts concurrently (parent process) in detached mode
 - Starts nodemon + vite as children
-- Writes parent PID to `.dev.pid`
-- Keeps running in background
+- Writes child PID to `.dev.pid`
+- Returns immediately to terminal (parent process exits)
 - Both servers ready on http://localhost:3001 (backend) and http://localhost:5173 (frontend)
 
 ### Checking Status
 
 ```bash
-npm run dev:status
+npm status
 ```
 
 Output:
@@ -87,36 +87,35 @@ Output:
 ### Stopping Servers
 
 ```bash
-npm run dev:stop
+npm stop
 ```
 
 This:
 1. Reads PID from `.dev.pid`
-2. Sends SIGTERM to parent (graceful shutdown request)
+2. Sends SIGTERM to child (graceful shutdown request)
 3. Waits 1.5 seconds for children to shutdown
 4. If still running, force-kills child processes (nodemon, vite)
-5. Sends SIGKILL to parent if necessary
-6. Deletes `.dev.pid` file
-7. Cleans up all ports
+5. Deletes `.dev.pid` file
+6. Cleans up all ports
 
 ### Emergency Cleanup (Orphaned Processes)
 
 If you end up with orphaned dev processes (e.g., multiple concurrently instances):
 
 ```bash
-npm run dev:cleanup
+npm cleanup
 ```
 
 This:
 1. Searches for ALL concurrently processes with dev:server pattern
-2. Searches for ALL nodemon processes running server/src/index.js
+2. Searches for ALL nodemon processes running server/src/index.ts
 3. Kills processes on ports 3001 (backend) and 5173 (frontend)
 4. Deletes `.dev.pid` file
 5. **Does NOT require a valid .dev.pid file to work**
 
 **When to use:**
 - You have multiple orphaned dev server processes
-- `npm run dev:stop` didn't work (no valid PID file)
+- `npm stop` didn't work (no valid PID file)
 - You need guaranteed cleanup regardless of state
 
 **Why it's safe:**
@@ -149,12 +148,20 @@ This:
 
 ```json
 {
-  "dev:all": "concurrently...",  // Direct concurrently command (still available)
-  "dev:start": "node scripts/dev-server.cjs start",  // Managed startup
-  "dev:stop": "node scripts/dev-server.cjs stop",    // Managed shutdown
-  "dev:status": "node scripts/dev-server.cjs status", // Check if running
-  "stop": "npm run dev:stop"     // Convenience alias
+  "dev:all": "concurrently...",    // Direct concurrently (still available)
+  "start": "npm run dev:start",     // Idiomatic alias: npm start (start in background)
+  "stop": "npm run dev:stop",       // Idiomatic alias: npm stop (stop background)
+  "status": "npm run dev:status",   // Idiomatic alias: npm status (check status)
+  "cleanup": "npm run dev:cleanup"  // Idiomatic alias: npm cleanup (emergency cleanup)
 }
+```
+
+**Use the idiomatic commands:**
+```bash
+npm start    # Instead of: npm run dev:start
+npm stop     # Instead of: npm run dev:stop
+npm status   # Instead of: npm run dev:status
+npm cleanup  # Instead of: npm run dev:cleanup
 ```
 
 ## For Agentic/Automated Use
@@ -163,26 +170,26 @@ This process manager is specifically designed for reliable automation:
 
 ```bash
 # Start once and keep running
-npm run dev:start &
+npm start
 
 # Do some work...
 curl http://localhost:3001/admin/export-data
 
 # Stop cleanly
-npm run dev:stop
+npm stop
 
 # Verify clean shutdown
-npm run dev:status
+npm status
 # Should show: "NOT RUNNING"
 ```
 
 ### Benefits Over Background `&`
 
-| Aspect | Using `npm run dev:start` | Using `npm run dev:all &` |
+| Aspect | Using `npm start` | Using `npm run dev:all &` |
 |--------|--------------------------|--------------------------|
 | PID tracking | ✅ Stored in `.dev.pid` | ❌ Must hunt for PID |
-| Shutdown | ✅ `npm run dev:stop` kills cleanly | ❌ Must use `kill`, `pkill`, `lsof` hacks |
-| Status | ✅ `npm run dev:status` | ❌ Must check `ps`, `lsof` manually |
+| Shutdown | ✅ `npm stop` kills cleanly | ❌ Must use `kill`, `pkill`, `lsof` hacks |
+| Status | ✅ `npm status` | ❌ Must check `ps`, `lsof` manually |
 | Idempotent | ✅ Detects already-running | ❌ Creates duplicates |
 | Port cleanup | ✅ Proper SIGTERM cascade | ❌ Orphaned processes |
 
@@ -193,7 +200,7 @@ npm run dev:status
 If you get an error that port 3001 or 5173 is in use:
 
 ```bash
-npm run dev:stop
+npm stop
 ```
 
 If that doesn't work:
@@ -210,16 +217,16 @@ rm -f .dev.pid
 This means the `.dev.pid` file references a process that no longer exists (maybe it crashed):
 
 ```bash
-npm run dev:stop
+npm stop
 # Will clean up the stale PID and notify you
 ```
 
 ### Servers Don't Respond
 
-Check the log output:
+Check the log output if you started with output redirection:
 
 ```bash
-tail -20 /tmp/dev-start.log  # If you started with: npm run dev:start > /tmp/dev-start.log 2>&1 &
+tail -20 /tmp/dev-start.log  # If you redirected output
 ```
 
 ## For Interactive Development

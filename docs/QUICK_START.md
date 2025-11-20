@@ -32,16 +32,18 @@ Opens two servers in your terminal with colored output:
 
 Both have hot-reload. Stop with `Ctrl+C`.
 
-### For Automated/Background Use
+### For Automated/Background Use (Agents & Scripts)
 ```bash
-npm run dev:start
-npm run dev:status  # Verify running
-npm run dev:stop    # Stop cleanly when done
+npm start              # Start both servers in background
+npm status             # Verify running
+npm stop               # Stop cleanly when done
 ```
 
-**If `npm run dev:stop` doesn't work (orphaned processes):**
+Perfect for CI/CD, testing workflows, and agentic development.
+
+**If `npm stop` doesn't work (orphaned processes):**
 ```bash
-npm run dev:cleanup  # Force-kill all dev processes
+npm cleanup            # Force-kill all dev processes
 ```
 
 See `docs/DEV_PROCESS_MANAGEMENT.md` for detailed process management guide.
@@ -114,10 +116,11 @@ npm run build
 ## Common Commands
 
 ```bash
-npm run dev:all          # Start both servers (recommended)
-npm run dev:server       # Start backend only
-npm run dev              # Start frontend only
-npm run stop             # Kill stuck processes
+npm run dev:all          # Start both servers interactively
+npm start                # Start both servers in background
+npm stop                 # Stop background servers
+npm status               # Check if running
+npm cleanup              # Emergency: Force cleanup
 npm test                 # Run backend tests
 npm run build            # Build for production
 npm run build:frontend   # Build React app only
