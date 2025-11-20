@@ -279,10 +279,21 @@ function App() {
               setSelectedWeekId={setSelectedWeekId}
             />
 
-            <WeeklyLeaderboard 
-              week={selectedWeek}
-              leaderboard={weekLeaderboard}
-            />
+            {(() => {
+              // Calculate week number for display
+              let weekNumber = undefined;
+              if (selectedWeek && weeks.length > 0) {
+                const sortedWeeks = [...weeks].sort((a, b) => a.start_at - b.start_at);
+                weekNumber = sortedWeeks.findIndex(w => w.id === selectedWeek.id) + 1;
+              }
+              return (
+                <WeeklyLeaderboard 
+                  week={selectedWeek}
+                  leaderboard={weekLeaderboard}
+                  weekNumber={weekNumber}
+                />
+              );
+            })()}
 
             {selectedSeason && <SeasonLeaderboard season={selectedSeason} />}
 

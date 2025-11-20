@@ -28,6 +28,7 @@ export interface Week {
   end_at: number;   // Unix timestamp in seconds (UTC)
   segment_name?: string;
   strava_segment_id?: number; // Same as segment_id (for backwards compatibility)
+  participants_count?: number; // Number of participants with valid activities
 }
 
 export interface SegmentEffort {

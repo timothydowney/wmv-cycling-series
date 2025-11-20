@@ -60,10 +60,13 @@ class WeekService {
 
     const query = `
       SELECT w.id, w.season_id, w.week_name, w.strava_segment_id as segment_id, w.required_laps, 
-             w.start_at, w.end_at, s.name as segment_name
+             w.start_at, w.end_at, s.name as segment_name, 
+             COUNT(DISTINCT r.strava_athlete_id) as participants_count
       FROM week w
       LEFT JOIN segment s ON w.strava_segment_id = s.strava_segment_id
+      LEFT JOIN result r ON w.id = r.week_id
       WHERE w.season_id = ?
+      GROUP BY w.id, w.season_id, w.week_name, w.strava_segment_id, w.required_laps, w.start_at, w.end_at, s.name
       ORDER BY w.start_at DESC
     `;
 
@@ -77,10 +80,13 @@ class WeekService {
     const week = this.db
       .prepare(
         `SELECT w.id, w.season_id, w.week_name, w.strava_segment_id as segment_id, w.required_laps, 
-                w.start_at, w.end_at, s.name as segment_name
+                w.start_at, w.end_at, s.name as segment_name,
+                COUNT(DISTINCT r.strava_athlete_id) as participants_count
          FROM week w
          LEFT JOIN segment s ON w.strava_segment_id = s.strava_segment_id
-         WHERE w.id = ?`
+         LEFT JOIN result r ON w.id = r.week_id
+         WHERE w.id = ?
+         GROUP BY w.id, w.season_id, w.week_name, w.strava_segment_id, w.required_laps, w.start_at, w.end_at, s.name`
       )
       .get(weekId) as Week | undefined;
 

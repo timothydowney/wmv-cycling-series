@@ -38,6 +38,7 @@
   border-bottom: 1px solid var(--wmv-border, #e0e0e0);
   font-size: var(--font-base);
   color: var(--wmv-text-dark);
+  position: relative;
 }
 
 .schedule-table tbody tr:last-child td {
@@ -63,6 +64,49 @@
   white-space: nowrap;
 }
 
+.date-with-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+
+.time-info-btn {
+  background: none;
+  border: none;
+  color: var(--wmv-orange);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.time-info-btn:hover {
+  background-color: var(--wmv-orange-light, #fff5f0);
+  color: var(--wmv-orange-hover, #e74c00);
+}
+
+.time-window-popup {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  background: var(--wmv-orange);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
 .segment-name a {
   color: var(--wmv-orange);
   text-decoration: none;
@@ -79,10 +123,14 @@
   text-align: center;
 }
 
-.time-window {
-  font-size: 13px;
-  color: var(--wmv-text-light);
-  white-space: nowrap;
+.participants-header {
+  text-align: center;
+}
+
+.participants-count {
+  text-align: center;
+  font-weight: 600;
+  color: var(--wmv-purple);
 }
 
 @media (max-width: 768px) {
@@ -104,9 +152,5 @@
   .schedule-table th,
   .schedule-table td {
     padding: 6px 8px;
-  }
-
-  .time-window {
-    display: none;
   }
 }
