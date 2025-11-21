@@ -3,10 +3,6 @@
 # Stage 1: Build
 FROM node:24-slim AS builder
 
-# Cache bust: 2025-11-21 fix for production startup command
-# This label changes with each commit to force full rebuild
-LABEL build.cache_bust="fix-prod-startup-cmd"
-
 WORKDIR /app
 
 # Install build dependencies for better-sqlite3
@@ -41,9 +37,6 @@ RUN cd server && npm run build
 # We copy pre-built artifacts & node_modules
 ############################################
 FROM node:24-slim AS runtime
-
-# Cache bust: Force runtime stage rebuild - 2025-11-21
-RUN echo "Cache bust for production startup fix"
 
 WORKDIR /app
 
