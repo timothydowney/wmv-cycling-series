@@ -92,15 +92,34 @@ For each participant:
 2. Filter activities containing required segment
 3. For each activity:
    - Count segment efforts for required segment
-   - If count >= required laps, calculate total time
-4. Select best (fastest total time) qualifying activity
+   - If count >= required laps, select best consecutive window of laps
+   - Calculate total time for that window
+4. Select best (fastest total time) qualifying activity across all attempts
 5. Store best activity and extract segment efforts
 
-**Example:** If 2 laps required:
+**Consecutive Window Selection:**
+- If activity has exactly N efforts (N = required laps): use all efforts
+- If activity has more than N efforts: find all possible consecutive N-length windows, select fastest window
+- If activity has fewer than N efforts: activity doesn't qualify
+
+**Example 1 (Single Effort):** If 1 lap required with 3 segment efforts [650s, 580s, 640s]:
+- Window 1: [650s] = 650s total
+- Window 2: [580s] = 580s total ← **Selected (fastest)**
+- Window 3: [640s] = 640s total
+- **Result:** Window 2 selected (single fastest effort)
+
+**Example 2 (Multiple Efforts):** If 2 laps required with 5 segment efforts [600s, 650s, 580s, 640s, 620s]:
+- Window 1: [600s, 650s] = 1250s total
+- Window 2: [650s, 580s] = 1230s total
+- Window 3: [580s, 640s] = 1220s total ← **Selected (fastest)**
+- Window 4: [640s, 620s] = 1260s total
+- **Result:** Window 3 selected (fastest consecutive pair)
+
+**Multi-Activity Comparison:** If 2 laps required:
 - Activity A: 2 efforts, 1400 sec total ✅ Qualifies
-- Activity B: 2 efforts, 1500 sec total ✅ Qualifies
+- Activity B: 5 efforts, best consecutive window 1220 sec total ✅ Qualifies
 - Activity C: 1 effort ❌ Doesn't qualify
-- **Result:** Activity A selected (faster)
+- **Result:** Activity B selected (1220s faster than 1400s)
 
 See `docs/STRAVA_INTEGRATION.md` for implementation details.
 
