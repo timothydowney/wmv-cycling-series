@@ -7,7 +7,10 @@
 builder = "DOCKERFILE"
 
 [deploy]
-startCommand = "npm start"
+# IMPORTANT: This startCommand must override the cached service setting
+# If this is ignored and "npm start" still runs, clear the Start Command field
+# in Railway dashboard Settings → Deploy section
+startCommand = "npm run start:prod"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 10
 
