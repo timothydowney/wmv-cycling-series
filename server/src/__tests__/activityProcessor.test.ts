@@ -200,6 +200,172 @@ describe('Activity Processor', () => {
       expect(result.id).toBe(2); // Faster activity
     });
 
+    test('finds best consecutive window when more than required laps', async () => {
+      // CRITICAL TEST: Ensures we select best CONSECUTIVE window, not best individual efforts
+      const week = {
+        start_at: isoToUnix('2025-10-28T00:00:00Z'),
+        end_at: isoToUnix('2025-10-28T22:00:00Z'),
+        strava_segment_id: 100,
+        required_laps: 2
+      };
+
+      const activities = [
+        { id: 1, start_date: '2025-10-28T12:00:00Z' }
+      ];
+
+      // 5 efforts total: [600, 650, 580, 640, 620]
+      // Windows: [600+650=1250], [650+580=1230], [580+640=1220], [640+620=1260]
+      // Best window: [580+640=1220] at index 2
+      // Old algorithm (taking fastest 2): would take [580, 600] = 1180 (WRONG - not consecutive)
+      // New algorithm: should take [580, 640] = 1220 (CORRECT - consecutive window)
+      stravaClient.getActivity.mockResolvedValue({
+        id: 1,
+        name: 'Multiple Attempts Activity',
+        segment_efforts: [
+          { segment: { id: 100 }, elapsed_time: 600 },  // Warmup
+          { segment: { id: 100 }, elapsed_time: 650 },  // Slower
+          { segment: { id: 100 }, elapsed_time: 580 },  // Fast
+          { segment: { id: 100 }, elapsed_time: 640 },  // Med
+          { segment: { id: 100 }, elapsed_time: 620 }   // Cooldown
+        ]
+      });
+
+      const result = await activityProcessor.findBestQualifyingActivity(
+        activities,
+        week.strava_segment_id,
+        week.required_laps,
+        'token',
+        week
+      );
+
+      expect(result).not.toBeNull();
+      // Total time should be from consecutive window [580, 640]
+      expect(result.totalTime).toBe(1220);
+      expect(result.segmentEfforts.length).toBe(2);
+      // Should contain the efforts with times 580 and 640
+      const times = result.segmentEfforts.map(e => e.elapsed_time).sort((a, b) => a - b);
+      expect(times).toEqual([580, 640]);
+    });
+
+    test('correctly evaluates all consecutive windows and selects best', async () => {
+      // Test with 4 possible windows when requiring 2 laps
+      const week = {
+        start_at: isoToUnix('2025-10-28T00:00:00Z'),
+        end_at: isoToUnix('2025-10-28T22:00:00Z'),
+        strava_segment_id: 100,
+        required_laps: 2
+      };
+
+      const activities = [
+        { id: 1, start_date: '2025-10-28T12:00:00Z' }
+      ];
+
+      // Efforts: [400, 500, 450, 550]
+      // Windows: [400+500=900], [500+450=950], [450+550=1000]
+      // Best: [400+500=900]
+      stravaClient.getActivity.mockResolvedValue({
+        id: 1,
+        name: 'Test Activity',
+        segment_efforts: [
+          { segment: { id: 100 }, elapsed_time: 400 },
+          { segment: { id: 100 }, elapsed_time: 500 },
+          { segment: { id: 100 }, elapsed_time: 450 },
+          { segment: { id: 100 }, elapsed_time: 550 }
+        ]
+      });
+
+      const result = await activityProcessor.findBestQualifyingActivity(
+        activities,
+        week.strava_segment_id,
+        week.required_laps,
+        'token',
+        week
+      );
+
+      expect(result).not.toBeNull();
+      expect(result.totalTime).toBe(900); // First window is fastest
+      expect(result.segmentEfforts[0].elapsed_time).toBe(400);
+      expect(result.segmentEfforts[1].elapsed_time).toBe(500);
+    });
+
+    test('handles exact number of laps with no selection needed', async () => {
+      // When exactly required_laps are found, use them all in order
+      const week = {
+        start_at: isoToUnix('2025-10-28T00:00:00Z'),
+        end_at: isoToUnix('2025-10-28T22:00:00Z'),
+        strava_segment_id: 100,
+        required_laps: 2
+      };
+
+      const activities = [
+        { id: 1, start_date: '2025-10-28T12:00:00Z' }
+      ];
+
+      stravaClient.getActivity.mockResolvedValue({
+        id: 1,
+        name: 'Exact Match',
+        segment_efforts: [
+          { segment: { id: 100 }, elapsed_time: 580 },
+          { segment: { id: 100 }, elapsed_time: 590 }
+        ]
+      });
+
+      const result = await activityProcessor.findBestQualifyingActivity(
+        activities,
+        week.strava_segment_id,
+        week.required_laps,
+        'token',
+        week
+      );
+
+      expect(result).not.toBeNull();
+      expect(result.totalTime).toBe(1170); // 580 + 590
+      expect(result.segmentEfforts.length).toBe(2);
+    });
+
+    test('handles three-lap window selection correctly', async () => {
+      // Test with 3 required laps from 5 total efforts
+      const week = {
+        start_at: isoToUnix('2025-10-28T00:00:00Z'),
+        end_at: isoToUnix('2025-10-28T22:00:00Z'),
+        strava_segment_id: 100,
+        required_laps: 3
+      };
+
+      const activities = [
+        { id: 1, start_date: '2025-10-28T12:00:00Z' }
+      ];
+
+      // Efforts: [400, 350, 380, 420, 390]
+      // Windows: [400+350+380=1130], [350+380+420=1150], [380+420+390=1190]
+      // Best: [400+350+380=1130]
+      stravaClient.getActivity.mockResolvedValue({
+        id: 1,
+        name: 'Test Activity',
+        segment_efforts: [
+          { segment: { id: 100 }, elapsed_time: 400 },
+          { segment: { id: 100 }, elapsed_time: 350 },
+          { segment: { id: 100 }, elapsed_time: 380 },
+          { segment: { id: 100 }, elapsed_time: 420 },
+          { segment: { id: 100 }, elapsed_time: 390 }
+        ]
+      });
+
+      const result = await activityProcessor.findBestQualifyingActivity(
+        activities,
+        week.strava_segment_id,
+        week.required_laps,
+        'token',
+        week
+      );
+
+      expect(result).not.toBeNull();
+      expect(result.totalTime).toBe(1130);
+      expect(result.segmentEfforts.length).toBe(3);
+      const times = result.segmentEfforts.map(e => e.elapsed_time);
+      expect(times).toEqual([400, 350, 380]);
+    });
+
     test('handles API errors gracefully', async () => {
       const week = {
         start_at: isoToUnix('2025-10-28T00:00:00Z'),

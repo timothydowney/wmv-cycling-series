@@ -222,15 +222,70 @@ async function findBestQualifyingActivity(
         continue;
       }
 
-      // Calculate total time for the fastest requiredLaps efforts
-      const sortedEfforts = matchingEfforts
-        .sort((a, b) => a.elapsed_time - b.elapsed_time)
-        .slice(0, requiredLaps);
+      // Find the best consecutive window of requiredLaps efforts
+      // When an athlete rides a segment multiple times, we want the fastest
+      // consecutive set (their best effort of the day), not scattered efforts
+      
+      let selectedEfforts: typeof matchingEfforts = [];
+      let selectedTotalTime = Infinity;
+      let selectedWindowIndex = -1;
 
-      const totalTime = sortedEfforts.reduce(
-        (sum, e) => sum + e.elapsed_time,
-        0
-      );
+      if (matchingEfforts.length === requiredLaps) {
+        // Exact number of efforts - use them all (they're already in order)
+        selectedEfforts = matchingEfforts;
+        selectedTotalTime = matchingEfforts.reduce((sum, e) => sum + e.elapsed_time, 0);
+        selectedWindowIndex = 0;
+        console.log(
+          `  ℹ Exact match: ${requiredLaps} efforts found, using all of them`
+        );
+      } else if (matchingEfforts.length > requiredLaps) {
+        // More efforts than required - find the best consecutive window
+        console.log(
+          `  ℹ Multiple attempts: ${matchingEfforts.length} efforts found, finding best consecutive ${requiredLaps}-lap window`
+        );
+        
+        const windows: Array<{
+          index: number;
+          efforts: typeof matchingEfforts;
+          totalTime: number;
+        }> = [];
+
+        // Evaluate all possible consecutive windows
+        for (let i = 0; i <= matchingEfforts.length - requiredLaps; i++) {
+          const window = matchingEfforts.slice(i, i + requiredLaps);
+          const windowTotalTime = window.reduce((sum, e) => sum + e.elapsed_time, 0);
+          windows.push({
+            index: i,
+            efforts: window,
+            totalTime: windowTotalTime
+          });
+        }
+
+        // Log all windows for debugging
+        console.log(`    Analyzing ${windows.length} possible consecutive windows:`);
+        for (const window of windows) {
+          const effortTimes = window.efforts.map(e => e.elapsed_time).join(', ');
+          const windowTimeMin = Math.round(window.totalTime / 60);
+          console.log(
+            `      Window ${window.index + 1}: efforts [${effortTimes}]s = ${windowTimeMin} min (${window.totalTime}s)`
+          );
+        }
+
+        // Find the best (fastest) window
+        const bestWindow = windows.reduce((best, current) =>
+          current.totalTime < best.totalTime ? current : best
+        );
+
+        selectedEfforts = bestWindow.efforts;
+        selectedTotalTime = bestWindow.totalTime;
+        selectedWindowIndex = bestWindow.index;
+
+        console.log(
+          `    ★ Best window: #${selectedWindowIndex + 1} with total time ${Math.round(selectedTotalTime / 60)} min (${selectedTotalTime}s)`
+        );
+      }
+
+      const totalTime = selectedTotalTime;
       const totalTimeFormatted = Math.round(totalTime / 60); // in minutes
 
       console.log(
@@ -248,7 +303,7 @@ async function findBestQualifyingActivity(
           name: fullActivity.name,
           start_date: fullActivity.start_date as string,
           totalTime: totalTime,
-          segmentEfforts: sortedEfforts as unknown as SegmentEffortResponse[],
+          segmentEfforts: selectedEfforts as unknown as SegmentEffortResponse[],
           activity_url: `https://www.strava.com/activities/${fullActivity.id}`,
           device_name: (fullActivity.device_name as string | undefined) || null
         };
