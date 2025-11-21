@@ -98,6 +98,6 @@ ENV NODE_ENV=production \
 ENTRYPOINT ["dumb-init", "--"]
 
 # Start the server
-## Root package.json start script delegates to server
-CMD ["npm", "start"]
+## Use start:prod to run the compiled backend directly (not dev:start which spawns background processes)
+CMD ["npm", "run", "start:prod"]
 
