@@ -3,6 +3,7 @@ import './WeekManager.css';
 import { getWeeks, Week, createWeek, updateWeek, deleteWeek, fetchWeekResults } from '../api';
 import { formatUnixDate, formatUnixTime } from '../utils/dateUtils';
 import SegmentInput from './SegmentInput';
+import { NotesEditor } from './NotesEditor';
 import { PencilIcon, TrashIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 
 interface WeekFormData {
@@ -10,6 +11,7 @@ interface WeekFormData {
   segment_id: number;
   segment_name: string;
   required_laps: number;
+  notes: string;
   // Display format: datetime-local inputs use YYYY-MM-DDTHH:MM format
   // We convert to/from Unix timestamps for API
   start_time: string;
@@ -30,6 +32,7 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
     segment_id: 0,
     segment_name: '',
     required_laps: 1,
+    notes: '',
     start_time: '',
     end_time: ''
   });
@@ -66,6 +69,7 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
         segment_id: 0,
         segment_name: '',
         required_laps: 1,
+        notes: '',
         start_time: '',
         end_time: ''
       });
@@ -138,7 +142,8 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
       segment_name: formData.segment_name,
       required_laps: formData.required_laps,
       start_at: datetimeLocalToUnix(formData.start_time),
-      end_at: datetimeLocalToUnix(formData.end_time)
+      end_at: datetimeLocalToUnix(formData.end_time),
+      notes: formData.notes
     };
     
     console.log('Submitting week form data:', submitData);
@@ -164,7 +169,8 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
         segment_name: '',
         required_laps: 1,
         start_time: '',
-        end_time: ''
+        end_time: '',
+        notes: ''
       });
       
       // Refresh weeks list
@@ -195,11 +201,20 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
       segment_id: week.strava_segment_id ?? week.segment_id,
       segment_name: week.segment_name || '',
       required_laps: week.required_laps,
+      notes: week.notes || '',
       start_time: unixToDatetimeLocal(week.start_at),
       end_time: unixToDatetimeLocal(week.end_at)
     });
     setEditingWeekId(week.id);
     setIsCreating(true);
+    
+    // Scroll to the form after state updates
+    setTimeout(() => {
+      const formElement = document.querySelector('.week-creation-area');
+      if (formElement) {
+        formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 0);
   };
 
   const handleDelete = async (weekId: number) => {
@@ -249,7 +264,8 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
       segment_name: '',
       required_laps: 1,
       start_time: '',
-      end_time: ''
+      end_time: '',
+      notes: ''
     });
   };
 
@@ -438,6 +454,16 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
                 required
               />
               <small>Defaults to 10pm (editable)</small>
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group full-width">
+              <label htmlFor="notes">Notes & Details</label>
+              <NotesEditor
+                value={formData.notes}
+                onChange={(notes) => setFormData(prev => ({ ...prev, notes }))}
+              />
             </div>
           </div>
 

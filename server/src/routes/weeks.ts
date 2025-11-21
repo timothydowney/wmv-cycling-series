@@ -106,7 +106,8 @@ export default (services: WeekServices, middleware: WeekMiddleware): Router => {
         segment_name,
         required_laps,
         start_at,
-        end_at
+        end_at,
+        notes
       } = req.body as {
         season_id?: number;
         week_name?: string;
@@ -115,6 +116,7 @@ export default (services: WeekServices, middleware: WeekMiddleware): Router => {
         required_laps?: number;
         start_at?: number;
         end_at?: number;
+        notes?: string;
       };
 
       if (!week_name || !segment_id) {
@@ -131,11 +133,22 @@ export default (services: WeekServices, middleware: WeekMiddleware): Router => {
         segment_name,
         required_laps: required_laps || 1,
         start_at,
-        end_at
+        end_at,
+        notes
       });
 
       res.status(201).json(week);
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      
+      // Validation errors return 400
+      if (message.includes('Notes cannot exceed') || 
+          message.includes('Invalid') ||
+          message.includes('not found')) {
+        res.status(400).json({ error: message });
+        return;
+      }
+      
       console.error('Error creating week:', error);
       res.status(500).json({ error: 'Failed to create week' });
     }
@@ -156,7 +169,8 @@ export default (services: WeekServices, middleware: WeekMiddleware): Router => {
         start_at,
         end_at,
         start_time,
-        end_time
+        end_time,
+        notes
       } = req.body as {
         week_name?: string;
         segment_id?: number;
@@ -166,6 +180,7 @@ export default (services: WeekServices, middleware: WeekMiddleware): Router => {
         end_at?: number;
         start_time?: string;
         end_time?: string;
+        notes?: string;
       };
 
       // Convert ISO strings to Unix if provided
@@ -191,19 +206,28 @@ export default (services: WeekServices, middleware: WeekMiddleware): Router => {
         segment_name,
         required_laps,
         start_at: convertedStartAt,
-        end_at: convertedEndAt
+        end_at: convertedEndAt,
+        notes
       });
 
       res.json(week);
     } catch (error) {
-      if (error instanceof Error && error.message === 'No fields to update') {
-        res.status(400).json({ error: 'No fields to update' });
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      
+      // Validation errors return 400
+      if (message.includes('Notes cannot exceed') || 
+          message === 'No fields to update' ||
+          message.includes('Invalid')) {
+        res.status(400).json({ error: message });
         return;
       }
-      if (error instanceof Error && error.message === 'Week not found') {
+      
+      // Not found errors return 404
+      if (message === 'Week not found') {
         res.status(404).json({ error: 'Week not found' });
         return;
       }
+      
       console.error('Error updating week:', error);
       res.status(500).json({ error: 'Failed to update week' });
     }

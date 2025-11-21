@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS week (
   required_laps INTEGER NOT NULL DEFAULT 1,
   start_at INTEGER NOT NULL,
   end_at INTEGER NOT NULL,
+  notes TEXT DEFAULT '',
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY(season_id) REFERENCES season(id),
   FOREIGN KEY(strava_segment_id) REFERENCES segment(strava_segment_id)

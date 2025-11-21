@@ -11,6 +11,7 @@ import * as stravaClient from './stravaClient';
 import { getValidAccessToken } from './tokenManager';
 import { SCHEMA } from './schema';
 import { isoToUnix, unixToISO, nowISO } from './dateUtils';
+import runMigrations from './migrations';
 import LoginService from './services/LoginService';
 import BatchFetchService from './services/BatchFetchService';
 import WeekService from './services/WeekService';
@@ -200,6 +201,11 @@ console.log('[DB] Initializing database schema...');
 try {
   db.exec(SCHEMA);
   console.log('[DB] ✓ Schema initialized successfully');
+  
+  // Run any pending migrations
+  console.log('[DB] Running migrations...');
+  runMigrations(db);
+  console.log('[DB] ✓ Migrations completed');
   
   // Log table information
   const tables = db.prepare(`

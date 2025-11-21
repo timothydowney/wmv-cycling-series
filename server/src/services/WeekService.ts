@@ -11,6 +11,9 @@ import {
   defaultDayTimeWindow
 } from '../dateUtils';
 
+// Notes field constraints
+const NOTES_MAX_LENGTH = 1000;
+
 interface Week {
   id: number;
   season_id: number;
@@ -19,6 +22,7 @@ interface Week {
   required_laps: number;
   start_at: number;
   end_at: number;
+  notes?: string;
   segment_name?: string;
 }
 
@@ -60,13 +64,13 @@ class WeekService {
 
     const query = `
       SELECT w.id, w.season_id, w.week_name, w.strava_segment_id as segment_id, w.required_laps, 
-             w.start_at, w.end_at, s.name as segment_name, 
+             w.start_at, w.end_at, w.notes, s.name as segment_name, 
              COUNT(DISTINCT r.strava_athlete_id) as participants_count
       FROM week w
       LEFT JOIN segment s ON w.strava_segment_id = s.strava_segment_id
       LEFT JOIN result r ON w.id = r.week_id
       WHERE w.season_id = ?
-      GROUP BY w.id, w.season_id, w.week_name, w.strava_segment_id, w.required_laps, w.start_at, w.end_at, s.name
+      GROUP BY w.id, w.season_id, w.week_name, w.strava_segment_id, w.required_laps, w.start_at, w.end_at, w.notes, s.name
       ORDER BY w.start_at DESC
     `;
 
@@ -80,13 +84,13 @@ class WeekService {
     const week = this.db
       .prepare(
         `SELECT w.id, w.season_id, w.week_name, w.strava_segment_id as segment_id, w.required_laps, 
-                w.start_at, w.end_at, s.name as segment_name,
+                w.start_at, w.end_at, w.notes, s.name as segment_name,
                 COUNT(DISTINCT r.strava_athlete_id) as participants_count
          FROM week w
          LEFT JOIN segment s ON w.strava_segment_id = s.strava_segment_id
          LEFT JOIN result r ON w.id = r.week_id
          WHERE w.id = ?
-         GROUP BY w.id, w.season_id, w.week_name, w.strava_segment_id, w.required_laps, w.start_at, w.end_at, s.name`
+         GROUP BY w.id, w.season_id, w.week_name, w.strava_segment_id, w.required_laps, w.start_at, w.end_at, w.notes, s.name`
       )
       .get(weekId) as Week | undefined;
 
@@ -235,8 +239,9 @@ class WeekService {
     required_laps: number;
     start_at?: number;
     end_at?: number;
+    notes?: string;
   }): Week {
-    const { season_id, week_name, segment_id, segment_name, required_laps, start_at, end_at } =
+    const { season_id, week_name, segment_id, segment_name, required_laps, start_at, end_at, notes } =
       data;
 
     console.log('WeekService.createWeek - Input data:', JSON.stringify(data, null, 2));
@@ -299,6 +304,11 @@ class WeekService {
       throw new Error('segment_id is required');
     }
 
+    // Validate notes length
+    if (notes && notes.length > NOTES_MAX_LENGTH) {
+      throw new Error(`Notes cannot exceed ${NOTES_MAX_LENGTH} characters (provided: ${notes.length})`);
+    }
+
     try {
       console.log('Inserting week:', {
         season_id: finalSeasonId,
@@ -306,20 +316,21 @@ class WeekService {
         segment_id,
         required_laps,
         start_at,
-        end_at
+        end_at,
+        notes
       });
 
       const result = this.db
         .prepare(
-          `INSERT INTO week (season_id, week_name, strava_segment_id, required_laps, start_at, end_at)
-           VALUES (?, ?, ?, ?, ?, ?)`
+          `INSERT INTO week (season_id, week_name, strava_segment_id, required_laps, start_at, end_at, notes)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`
         )
-        .run(finalSeasonId, week_name, segment_id, required_laps, start_at, end_at);
+        .run(finalSeasonId, week_name, segment_id, required_laps, start_at, end_at, notes || '');
 
       const newWeek = this.db
         .prepare(
           `SELECT w.id, w.season_id, w.week_name, w.strava_segment_id as segment_id, w.required_laps, 
-                  w.start_at, w.end_at, s.name as segment_name
+                  w.start_at, w.end_at, w.notes, s.name as segment_name
            FROM week w
            LEFT JOIN segment s ON w.strava_segment_id = s.strava_segment_id
            WHERE w.id = ?`
@@ -350,6 +361,7 @@ class WeekService {
       start_at?: number;
       end_at?: number;
       segment_name?: string;
+      notes?: string;
     }
   ): Week {
     const {
@@ -362,7 +374,8 @@ class WeekService {
       end_time,
       start_at,
       end_at,
-      segment_name
+      segment_name,
+      notes
     } = updates;
 
     // Check if week exists
@@ -383,7 +396,8 @@ class WeekService {
       start_time !== undefined ||
       end_time !== undefined ||
       start_at !== undefined ||
-      end_at !== undefined;
+      end_at !== undefined ||
+      notes !== undefined;
     if (!hasUpdates) {
       throw new Error('No fields to update');
     }
@@ -445,6 +459,15 @@ class WeekService {
       }
     }
 
+    if (notes !== undefined) {
+      // Validate notes length
+      if (notes && notes.length > NOTES_MAX_LENGTH) {
+        throw new Error(`Notes cannot exceed ${NOTES_MAX_LENGTH} characters (provided: ${notes.length})`);
+      }
+      updateClauses.push('notes = ?');
+      values.push(notes || '');
+    }
+
     if (segment_id !== undefined) {
       if (segment_name !== undefined) {
         // segment_id with segment_name: Upsert the segment
@@ -497,7 +520,7 @@ class WeekService {
 
       const updatedWeek = this.db
         .prepare(
-          `SELECT id, season_id, week_name, strava_segment_id as segment_id, required_laps, start_at, end_at
+          `SELECT id, season_id, week_name, strava_segment_id as segment_id, required_laps, start_at, end_at, notes
            FROM week WHERE id = ?`
         )
         .get(weekId) as Week;

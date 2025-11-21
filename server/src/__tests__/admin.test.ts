@@ -691,6 +691,193 @@ describe('Coverage Improvements - Quick Wins', () => {
       expect(pastRes.status).toBe(201);
       expect(futureRes.status).toBe(201);
     });
+
+    test('creates week with notes field', async () => {
+      const res = await request(app)
+        .post('/admin/weeks')
+        .send({
+          season_id: TEST_SEASON_ID,
+          week_name: 'Week with Notes',
+          segment_id: TEST_SEGMENT_1,
+          required_laps: 1,
+          start_at: isoToUnix('2025-06-03T00:00:00Z'),
+          end_at: isoToUnix('2025-06-03T22:00:00Z'),
+          notes: 'This is a route note. Meet at the starting point.'
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.notes).toBe('This is a route note. Meet at the starting point.');
+    });
+
+    test('creates week with empty notes (defaults to empty string)', async () => {
+      const res = await request(app)
+        .post('/admin/weeks')
+        .send({
+          season_id: TEST_SEASON_ID,
+          week_name: 'Week without Notes',
+          segment_id: TEST_SEGMENT_1,
+          required_laps: 1,
+          start_at: isoToUnix('2025-06-04T00:00:00Z'),
+          end_at: isoToUnix('2025-06-04T22:00:00Z')
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.notes).toBe('');
+    });
+
+    test('creates week with exactly 1000 character notes (max allowed)', async () => {
+      const maxNotes = 'a'.repeat(1000);
+      const res = await request(app)
+        .post('/admin/weeks')
+        .send({
+          season_id: TEST_SEASON_ID,
+          week_name: 'Week with Max Notes',
+          segment_id: TEST_SEGMENT_1,
+          required_laps: 1,
+          start_at: isoToUnix('2025-06-05T00:00:00Z'),
+          end_at: isoToUnix('2025-06-05T22:00:00Z'),
+          notes: maxNotes
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.notes).toBe(maxNotes);
+      expect(res.body.notes.length).toBe(1000);
+    });
+
+    test('rejects week with notes exceeding 1000 characters', async () => {
+      const tooLongNotes = 'a'.repeat(1001);
+      const res = await request(app)
+        .post('/admin/weeks')
+        .send({
+          season_id: TEST_SEASON_ID,
+          week_name: 'Week with Too Many Notes',
+          segment_id: TEST_SEGMENT_1,
+          required_laps: 1,
+          start_at: isoToUnix('2025-06-06T00:00:00Z'),
+          end_at: isoToUnix('2025-06-06T22:00:00Z'),
+          notes: tooLongNotes
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('Notes cannot exceed 1000 characters');
+      expect(res.body.error).toContain('1001');
+    });
+
+    test('updates week notes via PUT', async () => {
+      // Create week first
+      const createRes = await request(app)
+        .post('/admin/weeks')
+        .send({
+          season_id: TEST_SEASON_ID,
+          week_name: 'Week to Update',
+          segment_id: TEST_SEGMENT_1,
+          required_laps: 1,
+          start_at: isoToUnix('2025-06-07T00:00:00Z'),
+          end_at: isoToUnix('2025-06-07T22:00:00Z'),
+          notes: 'Original notes'
+        });
+
+      const weekId = createRes.body.id;
+
+      // Update notes
+      const updateRes = await request(app)
+        .put(`/admin/weeks/${weekId}`)
+        .send({
+          notes: 'Updated route notes with new meeting point'
+        });
+
+      expect(updateRes.status).toBe(200);
+      expect(updateRes.body.notes).toBe('Updated route notes with new meeting point');
+    });
+
+    test('rejects week update with notes exceeding 1000 characters', async () => {
+      // Create week first
+      const createRes = await request(app)
+        .post('/admin/weeks')
+        .send({
+          season_id: TEST_SEASON_ID,
+          week_name: 'Week to Update with Long Notes',
+          segment_id: TEST_SEGMENT_1,
+          required_laps: 1,
+          start_at: isoToUnix('2025-06-08T00:00:00Z'),
+          end_at: isoToUnix('2025-06-08T22:00:00Z')
+        });
+
+      const weekId = createRes.body.id;
+
+      // Try to update with too-long notes
+      const updateRes = await request(app)
+        .put(`/admin/weeks/${weekId}`)
+        .send({
+          notes: 'a'.repeat(1001)
+        });
+
+      expect(updateRes.status).toBe(400);
+      expect(updateRes.body.error).toContain('Notes cannot exceed 1000 characters');
+    });
+
+    test('GET /weeks/:id includes notes field', async () => {
+      // Create week with notes
+      const createRes = await request(app)
+        .post('/admin/weeks')
+        .send({
+          season_id: TEST_SEASON_ID,
+          week_name: 'Week to Retrieve',
+          segment_id: TEST_SEGMENT_1,
+          required_laps: 1,
+          start_at: isoToUnix('2025-06-09T00:00:00Z'),
+          end_at: isoToUnix('2025-06-09T22:00:00Z'),
+          notes: 'Test notes for retrieval'
+        });
+
+      const weekId = createRes.body.id;
+
+      // Retrieve week
+      const getRes = await request(app).get(`/weeks/${weekId}`);
+
+      expect(getRes.status).toBe(200);
+      expect(getRes.body.notes).toBe('Test notes for retrieval');
+    });
+
+    test('GET /weeks includes notes field for all weeks', async () => {
+      // Create multiple weeks with different notes
+      await request(app)
+        .post('/admin/weeks')
+        .send({
+          season_id: TEST_SEASON_ID,
+          week_name: 'Week A',
+          segment_id: TEST_SEGMENT_1,
+          required_laps: 1,
+          start_at: isoToUnix('2025-06-10T00:00:00Z'),
+          end_at: isoToUnix('2025-06-10T22:00:00Z'),
+          notes: 'Notes for Week A'
+        });
+
+      await request(app)
+        .post('/admin/weeks')
+        .send({
+          season_id: TEST_SEASON_ID,
+          week_name: 'Week B',
+          segment_id: TEST_SEGMENT_1,
+          required_laps: 1,
+          start_at: isoToUnix('2025-06-11T00:00:00Z'),
+          end_at: isoToUnix('2025-06-11T22:00:00Z'),
+          notes: 'Notes for Week B'
+        });
+
+      // Retrieve all weeks
+      const getRes = await request(app).get('/weeks').query({ season_id: TEST_SEASON_ID });
+
+      expect(getRes.status).toBe(200);
+      expect(Array.isArray(getRes.body)).toBe(true);
+      expect(getRes.body.length).toBeGreaterThanOrEqual(2);
+      
+      // Verify both weeks have notes
+      const weekA = getRes.body.find((w: any) => w.week_name === 'Week A');
+      const weekB = getRes.body.find((w: any) => w.week_name === 'Week B');
+      expect(weekA.notes).toBe('Notes for Week A');
+      expect(weekB.notes).toBe('Notes for Week B');
+    });
   });
 
   // ============================================================================
