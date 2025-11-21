@@ -42,6 +42,9 @@ RUN cd server && npm run build
 ############################################
 FROM node:24-slim AS runtime
 
+# Cache bust: Force runtime stage rebuild - 2025-11-21
+RUN echo "Cache bust for production startup fix"
+
 WORKDIR /app
 
 ## Only runtime utilities (no build chain needed because we copy compiled native modules)
