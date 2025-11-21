@@ -26,6 +26,7 @@ export interface Week {
   required_laps: number;
   start_at: number; // Unix timestamp in seconds (UTC)
   end_at: number;   // Unix timestamp in seconds (UTC)
+  notes?: string;   // Markdown notes for the week
   segment_name?: string;
   strava_segment_id?: number; // Same as segment_id (for backwards compatibility)
   participants_count?: number; // Number of participants with valid activities

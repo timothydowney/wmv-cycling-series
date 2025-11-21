@@ -3,6 +3,8 @@ import { Week, LeaderboardEntry } from '../api';
 import { formatLapCount } from '../utils/lapFormatter';
 import { formatUnixDate } from '../utils/dateUtils';
 import { useCurrentUser } from '../hooks/useCurrentUser';
+import { NotesDisplay } from './NotesDisplay';
+import './WeeklyLeaderboard.css';
 
 interface Props {
   week: Week | null;
@@ -35,6 +37,11 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard, weekNumber }) =
   return (
     <div style={{ marginBottom: '2rem' }}>
       {title}
+      {week?.notes && (
+        <div className="week-notes-display">
+          <NotesDisplay markdown={week.notes} />
+        </div>
+      )}
       <table style={{ width: '100%' }}>
         <thead>
           <tr>

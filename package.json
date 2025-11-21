@@ -43,6 +43,11 @@
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
+    "@tiptap/extension-character-count": "^3.11.0",
+    "@tiptap/markdown": "^3.11.0",
+    "@tiptap/pm": "^3.11.0",
+    "@tiptap/react": "^3.11.0",
+    "@tiptap/starter-kit": "^3.11.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "strava-api-client": "^1.4.0"
