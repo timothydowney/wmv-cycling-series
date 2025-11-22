@@ -290,16 +290,109 @@ export const api = {
     return response.json();
   },
 
-  async fetchWeekResults(weekId: number): Promise<any> {
-    const response = await fetch(`${API_BASE_URL}/admin/weeks/${weekId}/fetch-results`, {
-      method: 'POST',
-      credentials: 'include'
-    });
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      throw new Error(err.error || 'Failed to fetch results');
+  async fetchWeekResults(weekId: number, onLog?: (log: any) => void): Promise<any> {
+    const fetchWithSSE = async (): Promise<any> => {
+      const response = await fetch(
+        `${API_BASE_URL}/admin/weeks/${weekId}/fetch-results`,
+        {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[API] Fetch failed with status ${response.status}:`, errorText);
+        throw new Error(`Fetch failed: ${response.status} ${response.statusText}`);
+      }
+
+      // Read the response as text stream
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('No response body');
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let completed = false;
+      let result: any = null;
+
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Process complete lines (SSE format: "event: type\ndata: {...}\n\n")
+        const lines = buffer.split('\n');
+        buffer = lines[lines.length - 1]; // Keep incomplete line in buffer
+
+        for (let i = 0; i < lines.length - 1; i++) {
+          const line = lines[i].trim();
+
+          if (line.startsWith('event: ')) {
+            const eventType = line.substring(7);
+
+            if (eventType === 'log' && i + 1 < lines.length) {
+              const dataLine = lines[i + 1];
+              if (dataLine.startsWith('data: ')) {
+                try {
+                  const logData = JSON.parse(dataLine.substring(6));
+                  console.log('[API] Received log event:', logData);
+                  if (onLog) {
+                    onLog(logData);
+                  }
+                  i++; // Skip the data line we just processed
+                } catch (e) {
+                  console.error('[API] Failed to parse log data:', e);
+                }
+              }
+            } else if (eventType === 'complete' && i + 1 < lines.length) {
+              const dataLine = lines[i + 1];
+              if (dataLine.startsWith('data: ')) {
+                try {
+                  completed = true;
+                  result = JSON.parse(dataLine.substring(6));
+                  console.log('[API] Fetch completed:', result);
+                  i++; // Skip the data line we just processed
+                } catch (e) {
+                  console.error('[API] Failed to parse complete data:', e);
+                  throw new Error('Failed to parse fetch results');
+                }
+              }
+            } else if (eventType === 'error' && i + 1 < lines.length) {
+              const dataLine = lines[i + 1];
+              if (dataLine.startsWith('data: ')) {
+                try {
+                  const errorData = JSON.parse(dataLine.substring(6));
+                  console.error('[API] Server error:', errorData);
+                  throw new Error(errorData.error || 'Unknown server error');
+                } catch (e) {
+                  console.error('[API] Failed to parse error data:', e);
+                  throw new Error('Unknown server error');
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Handle end of stream
+      if (!completed) {
+        throw new Error('Stream ended without completion event');
+      }
+
+      return result;
+    };
+
+    try {
+      return await fetchWithSSE();
+    } catch (error) {
+      console.error('[API] Fetch error:', error);
+      throw error;
     }
-    return response.json();
   },
 
 };
@@ -381,6 +474,6 @@ export async function deleteWeek(weekId: number): Promise<{ message: string }> {
   return api.deleteWeek(weekId);
 }
 
-export async function fetchWeekResults(weekId: number): Promise<any> {
-  return api.fetchWeekResults(weekId);
+export async function fetchWeekResults(weekId: number, onLog?: (log: any) => void): Promise<any> {
+  return api.fetchWeekResults(weekId, onLog);
 }

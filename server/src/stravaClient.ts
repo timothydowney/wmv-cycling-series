@@ -251,18 +251,27 @@ async function listAthleteActivities(
     return allActivities;
   } catch (error) {
     // Handle AggregateError and other error types
-    let errorMsg = error instanceof Error ? error.message : String(error);
+    console.error('[Strava API] Error caught in listAthleteActivities:');
+    console.error('  Error type:', error?.constructor?.name);
+    console.error('  Full error object:', error);
 
-    const err = error as Record<string, unknown>;
-    if (err.errors && Array.isArray(err.errors)) {
-      // AggregateError contains multiple errors
-      const messages = (err.errors as unknown[])
-        .map((e) => {
-          const errObj = e as Record<string, unknown>;
-          return errObj.message || String(e);
+    let errorMsg = '';
+
+    // Check if it's an AggregateError (has errors array)
+    if (error instanceof Error && 'errors' in error) {
+      const aggError = error as any;
+      console.error(`  AggregateError with ${aggError.errors?.length || 0} sub-errors:`);
+      const messages = (aggError.errors || [])
+        .map((e: any, idx: number) => {
+          console.error(`    [${idx}]`, e);
+          return e instanceof Error ? e.message : String(e);
         })
         .join('; ');
-      errorMsg = `${errorMsg} [${messages}]`;
+      errorMsg = `[AggregateError: ${messages}]`;
+    } else if (error instanceof Error) {
+      errorMsg = error.message;
+    } else {
+      errorMsg = String(error);
     }
 
     throw new Error(`Failed to fetch activities: ${errorMsg}`);

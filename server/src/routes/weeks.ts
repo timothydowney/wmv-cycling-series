@@ -260,6 +260,7 @@ export default (services: WeekServices, middleware: WeekMiddleware): Router => {
    * POST /:id/fetch-results
    * Batch fetch activities for all connected participants for this week
    * Finds best qualifying activity and updates leaderboard
+   * Streams progress via Server-Sent Events (SSE)
    * Admin only
    */
   router.post('/:id/fetch-results', requireAdmin, async (req: Request, res: Response): Promise<void> => {
@@ -274,19 +275,45 @@ export default (services: WeekServices, middleware: WeekMiddleware): Router => {
         return;
       }
 
-      // Execute batch fetch
-      const result = await batchFetchService.fetchWeekResults(weekId);
+      // Set SSE headers
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      // Note: Access-Control-Allow-Origin is handled by the global CORS middleware in index.ts
+      // which correctly sets it based on CLIENT_BASE_URL and allows credentials
 
-      res.json({
+      // Helper to send SSE log event (matches LogCallback type)
+      const sendLog = (level: 'info' | 'success' | 'error' | 'section', message: string, participant?: string) => {
+        const logEntry = {
+          timestamp: Date.now(),
+          level,
+          message,
+          ...(participant && { participant })
+        };
+        res.write('event: log\n');
+        res.write(`data: ${JSON.stringify(logEntry)}\n\n`);
+      };
+
+      // Execute batch fetch with logging callback
+      const result = await batchFetchService.fetchWeekResults(weekId, sendLog);
+
+      // Send completion event
+      res.write('event: complete\n');
+      res.write(`data: ${JSON.stringify({
         message: 'Results fetched successfully',
         week_id: weekId,
         participants_processed: result.participants_processed,
         results_found: result.results_found,
         summary: result.summary
-      });
+      })}\n\n`);
+
+      res.end();
     } catch (error) {
       console.error('Error fetching results:', error);
-      res.status(500).json({ error: 'Failed to fetch results' });
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      res.write('event: error\n');
+      res.write(`data: ${JSON.stringify({ error: message })}\n\n`);
+      res.end();
     }
   });
 

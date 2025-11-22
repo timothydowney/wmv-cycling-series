@@ -67,7 +67,7 @@ export const NotesEditor: React.FC<NotesEditorProps> = ({
         console.warn('Error parsing markdown for editor:', error);
       }
     }
-  }, [value, editor]);
+  }, [value, editor, isSourceMode]);
 
   if (!editor) {
     return <div className="notes-editor-skeleton">Loading editor...</div>;
