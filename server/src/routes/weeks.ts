@@ -283,12 +283,13 @@ export default (services: WeekServices, middleware: WeekMiddleware): Router => {
       // which correctly sets it based on CLIENT_BASE_URL and allows credentials
 
       // Helper to send SSE log event (matches LogCallback type)
-      const sendLog = (level: 'info' | 'success' | 'error' | 'section', message: string, participant?: string) => {
+      const sendLog = (level: 'info' | 'success' | 'error' | 'section', message: string, participant?: string, effortLinks?: any[]) => {
         const logEntry = {
           timestamp: Date.now(),
           level,
           message,
-          ...(participant && { participant })
+          ...(participant && { participant }),
+          ...(effortLinks && effortLinks.length > 0 && { effortLinks })
         };
         res.write('event: log\n');
         res.write(`data: ${JSON.stringify(logEntry)}\n\n`);

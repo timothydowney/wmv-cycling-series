@@ -28,6 +28,14 @@ export enum LogLevel {
 }
 
 /**
+ * Effort link for clickable Strava effort references
+ */
+export interface EffortLink {
+  effortId: number;
+  activityId: number;
+}
+
+/**
  * Structured log entry
  * Includes timestamp, level, message, and optional participant context
  */
@@ -36,6 +44,7 @@ export interface LogEntry {
   level: LogLevel;
   message: string;
   participant?: string;
+  effortLinks?: EffortLink[];
 }
 
 /**
@@ -51,7 +60,8 @@ export interface LogEntry {
 export type LoggerCallback = (
   level: LogLevel,
   message: string,
-  participant?: string
+  participant?: string,
+  effortLinks?: EffortLink[]
 ) => void;
 
 /**
@@ -68,22 +78,22 @@ export class StructuredLogger {
   /**
    * Log an informational message
    */
-  info(message: string, participant?: string): void {
-    this.log(LogLevel.Info, message, participant);
+  info(message: string, participant?: string, effortLinks?: EffortLink[]): void {
+    this.log(LogLevel.Info, message, participant, effortLinks);
   }
 
   /**
    * Log a success message
    */
-  success(message: string, participant?: string): void {
-    this.log(LogLevel.Success, message, participant);
+  success(message: string, participant?: string, effortLinks?: EffortLink[]): void {
+    this.log(LogLevel.Success, message, participant, effortLinks);
   }
 
   /**
    * Log an error message
    */
-  error(message: string, participant?: string): void {
-    this.log(LogLevel.Error, message, participant);
+  error(message: string, participant?: string, effortLinks?: EffortLink[]): void {
+    this.log(LogLevel.Error, message, participant, effortLinks);
   }
 
   /**
@@ -97,10 +107,10 @@ export class StructuredLogger {
    * Internal log method
    * Calls the callback if provided, otherwise logs to console
    */
-  private log(level: LogLevel, message: string, participant?: string): void {
+  private log(level: LogLevel, message: string, participant?: string, effortLinks?: EffortLink[]): void {
     if (this.onLog) {
       // Use injected logger (e.g., SSE streaming)
-      this.onLog(level, message, participant);
+      this.onLog(level, message, participant, effortLinks);
     } else {
       // Default to console logging
       this.logToConsole(level, message, participant);
@@ -156,12 +166,13 @@ export function createCollectingLoggerCallback(): [
   ] {
   const logs: LogEntry[] = [];
 
-  const callback: LoggerCallback = (level, message, participant) => {
+  const callback: LoggerCallback = (level, message, participant, effortLinks) => {
     logs.push({
       timestamp: Date.now(),
       level,
       message,
-      participant
+      participant,
+      effortLinks
     });
   };
 
@@ -176,9 +187,9 @@ export function createFilteredLoggerCallback(
   baseCallback: LoggerCallback,
   allowedLevels: LogLevel[]
 ): LoggerCallback {
-  return (level, message, participant) => {
+  return (level, message, participant, effortLinks) => {
     if (allowedLevels.includes(level)) {
-      baseCallback(level, message, participant);
+      baseCallback(level, message, participant, effortLinks);
     }
   };
 }

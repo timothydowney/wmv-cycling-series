@@ -133,6 +133,24 @@
   word-break: break-word;
 }
 
+/* Effort Links within log messages */
+.effort-link {
+  color: #2563eb;
+  text-decoration: underline;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  padding: 0 2px;
+}
+
+.effort-link:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+.effort-link:visited {
+  color: #7c3aed;
+}
+
 /* Log Level Variants */
 .log-info {
   background-color: #f9f9f9;

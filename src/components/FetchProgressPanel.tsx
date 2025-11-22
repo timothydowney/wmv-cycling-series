@@ -2,12 +2,68 @@ import { useEffect, useRef } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import './FetchProgressPanel.css';
 
+export interface EffortLink {
+  effortId: number;
+  activityId: number;
+}
+
 export interface FetchLogEntry {
   timestamp: number;
   level: 'info' | 'success' | 'error' | 'section';
   message: string;
   participant?: string;
   participantId?: number;
+  effortLinks?: EffortLink[]; // Links to Strava efforts mentioned in the message
+}
+
+/**
+ * Parse a message and replace time strings with Strava links
+ * Matches patterns like "12:52" and creates clickable links to the corresponding effort
+ */
+function parseMessageWithLinks(message: string, effortLinks: EffortLink[]): React.ReactNode {
+  if (effortLinks.length === 0) return message;
+  
+  let lastIndex = 0;
+  const parts: (string | React.ReactNode)[] = [];
+  
+  // Match all time patterns in the message
+  const timePattern = /(\d{1,2}:\d{2})/g;
+  let match;
+  let effortIndex = 0;
+  
+  while ((match = timePattern.exec(message)) !== null && effortIndex < effortLinks.length) {
+    const timeStr = match[1];
+    const effort = effortLinks[effortIndex];
+    
+    // Add text before this match
+    if (match.index > lastIndex) {
+      parts.push(message.substring(lastIndex, match.index));
+    }
+    
+    // Add the link
+    parts.push(
+      <a
+        key={`effort-${effort.effortId}`}
+        href={`https://www.strava.com/activities/${effort.activityId}/segments/${effort.effortId}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="effort-link"
+        title="View on Strava"
+      >
+        {timeStr}
+      </a>
+    );
+    
+    lastIndex = match.index + timeStr.length;
+    effortIndex++;
+  }
+  
+  // Add remaining text
+  if (lastIndex < message.length) {
+    parts.push(message.substring(lastIndex));
+  }
+  
+  return parts;
 }
 
 interface FetchProgressPanelProps {
@@ -90,18 +146,20 @@ export function FetchProgressPanel({
               <p className="empty-state">Starting sync...</p>
             )}
 
-            {logs.map((log, index) => (
-              <div
-                key={index}
-                className={`log-entry log-${log.level}`}
-                data-participant={log.participant}
-              >
-                <span className="log-time">
-                  {new Date(log.timestamp).toLocaleTimeString()}
-                </span>
-                <span className="log-message">{log.message}</span>
-              </div>
-            ))}
+            {logs.map((log, index) => {
+              const hasEffortLinks = log.effortLinks && log.effortLinks.length > 0;
+              const content = hasEffortLinks ? parseMessageWithLinks(log.message, log.effortLinks!) : log.message;
+              
+              return (
+                <div
+                  key={index}
+                  className={`log-entry log-${log.level}`}
+                  data-participant={log.participant}
+                >
+                  <span className="log-message">{content}</span>
+                </div>
+              );
+            })}
 
             {isLoading && logs.length > 0 && (
               <div className="log-entry log-info loading-indicator">
