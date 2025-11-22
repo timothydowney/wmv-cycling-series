@@ -1,8 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { useEditor, EditorContent } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import CharacterCount from '@tiptap/extension-character-count';
-import { Markdown } from '@tiptap/markdown';
+import React from 'react';
+import { EditorContent } from '@tiptap/react';
+import { useMarkdownEditor } from '../hooks/useMarkdownEditor';
 import './NotesEditor.css';
 
 interface NotesEditorProps {
@@ -18,76 +16,22 @@ export const NotesEditor: React.FC<NotesEditorProps> = ({
   onChange,
   maxLength = NOTES_MAX_LENGTH
 }) => {
-  const [isSourceMode, setIsSourceMode] = useState(false);
-  const [sourceText, setSourceText] = useState(value || '');
-
-  const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        heading: {
-          levels: [1, 2, 3]
-        }
-      }),
-      Markdown.configure({
-        indentation: {
-          style: 'space',
-          size: 2
-        }
-      }),
-      CharacterCount.configure({
-        limit: maxLength
-      })
-    ],
-    content: '', // Start empty, we'll set content via effect
-    onUpdate: ({ editor }) => {
-      // Get markdown directly from the Markdown extension's manager
-      try {
-        const manager = editor.storage.markdown.manager;
-        const markdown = manager.serialize(editor.getJSON());
-        setSourceText(markdown);
-        onChange(markdown);
-      } catch (error) {
-        console.warn('Error getting markdown:', error);
-      }
-    }
+  const {
+    editor,
+    isSourceMode,
+    sourceText,
+    charCount,
+    remaining,
+    toggleMode,
+    setSourceText
+  } = useMarkdownEditor(value, {
+    maxLength,
+    onContentChange: onChange
   });
-
-  // Handle initial value and external changes - parse markdown properly
-  useEffect(() => {
-    if (editor && value !== undefined && !isSourceMode) {
-      setSourceText(value);
-      try {
-        const manager = editor.storage.markdown.manager;
-        if (manager) {
-          // Parse markdown into JSON content structure
-          const parsed = manager.parse(value);
-          editor.commands.setContent(parsed);
-        }
-      } catch (error) {
-        console.warn('Error parsing markdown for editor:', error);
-      }
-    }
-  }, [value, editor, isSourceMode]);
 
   if (!editor) {
     return <div className="notes-editor-skeleton">Loading editor...</div>;
   }
-
-  const handleModeToggle = (manager: any) => {
-    if (isSourceMode) {
-      // Switching from source to WYSIWYG
-      const parsed = manager.parse(sourceText);
-      editor.commands.setContent(parsed);
-    } else {
-      // Switching from WYSIWYG to source
-      const markdown = manager.serialize(editor.getJSON());
-      setSourceText(markdown);
-    }
-    setIsSourceMode(!isSourceMode);
-  };
-
-  const charCount = isSourceMode ? sourceText.length : editor.storage.characterCount.characters();
-  const remaining = maxLength - charCount;
 
   return (
     <div className="notes-editor-container">
@@ -166,22 +110,7 @@ export const NotesEditor: React.FC<NotesEditorProps> = ({
           type="button"
           onClick={() => {
             try {
-              const manager = editor?.storage?.markdown?.manager;
-              if (!manager) {
-                console.warn('Markdown manager not yet initialized, waiting...');
-                // Try again after a brief delay
-                setTimeout(() => {
-                  const retryManager = editor?.storage?.markdown?.manager;
-                  if (retryManager) {
-                    handleModeToggle(retryManager);
-                  } else {
-                    console.error('Markdown manager failed to initialize');
-                  }
-                }, 100);
-                return;
-              }
-
-              handleModeToggle(manager);
+              toggleMode();
             } catch (error) {
               console.error('Error toggling editor mode:', error);
             }

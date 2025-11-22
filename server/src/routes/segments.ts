@@ -9,6 +9,7 @@
 
 import { Router, Request, Response } from 'express';
 import type { Database } from 'better-sqlite3';
+import { ParticipantRow } from '../types/database';
 
 interface SegmentServices {
   // Services (if any needed in future)
@@ -115,7 +116,7 @@ export default (
       }
 
       const { getValidAccessToken } = middleware;
-      const accessToken = await getValidAccessToken((participantWithToken as any).strava_athlete_id);
+      const accessToken = await getValidAccessToken((participantWithToken as ParticipantRow).strava_athlete_id);
 
       // Fetch segment from Strava
       const response = await fetch(`https://www.strava.com/api/v3/segments/${segmentId}`, {

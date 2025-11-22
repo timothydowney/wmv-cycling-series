@@ -11,7 +11,8 @@ module.exports = {
       {
         useESM: true,
         tsconfig: {
-          module: 'esnext'
+          module: 'esnext',
+          types: ['jest', 'node']
         }
       }
     ]

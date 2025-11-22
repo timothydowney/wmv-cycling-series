@@ -39,7 +39,7 @@ class ParticipantService {
         LEFT JOIN participant_token pt ON p.strava_athlete_id = pt.strava_athlete_id
         ORDER BY p.name ASC`
       )
-      .all() as any[];
+      .all() as Array<{ strava_athlete_id: number; name: string; has_token: number; token_expires_at: number | null }>;
 
     return participants.map((p, index) => ({
       id: index + 1, // Generate an id for React keys

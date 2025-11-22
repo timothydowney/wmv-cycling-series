@@ -7,6 +7,13 @@
 
 import Database from 'better-sqlite3';
 
+interface WebhookStatsRow {
+  total: number;
+  successful: number;
+  failed: number;
+  last_event: string | null;
+}
+
 export interface WebhookEventLogEntry {
   subscriptionId: number | null;
   aspectType: string;
@@ -124,13 +131,13 @@ export class WebhookLogger {
           SUM(CASE WHEN error_message IS NOT NULL THEN 1 ELSE 0 END) as failed,
           MAX(created_at) as last_event
         FROM webhook_event
-      `).get() as any;
+      `).get() as WebhookStatsRow | undefined;
 
       return {
-        totalEvents: stats.total || 0,
-        processedCount: stats.successful || 0,
-        failedCount: stats.failed || 0,
-        lastEventTime: stats.last_event || null
+        totalEvents: stats?.total || 0,
+        processedCount: stats?.successful || 0,
+        failedCount: stats?.failed || 0,
+        lastEventTime: stats?.last_event || null
       };
     } catch (error) {
       console.error('[Webhook Logger] Failed to get status', {

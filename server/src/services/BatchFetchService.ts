@@ -7,6 +7,7 @@ import { Database } from 'better-sqlite3';
 import * as stravaClient from '../stravaClient';
 import { findBestQualifyingActivity } from '../activityProcessor';
 import { storeActivityAndEfforts } from '../activityStorage';
+import { LogLevel, LoggerCallback, StructuredLogger } from '../types/Logger';
 
 interface FetchResult {
   participant_id: number;
@@ -27,8 +28,6 @@ interface FetchWeekResultsResponse {
   summary: FetchResult[];
 }
 
-type LogCallback = (level: 'info' | 'success' | 'error' | 'section', message: string, participant?: string) => void;
-
 class BatchFetchService {
   constructor(
     private db: Database,
@@ -42,38 +41,28 @@ class BatchFetchService {
    * Fetch and store results for a week
    * Optional onLog callback for streaming progress updates
    */
-  async fetchWeekResults(weekId: number, onLog?: LogCallback): Promise<FetchWeekResultsResponse> {
-    // Get week details including segment info
-    const week = this.db
-      .prepare(
-        `SELECT w.*, s.strava_segment_id, s.name as segment_name
-         FROM week w
-         JOIN segment s ON w.strava_segment_id = s.strava_segment_id
-         WHERE w.id = ?`
-      )
-      .get(weekId) as any;
+  async fetchWeekResults(weekId: number, onLog?: LoggerCallback): Promise<FetchWeekResultsResponse> {
+    const logger = new StructuredLogger('BatchFetch', onLog);
+
+    // ===== FETCH WEEK DETAILS =====
+    const week = this.db.prepare(
+      `SELECT 
+        w.id, w.week_name, w.season_id, w.strava_segment_id, w.required_laps, w.start_at, w.end_at,
+        s.name as segment_name
+      FROM week w
+      LEFT JOIN segment s ON w.strava_segment_id = s.strava_segment_id
+      WHERE w.id = ?`
+    ).get(weekId) as any;
 
     if (!week) {
-      throw new Error('Week not found');
+      logger.error(`Week ${weekId} not found`);
+      throw new Error(`Week ${weekId} not found`);
     }
 
-    // Helper to emit logs to callback and console
-    const log = (level: 'info' | 'success' | 'error' | 'section', message: string, participant?: string) => {
-      if (onLog) {
-        onLog(level, message, participant);
-      }
-      // Also log to console for server debugging
-      if (level === 'section') {
-        console.log(`\n[Batch Fetch] ${message}`);
-      } else {
-        console.log(`[Batch Fetch] [${level.toUpperCase()}] ${message}`);
-      }
-    };
-
     // ===== WEEK TIME CONTEXT =====
-    log('section', `Starting fetch for ${week.week_name}`);
-    log('info', `Looking for: ${week.segment_name}`);
-    log('info', `Need: ${week.required_laps} ${week.required_laps === 1 ? 'lap' : 'laps'}`);
+    logger.section(`Starting fetch for ${week.week_name}`);
+    logger.info(`Looking for: ${week.segment_name}`);
+    logger.info(`Need: ${week.required_laps} ${week.required_laps === 1 ? 'lap' : 'laps'}`);
 
     // Use Unix times directly (no conversion needed)
     const startUnix = week.start_at;
@@ -90,7 +79,7 @@ class BatchFetchService {
       .all() as Array<{ strava_athlete_id: number; name: string; access_token: string }>;
 
     if (participants.length === 0) {
-      log('info', 'No participants connected');
+      logger.info('No participants connected');
       return {
         message: 'No participants connected',
         week_id: weekId,
@@ -101,14 +90,14 @@ class BatchFetchService {
       };
     }
 
-    log('info', `Checking results from ${participants.length} ${participants.length === 1 ? 'person' : 'people'}...`);
+    logger.info(`Checking results from ${participants.length} ${participants.length === 1 ? 'person' : 'people'}...`);
 
     const results: FetchResult[] = [];
 
     // Process each participant
     for (const participant of participants) {
       try {
-        log('section', `Checking ${participant.name}...`);
+        logger.section(`Checking ${participant.name}...`);
 
         // Get valid token (auto-refreshes if needed)
         const accessToken = await this.getValidAccessToken(this.db, participant.strava_athlete_id);
@@ -119,9 +108,9 @@ class BatchFetchService {
         });
 
         if (activities.length === 0) {
-          log('info', 'No activities found on that day', participant.name);
+          logger.info('No activities found on that day', participant.name);
         } else {
-          log('info', `Found ${activities.length} ${activities.length === 1 ? 'activity' : 'activities'} on that day`, participant.name);
+          logger.info(`Found ${activities.length} ${activities.length === 1 ? 'activity' : 'activities'} on that day`, participant.name);
         }
 
         // Find best qualifying activity
@@ -131,7 +120,22 @@ class BatchFetchService {
           week.required_laps,
           accessToken,
           week,
-          (level, message) => log(level, message, participant.name)
+          (level, message) => {
+            switch (level) {
+            case LogLevel.Info:
+              logger.info(message, participant.name);
+              break;
+            case LogLevel.Success:
+              logger.success(message, participant.name);
+              break;
+            case LogLevel.Error:
+              logger.error(message, participant.name);
+              break;
+            case LogLevel.Section:
+              logger.section(message);
+              break;
+            }
+          }
         );
 
         if (bestActivity) {
@@ -150,8 +154,7 @@ class BatchFetchService {
             }
           }
           
-          log(
-            'success',
+          logger.success(
             `✓ Matched! ${timeStr}${lapInfo}`,
             participant.name
           );
@@ -180,7 +183,7 @@ class BatchFetchService {
             segment_efforts: bestActivity.segmentEfforts.length
           });
         } else {
-          console.log(`[Batch Fetch] ✗ No qualifying activities found for ${participant.name}`);
+          logger.info(`✗ No qualifying activities found for ${participant.name}`);
           results.push({
             participant_id: participant.strava_athlete_id,
             participant_name: participant.name,
@@ -191,9 +194,9 @@ class BatchFetchService {
       } catch (error) {
         // Better error logging for diagnostics
         const errorMsg = error instanceof Error ? error.message : String(error);
-        console.error(`Error processing ${participant.name}:`, errorMsg);
+        logger.error(`Error processing ${participant.name}: ${errorMsg}`);
         if (error instanceof Error && error.stack) {
-          console.error('Stack trace:', error.stack);
+          logger.error(`Stack trace: ${error.stack}`);
         }
 
         results.push({
@@ -208,7 +211,7 @@ class BatchFetchService {
     // Note: Scores are computed dynamically on read, not stored
     // See GET /weeks/:id/leaderboard and GET /season/leaderboard
 
-    console.log(
+    logger.success(
       `Fetch results complete for week ${weekId}: ${results.filter((r) => r.activity_found).length}/${
         participants.length
       } activities found`

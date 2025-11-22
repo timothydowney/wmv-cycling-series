@@ -12,6 +12,7 @@
 
 import * as stravaClient from './stravaClient';
 import { isoToUnix } from './dateUtils';
+import { LogLevel, LoggerCallback } from './types/Logger';
 
 /**
  * Week data with time window
@@ -89,7 +90,7 @@ async function findBestQualifyingActivity(
   requiredLaps: number,
   accessToken: string,
   week?: Week,
-  onLog?: (level: 'info' | 'success' | 'error' | 'section', message: string) => void
+  onLog?: LoggerCallback
 ): Promise<BestActivity | null> {
   if (!activities || activities.length === 0) {
     return null;
@@ -216,12 +217,12 @@ async function findBestQualifyingActivity(
         );
         // Log individual efforts with their times
         if (onLog) {
-          onLog('info', `Found ${matchingEfforts.length} ${requiredLaps === 1 ? 'effort' : 'efforts'}:`);
+          onLog(LogLevel.Info, `Found ${matchingEfforts.length} ${requiredLaps === 1 ? 'effort' : 'efforts'}:`);
           matchingEfforts.forEach((effort, idx) => {
             const minutes = Math.floor(effort.elapsed_time / 60);
             const seconds = effort.elapsed_time % 60;
             const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-            onLog('info', `  Lap ${idx + 1}: ${timeStr}`);
+            onLog(LogLevel.Info, `  Lap ${idx + 1}: ${timeStr}`);
           });
         }
       }
@@ -253,7 +254,7 @@ async function findBestQualifyingActivity(
           `  ℹ Exact match: ${requiredLaps} efforts found, using all of them`
         );
         if (onLog) {
-          onLog('success', `✓ Perfect match: all ${requiredLaps} laps will be used`);
+          onLog(LogLevel.Success, `✓ Perfect match: all ${requiredLaps} laps will be used`);
         }
       } else if (matchingEfforts.length > requiredLaps) {
         // More efforts than required - find the best consecutive window
@@ -261,7 +262,7 @@ async function findBestQualifyingActivity(
           `  ℹ Multiple attempts: ${matchingEfforts.length} efforts found, finding best consecutive ${requiredLaps}-lap window`
         );
         if (onLog) {
-          onLog('info', `Multiple laps found (${matchingEfforts.length}), selecting best consecutive ${requiredLaps}-lap window...`);
+          onLog(LogLevel.Info, `Multiple laps found (${matchingEfforts.length}), selecting best consecutive ${requiredLaps}-lap window...`);
         }
         
         const windows: Array<{
@@ -300,7 +301,7 @@ async function findBestQualifyingActivity(
         
         // Log to UI with window analysis
         if (onLog) {
-          onLog('info', `Analyzing ${windows.length} possible consecutive windows:`);
+          onLog(LogLevel.Info, `Analyzing ${windows.length} possible consecutive windows:`);
           windows.forEach((window) => {
             const effortTimes = window.efforts.map(e => {
               const m = Math.floor(e.elapsed_time / 60);
@@ -311,7 +312,7 @@ async function findBestQualifyingActivity(
             const totalSeconds = window.totalTime % 60;
             const totalTimeStr = `${totalMinutes}:${totalSeconds.toString().padStart(2, '0')}`;
             const lapNums = window.lapIndices.map(idx => idx + 1).join(', ');
-            onLog('info', `  Window ${window.index + 1} (laps ${lapNums}): ${effortTimes} = ${totalTimeStr}`);
+            onLog(LogLevel.Info, `  Window ${window.index + 1} (laps ${lapNums}): ${effortTimes} = ${totalTimeStr}`);
           });
         }
 
@@ -333,7 +334,7 @@ async function findBestQualifyingActivity(
           const bestSeconds = bestWindow.totalTime % 60;
           const bestTimeStr = `${bestMinutes}:${bestSeconds.toString().padStart(2, '0')}`;
           const lapNums = bestWindow.lapIndices.map(idx => idx + 1).join(', ');
-          onLog('success', `✓ Matched! ${bestTimeStr} (laps ${lapNums} of ${matchingEfforts.length})`);
+          onLog(LogLevel.Success, `✓ Matched! ${bestTimeStr} (laps ${lapNums} of ${matchingEfforts.length})`);
         }
       }
 

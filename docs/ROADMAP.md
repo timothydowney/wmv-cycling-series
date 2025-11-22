@@ -1,7 +1,7 @@
 # Roadmap & Future Features
 
-**Last Updated:** November 11, 2025  
-**Current Status:** Feature-complete and production-ready. Below are enhancement ideas for future seasons.
+**Last Updated:** November 22, 2025  
+**Current Status:** Feature-complete and production-ready. Code quality improvements in progress (Priority 4-5: Database types, UI testing). Below are enhancement ideas for future seasons.
 
 ---
 
@@ -212,8 +212,55 @@
 
 ## Maintenance & Stability
 
-### Code Quality
-- [ ] Increase test coverage from 48.78% to 70%+
+### Code Quality (In Progress)
+
+#### Completed ✅
+- [x] **Logger Types Extraction** - Created `server/src/types/Logger.ts` with structured logging types
+  - LogLevel enum, LogEntry interface, StructuredLogger class
+  - Dependency-injection-based callbacks for testability
+  - Used in BatchFetchService, activityProcessor
+
+- [x] **Markdown Editor Hook** - Created `src/hooks/useMarkdownEditor.ts`
+  - Extracted 170+ lines from NotesEditor.tsx component
+  - Reusable markdown parsing/serialization logic
+  - TipTap editor integration with mode switching
+  - NotesEditor.tsx reduced from 170+ to 90 lines
+
+- [x] **SSE Parser Utility** - Created `src/utils/sseParser.ts`
+  - Type-safe Server-Sent Events parser with generics
+  - SSEParser class, parseSSE helper, waitForSSEEvent, validateSSEData
+  - Refactored api.ts fetchWeekResults() from 80+ lines to 35 lines
+  - Full type safety, proper error handling
+
+- [x] **Database Row Types** - Created `server/src/types/database.ts`
+  - 10 database row types: ParticipantRow, SegmentRow, SeasonRow, WeekRow, ActivityRow, SegmentEffortRow, ResultRow, ParticipantTokenRow, DeletionRequestRow, WebhookEventRow
+  - Insert types for parameterized queries
+  - Type guard functions for runtime validation
+  - Replaced 15+ `as any` patterns with proper types
+  - Zero TypeScript errors, all 342 tests passing
+
+#### In Progress 🔄
+- [ ] **Activity/Segment Effort Type Safety** - Complex architectural refactoring
+  - Issue: ActivityRow ≠ ActivityResponse (API response types vs database row types)
+  - Issue: SegmentEffortRow ≠ SegmentEffortData (storage types vs API types)
+  - Location: `server/src/services/BatchFetchService.ts:119`, `server/src/webhooks/processor.ts:239`
+  - Impact: Currently masked with `as any` (4 remaining patterns)
+  - Effort: 3-4 hours (requires careful refactoring of activity processing pipeline)
+  - Note: These are legitimate architectural issues where API response transformation to database format needs explicit typing
+
+#### Planned 📋
+- [ ] **UI Component Tests** - Frontend unit tests with Vitest
+  - Components: FetchProgressPanel.tsx, NotesEditor.tsx
+  - Mock: SSE responses, markdown editor behavior
+  - Target: >80% component coverage
+  - Effort: 4-6 hours
+  - Note: Backend tests at 62.53% coverage, frontend tests needed for feature confidence
+
+- [ ] **Increase overall test coverage from 62.53% to 70%+**
+  - Focus: Service layer, routes, edge cases
+  - Tools: Jest (backend), Vitest (frontend)
+
+#### Future
 - [ ] Add E2E tests with Cypress/Playwright
 - [ ] Performance testing (load test with 500+ participants)
 
