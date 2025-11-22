@@ -4,6 +4,7 @@ import { formatLapCount } from '../utils/lapFormatter';
 import { formatUnixDate } from '../utils/dateUtils';
 import { useCurrentUser } from '../hooks/useCurrentUser';
 import { NotesDisplay } from './NotesDisplay';
+import StravaAthleteBadge from './StravaAthleteBadge';
 import './WeeklyLeaderboard.css';
 
 interface Props {
@@ -64,13 +65,11 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard, weekNumber }) =
               <tr key={entry.participant_id} style={isCurrentUser ? { backgroundColor: 'var(--wmv-orange-light, #fff5f0)', fontWeight: 500 } : {}}>
                 <td style={{ width: '60px' }}>{entry.rank}</td>
                 <td style={{ width: '200px' }}>
-                  {entry.activity_url ? (
-                    <a href={entry.activity_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--wmv-purple)', fontWeight: 600, textDecoration: 'none' }}>
-                      {entry.name}
-                    </a>
-                  ) : (
-                    entry.name
-                  )}
+                  <StravaAthleteBadge 
+                    athleteId={entry.participant_id} 
+                    name={entry.name} 
+                    profilePictureUrl={entry.profile_picture_url}
+                  />
                 </td>
                 <td>
                   {/* Extract activity ID from URL: https://www.strava.com/activities/123456789/ */}

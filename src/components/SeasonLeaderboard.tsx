@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getSeasonLeaderboard, SeasonStanding } from '../api';
 import { useCurrentUser } from '../hooks/useCurrentUser';
+import StravaAthleteBadge from './StravaAthleteBadge';
 
 import { Season } from '../api';
 
@@ -65,14 +66,11 @@ const SeasonLeaderboard: React.FC<Props> = ({ season }) => {
               <tr key={standing.id} style={isCurrentUser ? { backgroundColor: 'var(--wmv-orange-light, #fff5f0)', fontWeight: 500 } : {}}>
                 <td style={{ width: '60px' }}>{index + 1}</td>
                 <td style={{ width: '200px' }}>
-                  <a 
-                    href={`https://www.strava.com/athletes/${standing.strava_athlete_id}`}
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    style={{ color: 'var(--wmv-purple)', fontWeight: 600, textDecoration: 'none' }}
-                  >
-                    {standing.name}
-                  </a>
+                  <StravaAthleteBadge 
+                    athleteId={standing.strava_athlete_id} 
+                    name={standing.name}
+                    profilePictureUrl={standing.profile_picture_url}
+                  />
                 </td>
                 <td>{standing.total_points}</td>
                 <td>{standing.weeks_completed}</td>

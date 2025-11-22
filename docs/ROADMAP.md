@@ -249,6 +249,22 @@
   - Note: These are legitimate architectural issues where API response transformation to database format needs explicit typing
 
 #### Planned 📋
+- [ ] **Strava API Mocking & Tests** - Mock external Strava API calls
+  - Service: `server/src/services/StravaProfileService.ts`
+  - Issue: Profile picture fetching makes real HTTP requests to Strava
+  - Implementation: Mock `fetch` using Jest to simulate Strava API responses
+  - Tests needed:
+    - Per-athlete token selection (use athlete's own token when available)
+    - Token fallback logic (use any available token if athlete token missing)
+    - Cache hit/miss and TTL expiration
+    - Batch fetching with rate limiting (5 per batch, 100ms delays)
+    - Error handling (API failures, decryption failures, missing tokens)
+    - Empty/null profile picture handling
+  - Target: 100% coverage for StravaProfileService
+  - Effort: 3-4 hours
+  - Note: Core token encryption already tested extensively (encryption.test.ts has 28 tests)
+  - Benefits: Catch regressions, speed up CI/CD, no Strava API dependency for tests
+
 - [ ] **UI Component Tests** - Frontend unit tests with Vitest
   - Components: FetchProgressPanel.tsx, NotesEditor.tsx
   - Mock: SSE responses, markdown editor behavior
