@@ -18,6 +18,7 @@ import * as stravaClient from '../stravaClient';
 import { getValidAccessToken } from '../tokenManager';
 import { findBestQualifyingActivity } from '../activityProcessor';
 import { storeActivityAndEfforts } from '../activityStorage';
+import { WeekRow } from '../types/database';
 
 /**
  * Service layer for webhook operations
@@ -239,7 +240,7 @@ async function processActivityEvent(
         week.strava_segment_id,
         week.required_laps,
         accessToken,
-        { start_at: week.start_at, end_at: week.end_at } as any
+        { start_at: week.start_at, end_at: week.end_at } as Pick<WeekRow, 'start_at' | 'end_at'>
       );
 
       if (bestActivity) {

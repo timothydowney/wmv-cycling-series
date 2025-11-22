@@ -1,3 +1,5 @@
+import { parseSSE } from './utils/sseParser';
+
 // Backend API client
 // In production (Railway), frontend and backend share one domain, so use relative URLs
 // In development, frontend and backend are on different ports, so use explicit URL
@@ -291,108 +293,60 @@ export const api = {
   },
 
   async fetchWeekResults(weekId: number, onLog?: (log: any) => void): Promise<any> {
-    const fetchWithSSE = async (): Promise<any> => {
-      const response = await fetch(
-        `${API_BASE_URL}/admin/weeks/${weekId}/fetch-results`,
-        {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`[API] Fetch failed with status ${response.status}:`, errorText);
-        throw new Error(`Fetch failed: ${response.status} ${response.statusText}`);
+    const response = await fetch(
+      `${API_BASE_URL}/admin/weeks/${weekId}/fetch-results`,
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
       }
+    );
 
-      // Read the response as text stream
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error('No response body');
-      }
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[API] Fetch failed with status ${response.status}:`, errorText);
+      throw new Error(`Fetch failed: ${response.status} ${response.statusText}`);
+    }
 
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let completed = false;
+    return new Promise<any>((resolve, reject) => {
       let result: any = null;
+      let hasError = false;
 
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-
-        // Process complete lines (SSE format: "event: type\ndata: {...}\n\n")
-        const lines = buffer.split('\n');
-        buffer = lines[lines.length - 1]; // Keep incomplete line in buffer
-
-        for (let i = 0; i < lines.length - 1; i++) {
-          const line = lines[i].trim();
-
-          if (line.startsWith('event: ')) {
-            const eventType = line.substring(7);
-
-            if (eventType === 'log' && i + 1 < lines.length) {
-              const dataLine = lines[i + 1];
-              if (dataLine.startsWith('data: ')) {
-                try {
-                  const logData = JSON.parse(dataLine.substring(6));
-                  console.log('[API] Received log event:', logData);
-                  if (onLog) {
-                    onLog(logData);
-                  }
-                  i++; // Skip the data line we just processed
-                } catch (e) {
-                  console.error('[API] Failed to parse log data:', e);
-                }
-              }
-            } else if (eventType === 'complete' && i + 1 < lines.length) {
-              const dataLine = lines[i + 1];
-              if (dataLine.startsWith('data: ')) {
-                try {
-                  completed = true;
-                  result = JSON.parse(dataLine.substring(6));
-                  console.log('[API] Fetch completed:', result);
-                  i++; // Skip the data line we just processed
-                } catch (e) {
-                  console.error('[API] Failed to parse complete data:', e);
-                  throw new Error('Failed to parse fetch results');
-                }
-              }
-            } else if (eventType === 'error' && i + 1 < lines.length) {
-              const dataLine = lines[i + 1];
-              if (dataLine.startsWith('data: ')) {
-                try {
-                  const errorData = JSON.parse(dataLine.substring(6));
-                  console.error('[API] Server error:', errorData);
-                  throw new Error(errorData.error || 'Unknown server error');
-                } catch (e) {
-                  console.error('[API] Failed to parse error data:', e);
-                  throw new Error('Unknown server error');
-                }
-              }
+      parseSSE(
+        response.body,
+        {
+          log: (logData: any) => {
+            console.log('[API] Received log event:', logData);
+            if (onLog) {
+              onLog(logData);
             }
+          },
+          complete: (completeData: any) => {
+            console.log('[API] Fetch completed:', completeData);
+            result = completeData;
+          },
+          error: (errorData: any) => {
+            console.error('[API] Server error:', errorData);
+            hasError = true;
+            const errorMsg = errorData?.error || errorData?.message || 'Unknown server error';
+            reject(new Error(errorMsg));
           }
         }
-      }
-
-      // Handle end of stream
-      if (!completed) {
-        throw new Error('Stream ended without completion event');
-      }
-
-      return result;
-    };
-
-    try {
-      return await fetchWithSSE();
-    } catch (error) {
-      console.error('[API] Fetch error:', error);
-      throw error;
-    }
+      )
+        .then(() => {
+          if (!hasError) {
+            if (!result) {
+              reject(new Error('Stream ended without completion event'));
+            } else {
+              resolve(result);
+            }
+          }
+        })
+        .catch((parseError: Error) => {
+          console.error('[API] Stream parsing error:', parseError);
+          reject(parseError);
+        });
+    });
   },
 
 };

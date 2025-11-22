@@ -11,6 +11,7 @@ import * as stravaClient from './stravaClient';
 import { getValidAccessToken } from './tokenManager';
 import { SCHEMA } from './schema';
 import { isoToUnix, unixToISO, nowISO } from './dateUtils';
+import { SeasonRow } from './types/database';
 import runMigrations from './migrations';
 import LoginService from './services/LoginService';
 import BatchFetchService from './services/BatchFetchService';
@@ -402,7 +403,7 @@ if (process.env.NODE_ENV !== 'test') {
     console.log(`  Back to ISO: ${unixToISO(exampleUnix)}`);
     
     // Check database timezone context
-    const seasonCheck = db.prepare('SELECT * FROM season LIMIT 1').get() as any;
+    const seasonCheck = db.prepare('SELECT * FROM season LIMIT 1').get() as SeasonRow | undefined;
     if (seasonCheck) {
       console.log('[TIMEZONE DIAGNOSTIC] Database context:');
       console.log(`  Active season: ${seasonCheck.name} (Unix: ${seasonCheck.start_at} to ${seasonCheck.end_at})`);
