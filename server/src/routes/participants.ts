@@ -26,9 +26,9 @@ export default (services: ParticipantServices, middleware: ParticipantMiddleware
    * List all participants with connection status
    * Admin only
    */
-  router.get('/', requireAdmin, (_req: Request, res: Response): void => {
+  router.get('/', requireAdmin, async (_req: Request, res: Response): Promise<void> => {
     try {
-      const participants = participantService.getAllParticipantsWithStatus();
+      const participants = await participantService.getAllParticipantsWithStatus();
       res.json(participants);
     } catch (error) {
       console.error('Error getting participants:', error);

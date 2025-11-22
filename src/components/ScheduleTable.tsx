@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Week, Season } from '../api';
 import { formatUnixDate, formatUnixTime } from '../utils/dateUtils';
+import { NotesDisplay } from './NotesDisplay';
 import './ScheduleTable.css';
 
 interface Props {
@@ -10,6 +11,8 @@ interface Props {
 
 const ScheduleTable: React.FC<Props> = ({ weeks, season }) => {
   const [expandedWeekId, setExpandedWeekId] = useState<number | null>(null);
+  const [expandedNotesWeekId, setExpandedNotesWeekId] = useState<number | null>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
 
   // Sort weeks by start_at date
   const sortedWeeks = [...weeks].sort((a, b) => a.start_at - b.start_at);
@@ -30,9 +33,22 @@ const ScheduleTable: React.FC<Props> = ({ weeks, season }) => {
   const now = Math.floor(Date.now() / 1000); // Current Unix timestamp in seconds
   const upcomingWeek = sortedWeeks.find(week => week.end_at >= now);
 
-  const toggleTimeWindow = (weekId: number) => {
-    setExpandedWeekId(expandedWeekId === weekId ? null : weekId);
-  };
+  // Handle click outside popup to dismiss
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (popupRef.current && !popupRef.current.contains(event.target as Node)) {
+        setExpandedWeekId(null);
+        setExpandedNotesWeekId(null);
+      }
+    };
+
+    if (expandedWeekId !== null || expandedNotesWeekId !== null) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [expandedWeekId, expandedNotesWeekId]);
 
   return (
     <div className="schedule-table-container">
@@ -51,13 +67,27 @@ const ScheduleTable: React.FC<Props> = ({ weeks, season }) => {
           {sortedWeeks.map((week, index) => (
             <React.Fragment key={week.id}>
               <tr className={upcomingWeek?.id === week.id ? 'upcoming' : ''}>
-                <td className="week-name">{index + 1}. {week.week_name}</td>
+                <td className="week-name">
+                  <div className="week-name-with-notes">
+                    {index + 1}. {week.week_name}
+                    {week.notes && (
+                      <button
+                        className="notes-info-btn"
+                        onClick={() => setExpandedNotesWeekId(expandedNotesWeekId === week.id ? null : week.id)}
+                        title="Show week notes"
+                        aria-label="Show week notes"
+                      >
+                        ⓘ
+                      </button>
+                    )}
+                  </div>
+                </td>
                 <td className="week-date">
                   <div className="date-with-info">
                     <span>{formatUnixDate(week.start_at)}</span>
                     <button
                       className="time-info-btn"
-                      onClick={() => toggleTimeWindow(week.id)}
+                      onClick={() => setExpandedWeekId(expandedWeekId === week.id ? null : week.id)}
                       title="Show time window"
                       aria-label="Show time window"
                     >
@@ -65,7 +95,7 @@ const ScheduleTable: React.FC<Props> = ({ weeks, season }) => {
                     </button>
                   </div>
                   {expandedWeekId === week.id && (
-                    <div className="time-window-popup">
+                    <div className="time-window-popup" ref={popupRef}>
                       {formatUnixTime(week.start_at)} – {formatUnixTime(week.end_at)}
                     </div>
                   )}
@@ -85,6 +115,15 @@ const ScheduleTable: React.FC<Props> = ({ weeks, season }) => {
                   {week.participants_count ? week.participants_count : '-'}
                 </td>
               </tr>
+              {expandedNotesWeekId === week.id && week.notes && (
+                <tr className="notes-row">
+                  <td colSpan={5}>
+                    <div className="week-notes-popup" ref={popupRef}>
+                      <NotesDisplay markdown={week.notes} />
+                    </div>
+                  </td>
+                </tr>
+              )}
             </React.Fragment>
           ))}
         </tbody>
