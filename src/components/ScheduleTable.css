@@ -60,6 +60,12 @@
   color: var(--wmv-purple);
 }
 
+.week-name-with-notes {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .week-date {
   white-space: nowrap;
 }
@@ -91,6 +97,28 @@
 .time-info-btn:hover {
   background-color: var(--wmv-orange-light, #fff5f0);
   color: var(--wmv-orange-hover, #e74c00);
+}
+
+.notes-info-btn {
+  background: none;
+  border: none;
+  color: var(--wmv-purple);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.notes-info-btn:hover {
+  background-color: #f0f0f0;
+  color: var(--wmv-purple-dark, #5a4a99);
 }
 
 .time-window-popup {
@@ -131,6 +159,22 @@
   text-align: center;
   font-weight: 600;
   color: var(--wmv-purple);
+}
+
+.notes-row {
+  background-color: #f9f9f9;
+}
+
+.notes-row td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--wmv-border, #e0e0e0);
+}
+
+.week-notes-popup {
+  background: white;
+  padding: 12px;
+  border-left: 4px solid var(--wmv-purple);
+  border-radius: 4px;
 }
 
 @media (max-width: 768px) {

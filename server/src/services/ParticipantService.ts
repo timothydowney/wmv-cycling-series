@@ -4,6 +4,7 @@
  */
 
 import { Database } from 'better-sqlite3';
+import { getAthleteProfilePictures } from './StravaProfileService';
 
 interface Participant {
   strava_athlete_id: number;
@@ -26,8 +27,9 @@ class ParticipantService {
   /**
    * Get all participants with connection status
    * Shows whether each participant has connected their Strava account
+   * Now async to fetch profile pictures
    */
-  getAllParticipantsWithStatus(): any[] {
+  async getAllParticipantsWithStatus(): Promise<any[]> {
     const participants = this.db
       .prepare(
         `SELECT 
@@ -41,13 +43,18 @@ class ParticipantService {
       )
       .all() as Array<{ strava_athlete_id: number; name: string; has_token: number; token_expires_at: number | null }>;
 
+    // Fetch profile pictures for all athletes
+    const athleteIds = participants.map(p => p.strava_athlete_id);
+    const profilePictures = await getAthleteProfilePictures(athleteIds, this.db);
+
     return participants.map((p, index) => ({
       id: index + 1, // Generate an id for React keys
       strava_athlete_id: p.strava_athlete_id,
       name: p.name,
       is_connected: p.has_token,
       has_token: Boolean(p.has_token),
-      token_expires_at: p.token_expires_at ? String(p.token_expires_at) : undefined
+      token_expires_at: p.token_expires_at ? String(p.token_expires_at) : undefined,
+      profile_picture_url: profilePictures.get(p.strava_athlete_id) || null
     }));
   }
 

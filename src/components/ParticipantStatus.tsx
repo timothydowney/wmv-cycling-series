@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import './ParticipantStatus.css';
 import { getAdminParticipants, getAuthStatus } from '../api';
+import StravaAthleteBadge from './StravaAthleteBadge';
 
 interface Participant {
   id: number;
@@ -9,6 +10,7 @@ interface Participant {
   is_connected: number;
   has_token: boolean;
   token_expires_at?: string;
+  profile_picture_url?: string | null;
 }
 
 function ParticipantStatus() {
@@ -101,7 +103,13 @@ function ParticipantStatus() {
         <tbody>
           {participants.map(participant => (
             <tr key={participant.id} className={participant.has_token ? 'connected' : 'disconnected'}>
-              <td>{participant.name}</td>
+              <td>
+                <StravaAthleteBadge
+                  athleteId={participant.strava_athlete_id}
+                  name={participant.name}
+                  profilePictureUrl={participant.profile_picture_url}
+                />
+              </td>
               <td>{participant.strava_athlete_id}</td>
               <td>
                 <span className={`status-badge ${participant.has_token ? 'connected' : 'disconnected'}`}>
