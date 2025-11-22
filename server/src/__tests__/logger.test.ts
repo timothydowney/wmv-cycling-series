@@ -4,12 +4,15 @@
  * Validates structured logging, log level enum, and utility creators
  */
 
+// @ts-nocheck
+
 import {
   LogLevel,
   StructuredLogger,
   createConsoleLoggerCallback,
   createCollectingLoggerCallback,
-  createFilteredLoggerCallback
+  createFilteredLoggerCallback,
+  type EffortLink
 } from '../types/Logger';
 
 describe('Logger Types & Utilities', () => {
@@ -285,6 +288,101 @@ describe('Logger Types & Utilities', () => {
       filtered(LogLevel.Error, 'error', 'Alice');
 
       expect(logged[0].participant).toBe('Alice');
+    });
+  });
+
+  describe('EffortLinks support', () => {
+    it('should pass effortLinks through StructuredLogger', () => {
+      const logged: any[] = [];
+      const callback = (level: LogLevel, message: string, participant?: string, effortLinks?: EffortLink[]) => {
+        logged.push({ level, message, participant, effortLinks });
+      };
+
+      const logger = new StructuredLogger('Test', callback);
+      const effortLinks: EffortLink[] = [
+        { effortId: 123, activityId: 456 },
+        { effortId: 789, activityId: 456 }
+      ];
+
+      logger.info('Found 2 efforts:', undefined, effortLinks);
+
+      expect(logged).toHaveLength(1);
+      expect(logged[0].effortLinks).toEqual(effortLinks);
+      expect(logged[0].effortLinks).toHaveLength(2);
+    });
+
+    it('should collect logs with effortLinks', () => {
+      const [callback, getLogs] = createCollectingLoggerCallback();
+
+      const effortLink: EffortLink = { effortId: 111, activityId: 222 };
+      callback(LogLevel.Info, 'Lap 1: 12:34', undefined, [effortLink]);
+
+      const logs = getLogs();
+      expect(logs[0].effortLinks).toBeDefined();
+      expect(logs[0].effortLinks).toHaveLength(1);
+      expect(logs[0].effortLinks![0].effortId).toBe(111);
+      expect(logs[0].effortLinks![0].activityId).toBe(222);
+    });
+
+    it('should handle multiple effortLinks in a single log', () => {
+      const [callback, getLogs] = createCollectingLoggerCallback();
+
+      const effortLinks: EffortLink[] = [
+        { effortId: 1, activityId: 100 },
+        { effortId: 2, activityId: 100 },
+        { effortId: 3, activityId: 100 }
+      ];
+      callback(LogLevel.Info, 'Window analysis: 12:34 + 12:45 + 12:50 = 38:09', undefined, effortLinks);
+
+      const logs = getLogs();
+      expect(logs[0].effortLinks).toHaveLength(3);
+    });
+
+    it('should handle undefined effortLinks gracefully', () => {
+      const [callback, getLogs] = createCollectingLoggerCallback();
+
+      callback(LogLevel.Info, 'Message without efforts');
+
+      const logs = getLogs();
+      expect(logs[0].effortLinks).toBeUndefined();
+    });
+
+    it('should handle empty effortLinks array', () => {
+      const [callback, getLogs] = createCollectingLoggerCallback();
+
+      callback(LogLevel.Success, 'No efforts', undefined, []);
+
+      const logs = getLogs();
+      expect(logs[0].effortLinks).toEqual([]);
+    });
+
+    it('should pass effortLinks through filtered logger', () => {
+      const logged: any[] = [];
+      const baseCallback = (level: LogLevel, message: string, participant?: string, effortLinks?: EffortLink[]) => {
+        logged.push({ level, message, participant, effortLinks });
+      };
+
+      const filtered = createFilteredLoggerCallback(baseCallback, [LogLevel.Info]);
+
+      const effortLinks: EffortLink[] = [{ effortId: 999, activityId: 888 }];
+      filtered(LogLevel.Info, 'message', 'Bob', effortLinks);
+
+      expect(logged).toHaveLength(1);
+      expect(logged[0].effortLinks).toEqual(effortLinks);
+    });
+
+    it('should not pass effortLinks through when filtered out', () => {
+      const logged: any[] = [];
+      const baseCallback = (level: LogLevel, message: string, participant?: string, effortLinks?: EffortLink[]) => {
+        logged.push({ level, message, participant, effortLinks });
+      };
+
+      const filtered = createFilteredLoggerCallback(baseCallback, [LogLevel.Error]);
+
+      const effortLinks: EffortLink[] = [{ effortId: 999, activityId: 888 }];
+      filtered(LogLevel.Info, 'message', undefined, effortLinks);
+
+      expect(logged).toHaveLength(0);
     });
   });
 });

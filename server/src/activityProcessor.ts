@@ -27,6 +27,7 @@ interface Week {
  * Segment effort from Strava API
  */
 interface SegmentEffortResponse {
+  id?: number | string; // Effort ID from Strava
   segment: {
     id: number;
     name: string;
@@ -218,11 +219,16 @@ async function findBestQualifyingActivity(
         // Log individual efforts with their times
         if (onLog) {
           onLog(LogLevel.Info, `Found ${matchingEfforts.length} ${requiredLaps === 1 ? 'effort' : 'efforts'}:`);
+          const effortLinks = matchingEfforts.map(effort => ({
+            effortId: typeof effort.id === 'number' ? effort.id : parseInt(String(effort.id), 10),
+            activityId: fullActivity.id
+          }));
           matchingEfforts.forEach((effort, idx) => {
             const minutes = Math.floor(effort.elapsed_time / 60);
             const seconds = effort.elapsed_time % 60;
             const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-            onLog(LogLevel.Info, `  Lap ${idx + 1}: ${timeStr}`);
+            const links = [effortLinks[idx]];
+            onLog(LogLevel.Info, `  Lap ${idx + 1}: ${timeStr}`, undefined, links);
           });
         }
       }
@@ -312,7 +318,11 @@ async function findBestQualifyingActivity(
             const totalSeconds = window.totalTime % 60;
             const totalTimeStr = `${totalMinutes}:${totalSeconds.toString().padStart(2, '0')}`;
             const lapNums = window.lapIndices.map(idx => idx + 1).join(', ');
-            onLog(LogLevel.Info, `  Window ${window.index + 1} (laps ${lapNums}): ${effortTimes} = ${totalTimeStr}`);
+            const effortLinks = window.efforts.map(effort => ({
+              effortId: typeof effort.id === 'number' ? effort.id : parseInt(String(effort.id), 10),
+              activityId: fullActivity.id
+            }));
+            onLog(LogLevel.Info, `  Window ${window.index + 1} (laps ${lapNums}): ${effortTimes} = ${totalTimeStr}`, undefined, effortLinks);
           });
         }
 

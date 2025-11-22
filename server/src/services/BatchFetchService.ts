@@ -120,16 +120,16 @@ class BatchFetchService {
           week.required_laps,
           accessToken,
           week,
-          (level, message) => {
+          (level, message, participant, effortLinks) => {
             switch (level) {
             case LogLevel.Info:
-              logger.info(message, participant.name);
+              logger.info(message, participant, effortLinks);
               break;
             case LogLevel.Success:
-              logger.success(message, participant.name);
+              logger.success(message, participant, effortLinks);
               break;
             case LogLevel.Error:
-              logger.error(message, participant.name);
+              logger.error(message, participant, effortLinks);
               break;
             case LogLevel.Section:
               logger.section(message);
