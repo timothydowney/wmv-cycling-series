@@ -108,6 +108,19 @@ CREATE TABLE IF NOT EXISTS deletion_request (
   completed_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS webhook_event (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  subscription_id INTEGER,
+  aspect_type TEXT NOT NULL,
+  object_type TEXT NOT NULL,
+  object_id INTEGER NOT NULL,
+  owner_id INTEGER NOT NULL,
+  processed BOOLEAN DEFAULT 0,
+  processed_at TEXT,
+  error_message TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_activity_week_participant ON activity(week_id, strava_athlete_id);
 CREATE INDEX IF NOT EXISTS idx_activity_status ON activity(validation_status);
 CREATE INDEX IF NOT EXISTS idx_segment_effort_activity ON segment_effort(activity_id);
@@ -115,6 +128,8 @@ CREATE INDEX IF NOT EXISTS idx_result_week ON result(week_id);
 CREATE INDEX IF NOT EXISTS idx_result_participant ON result(strava_athlete_id);
 CREATE INDEX IF NOT EXISTS idx_participant_token_participant ON participant_token(strava_athlete_id);
 CREATE INDEX IF NOT EXISTS idx_week_season ON week(season_id);
+CREATE INDEX IF NOT EXISTS idx_webhook_event_processed ON webhook_event(processed, created_at);
+CREATE INDEX IF NOT EXISTS idx_webhook_event_owner ON webhook_event(owner_id);
 `;
 
 export { SCHEMA };
