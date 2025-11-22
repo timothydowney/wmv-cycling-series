@@ -14,6 +14,7 @@ Welcome to the WMV Cycling Series documentation. Start with **Getting Started**,
 
 - **[API Reference](./API.md)** - Complete endpoint reference
 - **[Strava Integration](./STRAVA_INTEGRATION.md)** - OAuth flow, token management, activity collection
+- **[Webhooks](./WEBHOOKS.md)** - Real-time activity updates from Strava
 - **[Database Design](./DATABASE_DESIGN.md)** - Schema, queries, data flow
 
 ### Features & Operations
@@ -56,6 +57,7 @@ Welcome to the WMV Cycling Series documentation. Start with **Getting Started**,
 - Reference: [API Reference](./API.md)
 - Deep dive: [Database Design](./DATABASE_DESIGN.md)
 - Scoring logic: [Scoring Rules](./SCORING.md)
+- Webhooks: [Webhooks Implementation](./WEBHOOKS.md)
 
 ### Frontend Developer
 - Reference: [Architecture Overview](./ARCHITECTURE.md)
@@ -74,6 +76,7 @@ Welcome to the WMV Cycling Series documentation. Start with **Getting Started**,
 ├── API.md                      # Endpoint reference
 ├── DATABASE_DESIGN.md          # Schema and queries
 ├── STRAVA_INTEGRATION.md       # OAuth and activity flow
+├── WEBHOOKS.md                 # Real-time webhook processing
 ├── SCORING.md                  # Scoring formula and architecture
 ├── SECURITY_AUDIT.md           # Security review & compliance
 ├── DEPLOYMENT.md               # Production deployment
@@ -96,6 +99,7 @@ Welcome to the WMV Cycling Series documentation. Start with **Getting Started**,
 | **API.md** | Reference all endpoints | You're building features |
 | **DATABASE_DESIGN.md** | Understand the schema | You're working with data |
 | **STRAVA_INTEGRATION.md** | Learn OAuth + activity flow | You're integrating Strava or debugging auth |
+| **WEBHOOKS.md** | Real-time webhook processing | You're implementing/understanding webhooks |
 | **SCORING.md** | Scoring formula and how it works | You want to understand scoring and deletion safety |
 | **SECURITY_AUDIT.md** | Security review & compliance | You're auditing the codebase or deploying |
 | **DEPLOYMENT.md** | Deploy to production | You're going live |

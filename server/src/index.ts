@@ -25,6 +25,9 @@ import weeksRouter from './routes/weeks';
 import participantsRouter from './routes/participants';
 import segmentsRouter from './routes/segments';
 import fallbackRouter from './routes/fallback';
+import { createWebhookRouter } from './routes/webhooks';
+import { WebhookLogger } from './webhooks/logger';
+import { setupWebhookSubscription } from './webhooks/subscriptionManager';
 
 // Route modules (lazily loaded to avoid circular dependencies)
 const routes = {
@@ -312,6 +315,9 @@ const middleware: any = {
   stravaClient
 };
 
+// Initialize Webhook Logger (used for optional webhook event logging)
+const webhookLogger = new WebhookLogger(db);
+
 // ========================================
 // STATIC FILE SERVING (Frontend)
 // ========================================
@@ -340,6 +346,11 @@ app.use('/admin/seasons', routes.seasons(services, middleware));
 app.use('/admin/participants', routes.participants(services, middleware));
 app.use('/admin/segments', routes.segments(services, middleware));
 
+// Webhook routes (for real-time Strava activity updates)
+// GET /webhooks/strava - subscription validation
+// POST /webhooks/strava - event receipt (guarded by feature flag)
+app.use('/webhooks', createWebhookRouter(webhookLogger, db));
+
 // SPA fallback: catch-all to serve index.html for client-side routing
 app.use(routes.fallback());
 // ===== END ROUTE REGISTRATION =====
@@ -364,8 +375,11 @@ if (process.env.NODE_ENV !== 'test') {
     console.log('✅ Fall 2025 season created (Oct 1 - Dec 31)');
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  app.listen(PORT, '0.0.0.0', async () => {
     console.log(`WMV backend listening on port ${PORT}`);
+    
+    // Setup webhook subscription if enabled
+    await setupWebhookSubscription();
     
     // ===== TIMEZONE DIAGNOSTICS =====
     const utcString = nowISO();

@@ -155,6 +155,31 @@ Full implementation: `docs/STRAVA_INTEGRATION.md`
 
 ---
 
+## Real-Time Webhooks (Optional)
+
+**Webhook Support:** Activities can be processed in real-time when Strava notifies your app, instead of waiting for manual admin batch fetch.
+
+### Two Processing Modes
+
+**1. Manual Batch Fetch (Default - Always Available)**
+- Admin triggers: `POST /admin/weeks/:id/fetch-results`
+- System fetches all activities for that week
+- Good for: Predictable schedule, explicit control, fallback option
+
+**2. Real-Time Webhooks (Optional - Feature Flag Gated)**
+- Strava sends webhook when activity created/deleted/athlete disconnects
+- Your app processes immediately in background
+- Good for: Participants seeing results instantly, reduced admin work
+- Requires: Public HTTPS domain, webhook subscription with Strava
+
+Both modes use **identical activity matching logic** - results are identical whether triggered by batch fetch or webhook.
+
+**Status:** Phase 3 complete (processor ready, feature-flagged), Phase 4 (subscription manager) in development
+
+Full implementation: `docs/WEBHOOKS.md`
+
+---
+
 ## Authorization & Access Control
 
 The app uses **role-based access control** to distinguish between regular users and admins.

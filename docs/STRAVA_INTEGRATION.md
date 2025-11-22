@@ -3,6 +3,7 @@
 Complete documentation for OAuth authentication, token management, and activity collection workflow.
 
 **Related documentation:**
+- **[WEBHOOKS.md](./WEBHOOKS.md)** - Real-time activity updates via webhooks (uses same token/activity logic)
 - **[OAUTH_SESSION_FIX.md](./OAUTH_SESSION_FIX.md)** - Technical deep-dive on reverse proxy session persistence issue (affects production deployments)
 - **[OAUTH_FIX_SUMMARY.md](./OAUTH_FIX_SUMMARY.md)** - Analysis of how we debugged and fixed the OAuth session problem
 - **[DEPLOYMENT.md](./DEPLOYMENT.md)** - How to deploy and configure OAuth in production
