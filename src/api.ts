@@ -52,6 +52,7 @@ export interface LeaderboardEntry {
   pr_bonus_points: number;
   activity_url: string;
   activity_date: string;
+  profile_picture_url?: string | null; // Strava athlete profile picture
   effort_breakdown?: SegmentEffort[] | null;
   strava_effort_id?: number;
   device_name?: string | null;
@@ -68,6 +69,7 @@ export interface SeasonStanding {
   name: string;
   total_points: number;
   weeks_completed: number;
+  profile_picture_url?: string | null; // Strava athlete profile picture
 }
 
 export interface Participant {

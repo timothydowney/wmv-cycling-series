@@ -62,7 +62,7 @@ export default (services: SeasonServices, middleware: SeasonMiddleware): Router 
    * GET /:id/leaderboard
    * Get season leaderboard
    */
-  router.get('/:id/leaderboard', (req: Request, res: Response): void => {
+  router.get('/:id/leaderboard', async (req: Request, res: Response): Promise<void> => {
     try {
       const seasonId = Number(req.params.id);
       const season = seasonService.getSeasonById(seasonId);
@@ -70,7 +70,7 @@ export default (services: SeasonServices, middleware: SeasonMiddleware): Router 
         res.status(404).json({ error: 'Season not found' });
         return;
       }
-      const leaderboard = seasonService.getSeasonLeaderboard(seasonId);
+      const leaderboard = await seasonService.getSeasonLeaderboard(seasonId);
       res.json(leaderboard);
     } catch (error) {
       console.error('Error getting season leaderboard:', error);

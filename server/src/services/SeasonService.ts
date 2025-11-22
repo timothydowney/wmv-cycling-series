@@ -4,6 +4,7 @@
  */
 
 import { Database } from 'better-sqlite3';
+import { getAthleteProfilePictures } from './StravaProfileService';
 
 interface Season {
   id: number;
@@ -19,6 +20,7 @@ interface LeaderboardEntry {
   name: string;
   total_points: number;
   weeks_completed: number;
+  profile_picture_url?: string | null;
 }
 
 interface SeasonLeaderboard {
@@ -57,8 +59,9 @@ class SeasonService {
   /**
    * Get season leaderboard with computed totals
    * Calculates standings by summing weekly scores computed on-read
+   * Now async to fetch profile pictures from Strava
    */
-  getSeasonLeaderboard(seasonId: number): SeasonLeaderboard {
+  async getSeasonLeaderboard(seasonId: number): Promise<SeasonLeaderboard> {
     // Verify season exists
     const season = this.db
       .prepare('SELECT id, name, start_at, end_at FROM season WHERE id = ?')
@@ -125,7 +128,7 @@ class SeasonService {
       });
     });
 
-    // Convert to sorted array
+    // Convert to array and fetch profile pictures
     const seasonResults = Object.entries(allParticipantScores)
       .map(([id, data]) => ({
         id: parseInt(id),
@@ -141,9 +144,19 @@ class SeasonService {
         return b.weeks_completed - a.weeks_completed;
       });
 
+    // Fetch profile pictures for all athletes
+    const athleteIds = seasonResults.map(r => r.strava_athlete_id);
+    const profilePictures = await getAthleteProfilePictures(athleteIds, this.db);
+
+    // Add profile pictures to results
+    const leaderboardWithPictures = seasonResults.map(result => ({
+      ...result,
+      profile_picture_url: profilePictures.get(result.strava_athlete_id) || null
+    }));
+
     return {
       season,
-      leaderboard: seasonResults
+      leaderboard: leaderboardWithPictures
     };
   }
 

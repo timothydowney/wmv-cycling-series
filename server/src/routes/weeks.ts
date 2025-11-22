@@ -72,7 +72,7 @@ export default (services: WeekServices, middleware: WeekMiddleware): Router => {
    * GET /:id/leaderboard
    * Get week leaderboard (on-read scoring)
    */
-  router.get('/:id/leaderboard', (req: Request, res: Response): void => {
+  router.get('/:id/leaderboard', async (req: Request, res: Response): Promise<void> => {
     try {
       const weekId = Number(req.params.id);
       const week = weekService.getWeekById(weekId);
@@ -80,7 +80,7 @@ export default (services: WeekServices, middleware: WeekMiddleware): Router => {
         res.status(404).json({ error: 'Week not found' });
         return;
       }
-      const leaderboard = weekService.getWeekLeaderboard(weekId);
+      const leaderboard = await weekService.getWeekLeaderboard(weekId);
       res.json(leaderboard);
     } catch (error) {
       if (error instanceof Error && error.message === 'Week not found') {

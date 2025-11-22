@@ -10,6 +10,7 @@ import {
   normalizeTimeWithZ,
   defaultDayTimeWindow
 } from '../dateUtils';
+import { getAthleteProfilePictures } from './StravaProfileService';
 
 // Notes field constraints
 const NOTES_MAX_LENGTH = 1000;
@@ -32,6 +33,7 @@ interface Leaderboard {
   name: string;
   total_time_seconds: number;
   time_hhmmss: string | null;
+  profile_picture_url?: string | null; // Strava athlete profile picture
   effort_breakdown?: Array<{
     lap: number;
     time_seconds: number;
@@ -103,8 +105,9 @@ class WeekService {
 
   /**
    * Get leaderboard for a week (compute scores on-read for deletion safety)
+   * Now async to fetch profile pictures from Strava
    */
-  getWeekLeaderboard(weekId: number): WeekLeaderboardResponse {
+  async getWeekLeaderboard(weekId: number): Promise<WeekLeaderboardResponse> {
     const week = this.getWeekById(weekId);
 
     // IMPORTANT: Compute leaderboard scores on read, not from stored database records
@@ -137,6 +140,10 @@ class WeekService {
       total_time_seconds: number;
       achieved_pr: number;
     }>;
+
+    // Fetch profile pictures for all athletes in this leaderboard
+    const athleteIds = activitiesWithTotals.map(a => a.participant_id);
+    const profilePictures = await getAthleteProfilePictures(athleteIds, this.db);
 
     // Compute leaderboard scores from activities (always correct)
     const totalParticipants = activitiesWithTotals.length;
@@ -179,6 +186,7 @@ class WeekService {
         name: activity.name,
         total_time_seconds: activity.total_time_seconds,
         time_hhmmss: secondsToHHMMSS(activity.total_time_seconds),
+        profile_picture_url: profilePictures.get(activity.participant_id) || null,
         effort_breakdown: effortBreakdown,
         points: totalPoints,
         pr_bonus_points: prBonus,
