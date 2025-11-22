@@ -4,6 +4,7 @@ import { getWeeks, Week, createWeek, updateWeek, deleteWeek, fetchWeekResults } 
 import { formatUnixDate, formatUnixTime } from '../utils/dateUtils';
 import SegmentInput from './SegmentInput';
 import { NotesEditor } from './NotesEditor';
+import { FetchProgressPanel, FetchLogEntry } from './FetchProgressPanel';
 import { PencilIcon, TrashIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 
 interface WeekFormData {
@@ -37,6 +38,11 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
     end_time: ''
   });
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [fetchLogs, setFetchLogs] = useState<FetchLogEntry[]>([]);
+  const [isFetching, setIsFetching] = useState(false);
+  const [showFetchPanel, setShowFetchPanel] = useState(false);
+  const [currentFetchWeekId, setCurrentFetchWeekId] = useState<number | undefined>();
+  const [currentFetchWeekName, setCurrentFetchWeekName] = useState<string | undefined>();
 
   // Debug: log season changes
   useEffect(() => {
@@ -234,25 +240,57 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
   };
 
   const handleFetchResults = async (weekId: number) => {
-    setMessage({ type: 'success', text: 'Fetching results... this may take a moment.' });
+    const week = weeks.find(w => w.id === weekId);
+    setCurrentFetchWeekId(weekId);
+    setCurrentFetchWeekName(week?.week_name);
+    setFetchLogs([]);
+    setShowFetchPanel(true);
+    setIsFetching(true);
 
     try {
-      const result = await fetchWeekResults(weekId);
-      setMessage({ 
-        type: 'success', 
-        text: `Fetched results for ${result.participants_processed} participants. Found ${result.results_found} qualifying activities.` 
+      const result = await fetchWeekResults(weekId, (log: FetchLogEntry) => {
+        console.log('[WeekManager] Received log from API:', log);
+        setFetchLogs(prevLogs => [...prevLogs, log]);
       });
+
+      // Build personalized summary with names
+      const matchedParticipants = result.summary
+        .filter((r: any) => r.activity_found)
+        .map((r: any) => r.participant_name);
+      
+      const summaryMessage = matchedParticipants.length > 0
+        ? `✓ Found ${matchedParticipants.length} ${matchedParticipants.length === 1 ? 'person' : 'people'}: ${matchedParticipants.join(', ')}`
+        : '✓ Complete: No matching activities found';
+
+      setFetchLogs(prevLogs => [...prevLogs, {
+        timestamp: Date.now(),
+        level: 'section',
+        message: '=== Summary ==='
+      }, {
+        timestamp: Date.now(),
+        level: 'success',
+        message: summaryMessage
+      }]);
+      
+      setIsFetching(false);
       
       // Trigger leaderboard refresh in parent component
       if (onFetchResults) {
         onFetchResults();
       }
-      
-      setTimeout(() => setMessage(null), 5000);
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message });
-      setTimeout(() => setMessage(null), 5000);
+      console.error('[WeekManager] Error during fetch:', err);
+      setFetchLogs(prevLogs => [...prevLogs, {
+        timestamp: Date.now(),
+        level: 'error',
+        message: `✗ Error: ${err.message}`
+      }]);
+      setIsFetching(false);
     }
+  };
+
+  const handleDismissFetchPanel = () => {
+    setShowFetchPanel(false);
   };
 
   const cancelEdit = () => {
@@ -276,6 +314,15 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
           {message.text}
         </div>
       )}
+
+      <FetchProgressPanel
+        isOpen={showFetchPanel}
+        logs={fetchLogs}
+        isLoading={isFetching}
+        onDismiss={handleDismissFetchPanel}
+        weekId={currentFetchWeekId}
+        weekName={currentFetchWeekName}
+      />
 
       <div className="weeks-list">
         <h3>Competition Schedule</h3>
