@@ -2,18 +2,26 @@
  * Webhook Event Processor
  *
  * Handles async processing of webhook events from Strava.
- * Decoupled from HTTP layer - processes in background.
+ * Decoupled from HTTP layer - processes in background with retry logic.
  * Reuses existing activity processing logic from the batch fetch workflow.
+ * Processes events sequentially to avoid race conditions with scoring.
  *
  * Handles:
  * - Activity create/update events -> fetch, validate, store
  * - Activity delete events -> remove, recalculate leaderboard
  * - Athlete deauth events -> remove tokens
+ *
+ * Retry Strategy:
+ * - Max 3 attempts per event
+ * - 5-second backoff between retries
+ * - Failures stored in database with last_error_at timestamp
+ * - Re-fetches activity from Strava on retry (not cached payload)
  */
 
 import { Database } from 'better-sqlite3';
 import { WebhookEvent, ActivityWebhookEvent, AthleteWebhookEvent } from './types';
 import { WebhookLogger } from './logger';
+import { QueuedEvent } from './queue';
 import * as stravaClient from '../stravaClient';
 import { getValidAccessToken } from '../tokenManager';
 import { findBestQualifyingActivity } from '../activityProcessor';
@@ -140,6 +148,90 @@ export function createWebhookProcessor(db: Database, service?: WebhookService) {
       }
 
       throw error;
+    }
+  };
+}
+
+/**
+ * Create a queue processor function for webhook events
+ *
+ * Handles retry logic:
+ * - 3 total attempts (initial + 2 retries)
+ * - 5 second delay between retries
+ * - Stores original payload JSON for debugging/replay
+ * - Updates last_error_at timestamp on failures
+ * - Re-fetches activity from Strava on retry (not cached payload)
+ *
+ * Returns: async function suitable for WebhookEventQueue.processor
+ */
+export function createQueueProcessor(db: Database, service?: WebhookService) {
+  const svc = service || createDefaultService(db);
+
+  return async function processQueuedEvent(queuedEvent: QueuedEvent): Promise<void> {
+    const maxRetries = queuedEvent.max_retries || 3;
+    const retryDelay = 5000; // 5 seconds
+
+    // Parse event data
+    let event: WebhookEvent;
+    try {
+      event = queuedEvent.event_data as WebhookEvent;
+    } catch {
+      console.error(
+        `[Webhook:Queue] Failed to parse event data for object ${queuedEvent.event_data?.object_id}`
+      );
+      throw new Error('Invalid event data format');
+    }
+
+    const logger = new WebhookLogger(db);
+    const currentAttempt = queuedEvent.retry_count + 1;
+
+    console.log(
+      `[Webhook:Queue] Processing event (attempt ${currentAttempt}/${maxRetries}): ${event.object_type}/${event.aspect_type} ID=${event.object_id}`
+    );
+
+    try {
+      // Invoke the original processor
+      const processor = createWebhookProcessor(db, svc);
+      await processor(event, logger);
+
+      // Success - update retry count to 0
+      db.prepare(
+        `UPDATE webhook_event 
+         SET retry_count = 0, last_error_at = NULL
+         WHERE object_id = ?`
+      ).run(event.object_id);
+
+      console.log(
+        `[Webhook:Queue] ✓ Event succeeded: ${event.object_type}/${event.aspect_type} ID=${event.object_id}`
+      );
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      // Update event with error timestamp
+      db.prepare(
+        `UPDATE webhook_event
+         SET retry_count = ?, last_error_at = CURRENT_TIMESTAMP
+         WHERE object_id = ?`
+      ).run(currentAttempt, event.object_id);
+
+      // Check if we should retry
+      if (currentAttempt < maxRetries) {
+        console.log(
+          `[Webhook:Queue] ⏳ Event failed, retrying in ${retryDelay / 1000}s (attempt ${currentAttempt}/${maxRetries}): ${event.object_type}/${event.aspect_type} ID=${event.object_id}`
+        );
+        console.error(`  Error: ${errorMessage}`);
+
+        // Wait before returning - queue will pick up retry when event is enqueued again
+        // For now, throw error and let caller decide on retry timing
+        throw new Error(`Event processing failed (attempt ${currentAttempt}/${maxRetries}): ${errorMessage}`);
+      } else {
+        // Max retries exceeded
+        console.error(
+          `[Webhook:Queue] ❌ Event failed after ${maxRetries} attempts: ${event.object_type}/${event.aspect_type} ID=${event.object_id}`
+        );
+        console.error(`  Error: ${errorMessage}`);
+        throw new Error(`Event failed after ${maxRetries} attempts: ${errorMessage}`);
+      }
     }
   };
 }

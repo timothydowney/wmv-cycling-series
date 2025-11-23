@@ -27,6 +27,7 @@ import participantsRouter from './routes/participants';
 import segmentsRouter from './routes/segments';
 import fallbackRouter from './routes/fallback';
 import { createWebhookRouter } from './routes/webhooks';
+import { createWebhookAdminRoutes } from './routes/admin/webhooks';
 import { WebhookLogger } from './webhooks/logger';
 import { setupWebhookSubscription } from './webhooks/subscriptionManager';
 
@@ -346,6 +347,7 @@ app.use('/admin/weeks', routes.weeks(services, middleware, db));
 app.use('/admin/seasons', routes.seasons(services, middleware));
 app.use('/admin/participants', routes.participants(services, middleware));
 app.use('/admin/segments', routes.segments(services, middleware));
+app.use('/admin/webhooks', createWebhookAdminRoutes(db));
 
 // Webhook routes (for real-time Strava activity updates)
 // GET /webhooks/strava - subscription validation

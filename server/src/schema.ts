@@ -120,7 +120,23 @@ CREATE TABLE IF NOT EXISTS webhook_event (
   processed BOOLEAN DEFAULT 0,
   processed_at TEXT,
   error_message TEXT,
+  payload TEXT,
+  retry_count INTEGER DEFAULT 0,
+  last_error_at TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS webhook_subscription (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  strava_subscription_id INTEGER UNIQUE,
+  enabled BOOLEAN DEFAULT 0,
+  verify_token TEXT,
+  status TEXT DEFAULT 'inactive',
+  status_message TEXT,
+  last_verified_at TEXT,
+  failed_attempt_count INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_activity_week_participant ON activity(week_id, strava_athlete_id);
@@ -132,6 +148,8 @@ CREATE INDEX IF NOT EXISTS idx_participant_token_participant ON participant_toke
 CREATE INDEX IF NOT EXISTS idx_week_season ON week(season_id);
 CREATE INDEX IF NOT EXISTS idx_webhook_event_processed ON webhook_event(processed, created_at);
 CREATE INDEX IF NOT EXISTS idx_webhook_event_owner ON webhook_event(owner_id);
+CREATE INDEX IF NOT EXISTS idx_webhook_subscription_enabled ON webhook_subscription(enabled);
+CREATE INDEX IF NOT EXISTS idx_webhook_subscription_status ON webhook_subscription(status);
 `;
 
 export { SCHEMA };
