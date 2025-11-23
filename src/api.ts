@@ -31,7 +31,7 @@ export interface Week {
   notes?: string;   // Markdown notes for the week
   segment_name?: string;
   segment_distance?: number; // meters (from Strava)
-  total_elevation_gain?: number; // meters (from Strava)
+  segment_total_elevation_gain?: number; // meters (from Strava)
   segment_average_grade?: number; // percentage (from Strava)
   strava_segment_id?: number; // Same as segment_id (for backwards compatibility)
   participants_count?: number; // Number of participants with valid activities
