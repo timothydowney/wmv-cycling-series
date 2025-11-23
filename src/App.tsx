@@ -13,6 +13,7 @@ import StravaConnectInfoBox from './components/StravaConnectInfoBox';
 import Footer from './components/Footer';
 import { api, getWeekLeaderboard, Week, Season, LeaderboardEntry } from './api';
 import { useCurrentUser } from './hooks/useCurrentUser';
+import { UnitProvider } from './context/UnitContext';
 
 type ViewMode = 'leaderboard' | 'admin' | 'participants' | 'segments' | 'seasons';
 
@@ -192,7 +193,7 @@ function App() {
 
   if (loading) {
     return (
-      <>
+      <UnitProvider>
         <NavBar 
           onAdminPanelToggle={() => setViewMode(viewMode === 'admin' ? 'leaderboard' : 'admin')} 
           isAdminPanelOpen={viewMode === 'admin'}
@@ -203,13 +204,13 @@ function App() {
         <div className="app app-content">
           <p>Loading...</p>
         </div>
-      </>
+      </UnitProvider>
     );
   }
 
   if (error) {
     return (
-      <>
+      <UnitProvider>
         <NavBar 
           onAdminPanelToggle={() => setViewMode(viewMode === 'admin' ? 'leaderboard' : 'admin')} 
           isAdminPanelOpen={viewMode === 'admin'}
@@ -220,12 +221,12 @@ function App() {
         <div className="app app-content">
           <div className="error">{error}</div>
         </div>
-      </>
+      </UnitProvider>
     );
   }
 
   return (
-    <>
+    <UnitProvider>
       <NavBar 
         onAdminPanelToggle={() => setViewMode(viewMode === 'admin' ? 'leaderboard' : 'admin')} 
         isAdminPanelOpen={viewMode === 'admin'}
@@ -307,7 +308,7 @@ function App() {
           </>
         )}
       </div>
-    </>
+    </UnitProvider>
   );
 }
 
