@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import './NavBar.css';
 import { getAuthStatus, disconnect, getConnectUrl } from '../api';
+import { useUnits } from '../context/UnitContext';
+import UnitToggle from './UnitToggle';
 
 interface NavBarProps {
   onAdminPanelToggle: () => void;
@@ -22,6 +24,7 @@ const NavBar: React.FC<NavBarProps> = ({ onAdminPanelToggle, isAdminPanelOpen: _
   const [isConnected, setIsConnected] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [athleteInfo, setAthleteInfo] = useState<AthleteInfo | null>(null);
+  const { units, setUnits } = useUnits();
 
   useEffect(() => {
     // Check if we just came back from OAuth callback
@@ -119,6 +122,9 @@ const NavBar: React.FC<NavBarProps> = ({ onAdminPanelToggle, isAdminPanelOpen: _
             </svg>
           )}
         </div>
+
+        {/* Unit Preference Toggle Switch */}
+        <UnitToggle units={units} setUnits={setUnits} />
 
         {/* Hamburger Menu */}
         <button className="menu-button" onClick={toggleMenu} aria-label="Menu">

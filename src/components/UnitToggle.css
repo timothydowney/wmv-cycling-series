@@ -1,0 +1,100 @@
+/**
+ * Unit Toggle Switch Styles
+ *
+ * iOS-style toggle with smooth animations and accessibility.
+ * Shows imperial (mi) on left, metric (km) on right.
+ * Features recognizable symbols: ⁿ (imperial indicator) and ⊕ (metric indicator)
+ * Active side is highlighted in Strava orange.
+ */
+
+.unit-toggle-switch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  width: 88px;
+  height: 32px;
+  cursor: pointer;
+  position: relative;
+  user-select: none;
+  padding: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+/* Hover state - slight shadow enhancement */
+.unit-toggle-switch:hover {
+  box-shadow: 0 2px 6px rgba(255, 107, 53, 0.15);
+  border-color: #ccc;
+}
+
+/* Focus state - keyboard accessibility */
+.unit-toggle-switch:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.2);
+}
+
+/* Active toggle button - slides and highlights */
+.unit-toggle-button {
+  position: absolute;
+  width: 40px;
+  height: 26px;
+  background: white;
+  border-radius: 15px;
+  left: 2px;
+  top: 3px;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: #666;
+  letter-spacing: 0.2px;
+  min-width: 40px;
+}
+
+/* Metric active - button slides right */
+.unit-toggle-switch.metric .unit-toggle-button {
+  left: 46px;
+  color: var(--wmv-orange);
+  box-shadow: 0 2px 8px rgba(255, 107, 53, 0.25);
+}
+
+/* Imperial active (default) - button stays left */
+.unit-toggle-switch.imperial .unit-toggle-button {
+  color: var(--wmv-orange);
+  box-shadow: 0 2px 8px rgba(255, 107, 53, 0.25);
+}
+
+/* Static labels removed - button label is sufficient */
+
+/* Responsive: Stack on very small screens */
+@media (max-width: 480px) {
+  .unit-toggle-switch {
+    width: 80px;
+    height: 28px;
+    font-size: 0.7rem;
+  }
+
+  .unit-toggle-button {
+    width: 34px;
+    height: 24px;
+    font-size: 0.7rem;
+  }
+
+  .unit-toggle-switch.metric .unit-toggle-button {
+    left: 40px;
+  }
+
+  .unit-label {
+    font-size: 0.65rem;
+  }
+}
+
+/* Active state markers (for reference)
+   - aria-checked="true" means metric is active
+   - aria-checked="false" means imperial is active */
