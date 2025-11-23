@@ -12,6 +12,7 @@
  */
 
 import strava from 'strava-v3';
+import type { SegmentRow } from './types/database';
 
 /**
  * OAuth token data returned by Strava
@@ -329,12 +330,36 @@ async function getSegment(
   }
 }
 
+/**
+ * Map Strava API Segment response to SegmentRow database type
+ * Converts field names from Strava API format to database format
+ * 
+ * @param stravaSegment - Segment data from Strava API (with id, not strava_segment_id)
+ * @returns Segment data in SegmentRow format (ready for database storage, minus created_at timestamp)
+ */
+function mapStravaSegmentToSegmentRow(
+  stravaSegment: Segment
+): Omit<SegmentRow, 'created_at'> {
+  return {
+    strava_segment_id: stravaSegment.id,
+    name: stravaSegment.name,
+    distance: stravaSegment.distance,
+    total_elevation_gain: stravaSegment.total_elevation_gain ?? null,
+    average_grade: stravaSegment.average_grade ?? null,
+    climb_category: stravaSegment.climb_category ?? null,
+    city: stravaSegment.city ?? null,
+    state: stravaSegment.state ?? null,
+    country: stravaSegment.country ?? null
+  };
+}
+
 export {
   exchangeAuthorizationCode,
   refreshAccessToken,
   getActivity,
   listAthleteActivities,
   getSegment,
+  mapStravaSegmentToSegmentRow,
   type OAuthTokenData,
   type RefreshTokenResponse,
   type Activity,

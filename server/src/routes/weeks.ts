@@ -17,6 +17,7 @@ import type BatchFetchService from '../services/BatchFetchService';
 import { isoToUnix } from '../dateUtils';
 import { SegmentService } from '../services/SegmentService';
 import { Database } from 'better-sqlite3';
+import type { CreateWeekRequest, UpdateWeekRequest } from '../types/requests';
 
 interface WeekServices {
   weekService: WeekService;
@@ -102,25 +103,8 @@ export default (services: WeekServices, middleware: WeekMiddleware, database: Da
    */
   router.post('/', requireAdmin, async (req: Request, res: Response): Promise<void> => {
     try {
-      const {
-        season_id,
-        week_name,
-        segment_id,
-        segment_name,
-        required_laps,
-        start_at,
-        end_at,
-        notes
-      } = req.body as {
-        season_id?: number;
-        week_name?: string;
-        segment_id?: number;
-        segment_name?: string;
-        required_laps?: number;
-        start_at?: number;
-        end_at?: number;
-        notes?: string;
-      };
+      const body = req.body as CreateWeekRequest;
+      const { season_id, week_name, segment_id, required_laps, start_at, end_at, notes } = body;
 
       if (!week_name || !segment_id) {
         res.status(400).json({
@@ -133,7 +117,6 @@ export default (services: WeekServices, middleware: WeekMiddleware, database: Da
         season_id,
         week_name,
         segment_id,
-        segment_name,
         required_laps: required_laps || 1,
         start_at,
         end_at,
@@ -168,27 +151,8 @@ export default (services: WeekServices, middleware: WeekMiddleware, database: Da
    */
   router.put('/:id', requireAdmin, (req: Request, res: Response): void => {
     try {
-      const {
-        week_name,
-        segment_id,
-        segment_name,
-        required_laps,
-        start_at,
-        end_at,
-        start_time,
-        end_time,
-        notes
-      } = req.body as {
-        week_name?: string;
-        segment_id?: number;
-        segment_name?: string;
-        required_laps?: number;
-        start_at?: number;
-        end_at?: number;
-        start_time?: string;
-        end_time?: string;
-        notes?: string;
-      };
+      const body = req.body as UpdateWeekRequest;
+      const { week_name, segment_id, required_laps, start_at, end_at, start_time, end_time, notes } = body;
 
       // Convert ISO strings to Unix if provided
       let convertedStartAt = start_at;
@@ -210,7 +174,6 @@ export default (services: WeekServices, middleware: WeekMiddleware, database: Da
       const week = weekService.updateWeek(Number(req.params.id), {
         week_name,
         segment_id,
-        segment_name,
         required_laps,
         start_at: convertedStartAt,
         end_at: convertedEndAt,

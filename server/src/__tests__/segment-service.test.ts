@@ -27,6 +27,7 @@ jest.mock('strava-v3', () => ({
 
 jest.mock('../stravaClient', () => ({
   getSegment: jest.fn().mockResolvedValue({
+    id: 12345678,  // NOTE: Strava API returns 'id', not 'strava_segment_id'
     name: 'Test Segment Name',
     distance: 3000,
     total_elevation_gain: 150,
@@ -35,7 +36,18 @@ jest.mock('../stravaClient', () => ({
     city: 'Test City',
     state: 'TC',
     country: 'Test Country'
-  })
+  }),
+  mapStravaSegmentToSegmentRow: jest.fn(segment => ({
+    strava_segment_id: segment.id,
+    name: segment.name,
+    distance: segment.distance,
+    total_elevation_gain: segment.total_elevation_gain,
+    average_grade: segment.average_grade,
+    climb_category: segment.climb_category,
+    city: segment.city,
+    state: segment.state,
+    country: segment.country
+  }))
 }));
 
 jest.mock('../tokenManager', () => ({
