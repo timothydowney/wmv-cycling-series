@@ -354,6 +354,104 @@ export const api = {
     });
   },
 
+  // Webhook Admin API methods
+  async getWebhookStatus(): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/admin/webhooks/status`, {
+      credentials: 'include'
+    });
+    if (!response.ok) throw new Error('Failed to fetch webhook status');
+    return response.json();
+  },
+
+  async getWebhookEvents(limit = 50, offset = 0, since = 604800): Promise<any> {
+    const params = new URLSearchParams({
+      limit: limit.toString(),
+      offset: offset.toString(),
+      since: since.toString()
+    });
+    const response = await fetch(`${API_BASE_URL}/admin/webhooks/events?${params}`, {
+      credentials: 'include'
+    });
+    if (!response.ok) throw new Error('Failed to fetch webhook events');
+    return response.json();
+  },
+
+  async getWebhookStorageStatus(): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/admin/webhooks/storage-status`, {
+      credentials: 'include'
+    });
+    if (!response.ok) throw new Error('Failed to fetch storage status');
+    return response.json();
+  },
+
+  async enableWebhooks(): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/admin/webhooks/enable`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({})
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to enable webhooks');
+    }
+    return response.json();
+  },
+
+  async disableWebhooks(): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/admin/webhooks/disable`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({})
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to disable webhooks');
+    }
+    return response.json();
+  },
+
+  async verifyWebhooks(): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/admin/webhooks/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({})
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to verify webhooks');
+    }
+    return response.json();
+  },
+
+  async retryWebhookEvent(eventId: number): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/admin/webhooks/events/${eventId}/retry`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({})
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to retry webhook event');
+    }
+    return response.json();
+  },
+
+  async clearWebhookEvents(): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/admin/webhooks/events?confirm=yes`, {
+      method: 'DELETE',
+      credentials: 'include'
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to clear webhook events');
+    }
+    return response.json();
+  },
+
 };
 
 // Named exports for convenience (used by components)
