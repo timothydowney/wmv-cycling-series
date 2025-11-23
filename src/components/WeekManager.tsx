@@ -3,6 +3,7 @@ import './WeekManager.css';
 import { getWeeks, Week, createWeek, updateWeek, deleteWeek, fetchWeekResults } from '../api';
 import { formatUnixDate, formatUnixTime } from '../utils/dateUtils';
 import SegmentInput from './SegmentInput';
+import SegmentMetadataDisplay from './SegmentMetadataDisplay';
 import { NotesEditor } from './NotesEditor';
 import { FetchProgressPanel, FetchLogEntry } from './FetchProgressPanel';
 import { PencilIcon, TrashIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
@@ -346,7 +347,16 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
                 <tr key={week.id}>
                   <td>{index + 1}</td>
                   <td>{week.week_name}</td>
-                  <td>{week.segment_name || 'Unknown Segment'}</td>
+                  <td>
+                    <div className="segment-cell">
+                      <div className="segment-name">{week.segment_name || 'Unknown Segment'}</div>
+                      <SegmentMetadataDisplay
+                        distance={week.segment_distance}
+                        elevationGain={week.total_elevation_gain}
+                        averageGrade={week.segment_average_grade}
+                      />
+                    </div>
+                  </td>
                   <td>{week.required_laps}</td>
                   <td>{formatUnixDate(week.start_at)} {formatUnixTime(week.start_at)}</td>
                   <td>{formatUnixDate(week.end_at)} {formatUnixTime(week.end_at)}</td>
