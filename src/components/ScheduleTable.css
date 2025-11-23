@@ -147,6 +147,57 @@
   text-decoration: underline;
 }
 
+.segment-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.segment-metadata-display {
+  font-size: 12px;
+  color: var(--wmv-text-light, #666);
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.segment-metadata-text {
+  display: inline;
+}
+
+.segment-metadata-cards-container {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.metadata-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.metadata-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--wmv-text-light, #999);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 2px;
+  line-height: 1.2;
+}
+
+.metadata-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--wmv-purple, #6b5b95);
+  line-height: 1.1;
+}
+
 .required-laps {
   text-align: center;
 }

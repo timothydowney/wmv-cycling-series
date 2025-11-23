@@ -6,13 +6,13 @@ Western Mass Velo cycling competition tracker: React + TypeScript frontend with 
 
 ## Quick Commands
 
+⚠️ **CRITICAL: ALWAYS use `npm run <command>` format. NEVER use shorthand. NEVER use pkill/killall/kill.**
+
 ```bash
 npm run dev:all              # Interactive: both servers with output (Ctrl+C to stop)
-npm start                    # Automated: start both servers in background, returns immediately
-npm stop                     # Stop background servers cleanly
-npm status                   # Check if servers running
-npm cleanup                  # Emergency: force-kill orphaned dev processes
-npm test                     # Run all backend tests
+npm run dev:status           # Check if background servers are running
+npm run dev:cleanup          # Force cleanup - use this ONLY to stop background servers
+npm run test                 # Run all backend tests
 npm run build                # Production build
 npm run lint:all             # Lint everything
 npm run check                # Full pre-commit checks (audit, typecheck, lint, build, test)
@@ -20,6 +20,32 @@ npm run lint:fix             # Auto-fix linting errors
 ```
 
 **Node.js 24.x REQUIRED** (for `better-sqlite3`). Check: `node --version`
+
+### ⚠️ CRITICAL: Server Process Management Rules
+
+**DO NOT DEVIATE FROM THESE RULES:**
+
+1. **BEFORE STOPPING:** Always check status first
+   ```bash
+   npm run dev:status
+   ```
+
+2. **TO STOP BACKGROUND SERVERS:** Use ONLY this command
+   ```bash
+   npm run dev:cleanup
+   ```
+   - **NEVER use:** `npm stop`, `npm cleanup` (wrong format)
+   - **NEVER use:** `pkill`, `killall`, `kill -9` (bypasses npm targets)
+
+3. **TO START INTERACTIVE:** Use this (and stop with Ctrl+C)
+   ```bash
+   npm run dev:all
+   ```
+
+4. **TO START BACKGROUND:** Use this
+   ```bash
+   npm start
+   ```
 
 ### Development Options
 
@@ -33,12 +59,60 @@ npm run dev:all
 
 **Background Operation (For Agents & Automation)**
 ```bash
-npm start          # Returns immediately; servers run in background
-npm status         # Check if running
-npm stop           # Stop cleanly
+npm start                    # Start both servers in background
+npm run dev:status           # Check if running
+npm run dev:cleanup          # Stop cleanly (always use this, never npm stop)
 ```
 - Perfect for CI/CD, testing workflows, and agentic development
 - Servers on http://localhost:3001 (backend) and http://localhost:5173 (frontend)
+
+---
+
+## ⚠️ ENFORCEMENT: Server Process Management (CRITICAL)
+
+**THIS RULE IS NON-NEGOTIABLE. FOLLOW EXACTLY OR TASK FAILS.**
+
+### The ONLY Allowed Commands
+
+| Purpose | Command | ✅ CORRECT | ❌ WRONG |
+|---------|---------|-----------|----------|
+| Check if running | `npm run dev:status` | ✅ Full npm run format | `npm status` |
+| Stop servers | `npm run dev:cleanup` | ✅ Full npm run format | `npm cleanup`, `npm stop` |
+| Start interactive | `npm run dev:all` | ✅ Full npm run format | Shorthand commands |
+| Start background | `npm start` | ✅ Only exception, full start not needed | Variations |
+
+### What You MUST Do EVERY Time
+
+1. **NEVER use raw process commands:**
+   - ❌ `pkill -f "npm run dev:all"`
+   - ❌ `pkill -9 -f "tsx src/index.ts"`
+   - ❌ `killall node`
+   - ❌ `kill -9 <pid>`
+   - These bypass npm targets and leave orphaned processes
+
+2. **ALWAYS use npm targets:**
+   - ✅ Check first: `npm run dev:status`
+   - ✅ Stop with: `npm run dev:cleanup`
+   - ✅ Start with: `npm run dev:all` (interactive) or `npm start` (background)
+
+3. **Enforcement sequence (for ANY server control):**
+   ```bash
+   # Step 1: ALWAYS check first
+   npm run dev:status
+   
+   # Step 2: If running, use ONLY
+   npm run dev:cleanup
+   
+   # Step 3: Then start as needed
+   npm run dev:all          # Interactive (recommended for testing)
+   # OR
+   npm start                # Background
+   ```
+
+4. **If confused:**
+   - Default to `npm run dev:status` first
+   - Then default to `npm run dev:cleanup`
+   - Never guess with pkill/kill commands
 
 ---
 

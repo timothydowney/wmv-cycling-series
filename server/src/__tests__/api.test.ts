@@ -636,6 +636,48 @@ describe('WMV Backend API', () => {
     });
   });
 
+  describe('Admin - Segment Management', () => {
+    const VALID_SEGMENT_ID = 88888888;
+    const UNKNOWN_SEGMENT_ID = 99999999;
+
+    test('GET /admin/segments lists all segments', async () => {
+      const response = await request(app)
+        .get('/admin/segments')
+        .set('Cookie', 'wmv.sid=test-admin-session');
+
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body)).toBe(true);
+      
+      // Should include test segments created in beforeAll
+      const segmentIds = response.body.map(s => s.strava_segment_id);
+      expect(segmentIds).toContain(TEST_SEGMENT_1);
+      expect(segmentIds).toContain(TEST_SEGMENT_2);
+    });
+
+    test('GET /admin/segments/:id/validate requires admin access', async () => {
+      const response = await makeRequestAsUser(request, app, {
+        method: 'get',
+        path: `/admin/segments/${VALID_SEGMENT_ID}/validate`,
+        athleteId: 999999  // Non-admin
+      });
+
+      expect(response.status).toBe(403);
+      expect(response.body).toHaveProperty('error');
+    });
+
+    test('POST /admin/segments requires admin access', async () => {
+      const response = await makeRequestAsUser(request, app, {
+        method: 'post',
+        path: '/admin/segments',
+        athleteId: 999999,  // Non-admin
+        data: { segment_id: 12345 }
+      });
+
+      expect(response.status).toBe(403);
+      expect(response.body).toHaveProperty('error');
+    });
+  });
+
   // NOTE: Manual activity submission endpoint deprecated
   // Use admin batch fetch (POST /admin/weeks/:id/fetch-results) instead
 });
