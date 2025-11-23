@@ -31,6 +31,8 @@ export interface SegmentRow {
   name: string;
   distance?: number | null; // meters
   average_grade?: number | null; // percentage
+  total_elevation_gain?: number | null; // meters
+  climb_category?: number | null;
   city?: string | null;
   state?: string | null;
   country?: string | null;

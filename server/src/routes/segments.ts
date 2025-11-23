@@ -10,6 +10,8 @@
 import { Router, Request, Response } from 'express';
 import type { Database } from 'better-sqlite3';
 import { SegmentService } from '../services/SegmentService';
+import type { CreateSegmentRequest } from '../types/requests';
+import type { SegmentRow } from '../types/database';
 
 interface SegmentServices {
   // Services (if any needed in future)
@@ -33,13 +35,13 @@ export default (
    * List all stored segments
    * Admin only
    */
-  router.get('/', requireAdmin, (_req: Request, res: Response): void => {
+  router.get('/', requireAdmin, (_req: Request, res: Response<SegmentRow[]>): void => {
     try {
-      const segments = db.prepare('SELECT * FROM segment ORDER BY name ASC').all();
+      const segments = db.prepare('SELECT * FROM segment ORDER BY name ASC').all() as SegmentRow[];
       res.json(segments);
     } catch (error) {
       console.error('Error getting segments:', error);
-      res.status(500).json({ error: 'Failed to get segments' });
+      res.status(500).json({ error: 'Failed to get segments' } as any);
     }
   });
 
@@ -48,21 +50,13 @@ export default (
    * Create new segment
    * Admin only
    */
-  router.post('/', requireAdmin, (req: Request, res: Response): void => {
+  router.post('/', requireAdmin, (req: Request, res: Response<SegmentRow>): void => {
     try {
-      const { name, strava_segment_id, distance, average_grade, city, state, country } =
-        req.body as {
-          name?: string;
-          strava_segment_id?: number;
-          distance?: number;
-          average_grade?: number;
-          city?: string;
-          state?: string;
-          country?: string;
-        };
+      const body = req.body as CreateSegmentRequest;
+      const { name, strava_segment_id, distance, average_grade, city, state, country } = body;
 
       if (!name || !strava_segment_id) {
-        res.status(400).json({ error: 'Missing required fields: name, strava_segment_id' });
+        res.status(400).json({ error: 'Missing required fields: name, strava_segment_id' } as any);
         return;
       }
 
@@ -80,11 +74,11 @@ export default (
         )
         .run(name, strava_segment_id, distance, average_grade, city, state, country);
 
-      const segment = db.prepare('SELECT * FROM segment WHERE strava_segment_id = ?').get(strava_segment_id);
+      const segment = db.prepare('SELECT * FROM segment WHERE strava_segment_id = ?').get(strava_segment_id) as SegmentRow;
       res.status(201).json(segment);
     } catch (error) {
       console.error('Error creating segment:', error);
-      res.status(500).json({ error: 'Failed to create segment' });
+      res.status(500).json({ error: 'Failed to create segment' } as any);
     }
   });
 
@@ -94,7 +88,7 @@ export default (
    * Admin only
    * Returns segment metadata if valid, stores in database
    */
-  router.get('/:id/validate', requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  router.get('/:id/validate', requireAdmin, async (req: Request, res: Response<SegmentRow>): Promise<void> => {
     try {
       const segmentId = Number(req.params.id);
 
@@ -104,7 +98,7 @@ export default (
       if (!hasConnectedParticipants) {
         res.status(400).json({
           error: 'No connected participants - cannot validate segments. Ask a participant to connect.'
-        });
+        } as any);
         return;
       }
 
@@ -116,7 +110,7 @@ export default (
       );
 
       if (!result) {
-        res.status(500).json({ error: 'Failed to store segment metadata' });
+        res.status(500).json({ error: 'Failed to store segment metadata' } as any);
         return;
       }
 
@@ -124,7 +118,7 @@ export default (
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error(`[Segment Validation] ✗ Error validating segment: ${message}`);
-      res.status(500).json({ error: `Failed to validate segment: ${message}` });
+      res.status(500).json({ error: `Failed to validate segment: ${message}` } as any);
     }
   });
 

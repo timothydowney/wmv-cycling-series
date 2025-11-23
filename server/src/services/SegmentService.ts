@@ -5,20 +5,9 @@
  */
 
 import { Database } from 'better-sqlite3';
-import { getSegment } from '../stravaClient';
+import { getSegment, mapStravaSegmentToSegmentRow } from '../stravaClient';
 import { getValidAccessToken } from '../tokenManager';
-
-interface SegmentData {
-  strava_segment_id: number;
-  name: string;
-  distance: number | null;
-  total_elevation_gain: number | null;
-  average_grade: number | null;
-  climb_category: number | null;
-  city: string | null;
-  state: string | null;
-  country: string | null;
-}
+import type { SegmentRow } from '../types/database';
 
 interface LogCallback {
   (level: string, message: string): void;
@@ -36,7 +25,7 @@ class SegmentService {
     segmentId: number,
     context: string, // e.g., "week-create", "fetch-results", "validation"
     logCallback?: LogCallback
-  ): Promise<SegmentData | null> {
+  ): Promise<SegmentRow | null> {
     const log = logCallback ? (level: string, msg: string) => logCallback(level, msg) : () => {};
 
     try {
@@ -62,7 +51,8 @@ class SegmentService {
 
       // Fetch segment metadata from Strava
       console.log(`[${context}] Fetching segment ${segmentId} from Strava API`);
-      const segmentData = await getSegment(segmentId, accessToken);
+      const stravaSegment = await getSegment(segmentId, accessToken);
+      const segmentData = mapStravaSegmentToSegmentRow(stravaSegment);
 
       // Log what we're storing (technical log, console only)
       console.log(`[${context}] Segment data:
@@ -117,7 +107,7 @@ class SegmentService {
    * Ensure segment exists in database as placeholder (name only)
    * Used when metadata fetch fails but FK constraint requires the row
    */
-  private createPlaceholderSegment(segmentId: number): SegmentData | null {
+  private createPlaceholderSegment(segmentId: number): SegmentRow | null {
     const existing = this.db.prepare('SELECT 1 FROM segment WHERE strava_segment_id = ?').get(segmentId);
     if (!existing) {
       this.db
@@ -130,9 +120,9 @@ class SegmentService {
   /**
    * Retrieve stored segment from database
    */
-  private getStoredSegment(segmentId: number): SegmentData | null {
+  private getStoredSegment(segmentId: number): SegmentRow | null {
     return (
-      this.db.prepare('SELECT * FROM segment WHERE strava_segment_id = ?').get(segmentId) as SegmentData | null
+      this.db.prepare('SELECT * FROM segment WHERE strava_segment_id = ?').get(segmentId) as SegmentRow | null
     );
   }
 
@@ -146,9 +136,10 @@ class SegmentService {
   /**
    * Get all segments
    */
-  getAllSegments(): SegmentData[] {
-    return this.db.prepare('SELECT * FROM segment ORDER BY name ASC').all() as SegmentData[];
+  getAllSegments(): SegmentRow[] {
+    return this.db.prepare('SELECT * FROM segment ORDER BY name ASC').all() as SegmentRow[];
   }
 }
 
-export { SegmentService, SegmentData, LogCallback };
+export { SegmentService, LogCallback };
+export type { SegmentRow } from '../types/database';

@@ -12,6 +12,7 @@
 
 import { Router, Request, Response } from 'express';
 import type SeasonService from '../services/SeasonService';
+import type { CreateSeasonRequest, UpdateSeasonRequest } from '../types/requests';
 
 interface SeasonServices {
   seasonService: SeasonService;
@@ -85,12 +86,8 @@ export default (services: SeasonServices, middleware: SeasonMiddleware): Router 
    */
   router.post('/', requireAdmin, (req: Request, res: Response): void => {
     try {
-      const { name, start_at, end_at, is_active } = req.body as {
-        name?: string;
-        start_at?: number;
-        end_at?: number;
-        is_active?: boolean;
-      };
+      const body = req.body as CreateSeasonRequest;
+      const { name, start_at, end_at, is_active } = body;
 
       if (!name || start_at === undefined || end_at === undefined) {
         res.status(400).json({ error: 'Missing required fields: name, start_at, end_at' });
@@ -112,12 +109,8 @@ export default (services: SeasonServices, middleware: SeasonMiddleware): Router 
    */
   router.put('/:id', requireAdmin, (req: Request, res: Response): void => {
     try {
-      const { name, start_at, end_at, is_active } = req.body as {
-        name?: string;
-        start_at?: number;
-        end_at?: number;
-        is_active?: boolean;
-      };
+      const body = req.body as UpdateSeasonRequest;
+      const { name, start_at, end_at, is_active } = body;
 
       const season = seasonService.updateSeason(Number(req.params.id), {
         name,
