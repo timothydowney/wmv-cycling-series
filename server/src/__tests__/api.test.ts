@@ -383,7 +383,7 @@ describe('WMV Backend API', () => {
         .set('Content-Type', 'application/json');
 
       expect(response.status).toBe(201);
-      expect(response.body.segment_id).toBe(999);
+      expect(response.body.strava_segment_id).toBe(999);
     });
 
     test('PUT /admin/weeks/:id updates week fields', async () => {

@@ -331,7 +331,7 @@ describe('Coverage Improvements - Quick Wins', () => {
       expect(res.status).toBe(200);
       expect(res.body.week).toHaveProperty('id');
       expect(res.body.week).toHaveProperty('week_name');
-      expect(res.body.week).toHaveProperty('segment_id');
+      expect(res.body.week).toHaveProperty('strava_segment_id');
     });
 
     test('leaderboard sorting works with single result', async () => {

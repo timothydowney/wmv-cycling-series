@@ -81,7 +81,7 @@ describe('Edge Cases and Error Handling', () => {
         .set('Content-Type', 'application/json');
 
       expect(response.status).toBe(201);
-      expect(response.body.segment_id).toBe(99999);
+      expect(response.body.strava_segment_id).toBe(99999);
     });
 
     test('Creating week with 0 required laps uses default of 1', async () => {
@@ -192,7 +192,7 @@ describe('Edge Cases and Error Handling', () => {
         .set('Content-Type', 'application/json');
 
       expect(response.status).toBe(200);
-      expect(response.body.segment_id).toBe(99999);
+      expect(response.body.strava_segment_id).toBe(99999);
     });
 
     test('Can update multiple fields at once', async () => {

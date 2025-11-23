@@ -4,15 +4,8 @@
  */
 
 import { Database } from 'better-sqlite3';
+import type { SeasonRow } from '../types/database';
 import { getAthleteProfilePictures } from './StravaProfileService';
-
-interface Season {
-  id: number;
-  name: string;
-  start_at: number;
-  end_at: number;
-  is_active: number;
-}
 
 interface LeaderboardEntry {
   id: number;
@@ -24,7 +17,7 @@ interface LeaderboardEntry {
 }
 
 interface SeasonLeaderboard {
-  season: Omit<Season, 'is_active'>;
+  season: Omit<SeasonRow, 'is_active' | 'created_at'>;
   leaderboard: LeaderboardEntry[];
 }
 
@@ -34,20 +27,20 @@ class SeasonService {
   /**
    * Get all seasons ordered by start_at descending (newest first)
    */
-  getAllSeasons(): Season[] {
+  getAllSeasons(): SeasonRow[] {
     const seasons = this.db
-      .prepare('SELECT id, name, start_at, end_at, is_active FROM season ORDER BY start_at DESC')
-      .all() as Season[];
+      .prepare('SELECT id, name, start_at, end_at, is_active, created_at FROM season ORDER BY start_at DESC')
+      .all() as SeasonRow[];
     return seasons;
   }
 
   /**
    * Get a season by ID
    */
-  getSeasonById(seasonId: number): Season {
+  getSeasonById(seasonId: number): SeasonRow {
     const season = this.db
-      .prepare('SELECT id, name, start_at, end_at, is_active FROM season WHERE id = ?')
-      .get(seasonId) as Season | undefined;
+      .prepare('SELECT id, name, start_at, end_at, is_active, created_at FROM season WHERE id = ?')
+      .get(seasonId) as SeasonRow | undefined;
 
     if (!season) {
       throw new Error('Season not found');
@@ -65,7 +58,7 @@ class SeasonService {
     // Verify season exists
     const season = this.db
       .prepare('SELECT id, name, start_at, end_at FROM season WHERE id = ?')
-      .get(seasonId) as Omit<Season, 'is_active'> | undefined;
+      .get(seasonId) as Omit<SeasonRow, 'is_active' | 'created_at'> | undefined;
 
     if (!season) {
       throw new Error('Season not found');
@@ -169,7 +162,7 @@ class SeasonService {
     start_at: number;
     end_at: number;
     is_active?: boolean;
-  }): Season {
+  }): SeasonRow {
     const { name, start_at, end_at, is_active } = data;
 
     if (!name || start_at === undefined || end_at === undefined) {
@@ -183,14 +176,14 @@ class SeasonService {
 
     const result = this.db
       .prepare(
-        `INSERT INTO season (name, start_at, end_at, is_active)
-         VALUES (?, ?, ?, ?)`
+        `INSERT INTO season (name, start_at, end_at, is_active, created_at)
+         VALUES (?, ?, ?, ?, datetime('now'))`
       )
       .run(name, start_at, end_at, is_active ? 1 : 0);
 
     const newSeason = this.db
-      .prepare('SELECT id, name, start_at, end_at, is_active FROM season WHERE id = ?')
-      .get(result.lastInsertRowid) as Season;
+      .prepare('SELECT id, name, start_at, end_at, is_active, created_at FROM season WHERE id = ?')
+      .get(result.lastInsertRowid) as SeasonRow;
 
     return newSeason;
   }
@@ -207,7 +200,7 @@ class SeasonService {
       end_at?: number;
       is_active?: boolean;
     }
-  ): Season {
+  ): SeasonRow {
     // Verify season exists
     const existingSeason = this.db
       .prepare('SELECT id FROM season WHERE id = ?')
@@ -253,8 +246,8 @@ class SeasonService {
       .run(...values);
 
     const updatedSeason = this.db
-      .prepare('SELECT id, name, start_at, end_at, is_active FROM season WHERE id = ?')
-      .get(seasonId) as Season;
+      .prepare('SELECT id, name, start_at, end_at, is_active, created_at FROM season WHERE id = ?')
+      .get(seasonId) as SeasonRow;
 
     return updatedSeason;
   }

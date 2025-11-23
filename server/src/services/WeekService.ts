@@ -4,6 +4,7 @@
  */
 
 import { Database } from 'better-sqlite3';
+import type { WeekResponse } from '../types/database';
 import {
   secondsToHHMMSS,
   isoToUnix,
@@ -14,21 +15,6 @@ import { getAthleteProfilePictures } from './StravaProfileService';
 
 // Notes field constraints
 const NOTES_MAX_LENGTH = 1000;
-
-interface Week {
-  id: number;
-  season_id: number;
-  week_name: string;
-  segment_id: number;
-  required_laps: number;
-  start_at: number;
-  end_at: number;
-  notes?: string;
-  segment_name?: string;
-  segment_distance?: number;
-  total_elevation_gain?: number;
-  segment_average_grade?: number;
-}
 
 interface Leaderboard {
   rank: number;
@@ -52,7 +38,7 @@ interface Leaderboard {
 }
 
 interface WeekLeaderboardResponse {
-  week: Week;
+  week: WeekResponse;
   leaderboard: Leaderboard[];
 }
 
@@ -62,46 +48,60 @@ class WeekService {
   /**
    * Get all weeks for a season
    */
-  getAllWeeks(seasonId: number): Week[] {
+  getAllWeeks(seasonId: number): WeekResponse[] {
     if (!seasonId) {
       throw new Error('season_id is required');
     }
 
     const query = `
-      SELECT w.id, w.season_id, w.week_name, w.strava_segment_id as segment_id, w.required_laps, 
-             w.start_at, w.end_at, w.notes, s.name as segment_name, 
-             s.distance as segment_distance, s.total_elevation_gain, s.average_grade as segment_average_grade,
+      SELECT w.id, w.season_id, w.week_name, w.strava_segment_id, w.required_laps, 
+             w.start_at, w.end_at, w.notes, w.created_at,
+             s.name as segment_name, 
+             s.distance as segment_distance, 
+             s.total_elevation_gain as segment_total_elevation_gain,
+             s.average_grade as segment_average_grade,
+             s.climb_category as segment_climb_category,
+             s.city as segment_city,
+             s.state as segment_state,
+             s.country as segment_country,
              COUNT(DISTINCT r.strava_athlete_id) as participants_count
       FROM week w
       LEFT JOIN segment s ON w.strava_segment_id = s.strava_segment_id
       LEFT JOIN result r ON w.id = r.week_id
       WHERE w.season_id = ?
-      GROUP BY w.id, w.season_id, w.week_name, w.strava_segment_id, w.required_laps, w.start_at, w.end_at, w.notes, s.name,
-               s.distance, s.total_elevation_gain, s.average_grade
+      GROUP BY w.id, w.season_id, w.week_name, w.strava_segment_id, w.required_laps, w.start_at, w.end_at, w.notes, w.created_at, s.name,
+               s.distance, s.total_elevation_gain, s.average_grade, s.climb_category, s.city, s.state, s.country
       ORDER BY w.start_at DESC
     `;
 
-    return this.db.prepare(query).all(seasonId) as Week[];
+    return this.db.prepare(query).all(seasonId) as WeekResponse[];
   }
 
   /**
    * Get a single week by ID
    */
-  getWeekById(weekId: number): Week {
+  getWeekById(weekId: number): WeekResponse {
     const week = this.db
       .prepare(
-        `SELECT w.id, w.season_id, w.week_name, w.strava_segment_id as segment_id, w.required_laps, 
-                w.start_at, w.end_at, w.notes, s.name as segment_name,
-                s.distance as segment_distance, s.total_elevation_gain, s.average_grade as segment_average_grade,
+        `SELECT w.id, w.season_id, w.week_name, w.strava_segment_id, w.required_laps, 
+                w.start_at, w.end_at, w.notes, w.created_at,
+                s.name as segment_name,
+                s.distance as segment_distance, 
+                s.total_elevation_gain as segment_total_elevation_gain,
+                s.average_grade as segment_average_grade,
+                s.climb_category as segment_climb_category,
+                s.city as segment_city,
+                s.state as segment_state,
+                s.country as segment_country,
                 COUNT(DISTINCT r.strava_athlete_id) as participants_count
          FROM week w
          LEFT JOIN segment s ON w.strava_segment_id = s.strava_segment_id
          LEFT JOIN result r ON w.id = r.week_id
          WHERE w.id = ?
-         GROUP BY w.id, w.season_id, w.week_name, w.strava_segment_id, w.required_laps, w.start_at, w.end_at, w.notes, s.name,
-                  s.distance, s.total_elevation_gain, s.average_grade`
+         GROUP BY w.id, w.season_id, w.week_name, w.strava_segment_id, w.required_laps, w.start_at, w.end_at, w.notes, w.created_at, s.name,
+                  s.distance, s.total_elevation_gain, s.average_grade, s.climb_category, s.city, s.state, s.country`
       )
-      .get(weekId) as Week | undefined;
+      .get(weekId) as WeekResponse | undefined;
 
     if (!week) {
       throw new Error('Week not found');
@@ -138,7 +138,7 @@ class WeekService {
         GROUP BY a.id, a.strava_athlete_id, a.strava_activity_id, a.device_name, p.name
         ORDER BY total_time_seconds ASC`
       )
-      .all(weekId, week.segment_id) as Array<{
+      .all(weekId, week.strava_segment_id) as Array<{
       activity_id: number;
       participant_id: number;
       strava_activity_id: number;
@@ -168,7 +168,7 @@ class WeekService {
            WHERE activity_id = ? AND strava_segment_id = ?
            ORDER BY effort_index ASC`
         )
-        .all(activity.activity_id, week.segment_id) as Array<{
+        .all(activity.activity_id, week.strava_segment_id) as Array<{
         elapsed_seconds: number;
         effort_index: number;
         pr_achieved: number;
@@ -255,7 +255,7 @@ class WeekService {
     start_at?: number;
     end_at?: number;
     notes?: string;
-  }): Week {
+  }): WeekResponse {
     const { season_id, week_name, segment_id, segment_name, required_laps, start_at, end_at, notes } =
       data;
 
@@ -344,13 +344,21 @@ class WeekService {
 
       const newWeek = this.db
         .prepare(
-          `SELECT w.id, w.season_id, w.week_name, w.strava_segment_id as segment_id, w.required_laps, 
-                  w.start_at, w.end_at, w.notes, s.name as segment_name
+          `SELECT w.id, w.season_id, w.week_name, w.strava_segment_id, w.required_laps, 
+                  w.start_at, w.end_at, w.notes, w.created_at,
+                  s.name as segment_name,
+                  s.distance as segment_distance,
+                  s.total_elevation_gain as segment_total_elevation_gain,
+                  s.average_grade as segment_average_grade,
+                  s.climb_category as segment_climb_category,
+                  s.city as segment_city,
+                  s.state as segment_state,
+                  s.country as segment_country
            FROM week w
            LEFT JOIN segment s ON w.strava_segment_id = s.strava_segment_id
            WHERE w.id = ?`
         )
-        .get((result as any).lastInsertRowid) as Week;
+        .get((result as any).lastInsertRowid) as WeekResponse;
 
       console.log('Week created successfully:', newWeek);
       return newWeek;
@@ -378,7 +386,7 @@ class WeekService {
       segment_name?: string;
       notes?: string;
     }
-  ): Week {
+  ): WeekResponse {
     const {
       season_id,
       week_name,
@@ -535,10 +543,21 @@ class WeekService {
 
       const updatedWeek = this.db
         .prepare(
-          `SELECT id, season_id, week_name, strava_segment_id as segment_id, required_laps, start_at, end_at, notes
-           FROM week WHERE id = ?`
+          `SELECT w.id, w.season_id, w.week_name, w.strava_segment_id, w.required_laps, 
+                  w.start_at, w.end_at, w.notes, w.created_at,
+                  s.name as segment_name,
+                  s.distance as segment_distance,
+                  s.total_elevation_gain as segment_total_elevation_gain,
+                  s.average_grade as segment_average_grade,
+                  s.climb_category as segment_climb_category,
+                  s.city as segment_city,
+                  s.state as segment_state,
+                  s.country as segment_country
+           FROM week w
+           LEFT JOIN segment s ON w.strava_segment_id = s.strava_segment_id
+           WHERE w.id = ?`
         )
-        .get(weekId) as Week;
+        .get(weekId) as WeekResponse;
 
       return updatedWeek;
     } catch (error) {
