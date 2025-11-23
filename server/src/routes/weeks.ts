@@ -18,6 +18,7 @@ import { isoToUnix } from '../dateUtils';
 import { SegmentService } from '../services/SegmentService';
 import { Database } from 'better-sqlite3';
 import type { CreateWeekRequest, UpdateWeekRequest } from '../types/requests';
+import type { WeekResponse } from '../types/database';
 
 interface WeekServices {
   weekService: WeekService;
@@ -38,18 +39,18 @@ export default (services: WeekServices, middleware: WeekMiddleware, database: Da
    * List all weeks
    * Note: Requires seasonId query param to filter weeks by season
    */
-  router.get('/', (req: Request, res: Response): void => {
+  router.get('/', (req: Request, res: Response<WeekResponse[]>): void => {
     try {
       const seasonId = Number(req.query.season_id);
       if (!seasonId) {
-        res.status(400).json({ error: 'season_id query parameter is required' });
+        res.status(400).json({ error: 'season_id query parameter is required' } as any);
         return;
       }
       const weeks = weekService.getAllWeeks(seasonId);
       res.json(weeks);
     } catch (error) {
       console.error('Error getting weeks:', error);
-      res.status(500).json({ error: 'Failed to get weeks' });
+      res.status(500).json({ error: 'Failed to get weeks' } as any);
     }
   });
 
@@ -57,17 +58,17 @@ export default (services: WeekServices, middleware: WeekMiddleware, database: Da
    * GET /:id
    * Get week by ID
    */
-  router.get('/:id', (req: Request, res: Response): void => {
+  router.get('/:id', (req: Request, res: Response<WeekResponse>): void => {
     try {
       const week = weekService.getWeekById(Number(req.params.id));
       res.json(week);
     } catch (error) {
       if (error instanceof Error && error.message === 'Week not found') {
-        res.status(404).json({ error: 'Week not found' });
+        res.status(404).json({ error: 'Week not found' } as any);
         return;
       }
       console.error('Error getting week:', error);
-      res.status(500).json({ error: 'Failed to get week' });
+      res.status(500).json({ error: 'Failed to get week' } as any);
     }
   });
 
@@ -101,7 +102,7 @@ export default (services: WeekServices, middleware: WeekMiddleware, database: Da
    * Admin only
    * Also fetches segment metadata from Strava and caches it
    */
-  router.post('/', requireAdmin, async (req: Request, res: Response): Promise<void> => {
+  router.post('/', requireAdmin, async (req: Request, res: Response<WeekResponse>): Promise<void> => {
     try {
       const body = req.body as CreateWeekRequest;
       const { season_id, week_name, segment_id, required_laps, start_at, end_at, notes } = body;
@@ -109,7 +110,7 @@ export default (services: WeekServices, middleware: WeekMiddleware, database: Da
       if (!week_name || !segment_id) {
         res.status(400).json({
           error: 'Missing required fields: week_name, segment_id'
-        });
+        } as any);
         return;
       }
 
@@ -135,12 +136,12 @@ export default (services: WeekServices, middleware: WeekMiddleware, database: Da
       if (message.includes('Notes cannot exceed') || 
           message.includes('Invalid') ||
           message.includes('not found')) {
-        res.status(400).json({ error: message });
+        res.status(400).json({ error: message } as any);
         return;
       }
       
       console.error('Error creating week:', error);
-      res.status(500).json({ error: 'Failed to create week' });
+      res.status(500).json({ error: 'Failed to create week' } as any);
     }
   });
 
@@ -149,7 +150,7 @@ export default (services: WeekServices, middleware: WeekMiddleware, database: Da
    * Update week
    * Admin only
    */
-  router.put('/:id', requireAdmin, (req: Request, res: Response): void => {
+  router.put('/:id', requireAdmin, (req: Request, res: Response<WeekResponse>): void => {
     try {
       const body = req.body as UpdateWeekRequest;
       const { week_name, segment_id, required_laps, start_at, end_at, start_time, end_time, notes } = body;
@@ -188,18 +189,18 @@ export default (services: WeekServices, middleware: WeekMiddleware, database: Da
       if (message.includes('Notes cannot exceed') || 
           message === 'No fields to update' ||
           message.includes('Invalid')) {
-        res.status(400).json({ error: message });
+        res.status(400).json({ error: message } as any);
         return;
       }
       
       // Not found errors return 404
       if (message === 'Week not found') {
-        res.status(404).json({ error: 'Week not found' });
+        res.status(404).json({ error: 'Week not found' } as any);
         return;
       }
       
       console.error('Error updating week:', error);
-      res.status(500).json({ error: 'Failed to update week' });
+      res.status(500).json({ error: 'Failed to update week' } as any);
     }
   });
 
@@ -271,7 +272,7 @@ export default (services: WeekServices, middleware: WeekMiddleware, database: Da
       sendLog('section', `Refreshing segment metadata for: ${week.segment_name}`);
       const segmentService = new SegmentService(database);
       await segmentService.fetchAndStoreSegmentMetadata(
-        week.segment_id,
+        week.strava_segment_id,
         'fetch-results',
         (level: string, message: string) => {
           // Map service log levels to SSE levels

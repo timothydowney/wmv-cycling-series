@@ -176,6 +176,36 @@ export interface SessionRow {
 }
 
 /**
+ * Response types for API endpoints
+ *
+ * Used when returning data to API consumers. Response types can include
+ * computed fields or related data that's joined from other tables.
+ * This separates what's stored in the database (Row types) from what's
+ * returned to clients (Response types).
+ */
+
+/**
+ * Week response with related segment data
+ *
+ * Used in week listing and detail endpoints to provide segment context
+ * without duplicating segment fields. The segment fields are included
+ * directly for convenience, but conceptually this is a Week + Segment join.
+ */
+export interface WeekResponse extends WeekRow {
+  // Segment fields (from the related segment row)
+  segment_name?: string | null;
+  segment_distance?: number | null;
+  segment_total_elevation_gain?: number | null;
+  segment_average_grade?: number | null;
+  segment_climb_category?: number | null;
+  segment_city?: string | null;
+  segment_state?: string | null;
+  segment_country?: string | null;
+  // Aggregate fields
+  participants_count?: number;
+}
+
+/**
  * Helper type: Extract the insert/update fields from a row type
  * Used for parameterized queries
  */
