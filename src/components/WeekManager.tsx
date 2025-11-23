@@ -353,7 +353,7 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
                       <SegmentMetadataDisplay
                         segment={{
                           distance: week.segment_distance,
-                          total_elevation_gain: week.total_elevation_gain,
+                          total_elevation_gain: week.segment_total_elevation_gain,
                           segment_average_grade: week.segment_average_grade
                         }}
                       />

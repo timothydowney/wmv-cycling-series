@@ -307,6 +307,19 @@ async function getSegment(
       throw new Error('No segment data returned');
     }
 
+    // Debug: log full segment response to see all fields
+    console.log(`[Strava API] Segment response for ID ${segmentId}:`, {
+      id: segment.id,
+      name: segment.name,
+      distance: segment.distance,
+      average_grade: segment.average_grade,
+      total_elevation_gain: segment.total_elevation_gain,
+      climb_category: segment.climb_category,
+      city: segment.city,
+      state: segment.state,
+      country: segment.country
+    });
+
     return {
       id: segment.id,
       name: segment.name,

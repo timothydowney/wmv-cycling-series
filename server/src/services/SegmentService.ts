@@ -55,11 +55,12 @@ class SegmentService {
       const segmentData = mapStravaSegmentToSegmentRow(stravaSegment);
 
       // Log what we're storing (technical log, console only)
-      console.log(`[${context}] Segment data:
+      console.log(`[${context}] Segment data from Strava:
   Name: ${segmentData.name}
   Distance: ${segmentData.distance}m
   Elevation: ${segmentData.total_elevation_gain}m
   Grade: ${segmentData.average_grade}%
+  Climb Category: ${segmentData.climb_category}
   Location: ${segmentData.city || '?'}, ${segmentData.state || '?'}, ${segmentData.country || '?'}`);
 
       // Store in database
