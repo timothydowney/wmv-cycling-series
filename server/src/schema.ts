@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS segment (
   name TEXT NOT NULL,
   distance REAL,
   average_grade REAL,
+  total_elevation_gain REAL,
+  climb_category INTEGER,
   city TEXT,
   state TEXT,
   country TEXT,

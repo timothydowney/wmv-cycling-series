@@ -337,12 +337,12 @@ app.use(routes.public());  // /health, /participants, /segments
 
 // Public leaderboard routes (authenticated but not admin-only)
 // These allow users to view weeks, seasons, and leaderboards
-app.use('/weeks', routes.weeks(services, middleware));
+app.use('/weeks', routes.weeks(services, middleware, db));
 app.use('/seasons', routes.seasons(services, middleware));
 
 // Admin management routes (admin-only)
 // These allow admins to create, update, delete weeks and seasons
-app.use('/admin/weeks', routes.weeks(services, middleware));
+app.use('/admin/weeks', routes.weeks(services, middleware, db));
 app.use('/admin/seasons', routes.seasons(services, middleware));
 app.use('/admin/participants', routes.participants(services, middleware));
 app.use('/admin/segments', routes.segments(services, middleware));

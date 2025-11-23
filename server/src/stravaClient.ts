@@ -64,6 +64,8 @@ interface Segment {
   name: string;
   distance: number;
   average_grade?: number;
+  total_elevation_gain?: number;
+  climb_category?: number | null;
   city?: string;
   state?: string;
   country?: string;
@@ -257,8 +259,13 @@ async function listAthleteActivities(
 
     let errorMsg = '';
 
+    // Check for Strava API 400 "future" error (event date is in the future)
+    if (error instanceof Error && error.message.includes('"code":"future"')) {
+      const futureDate = new Date(afterTimestamp * 1000).toLocaleDateString();
+      errorMsg = `Event date (${futureDate}) is in the future - activities cannot be fetched before the event occurs`;
+    }
     // Check if it's an AggregateError (has errors array)
-    if (error instanceof Error && 'errors' in error) {
+    else if (error instanceof Error && 'errors' in error) {
       const aggError = error as any;
       console.error(`  AggregateError with ${aggError.errors?.length || 0} sub-errors:`);
       const messages = (aggError.errors || [])
@@ -282,7 +289,7 @@ async function listAthleteActivities(
  * Segments: Fetch segment details by ID
  * @param segmentId - Strava segment ID
  * @param accessToken - Valid Strava access token
- * @returns Segment data { id, name, distance, average_grade, city, state, country }
+ * @returns Segment data { id, name, distance, average_grade, total_elevation_gain, climb_category, city, state, country }
  * @throws {Error} If segment fetch fails
  */
 async function getSegment(
@@ -304,6 +311,8 @@ async function getSegment(
       name: segment.name,
       distance: segment.distance,
       average_grade: segment.average_grade,
+      total_elevation_gain: segment.total_elevation_gain,
+      climb_category: segment.climb_category,
       city: segment.city,
       state: segment.state,
       country: segment.country

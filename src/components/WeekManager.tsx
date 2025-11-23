@@ -351,9 +351,11 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
                     <div className="segment-cell">
                       <div className="segment-name">{week.segment_name || 'Unknown Segment'}</div>
                       <SegmentMetadataDisplay
-                        distance={week.segment_distance}
-                        elevationGain={week.total_elevation_gain}
-                        averageGrade={week.segment_average_grade}
+                        segment={{
+                          distance: week.segment_distance,
+                          total_elevation_gain: week.total_elevation_gain,
+                          segment_average_grade: week.segment_average_grade
+                        }}
                       />
                     </div>
                   </td>

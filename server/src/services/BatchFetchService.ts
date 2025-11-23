@@ -94,6 +94,28 @@ class BatchFetchService {
 
     const results: FetchResult[] = [];
 
+    // Check if event is in the future (before attempting API calls)
+    const now = Math.floor(Date.now() / 1000); // Current Unix timestamp
+    if (startUnix > now) {
+      const futureDate = new Date(startUnix * 1000).toLocaleDateString();
+      logger.error(`Event date (${futureDate}) is in the future - cannot fetch activities before the event occurs`);
+      return {
+        message: 'Event date is in the future',
+        week_id: weekId,
+        week_name: week.week_name,
+        participants_processed: 0,
+        results_found: 0,
+        summary: [
+          {
+            participant_id: 0,
+            participant_name: 'All',
+            activity_found: false,
+            reason: `Event date (${futureDate}) is in the future - activities cannot be fetched before the event occurs`
+          }
+        ]
+      };
+    }
+
     // Process each participant
     for (const participant of participants) {
       try {
