@@ -48,6 +48,99 @@ const migrations: Migration[] = [
         console.log('[MIGRATION] V1: notes column already exists, skipping');
       }
     }
+  },
+  {
+    version: 'V2',
+    name: 'Add elevation_gain column to segment table',
+    up: () => {
+      // This migration was already run in production - it added elevation_gain
+      // but we've since refactored to use total_elevation_gain
+      // This migration is now a no-op to maintain compatibility
+      console.log('[MIGRATION] V2: Skipping (legacy migration, already executed)');
+    }
+  },
+  {
+    version: 'V3',
+    name: 'Add segment metadata columns for display feature',
+    up: (db: Database) => {
+      // Idempotent: Check if columns exist before adding
+      const tableInfo = db
+        .prepare('PRAGMA table_info(segment)')
+        .all() as Array<{ name: string; type: string }>;
+      
+      const hasOldElevationGain = tableInfo.some((col) => col.name === 'elevation_gain');
+      const hasTotalElevationGain = tableInfo.some((col) => col.name === 'total_elevation_gain');
+      const hasClimbCategory = tableInfo.some((col) => col.name === 'climb_category');
+
+      // Rename old elevation_gain column to total_elevation_gain to match Strava API field name
+      if (hasOldElevationGain && !hasTotalElevationGain) {
+        db.prepare(`
+          ALTER TABLE segment
+          RENAME COLUMN elevation_gain TO total_elevation_gain
+        `).run();
+        console.log('[MIGRATION] V3: Renamed elevation_gain to total_elevation_gain (matches Strava API)');
+      } else if (!hasTotalElevationGain) {
+        // If neither column exists, create total_elevation_gain
+        db.prepare(`
+          ALTER TABLE segment
+          ADD COLUMN total_elevation_gain REAL
+        `).run();
+        console.log('[MIGRATION] V3: Added total_elevation_gain column to segment table');
+      } else {
+        console.log('[MIGRATION] V3: total_elevation_gain column already exists, skipping');
+      }
+
+      if (!hasClimbCategory) {
+        db.prepare(`
+          ALTER TABLE segment
+          ADD COLUMN climb_category INTEGER
+        `).run();
+        console.log('[MIGRATION] V3: Added climb_category column to segment table');
+      } else {
+        console.log('[MIGRATION] V3: climb_category column already exists, skipping');
+      }
+    }
+  },
+  {
+    version: 'V4',
+    name: 'Clean up duplicate elevation_gain column',
+    up: (db: Database) => {
+      // Handle case where both elevation_gain and total_elevation_gain exist
+      // Copy data from elevation_gain to total_elevation_gain if needed, then drop elevation_gain
+      const tableInfo = db
+        .prepare('PRAGMA table_info(segment)')
+        .all() as Array<{ name: string; type: string }>;
+      
+      const hasOldElevationGain = tableInfo.some((col) => col.name === 'elevation_gain');
+      const hasTotalElevationGain = tableInfo.some((col) => col.name === 'total_elevation_gain');
+
+      if (hasOldElevationGain && hasTotalElevationGain) {
+        // Copy any non-null values from elevation_gain to total_elevation_gain
+        db.prepare(`
+          UPDATE segment 
+          SET total_elevation_gain = elevation_gain 
+          WHERE elevation_gain IS NOT NULL AND total_elevation_gain IS NULL
+        `).run();
+        console.log('[MIGRATION] V4: Copied elevation_gain data to total_elevation_gain');
+
+        // Drop the old elevation_gain column
+        // SQLite doesn't support DROP COLUMN in older versions, so we need to recreate the table
+        // But most SQLite 3.35.0+ supports it. Try the modern way first, fall back if needed.
+        try {
+          db.prepare(`
+            ALTER TABLE segment
+            DROP COLUMN elevation_gain
+          `).run();
+          console.log('[MIGRATION] V4: Dropped old elevation_gain column');
+        } catch (e) {
+          // If DROP COLUMN fails, log it but don't fail the migration
+          // The column won't hurt anything, just redundant
+          console.log('[MIGRATION] V4: Could not drop elevation_gain column (older SQLite version), but data is safe. This is non-critical.');
+        }
+      } else {
+        console.log('[MIGRATION] V4: No cleanup needed, skipping');
+      }
+    }
   }
 ];
 

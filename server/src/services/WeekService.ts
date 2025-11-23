@@ -25,6 +25,9 @@ interface Week {
   end_at: number;
   notes?: string;
   segment_name?: string;
+  segment_distance?: number;
+  total_elevation_gain?: number;
+  segment_average_grade?: number;
 }
 
 interface Leaderboard {
@@ -67,12 +70,14 @@ class WeekService {
     const query = `
       SELECT w.id, w.season_id, w.week_name, w.strava_segment_id as segment_id, w.required_laps, 
              w.start_at, w.end_at, w.notes, s.name as segment_name, 
+             s.distance as segment_distance, s.total_elevation_gain, s.average_grade as segment_average_grade,
              COUNT(DISTINCT r.strava_athlete_id) as participants_count
       FROM week w
       LEFT JOIN segment s ON w.strava_segment_id = s.strava_segment_id
       LEFT JOIN result r ON w.id = r.week_id
       WHERE w.season_id = ?
-      GROUP BY w.id, w.season_id, w.week_name, w.strava_segment_id, w.required_laps, w.start_at, w.end_at, w.notes, s.name
+      GROUP BY w.id, w.season_id, w.week_name, w.strava_segment_id, w.required_laps, w.start_at, w.end_at, w.notes, s.name,
+               s.distance, s.total_elevation_gain, s.average_grade
       ORDER BY w.start_at DESC
     `;
 
@@ -87,12 +92,14 @@ class WeekService {
       .prepare(
         `SELECT w.id, w.season_id, w.week_name, w.strava_segment_id as segment_id, w.required_laps, 
                 w.start_at, w.end_at, w.notes, s.name as segment_name,
+                s.distance as segment_distance, s.total_elevation_gain, s.average_grade as segment_average_grade,
                 COUNT(DISTINCT r.strava_athlete_id) as participants_count
          FROM week w
          LEFT JOIN segment s ON w.strava_segment_id = s.strava_segment_id
          LEFT JOIN result r ON w.id = r.week_id
          WHERE w.id = ?
-         GROUP BY w.id, w.season_id, w.week_name, w.strava_segment_id, w.required_laps, w.start_at, w.end_at, w.notes, s.name`
+         GROUP BY w.id, w.season_id, w.week_name, w.strava_segment_id, w.required_laps, w.start_at, w.end_at, w.notes, s.name,
+                  s.distance, s.total_elevation_gain, s.average_grade`
       )
       .get(weekId) as Week | undefined;
 
