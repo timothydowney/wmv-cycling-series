@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Week, Season } from '../api';
 import { formatUnixDate, formatUnixTime } from '../utils/dateUtils';
 import { NotesDisplay } from './NotesDisplay';
+import SegmentMetadataDisplay from './SegmentMetadataDisplay';
 import './ScheduleTable.css';
 
 interface Props {
@@ -101,14 +102,23 @@ const ScheduleTable: React.FC<Props> = ({ weeks, season }) => {
                   )}
                 </td>
                 <td className="segment-name">
-                  <a 
-                    href={`https://www.strava.com/segments/${week.segment_id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title="View on Strava"
-                  >
-                    {week.segment_name || `Segment ${week.segment_id}`}
-                  </a>
+                  <div className="segment-info">
+                    <a 
+                      href={`https://www.strava.com/segments/${week.segment_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="View on Strava"
+                    >
+                      {week.segment_name || `Segment ${week.segment_id}`}
+                    </a>
+                    {week.segment_distance && (
+                      <SegmentMetadataDisplay
+                        distance={week.segment_distance}
+                        elevationGain={week.total_elevation_gain}
+                        averageGrade={week.segment_average_grade}
+                      />
+                    )}
+                  </div>
                 </td>
                 <td className="required-laps">{week.required_laps}</td>
                 <td className="participants-count">

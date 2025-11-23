@@ -15,6 +15,8 @@ import { Router, Request, Response } from 'express';
 import type WeekService from '../services/WeekService';
 import type BatchFetchService from '../services/BatchFetchService';
 import { isoToUnix } from '../dateUtils';
+import { SegmentService } from '../services/SegmentService';
+import { Database } from 'better-sqlite3';
 
 interface WeekServices {
   weekService: WeekService;
@@ -25,7 +27,7 @@ interface WeekMiddleware {
   requireAdmin: (req: Request, res: Response, next: () => void) => void;
 }
 
-export default (services: WeekServices, middleware: WeekMiddleware): Router => {
+export default (services: WeekServices, middleware: WeekMiddleware, database: Database): Router => {
   const { weekService, batchFetchService } = services;
   const { requireAdmin } = middleware;
   const router = Router();
@@ -96,8 +98,9 @@ export default (services: WeekServices, middleware: WeekMiddleware): Router => {
    * POST /
    * Create new week
    * Admin only
+   * Also fetches segment metadata from Strava and caches it
    */
-  router.post('/', requireAdmin, (req: Request, res: Response): void => {
+  router.post('/', requireAdmin, async (req: Request, res: Response): Promise<void> => {
     try {
       const {
         season_id,
@@ -136,6 +139,10 @@ export default (services: WeekServices, middleware: WeekMiddleware): Router => {
         end_at,
         notes
       });
+
+      // Fetch segment metadata from Strava and cache it
+      const segmentService = new SegmentService(database);
+      await segmentService.fetchAndStoreSegmentMetadata(segment_id, 'week-create');
 
       res.status(201).json(week);
     } catch (error) {
@@ -260,6 +267,7 @@ export default (services: WeekServices, middleware: WeekMiddleware): Router => {
    * POST /:id/fetch-results
    * Batch fetch activities for all connected participants for this week
    * Finds best qualifying activity and updates leaderboard
+   * Also refreshes segment metadata for this week
    * Streams progress via Server-Sent Events (SSE)
    * Admin only
    */
@@ -268,8 +276,9 @@ export default (services: WeekServices, middleware: WeekMiddleware): Router => {
       const weekId = Number(req.params.id);
 
       // Get week details
+      let week;
       try {
-        weekService.getWeekById(weekId);
+        week = weekService.getWeekById(weekId);
       } catch {
         res.status(404).json({ error: 'Week not found' });
         return;
@@ -294,6 +303,26 @@ export default (services: WeekServices, middleware: WeekMiddleware): Router => {
         res.write('event: log\n');
         res.write(`data: ${JSON.stringify(logEntry)}\n\n`);
       };
+
+      // Refresh segment metadata before fetching results
+      sendLog('section', `Refreshing segment metadata for: ${week.segment_name}`);
+      const segmentService = new SegmentService(database);
+      await segmentService.fetchAndStoreSegmentMetadata(
+        week.segment_id,
+        'fetch-results',
+        (level: string, message: string) => {
+          // Map service log levels to SSE levels
+          if (level === 'error') {
+            sendLog('error', message);
+          } else if (level === 'success') {
+            sendLog('success', message);
+          } else if (level === 'warn') {
+            sendLog('info', message);
+          }
+          // 'debug' and 'info' go only to console, not SSE
+          console.log(message);
+        }
+      );
 
       // Execute batch fetch with logging callback
       const result = await batchFetchService.fetchWeekResults(weekId, sendLog);

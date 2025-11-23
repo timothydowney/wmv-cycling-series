@@ -8,20 +8,17 @@
  */
 
 import { Database } from 'better-sqlite3';
-import { decryptToken } from '../encryption';
-
-interface AthleteProfile {
-  id: number;
-  profile: string;
-  profile_medium: string;
-  profile_large: string;
-  firstname: string;
-  lastname: string;
-}
+import strava from 'strava-v3';
+import { getValidAccessToken } from '../tokenManager';
+import * as stravaClientLib from '../stravaClient';
 
 // Simple in-memory cache to avoid fetching the same athlete multiple times
 // Cache expires after 1 hour
-const profileCache = new Map<number, { data: AthleteProfile; timestamp: number }>();
+interface CachedProfile {
+  profile: string | null;
+  timestamp: number;
+}
+const profileCache = new Map<number, CachedProfile>();
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 /**
@@ -37,31 +34,23 @@ async function getAthleteProfilePicture(athleteId: number, accessToken: string):
     // Check cache first
     const cached = profileCache.get(athleteId);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-      return cached.data.profile || null;
+      return cached.profile;
     }
 
-    // Fetch from Strava API with authentication
-    const response = await fetch(`https://www.strava.com/api/v3/athletes/${athleteId}`, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      }
-    });
+    // Use strava client library to fetch athlete profile
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const client = new (strava.client as any)(accessToken);
+    const athleteData = await client.athletes.get({ id: athleteId });
     
-    if (!response.ok) {
-      console.warn(`Failed to fetch Strava profile for athlete ${athleteId}: ${response.status}`);
-      return null;
-    }
-
-    const profile = await response.json() as AthleteProfile;
+    const profileUrl = athleteData.profile || null;
     
     // Cache the result
     profileCache.set(athleteId, {
-      data: profile,
+      profile: profileUrl,
       timestamp: Date.now()
     });
 
-    return profile.profile || null;
+    return profileUrl;
   } catch (error) {
     console.warn(`Error fetching Strava profile for athlete ${athleteId}:`, error);
     return null;
@@ -87,7 +76,7 @@ async function getAthleteProfilePictures(
   const uncachedIds = athleteIds.filter(id => {
     const cached = profileCache.get(id);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-      results.set(id, cached.data.profile || null);
+      results.set(id, cached.profile);
       return false;
     }
     return true;
@@ -97,38 +86,44 @@ async function getAthleteProfilePictures(
     return results;
   }
 
-  // Build a map of athlete ID to their token
-  // This way we use each athlete's own token when available
+  // Build a map of athlete ID to their valid (refreshed) token
+  // This way we use each athlete's own token when available, with auto-refresh
   const athleteTokens = new Map<number, string>();
   
   for (const athleteId of uncachedIds) {
-    // Try to get this specific athlete's token
-    const athleteToken = db.prepare(
-      'SELECT access_token FROM participant_token WHERE strava_athlete_id = ? LIMIT 1'
-    ).get(athleteId) as { access_token: string } | undefined;
-    
-    if (athleteToken) {
-      try {
-        athleteTokens.set(athleteId, decryptToken(athleteToken.access_token));
-      } catch (error) {
-        console.warn(`Failed to decrypt token for athlete ${athleteId}:`, error);
+    try {
+      // Use getValidAccessToken to ensure token is refreshed if expiring soon
+      const validToken = await getValidAccessToken(db, stravaClientLib, athleteId);
+      if (validToken) {
+        athleteTokens.set(athleteId, validToken);
+        console.log(`[Profile] Retrieved and refreshed token for athlete ${athleteId}`);
+      } else {
+        console.log(`[Profile] No valid token available for athlete ${athleteId}`);
       }
+    } catch (error) {
+      console.warn(`[Profile] Failed to get valid token for athlete ${athleteId}:`, error);
+      // Continue to next athlete instead of failing completely
     }
   }
 
-  // If we don't have any athlete tokens, fall back to any available token
+  // If we don't have any athlete tokens, fall back to any available valid token
   let fallbackToken: string | null = null;
   if (athleteTokens.size === 0) {
-    const anyToken = db.prepare(
-      'SELECT access_token FROM participant_token LIMIT 1'
-    ).get() as { access_token: string } | undefined;
-    
-    if (anyToken) {
-      try {
-        fallbackToken = decryptToken(anyToken.access_token);
-      } catch (error) {
-        console.warn('Failed to decrypt fallback token:', error);
+    try {
+      // Get any participant that has a token and refresh it
+      const anyParticipant = db.prepare(
+        'SELECT strava_athlete_id FROM participant_token LIMIT 1'
+      ).get() as { strava_athlete_id: number } | undefined;
+      
+      if (anyParticipant) {
+        const validToken = await getValidAccessToken(db, stravaClientLib, anyParticipant.strava_athlete_id);
+        if (validToken) {
+          fallbackToken = validToken;
+          console.log('[Profile] Using fallback token (refreshed) for profile fetches');
+        }
       }
+    } catch (error) {
+      console.warn('Failed to get fallback token:', error);
     }
   }
 

@@ -9,7 +9,7 @@
 
 import { Router, Request, Response } from 'express';
 import type { Database } from 'better-sqlite3';
-import { ParticipantRow } from '../types/database';
+import { SegmentService } from '../services/SegmentService';
 
 interface SegmentServices {
   // Services (if any needed in future)
@@ -90,58 +90,41 @@ export default (
 
   /**
    * GET /:id/validate
-   * Validate segment from Strava API
+   * Validate segment from Strava API and store metadata
    * Admin only
-   * Returns segment metadata if valid
+   * Returns segment metadata if valid, stores in database
    */
   router.get('/:id/validate', requireAdmin, async (req: Request, res: Response): Promise<void> => {
     try {
       const segmentId = Number(req.params.id);
 
-      // Get a participant with a valid token
-      const participantWithToken = db
-        .prepare(`
-          SELECT p.strava_athlete_id 
-          FROM participant p
-          JOIN participant_token pt ON p.strava_athlete_id = pt.strava_athlete_id
-          LIMIT 1
-        `)
-        .get();
+      // Check if we have any connected participants for token access
+      const hasConnectedParticipants = !!db.prepare('SELECT 1 FROM participant_token LIMIT 1').get();
 
-      if (!participantWithToken) {
+      if (!hasConnectedParticipants) {
         res.status(400).json({
           error: 'No connected participants - cannot validate segments. Ask a participant to connect.'
         });
         return;
       }
 
-      const { getValidAccessToken } = middleware;
-      const accessToken = await getValidAccessToken((participantWithToken as ParticipantRow).strava_athlete_id);
+      // Use SegmentService to fetch and store metadata atomically
+      const segmentService = new SegmentService(db);
+      const result = await segmentService.fetchAndStoreSegmentMetadata(
+        segmentId,
+        'segment-validation'
+      );
 
-      // Fetch segment from Strava
-      const response = await fetch(`https://www.strava.com/api/v3/segments/${segmentId}`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
-
-      if (!response.ok) {
-        res.status(404).json({ error: 'Segment not found on Strava' });
+      if (!result) {
+        res.status(500).json({ error: 'Failed to store segment metadata' });
         return;
       }
 
-      const segment = (await response.json()) as Record<string, unknown>;
-
-      res.json({
-        id: segmentId,
-        name: segment.name,
-        distance: segment.distance_meters,
-        average_grade: segment.average_grade,
-        city: (segment.city as string) || '',
-        state: (segment.state as string) || '',
-        country: (segment.country as string) || ''
-      });
+      res.json(result);
     } catch (error) {
-      console.error('Error validating segment:', error);
-      res.status(500).json({ error: 'Failed to validate segment' });
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`[Segment Validation] ✗ Error validating segment: ${message}`);
+      res.status(500).json({ error: `Failed to validate segment: ${message}` });
     }
   });
 
