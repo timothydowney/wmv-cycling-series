@@ -173,6 +173,18 @@
   font-size: 0.85rem;
 }
 
+.segment-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.segment-name {
+  font-weight: 600;
+  color: var(--wmv-orange, #f56004);
+  margin-bottom: 4px;
+}
+
 .action-buttons {
   display: flex;
   gap: 0.5rem;
