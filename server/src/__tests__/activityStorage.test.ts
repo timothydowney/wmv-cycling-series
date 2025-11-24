@@ -24,8 +24,8 @@ describe('Activity Storage', () => {
 
   describe('storeActivityAndEfforts', () => {
     it('should store activity and segment efforts when no existing activity', () => {
-      const mockSelectStatement = {
-        get: jest.fn().mockReturnValue(null) // No existing activity
+      const mockSelectAllActivitiesStatement = {
+        all: jest.fn().mockReturnValue([]) // No existing activities
       };
       const mockInsertActivityStatement = {
         run: jest.fn().mockReturnValue({ lastInsertRowid: 100 })
@@ -36,9 +36,13 @@ describe('Activity Storage', () => {
       const mockInsertResultStatement = {
         run: jest.fn()
       };
+      const mockDeleteResultStatement = { run: jest.fn() };
+      const mockDeleteActivityStatement = { run: jest.fn() };
 
       mockDb.prepare
-        .mockReturnValueOnce(mockSelectStatement) // SELECT existing
+        .mockReturnValueOnce(mockSelectAllActivitiesStatement) // SELECT all existing activities
+        .mockReturnValueOnce(mockDeleteResultStatement) // DELETE result
+        .mockReturnValueOnce(mockDeleteActivityStatement) // DELETE activity
         .mockReturnValueOnce(mockInsertActivityStatement) // INSERT activity
         .mockReturnValueOnce(mockInsertSegmentEffortStatement) // INSERT segment effort 1
         .mockReturnValueOnce(mockInsertSegmentEffortStatement) // INSERT segment effort 2
@@ -110,11 +114,12 @@ describe('Activity Storage', () => {
 
     it('should delete existing activity and efforts before storing new ones', () => {
       const existingActivityId = 50;
-      const mockSelectStatement = {
-        get: jest.fn().mockReturnValue({ id: existingActivityId })
+      // New deletion logic: SELECT all old activities, then delete at week+participant level
+      const mockSelectAllActivitiesStatement = {
+        all: jest.fn().mockReturnValue([{ id: existingActivityId }])
       };
-      const mockDeleteResultStatement = { run: jest.fn() };
       const mockDeleteSegmentEffortStatement = { run: jest.fn() };
+      const mockDeleteResultStatement = { run: jest.fn() };
       const mockDeleteActivityStatement = { run: jest.fn() };
       const mockInsertActivityStatement = {
         run: jest.fn().mockReturnValue({ lastInsertRowid: 101 })
@@ -123,10 +128,10 @@ describe('Activity Storage', () => {
       const mockInsertResultStatement = { run: jest.fn() };
 
       mockDb.prepare
-        .mockReturnValueOnce(mockSelectStatement) // SELECT existing
-        .mockReturnValueOnce(mockDeleteResultStatement) // DELETE result
-        .mockReturnValueOnce(mockDeleteSegmentEffortStatement) // DELETE segment efforts
-        .mockReturnValueOnce(mockDeleteActivityStatement) // DELETE activity
+        .mockReturnValueOnce(mockSelectAllActivitiesStatement) // SELECT all existing activities
+        .mockReturnValueOnce(mockDeleteSegmentEffortStatement) // DELETE segment_effort for activity 50
+        .mockReturnValueOnce(mockDeleteResultStatement) // DELETE result for week+participant
+        .mockReturnValueOnce(mockDeleteActivityStatement) // DELETE activity for week+participant
         .mockReturnValueOnce(mockInsertActivityStatement) // INSERT activity
         .mockReturnValueOnce(mockInsertSegmentEffortStatement) // INSERT segment effort
         .mockReturnValueOnce(mockInsertResultStatement); // INSERT result
@@ -144,9 +149,10 @@ describe('Activity Storage', () => {
       storeActivityAndEfforts(mockDb, testAthleteId, testWeekId, activityData, testSegmentId);
 
       // Verify deletions happened in correct order
-      expect(mockDeleteResultStatement.run).toHaveBeenCalledWith(existingActivityId);
+      // Now we delete at week+participant level to ensure full refresh
       expect(mockDeleteSegmentEffortStatement.run).toHaveBeenCalledWith(existingActivityId);
-      expect(mockDeleteActivityStatement.run).toHaveBeenCalledWith(existingActivityId);
+      expect(mockDeleteResultStatement.run).toHaveBeenCalledWith(testWeekId, testAthleteId);
+      expect(mockDeleteActivityStatement.run).toHaveBeenCalledWith(testWeekId, testAthleteId);
 
       // Verify new activity was inserted with Unix timestamp
       expect(mockInsertActivityStatement.run).toHaveBeenCalledWith(
@@ -159,17 +165,21 @@ describe('Activity Storage', () => {
     });
 
     it('should handle activity with no device name', () => {
-      const mockSelectStatement = {
-        get: jest.fn().mockReturnValue(null)
+      const mockSelectAllActivitiesStatement = {
+        all: jest.fn().mockReturnValue([])
       };
       const mockInsertActivityStatement = {
         run: jest.fn().mockReturnValue({ lastInsertRowid: 102 })
       };
       const mockInsertSegmentEffortStatement = { run: jest.fn() };
       const mockInsertResultStatement = { run: jest.fn() };
+      const mockDeleteResultStatement = { run: jest.fn() };
+      const mockDeleteActivityStatement = { run: jest.fn() };
 
       mockDb.prepare
-        .mockReturnValueOnce(mockSelectStatement)
+        .mockReturnValueOnce(mockSelectAllActivitiesStatement)
+        .mockReturnValueOnce(mockDeleteResultStatement)
+        .mockReturnValueOnce(mockDeleteActivityStatement)
         .mockReturnValueOnce(mockInsertActivityStatement)
         .mockReturnValueOnce(mockInsertSegmentEffortStatement)
         .mockReturnValueOnce(mockInsertResultStatement);
@@ -197,17 +207,21 @@ describe('Activity Storage', () => {
     });
 
     it('should handle multiple segment efforts correctly', () => {
-      const mockSelectStatement = {
-        get: jest.fn().mockReturnValue(null)
+      const mockSelectAllActivitiesStatement = {
+        all: jest.fn().mockReturnValue([])
       };
       const mockInsertActivityStatement = {
         run: jest.fn().mockReturnValue({ lastInsertRowid: 103 })
       };
       const mockInsertSegmentEffortStatement = { run: jest.fn() };
       const mockInsertResultStatement = { run: jest.fn() };
+      const mockDeleteResultStatement = { run: jest.fn() };
+      const mockDeleteActivityStatement = { run: jest.fn() };
 
       mockDb.prepare
-        .mockReturnValueOnce(mockSelectStatement)
+        .mockReturnValueOnce(mockSelectAllActivitiesStatement)
+        .mockReturnValueOnce(mockDeleteResultStatement)
+        .mockReturnValueOnce(mockDeleteActivityStatement)
         .mockReturnValueOnce(mockInsertActivityStatement)
         .mockReturnValueOnce(mockInsertSegmentEffortStatement)
         .mockReturnValueOnce(mockInsertSegmentEffortStatement)
@@ -248,7 +262,7 @@ describe('Activity Storage', () => {
         1, // Second effort
         590,
         isoToUnix('2025-06-01T13:15:00Z'),
-        1
+        0 // pr_rank = 2 (not fastest ever, so no PR bonus)
       );
       expect(mockInsertSegmentEffortStatement.run).toHaveBeenNthCalledWith(
         3,
@@ -263,17 +277,21 @@ describe('Activity Storage', () => {
     });
 
     it('should convert pr_rank to boolean correctly (truthy = 1, falsy = 0)', () => {
-      const mockSelectStatement = {
-        get: jest.fn().mockReturnValue(null)
+      const mockSelectAllActivitiesStatement = {
+        all: jest.fn().mockReturnValue([])
       };
       const mockInsertActivityStatement = {
         run: jest.fn().mockReturnValue({ lastInsertRowid: 104 })
       };
       const mockInsertSegmentEffortStatement = { run: jest.fn() };
       const mockInsertResultStatement = { run: jest.fn() };
+      const mockDeleteResultStatement = { run: jest.fn() };
+      const mockDeleteActivityStatement = { run: jest.fn() };
 
       mockDb.prepare
-        .mockReturnValueOnce(mockSelectStatement)
+        .mockReturnValueOnce(mockSelectAllActivitiesStatement)
+        .mockReturnValueOnce(mockDeleteResultStatement)
+        .mockReturnValueOnce(mockDeleteActivityStatement)
         .mockReturnValueOnce(mockInsertActivityStatement)
         .mockReturnValueOnce(mockInsertSegmentEffortStatement)
         .mockReturnValueOnce(mockInsertSegmentEffortStatement)
@@ -328,17 +346,21 @@ describe('Activity Storage', () => {
     });
 
     it('should store result with correct total time', () => {
-      const mockSelectStatement = {
-        get: jest.fn().mockReturnValue(null)
+      const mockSelectAllActivitiesStatement = {
+        all: jest.fn().mockReturnValue([])
       };
       const mockInsertActivityStatement = {
         run: jest.fn().mockReturnValue({ lastInsertRowid: 105 })
       };
       const mockInsertSegmentEffortStatement = { run: jest.fn() };
       const mockInsertResultStatement = { run: jest.fn() };
+      const mockDeleteResultStatement = { run: jest.fn() };
+      const mockDeleteActivityStatement = { run: jest.fn() };
 
       mockDb.prepare
-        .mockReturnValueOnce(mockSelectStatement)
+        .mockReturnValueOnce(mockSelectAllActivitiesStatement)
+        .mockReturnValueOnce(mockDeleteResultStatement)
+        .mockReturnValueOnce(mockDeleteActivityStatement)
         .mockReturnValueOnce(mockInsertActivityStatement)
         .mockReturnValueOnce(mockInsertSegmentEffortStatement)
         .mockReturnValueOnce(mockInsertResultStatement);
@@ -364,17 +386,21 @@ describe('Activity Storage', () => {
     });
 
     it('should use INSERT OR REPLACE for results', () => {
-      const mockSelectStatement = {
-        get: jest.fn().mockReturnValue(null)
+      const mockSelectAllActivitiesStatement = {
+        all: jest.fn().mockReturnValue([])
       };
       const mockInsertActivityStatement = {
         run: jest.fn().mockReturnValue({ lastInsertRowid: 106 })
       };
       const mockInsertSegmentEffortStatement = { run: jest.fn() };
       const mockInsertResultStatement = { run: jest.fn() };
+      const mockDeleteResultStatement = { run: jest.fn() };
+      const mockDeleteActivityStatement = { run: jest.fn() };
 
       mockDb.prepare
-        .mockReturnValueOnce(mockSelectStatement)
+        .mockReturnValueOnce(mockSelectAllActivitiesStatement)
+        .mockReturnValueOnce(mockDeleteResultStatement)
+        .mockReturnValueOnce(mockDeleteActivityStatement)
         .mockReturnValueOnce(mockInsertActivityStatement)
         .mockReturnValueOnce(mockInsertSegmentEffortStatement)
         .mockReturnValueOnce(mockInsertResultStatement);
@@ -391,8 +417,8 @@ describe('Activity Storage', () => {
       storeActivityAndEfforts(mockDb, testAthleteId, testWeekId, activityData, testSegmentId);
 
       // Check that result insert uses INSERT OR REPLACE
-      // With 1 segment effort, calls are: SELECT, INSERT activity, INSERT segment effort, INSERT result
-      const resultInsertCall = mockDb.prepare.mock.calls[3][0];
+      // With 1 segment effort, calls are: SELECT, DELETE result, DELETE activity, INSERT activity, INSERT segment effort, INSERT result
+      const resultInsertCall = mockDb.prepare.mock.calls[5][0];
       expect(resultInsertCall).toContain('INSERT OR REPLACE INTO result');
     });
   });
