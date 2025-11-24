@@ -149,6 +149,48 @@ function stopServers() {
   const pid = readPidFile();
   
   if (!pid) {
+    // Check if servers are running on ports (fallback for interactive mode)
+    try {
+      const backend = execSync(`lsof -ti:3001 2>/dev/null | head -1`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
+      const frontend = execSync(`lsof -ti:5173 2>/dev/null | head -1`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
+      
+      if (backend || frontend) {
+        console.log('[dev-server] Stopping servers running in interactive mode...');
+        const pidsToKill = new Set();
+        if (backend) pidsToKill.add(parseInt(backend));
+        if (frontend) pidsToKill.add(parseInt(frontend));
+        
+        // Send SIGTERM
+        for (const p of pidsToKill) {
+          try {
+            process.kill(p, 'SIGTERM');
+          } catch (e) {
+            // Already dead
+          }
+        }
+        
+        // Give it 2 seconds to shutdown gracefully
+        setTimeout(() => {
+          const stillAlive = Array.from(pidsToKill).filter(p => isProcessAlive(p));
+          if (stillAlive.length > 0) {
+            console.log('[dev-server] Force killing remaining processes...');
+            for (const p of stillAlive) {
+              try {
+                process.kill(p, 'SIGKILL');
+              } catch (e) {
+                // Already dead
+              }
+            }
+          }
+          console.log('[dev-server] ✓ Servers stopped');
+          process.exit(0);
+        }, 2000);
+        return;
+      }
+    } catch (e) {
+      // Ignore
+    }
+    
     console.log('[dev-server] ✓ No server running (PID file not found)');
     process.exit(0);
   }
@@ -276,12 +318,8 @@ function cleanupOrphans() {
 function statusServers() {
   const pid = readPidFile();
   
-  if (!pid) {
-    console.log('[dev-server] Status: NOT RUNNING');
-    process.exit(1);
-  }
-
-  if (isProcessAlive(pid)) {
+  // Check PID file first
+  if (pid && isProcessAlive(pid)) {
     const allPids = getProcessTree(pid);
     console.log(`[dev-server] Status: RUNNING`);
     console.log(`[dev-server]   Main PID: ${pid}`);
@@ -289,11 +327,32 @@ function statusServers() {
     console.log(`[dev-server]   Frontend: http://localhost:5173`);
     console.log(`[dev-server]   Backend:  http://localhost:3001`);
     process.exit(0);
-  } else {
+  } else if (pid) {
     console.log(`[dev-server] Status: STALE PID (${pid} not found, cleaning up)`);
     deletePidFile();
-    process.exit(1);
   }
+  
+  // Check if servers are running on ports (fallback for npm run dev:all interactive mode)
+  try {
+    const backend = execSync(`lsof -ti:3001 2>/dev/null | head -1`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
+    const frontend = execSync(`lsof -ti:5173 2>/dev/null | head -1`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
+    
+    if (backend || frontend) {
+      console.log(`[dev-server] Status: RUNNING (interactive mode - no PID file)`);
+      if (backend) console.log(`[dev-server]   Backend PID: ${backend}`);
+      if (frontend) console.log(`[dev-server]   Frontend PID: ${frontend}`);
+      console.log(`[dev-server]   Frontend: http://localhost:5173`);
+      console.log(`[dev-server]   Backend:  http://localhost:3001`);
+      console.log(`[dev-server]   Note: Running in interactive mode (npm run dev:all)`);
+      console.log(`[dev-server]   Use Ctrl+C to stop, or 'npm run cleanup' to force stop`);
+      process.exit(0);
+    }
+  } catch (e) {
+    // Ignore errors
+  }
+  
+  console.log('[dev-server] Status: NOT RUNNING');
+  process.exit(1);
 }
 
 // Main
