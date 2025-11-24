@@ -75,6 +75,8 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard, weekNumber }) =
                   {/* Extract activity ID from URL: https://www.strava.com/activities/123456789/ */}
                   {(() => {
                     const activityId = entry.activity_url?.match(/activities\/(\d+)/)?.[1];
+                    // Show PR star if this entry has a PR bonus (pr_bonus_points > 0)
+                    const hasPR = entry.pr_bonus_points > 0;
                     
                     return (
                       <>
@@ -101,24 +103,28 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard, weekNumber }) =
                                 {effort.is_pr && <span style={{ marginLeft: '8px', color: '#ff6b35' }}>⭐</span>}
                               </div>
                             ))}
-                            <div style={{ borderTop: '1px solid #ccc', paddingTop: '4px', color: 'var(--wmv-purple)' }}>
-                              Total: {entry.time_hhmmss}
+                            <div style={{ borderTop: '1px solid #ccc', paddingTop: '4px', color: 'var(--wmv-purple)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span>Total: {entry.time_hhmmss}</span>
+                              {hasPR && <span style={{ marginLeft: '8px', color: '#ffd700' }}>⭐</span>}
                             </div>
                           </div>
                         ) : (
                           /* Show just the time if single lap, as a link */
-                          entry.strava_effort_id && activityId ? (
-                            <a 
-                              href={`https://www.strava.com/activities/${activityId}/segments/${entry.strava_effort_id}`}
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              style={{ color: 'var(--wmv-orange)', textDecoration: 'none', fontWeight: 500 }}
-                            >
-                              {entry.time_hhmmss}
-                            </a>
-                          ) : (
-                            entry.time_hhmmss
-                          )
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {entry.strava_effort_id && activityId ? (
+                              <a 
+                                href={`https://www.strava.com/activities/${activityId}/segments/${entry.strava_effort_id}`}
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                style={{ color: 'var(--wmv-orange)', textDecoration: 'none', fontWeight: 500 }}
+                              >
+                                {entry.time_hhmmss}
+                              </a>
+                            ) : (
+                              entry.time_hhmmss
+                            )}
+                            {hasPR && <span style={{ color: '#ffd700' }}>⭐</span>}
+                          </div>
                         )}
                       </>
                     );
