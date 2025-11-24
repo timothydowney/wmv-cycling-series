@@ -164,7 +164,10 @@ class BatchFetchService {
           const minutes = Math.floor(bestActivity.totalTime / 60);
           const seconds = bestActivity.totalTime % 60;
           const timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-          // Note: PR detection is handled per segment effort, not at activity level
+          
+          // Check if any segment effort has a PR (pr_rank === 1 = athlete's absolute fastest ever)
+          const hasPR = bestActivity.segmentEfforts.some((effort: any) => effort.pr_rank === 1);
+          const prIndicator = hasPR ? ' ⭐ PR' : '';
           
           // Build lap info string
           let lapInfo = '';
@@ -177,7 +180,7 @@ class BatchFetchService {
           }
           
           logger.success(
-            `✓ Matched! ${timeStr}${lapInfo}`,
+            `✓ Matched! ${timeStr}${lapInfo}${prIndicator}`,
             participant.name
           );
 

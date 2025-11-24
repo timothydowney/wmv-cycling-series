@@ -3,21 +3,23 @@ import { api } from '../../api';
 import './SubscriptionStatusCard.css';
 
 interface SubscriptionStatus {
-  subscription: {
-    id: number;
-    strava_subscription_id: number | null;
-    enabled: boolean;
-    status: 'inactive' | 'pending' | 'active' | 'failed';
-    status_message: string | null;
-    last_verified_at: string | null;
-    failed_attempt_count: number;
-    created_at: string;
+  enabled: boolean;
+  status: 'inactive' | 'pending' | 'active' | 'failed';
+  status_message: string | null;
+  subscription_id: number | null;
+  last_verified_at: string | null;
+  failed_attempt_count: number;
+  metrics: {
+    total_events: number;
+    successful_events: number;
+    failed_events: number;
+    pending_retries: number;
+    events_last_24h: number;
+    success_rate: number;
   };
-  events: {
-    total: number;
-    processed: number;
-    failed: number;
-    last_event_time: string | null;
+  environment: {
+    webhook_enabled: boolean;
+    node_env: string;
   };
 }
 
@@ -104,29 +106,21 @@ const SubscriptionStatusCard: React.FC<Props> = ({ subscription, onStatusUpdate 
     }
   };
 
-  const { subscription: sub, events } = subscription;
-  const statusColor = getStatusColor(sub.status);
-  const statusIcon = getStatusIcon(sub.status);
+  const statusColor = getStatusColor(subscription.status);
+  const statusIcon = getStatusIcon(subscription.status);
 
-  const lastVerified = sub.last_verified_at
-    ? new Date(sub.last_verified_at).toLocaleString()
+  const lastVerified = subscription.last_verified_at
+    ? new Date(subscription.last_verified_at).toLocaleString()
     : 'Never';
 
-  const lastEvent = events.last_event_time
-    ? new Date(events.last_event_time).toLocaleString()
-    : 'No events';
-
-  const successRate =
-    events.total > 0
-      ? ((events.processed / events.total) * 100).toFixed(1)
-      : 'N/A';
+  const successRate = subscription.metrics.success_rate.toFixed(1);
 
   return (
     <div className="subscription-card">
       <div className="card-header">
         <div className="status-indicator" style={{ color: statusColor }}>
           {statusIcon}
-          <span>{sub.status.toUpperCase()}</span>
+          <span>{subscription.status.toUpperCase()}</span>
         </div>
         <div className="card-title">Webhook Subscription</div>
       </div>
@@ -135,21 +129,21 @@ const SubscriptionStatusCard: React.FC<Props> = ({ subscription, onStatusUpdate 
         <div className="info-row">
           <label>Current Status:</label>
           <span style={{ color: statusColor, fontWeight: 600 }}>
-            {sub.status.charAt(0).toUpperCase() + sub.status.slice(1)}
+            {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
           </span>
         </div>
 
-        {sub.status_message && (
+        {subscription.status_message && (
           <div className="info-row alert">
             <label>Message:</label>
-            <span>{sub.status_message}</span>
+            <span>{subscription.status_message}</span>
           </div>
         )}
 
         <div className="info-row">
           <label>Subscription ID:</label>
           <span className="mono">
-            {sub.strava_subscription_id ? sub.strava_subscription_id : 'Not created yet'}
+            {subscription.subscription_id ? subscription.subscription_id : 'Not created yet'}
           </span>
         </div>
 
@@ -158,24 +152,19 @@ const SubscriptionStatusCard: React.FC<Props> = ({ subscription, onStatusUpdate 
           <span>{lastVerified}</span>
         </div>
 
-        <div className="info-row">
-          <label>Last Event:</label>
-          <span>{lastEvent}</span>
-        </div>
-
         <div className="metrics">
           <div className="metric">
             <div className="metric-label">Events Received</div>
-            <div className="metric-value">{events.total}</div>
+            <div className="metric-value">{subscription.metrics.total_events}</div>
           </div>
           <div className="metric">
             <div className="metric-label">Processed</div>
-            <div className="metric-value">{events.processed}</div>
+            <div className="metric-value">{subscription.metrics.successful_events}</div>
           </div>
           <div className="metric">
             <div className="metric-label">Failed</div>
             <div className="metric-value" style={{ color: '#e74c3c' }}>
-              {events.failed}
+              {subscription.metrics.failed_events}
             </div>
           </div>
           <div className="metric">
@@ -189,14 +178,14 @@ const SubscriptionStatusCard: React.FC<Props> = ({ subscription, onStatusUpdate 
         <button
           className="action-btn primary"
           onClick={handleEnable}
-          disabled={sub.enabled || loading}
+          disabled={subscription.enabled || loading}
         >
           {loading ? 'Processing...' : 'Enable'}
         </button>
         <button
           className="action-btn danger"
           onClick={handleDisable}
-          disabled={!sub.enabled || loading}
+          disabled={!subscription.enabled || loading}
         >
           {loading ? 'Processing...' : 'Disable'}
         </button>

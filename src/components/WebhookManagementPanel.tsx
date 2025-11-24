@@ -6,21 +6,23 @@ import WebhookEventHistory from './WebhookComponents/WebhookEventHistory';
 import StorageStatusCard from './WebhookComponents/StorageStatusCard';
 
 interface SubscriptionStatus {
-  subscription: {
-    id: number;
-    strava_subscription_id: number | null;
-    enabled: boolean;
-    status: 'inactive' | 'pending' | 'active' | 'failed';
-    status_message: string | null;
-    last_verified_at: string | null;
-    failed_attempt_count: number;
-    created_at: string;
+  enabled: boolean;
+  status: 'inactive' | 'pending' | 'active' | 'failed';
+  status_message: string | null;
+  subscription_id: number | null;
+  last_verified_at: string | null;
+  failed_attempt_count: number;
+  metrics: {
+    total_events: number;
+    successful_events: number;
+    failed_events: number;
+    pending_retries: number;
+    events_last_24h: number;
+    success_rate: number;
   };
-  events: {
-    total: number;
-    processed: number;
-    failed: number;
-    last_event_time: string | null;
+  environment: {
+    webhook_enabled: boolean;
+    node_env: string;
   };
 }
 

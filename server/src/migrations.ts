@@ -141,6 +141,50 @@ const migrations: Migration[] = [
         console.log('[MIGRATION] V4: No cleanup needed, skipping');
       }
     }
+  },
+  {
+    version: 'V5',
+    name: 'Add webhook event retry tracking columns',
+    up: (db: Database) => {
+      // Idempotent: Check if columns exist before adding
+      const tableInfo = db
+        .prepare('PRAGMA table_info(webhook_event)')
+        .all() as Array<{ name: string; type: string }>;
+      
+      const hasRetryCount = tableInfo.some((col) => col.name === 'retry_count');
+      const hasLastErrorAt = tableInfo.some((col) => col.name === 'last_error_at');
+      const hasPayload = tableInfo.some((col) => col.name === 'payload');
+
+      if (!hasPayload) {
+        db.prepare(`
+          ALTER TABLE webhook_event
+          ADD COLUMN payload TEXT
+        `).run();
+        console.log('[MIGRATION] V5: Added payload column to webhook_event table');
+      } else {
+        console.log('[MIGRATION] V5: payload column already exists, skipping');
+      }
+
+      if (!hasRetryCount) {
+        db.prepare(`
+          ALTER TABLE webhook_event
+          ADD COLUMN retry_count INTEGER DEFAULT 0
+        `).run();
+        console.log('[MIGRATION] V5: Added retry_count column to webhook_event table');
+      } else {
+        console.log('[MIGRATION] V5: retry_count column already exists, skipping');
+      }
+
+      if (!hasLastErrorAt) {
+        db.prepare(`
+          ALTER TABLE webhook_event
+          ADD COLUMN last_error_at TEXT
+        `).run();
+        console.log('[MIGRATION] V5: Added last_error_at column to webhook_event table');
+      } else {
+        console.log('[MIGRATION] V5: last_error_at column already exists, skipping');
+      }
+    }
   }
 ];
 
