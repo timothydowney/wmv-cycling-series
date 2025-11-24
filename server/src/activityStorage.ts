@@ -59,7 +59,14 @@ interface ActivityToStore {
 
 /**
  * Store activity and segment efforts in database (replaces existing if present)
- * Atomically deletes existing activity/efforts/results and inserts new ones
+ * Atomically deletes ALL existing results/activities/efforts for this week+participant and inserts fresh data
+ * 
+ * ⚠️ CRITICAL: A refresh should completely replace all old data with fresh Strava data
+ * We delete at the week+participant level (not just activity level) to ensure:
+ * - No orphaned segment_effort records persist from old activities
+ * - PR bonus flags are recalculated fresh from current Strava data
+ * - Race conditions don't leave stale data in the database
+ * 
  * @param db - Better-sqlite3 database instance
  * @param stravaAthleteId - Strava athlete ID
  * @param weekId - Week ID
@@ -73,20 +80,28 @@ function storeActivityAndEfforts(
   activityData: ActivityToStore,
   stravaSegmentId: number
 ): void {
-  // Delete existing activity for this participant/week if exists
-  const existing = db
+  // CRITICAL: Delete ALL old data for this week+participant (full cascade)
+  // This ensures refresh completely replaces old data with fresh Strava data
+  
+  // Step 1: Find all activities for this week+participant
+  const existingActivities = db
     .prepare(`
     SELECT id FROM activity WHERE week_id = ? AND strava_athlete_id = ?
   `)
-    .get(weekId, stravaAthleteId) as { id: number } | undefined;
+    .all(weekId, stravaAthleteId) as Array<{ id: number }>;
 
-  if (existing) {
-    db.prepare('DELETE FROM result WHERE activity_id = ?').run(existing.id);
-    db.prepare('DELETE FROM segment_effort WHERE activity_id = ?').run(
-      existing.id
-    );
-    db.prepare('DELETE FROM activity WHERE id = ?').run(existing.id);
+  // Step 2: Delete segment efforts for all old activities
+  for (const activity of existingActivities) {
+    db.prepare('DELETE FROM segment_effort WHERE activity_id = ?').run(activity.id);
   }
+
+  // Step 3: Delete results for this week+participant
+  db.prepare('DELETE FROM result WHERE week_id = ? AND strava_athlete_id = ?')
+    .run(weekId, stravaAthleteId);
+
+  // Step 4: Delete all old activities for this week+participant
+  db.prepare('DELETE FROM activity WHERE week_id = ? AND strava_athlete_id = ?')
+    .run(weekId, stravaAthleteId);
 
   // Convert activity start_date to Unix timestamp
   // NOTE: Use start_date (UTC with Z suffix), NOT start_date_local (athlete's local timezone)
@@ -119,9 +134,11 @@ function storeActivityAndEfforts(
     // Convert effort start_date to Unix timestamp
     // NOTE: Use start_date (UTC), NOT start_date_local (athlete's local timezone)
     const effortStartUnix = isoToUnix(effort.start_date);
+    // PR bonus only for pr_rank === 1 (athlete's absolute fastest ever)
+    const prAchieved = effort.pr_rank === 1 ? 1 : 0;
 
     console.log(
-      `  Effort ${i}: strava_segment_id=${stravaSegmentId}, elapsed_time=${effort.elapsed_time}, strava_effort_id=${effort.id}`
+      `  Effort ${i}: strava_segment_id=${stravaSegmentId}, elapsed_time=${effort.elapsed_time}, strava_effort_id=${effort.id}${prAchieved ? ' ⭐ PR' : ''}`
     );
     db.prepare(`
         INSERT INTO segment_effort (activity_id, strava_segment_id, strava_effort_id, effort_index, elapsed_seconds, start_at, pr_achieved)
@@ -133,7 +150,7 @@ function storeActivityAndEfforts(
       i,
       effort.elapsed_time,
       effortStartUnix,
-      effort.pr_rank ? 1 : 0
+      prAchieved
     );
   }
 
