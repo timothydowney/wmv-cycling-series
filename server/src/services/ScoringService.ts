@@ -41,22 +41,22 @@ export function calculateWeekScoring(
       `
     SELECT 
       r.id,
-      r.participant_id,
+      r.strava_athlete_id,
       p.name as participant_name,
       r.total_time_seconds,
       MAX(CASE WHEN se.pr_achieved = 1 THEN 1 ELSE 0 END) as pr_achieved
     FROM result r
-    JOIN participant p ON r.participant_id = p.id
+    JOIN participant p ON r.strava_athlete_id = p.strava_athlete_id
     LEFT JOIN activity a ON r.activity_id = a.id
     LEFT JOIN segment_effort se ON a.id = se.activity_id
     WHERE r.week_id = ?
-    GROUP BY r.participant_id
+    GROUP BY r.strava_athlete_id
     ORDER BY r.total_time_seconds ASC
     `
     )
     .all(weekId) as Array<{
     id: number;
-    participant_id: number;
+    strava_athlete_id: number;
     participant_name: string;
     total_time_seconds: number;
     pr_achieved: number;
@@ -75,7 +75,7 @@ export function calculateWeekScoring(
     const totalPoints = basePoints + prBonusPoints;
 
     return {
-      participantId: result.participant_id,
+      participantId: result.strava_athlete_id,
       participantName: result.participant_name,
       rank,
       totalTimeSeconds: result.total_time_seconds,
@@ -198,33 +198,57 @@ export function getSeasonLeaderboard(
   totalPoints: number;
   weeksCompleted: number;
 }> {
-  const results = db
-    .prepare(
-      `
-    SELECT 
-      p.id,
-      p.name,
-      SUM(r.total_points) as total_points,
-      COUNT(DISTINCT r.week_id) as weeks_completed
-    FROM result r
-    JOIN week w ON r.week_id = w.id
-    JOIN participant p ON r.participant_id = p.id
-    WHERE w.season_id = ?
-    GROUP BY p.id
-    ORDER BY total_points DESC
-    `
-    )
-    .all(seasonId) as Array<{
-    id: number;
+  // Get all weeks in this season
+  const weeks = db
+    .prepare('SELECT id FROM week WHERE season_id = ?')
+    .all(seasonId) as Array<{ id: number }>;
+
+  if (weeks.length === 0) {
+    return [];
+  }
+
+  // Calculate scoring for each week and sum by participant
+  const participantTotals: Map<number, {
     name: string;
-    total_points: number;
-    weeks_completed: number;
-  }>;
+    totalPoints: number;
+    weeksCompleted: number;
+  }> = new Map();
+
+  for (const week of weeks) {
+    const weekResults = calculateWeekScoring(db, week.id);
+    
+    for (const result of weekResults.results) {
+      const existing = participantTotals.get(result.participantId);
+      if (existing) {
+        participantTotals.set(result.participantId, {
+          name: existing.name,
+          totalPoints: existing.totalPoints + result.totalPoints,
+          weeksCompleted: existing.weeksCompleted + 1
+        });
+      } else {
+        participantTotals.set(result.participantId, {
+          name: result.participantName,
+          totalPoints: result.totalPoints,
+          weeksCompleted: 1
+        });
+      }
+    }
+  }
+
+  // Convert to array and sort by points
+  const results = Array.from(participantTotals.entries())
+    .map(([participantId, data]) => ({
+      participantId,
+      name: data.name,
+      totalPoints: data.totalPoints,
+      weeksCompleted: data.weeksCompleted
+    }))
+    .sort((a, b) => b.totalPoints - a.totalPoints);
 
   return results.map((result, index) => ({
     rank: index + 1,
     name: result.name,
-    totalPoints: result.total_points || 0,
-    weeksCompleted: result.weeks_completed || 0
+    totalPoints: result.totalPoints,
+    weeksCompleted: result.weeksCompleted
   }));
 }
