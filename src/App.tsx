@@ -9,13 +9,14 @@ import AdminPanel from './components/AdminPanel';
 import ParticipantStatus from './components/ParticipantStatus';
 import ManageSegments from './components/ManageSegments';
 import SeasonManager from './components/SeasonManager';
+import WebhookManagementPanel from './components/WebhookManagementPanel';
 import StravaConnectInfoBox from './components/StravaConnectInfoBox';
 import Footer from './components/Footer';
 import { api, getWeekLeaderboard, Week, Season, LeaderboardEntry } from './api';
 import { useCurrentUser } from './hooks/useCurrentUser';
 import { UnitProvider } from './context/UnitContext';
 
-type ViewMode = 'leaderboard' | 'admin' | 'participants' | 'segments' | 'seasons';
+type ViewMode = 'leaderboard' | 'admin' | 'participants' | 'segments' | 'seasons' | 'webhooks';
 
 function App() {
   const [seasons, setSeasons] = useState<Season[]>([]);
@@ -200,6 +201,7 @@ function App() {
           onParticipantsClick={() => setViewMode('participants')}
           onLeaderboardClick={() => setViewMode('leaderboard')}
           onManageSeasonsClick={() => setViewMode('seasons')}
+          onWebhooksClick={() => setViewMode('webhooks')}
         />
         <div className="app app-content">
           <p>Loading...</p>
@@ -217,6 +219,7 @@ function App() {
           onParticipantsClick={() => setViewMode('participants')}
           onLeaderboardClick={() => setViewMode('leaderboard')}
           onManageSeasonsClick={() => setViewMode('seasons')}
+          onWebhooksClick={() => setViewMode('webhooks')}
         />
         <div className="app app-content">
           <div className="error">{error}</div>
@@ -233,6 +236,7 @@ function App() {
         onParticipantsClick={() => setViewMode('participants')}
         onLeaderboardClick={() => setViewMode('leaderboard')}
         onManageSeasonsClick={() => setViewMode('seasons')}
+        onWebhooksClick={() => setViewMode('webhooks')}
       />
       
       <div className="app app-content">
@@ -269,6 +273,15 @@ function App() {
               <h1 style={{ marginBottom: '1rem' }}>Manage Seasons</h1>
               <p className="admin-subtitle" style={{ marginTop: 0 }}>Add, edit, and remove seasons for the Zwift Hill Climb/Time Trial Series</p>
               <SeasonManager onSeasonsChanged={handleSeasonsChanged} />
+            </div>
+            <Footer />
+          </>
+        ) : viewMode === 'webhooks' ? (
+          <>
+            <div>
+              <h1 style={{ marginBottom: '1rem' }}>Manage Webhooks</h1>
+              <p className="admin-subtitle" style={{ marginTop: 0 }}>Monitor and manage real-time activity updates from Strava</p>
+              <WebhookManagementPanel />
             </div>
             <Footer />
           </>

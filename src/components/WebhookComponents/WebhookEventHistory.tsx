@@ -18,12 +18,9 @@ interface WebhookEvent {
 
 interface WebhookEventsResponse {
   events: WebhookEvent[];
-  pagination: {
-    total: number;
-    limit: number;
-    offset: number;
-    has_more: boolean;
-  };
+  total: number;
+  limit: number;
+  offset: number;
 }
 
 interface Props {
@@ -49,7 +46,12 @@ const WebhookEventHistory: React.FC<Props> = ({ onEventRetry }) => {
         filters.since
       );
       setEvents(response.events);
-      setPagination(response.pagination);
+      setPagination({
+        total: response.total,
+        limit: response.limit,
+        offset: response.offset,
+        has_more: response.offset + response.limit < response.total
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to fetch events';
       setError(msg);
