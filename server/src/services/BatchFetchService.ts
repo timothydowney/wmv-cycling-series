@@ -8,6 +8,7 @@ import * as stravaClient from '../stravaClient';
 import { findBestQualifyingActivity } from '../activityProcessor';
 import { storeActivityAndEfforts } from '../activityStorage';
 import { LogLevel, LoggerCallback, StructuredLogger } from '../types/Logger';
+import ActivityValidationService from './ActivityValidationService';
 
 interface FetchResult {
   participant_id: number;
@@ -29,13 +30,17 @@ interface FetchWeekResultsResponse {
 }
 
 class BatchFetchService {
+  private validationService: ActivityValidationService;
+
   constructor(
     private db: Database,
     private getValidAccessToken: (
       db: Database,
       athleteId: number
     ) => Promise<string>
-  ) {}
+  ) {
+    this.validationService = new ActivityValidationService(db);
+  }
 
   /**
    * Fetch and store results for a week
@@ -48,15 +53,52 @@ class BatchFetchService {
     const week = this.db.prepare(
       `SELECT 
         w.id, w.week_name, w.season_id, w.strava_segment_id, w.required_laps, w.start_at, w.end_at,
-        s.name as segment_name
+        s.name as segment_name,
+        season.id as season_id, season.start_at as season_start_at, season.end_at as season_end_at, 
+        season.is_active, season.created_at as season_created_at
       FROM week w
       LEFT JOIN segment s ON w.strava_segment_id = s.strava_segment_id
+      LEFT JOIN season ON w.season_id = season.id
       WHERE w.id = ?`
     ).get(weekId) as any;
 
     if (!week) {
       logger.error(`Week ${weekId} not found`);
       throw new Error(`Week ${weekId} not found`);
+    }
+
+    // ===== SEASON VALIDATION =====
+    // Check if the season this week belongs to is still active
+    if (week.season_id) {
+      const season = {
+        id: week.season_id,
+        name: '', // Not used for validation
+        start_at: week.season_start_at,
+        end_at: week.season_end_at,
+        is_active: week.is_active,
+        created_at: week.season_created_at
+      };
+
+      const seasonStatus = this.validationService.isSeasonClosed(season);
+      if (seasonStatus.isClosed) {
+        logger.error('Season has ended - cannot fetch results');
+        logger.error(`Season ended: ${seasonStatus.reason}`);
+        return {
+          message: 'Season has ended',
+          week_id: weekId,
+          week_name: week.week_name,
+          participants_processed: 0,
+          results_found: 0,
+          summary: [
+            {
+              participant_id: 0,
+              participant_name: 'All',
+              activity_found: false,
+              reason: `Season has ended (${seasonStatus.reason}). Cannot fetch activities for closed season.`
+            }
+          ]
+        };
+      }
     }
 
     // ===== WEEK TIME CONTEXT =====
