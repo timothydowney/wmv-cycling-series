@@ -130,7 +130,7 @@ export function createWebhookRouter(logger: WebhookLogger, db: Database): Router
 
       // Mark as failed in log
       logger.markFailed(
-        event.object_id,
+        event,
         err instanceof Error ? err.message : String(err)
       );
     });
