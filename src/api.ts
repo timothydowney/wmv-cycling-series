@@ -412,8 +412,8 @@ export const api = {
     return response.json();
   },
 
-  async verifyWebhooks(): Promise<any> {
-    const response = await fetch(`${API_BASE_URL}/admin/webhooks/verify`, {
+  async renewWebhooks(): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/admin/webhooks/renew`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -421,7 +421,7 @@ export const api = {
     });
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
-      throw new Error(err.error || 'Failed to verify webhooks');
+      throw new Error(err.error || 'Failed to renew webhooks');
     }
     return response.json();
   },

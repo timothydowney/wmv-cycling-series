@@ -185,6 +185,108 @@ const migrations: Migration[] = [
         console.log('[MIGRATION] V5: last_error_at column already exists, skipping');
       }
     }
+  },
+  {
+    version: 'V6',
+    name: 'Refactor webhook_subscription table to lean schema',
+    up: (db: Database) => {
+      // This migration simplifies webhook_subscription to store only essential data:
+      // - verify_token (we generate this)
+      // - subscription_payload (complete JSON from Strava)
+      // - last_refreshed_at (when we last synced with Strava)
+      // 
+      // The presence of a record = enabled, absence = disabled
+      // All Strava metadata (id, created_at, updated_at, etc) is in the payload
+      
+      const tableInfo = db
+        .prepare('PRAGMA table_info(webhook_subscription)')
+        .all() as Array<{ name: string; type: string }>;
+      
+      const hasSubscriptionPayload = tableInfo.some((col) => col.name === 'subscription_payload');
+
+      // If payload column doesn't exist, we need to migrate
+      if (!hasSubscriptionPayload) {
+        console.log('[MIGRATION] V6: Refactoring webhook_subscription table...');
+        
+        // Since we don't care about preserving old data, we can drop and recreate
+        db.prepare('DROP TABLE IF EXISTS webhook_subscription').run();
+        console.log('[MIGRATION] V6: Dropped old webhook_subscription table');
+
+        // Create new lean schema
+        db.prepare(`
+          CREATE TABLE webhook_subscription (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            verify_token TEXT,
+            subscription_payload TEXT,
+            last_refreshed_at TEXT
+          )
+        `).run();
+        console.log('[MIGRATION] V6: Created new lean webhook_subscription table');
+
+        // Drop old index if it exists
+        db.prepare('DROP INDEX IF EXISTS idx_webhook_subscription_enabled').run();
+        db.prepare('DROP INDEX IF EXISTS idx_webhook_subscription_status').run();
+        console.log('[MIGRATION] V6: Dropped old indexes');
+      } else {
+        console.log('[MIGRATION] V6: subscription_payload column already exists, skipping');
+      }
+    }
+  },
+  {
+    version: 'V7',
+    name: 'Simplify webhook_event table to lean schema',
+    up: (db: Database) => {
+      // This migration simplifies webhook_event to store only essential data:
+      // - id (primary key)
+      // - payload (raw JSON from Strava webhook)
+      // - processed (boolean, has this been handled?)
+      // - error_message (string, why did it fail if processed=0?)
+      // - created_at (timestamp for expiry and sorting)
+      //
+      // All parsed event data (aspect_type, object_type, object_id, etc) 
+      // can be extracted from the payload when needed.
+      // This makes debugging much easier - we always have the raw data.
+      
+      const tableInfo = db
+        .prepare('PRAGMA table_info(webhook_event)')
+        .all() as Array<{ name: string; type: string }>;
+      
+      // Check if table has the old schema with extra columns
+      const hasAspectType = tableInfo.some((col) => col.name === 'aspect_type');
+
+      if (hasAspectType) {
+        console.log('[MIGRATION] V7: Simplifying webhook_event table...');
+        
+        // Drop and recreate the table (we don't care about old event data)
+        db.prepare('DROP TABLE IF EXISTS webhook_event').run();
+        console.log('[MIGRATION] V7: Dropped old webhook_event table');
+
+        // Create new lean schema
+        db.prepare(`
+          CREATE TABLE webhook_event (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            payload TEXT NOT NULL,
+            processed BOOLEAN DEFAULT 0,
+            error_message TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+          )
+        `).run();
+        console.log('[MIGRATION] V7: Created new lean webhook_event table');
+
+        // Create simple index for sorting/filtering
+        db.prepare(`
+          CREATE INDEX IF NOT EXISTS idx_webhook_event_created ON webhook_event(created_at)
+        `).run();
+        console.log('[MIGRATION] V7: Created index on created_at');
+
+        // Drop all old indexes
+        db.prepare('DROP INDEX IF EXISTS idx_webhook_event_processed').run();
+        db.prepare('DROP INDEX IF EXISTS idx_webhook_event_owner').run();
+        console.log('[MIGRATION] V7: Dropped old indexes');
+      } else {
+        console.log('[MIGRATION] V7: Table already simplified, skipping');
+      }
+    }
   }
 ];
 

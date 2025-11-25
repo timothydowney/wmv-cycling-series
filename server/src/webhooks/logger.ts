@@ -15,14 +15,9 @@ interface WebhookStatsRow {
 }
 
 export interface WebhookEventLogEntry {
-  subscriptionId: number | null;
-  aspectType: string;
-  objectType: string;
-  objectId: number;
-  ownerId: number;
-  processed: boolean;
-  processedAt: string | null;
-  errorMessage: string | null;
+  payload: any;
+  processed?: boolean;
+  errorMessage?: string | null;
 }
 
 export class WebhookLogger {
@@ -43,33 +38,26 @@ export class WebhookLogger {
     try {
       this.db.prepare(`
         INSERT INTO webhook_event (
-          subscription_id, aspect_type, object_type, object_id, owner_id,
-          processed, processed_at, error_message, created_at
+          payload, processed, error_message, created_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
       `).run(
-        entry.subscriptionId,
-        entry.aspectType,
-        entry.objectType,
-        entry.objectId,
-        entry.ownerId,
+        JSON.stringify(entry.payload),
         entry.processed ? 1 : 0,
-        entry.processedAt || null,
         entry.errorMessage || null
       );
     } catch (error) {
       console.error('[Webhook Logger] Failed to log event', {
-        error: error instanceof Error ? error.message : String(error),
-        objectId: entry.objectId
+        error: error instanceof Error ? error.message : String(error)
       });
       // Don't throw - logging failure shouldn't break webhook processing
     }
   }
 
   /**
-   * Mark event as processed
+   * Mark event as processed by payload ID
    */
-  markProcessed(objectId: number, processedAt: string): void {
+  markProcessed(payload: any): void {
     if (process.env.WEBHOOK_LOG_EVENTS !== 'true') {
       return;
     }
@@ -77,15 +65,14 @@ export class WebhookLogger {
     try {
       this.db.prepare(`
         UPDATE webhook_event
-        SET processed = 1, processed_at = ?
-        WHERE object_id = ? AND processed = 0
+        SET processed = 1
+        WHERE payload = ? AND processed = 0
         ORDER BY created_at DESC
         LIMIT 1
-      `).run(processedAt, objectId);
+      `).run(JSON.stringify(payload));
     } catch (error) {
       console.error('[Webhook Logger] Failed to mark processed', {
-        error: error instanceof Error ? error.message : String(error),
-        objectId
+        error: error instanceof Error ? error.message : String(error)
       });
     }
   }
@@ -93,7 +80,7 @@ export class WebhookLogger {
   /**
    * Mark event as failed
    */
-  markFailed(objectId: number, errorMessage: string): void {
+  markFailed(payload: any, errorMessage: string): void {
     if (process.env.WEBHOOK_LOG_EVENTS !== 'true') {
       return;
     }
@@ -101,15 +88,14 @@ export class WebhookLogger {
     try {
       this.db.prepare(`
         UPDATE webhook_event
-        SET error_message = ?, processed_at = CURRENT_TIMESTAMP
-        WHERE object_id = ? AND processed = 0
+        SET error_message = ?
+        WHERE payload = ? AND processed = 0
         ORDER BY created_at DESC
         LIMIT 1
-      `).run(errorMessage, objectId);
+      `).run(errorMessage, JSON.stringify(payload));
     } catch (error) {
       console.error('[Webhook Logger] Failed to mark error', {
-        error: error instanceof Error ? error.message : String(error),
-        objectId
+        error: error instanceof Error ? error.message : String(error)
       });
     }
   }

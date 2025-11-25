@@ -17,7 +17,8 @@
  * - setupWebhookSubscription() factory accepts optional service for testing
  */
 
-const STRAVA_SUBSCRIPTION_URL = 'https://www.strava.com/api/v3/push_subscriptions';
+const STRAVA_API_BASE = process.env.STRAVA_API_BASE_URL || 'https://www.strava.com';
+const STRAVA_SUBSCRIPTION_URL = `${STRAVA_API_BASE}/api/v3/push_subscriptions`;
 
 /**
  * Response from Strava when querying/creating subscription
@@ -185,6 +186,15 @@ function createDefaultService(): SubscriptionService {
 export async function setupWebhookSubscription(service?: SubscriptionService): Promise<void> {
   const svc = service || createDefaultService();
 
+  // Detect mock mode
+  const apiBase = process.env.STRAVA_API_BASE_URL || 'https://www.strava.com';
+  const isMockMode = apiBase.includes('localhost');
+  
+  if (isMockMode) {
+    console.log('[Webhook:SubscriptionManager] 🧪 MOCK MODE DETECTED');
+    console.log(`[Webhook:SubscriptionManager]    Using mock Strava API: ${apiBase}`);
+  }
+
   // Early exit: feature not enabled
   if (process.env.WEBHOOK_ENABLED !== 'true') {
     console.log('[Webhook:SubscriptionManager] Webhooks disabled, skipping subscription setup');
@@ -231,7 +241,8 @@ export async function setupWebhookSubscription(service?: SubscriptionService): P
 
     if (existing) {
       console.log('[Webhook:SubscriptionManager] ✓ Already subscribed, using existing', {
-        subscriptionId: existing.id
+        subscriptionId: existing.id,
+        ...(isMockMode && { mode: '🧪 MOCK' })
       });
       return;
     }
@@ -245,18 +256,26 @@ export async function setupWebhookSubscription(service?: SubscriptionService): P
       clientSecret
     );
 
-    console.log('[Webhook:SubscriptionManager] ✓ Subscription ready', {
+    const logPrefix = isMockMode ? '[Webhook:SubscriptionManager] 🧪 MOCK MODE - ' : '[Webhook:SubscriptionManager] ';
+    console.log(logPrefix + '✓ Subscription ready', {
       subscriptionId: subscription.id,
       callbackUrl: subscription.callback_url,
-      createdAt: subscription.created_at
+      createdAt: subscription.created_at,
+      mode: isMockMode ? 'mock-strava' : 'real-strava'
     });
 
-    console.log('[Webhook:SubscriptionManager] Admin note: Strava will send webhook events to:');
+    console.log(logPrefix + 'Webhook events will be sent to:');
     console.log(`  ${callbackUrl}`);
-    console.log('[Webhook:SubscriptionManager] Monitor webhook events with:');
-    console.log('  SELECT * FROM webhook_event ORDER BY created_at DESC LIMIT 20;');
+    if (!isMockMode) {
+      console.log('[Webhook:SubscriptionManager] Monitor webhook events with:');
+      console.log('  SELECT * FROM webhook_event ORDER BY created_at DESC LIMIT 20;');
+    } else {
+      console.log('[Webhook:SubscriptionManager] 🧪 Test webhook events by running:');
+      console.log('  npm run webhook:emit -- --event create');
+    }
   } catch (error) {
-    console.error('[Webhook:SubscriptionManager] Setup failed', {
+    const logPrefix = isMockMode ? '[Webhook:SubscriptionManager] 🧪 MOCK MODE - ' : '[Webhook:SubscriptionManager] ';
+    console.error(logPrefix + 'Setup failed', {
       error: error instanceof Error ? error.message : String(error)
     });
     console.warn(

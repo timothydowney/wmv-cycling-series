@@ -37,6 +37,9 @@
     "lint:backend": "npm --prefix server run lint",
     "lint:all": "npm run lint && npm run lint:backend",
     "validate:docker": "bash scripts/validate-docker-build.sh",
+    "webhook:emit": "tsx scripts/webhook-emitter.ts",
+    "mock:strava": "cd mock-strava && npm run dev",
+    "mock:strava:kill": "pkill -f 'cd mock-strava' || pkill -f 'mock-strava' || true",
     "preview": "vite preview",
     "postinstall": "cd server && npm install",
     "prepare": "node scripts/install-hooks.cjs"

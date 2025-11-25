@@ -130,7 +130,7 @@ export function createWebhookProcessor(db: Database, service?: WebhookService) {
       });
 
       if (process.env.WEBHOOK_LOG_EVENTS === 'true') {
-        logger.markProcessed(event.object_id, new Date().toISOString());
+        logger.markProcessed(event);
       }
     } catch (error) {
       const duration = Date.now() - startTime;
@@ -144,7 +144,7 @@ export function createWebhookProcessor(db: Database, service?: WebhookService) {
 
       if (process.env.WEBHOOK_LOG_EVENTS === 'true') {
         logger.markFailed(
-          event.object_id,
+          event,
           error instanceof Error ? error.message : String(error)
         );
       }
@@ -196,12 +196,12 @@ export function createQueueProcessor(db: Database, service?: WebhookService) {
       const processor = createWebhookProcessor(db, svc);
       await processor(event, logger);
 
-      // Success - update retry count to 0
+      // Success - clear any error
       db.prepare(
         `UPDATE webhook_event 
-         SET retry_count = 0, last_error_at = NULL
-         WHERE object_id = ?`
-      ).run(event.object_id);
+         SET processed = 1
+         WHERE id = ?`
+      ).run(queuedEvent.id || event.object_id);
 
       console.log(
         `[Webhook:Queue] ✓ Event succeeded: ${event.object_type}/${event.aspect_type} ID=${event.object_id}`
@@ -209,12 +209,12 @@ export function createQueueProcessor(db: Database, service?: WebhookService) {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
 
-      // Update event with error timestamp
+      // Update event with error message
       db.prepare(
         `UPDATE webhook_event
-         SET retry_count = ?, last_error_at = CURRENT_TIMESTAMP
-         WHERE object_id = ?`
-      ).run(currentAttempt, event.object_id);
+         SET error_message = ?
+         WHERE id = ?`
+      ).run(errorMessage, queuedEvent.id || event.object_id);
 
       // Check if we should retry
       if (currentAttempt < maxRetries) {
