@@ -1,0 +1,108 @@
+{
+  "comment": "Webhook test events for local development. Use with: npm run webhook:emit -- --file scripts/webhook-test-events.json",
+  "events": [
+    {
+      "name": "Single Activity - Happy Path",
+      "description": "Participant completes one activity during event window. Most common scenario.",
+      "payload": {
+        "aspect_type": "create",
+        "event_time": 1732464600,
+        "object_id": 9876543210,
+        "object_type": "activity",
+        "owner_id": 366880,
+        "subscription_id": 1
+      }
+    },
+    {
+      "name": "Multiple Activities from Same Person",
+      "description": "Participant submits multiple activities. Tests best-activity selection.",
+      "payload": {
+        "aspect_type": "create",
+        "event_time": 1732468200,
+        "object_id": 9876543211,
+        "object_type": "activity",
+        "owner_id": 366880,
+        "subscription_id": 1
+      }
+    },
+    {
+      "name": "Activity from Different Participant",
+      "description": "Second participant submits activity. Tests multi-participant processing.",
+      "payload": {
+        "aspect_type": "create",
+        "event_time": 1732470000,
+        "object_id": 9876543212,
+        "object_type": "activity",
+        "owner_id": 16044526,
+        "subscription_id": 1
+      }
+    },
+    {
+      "name": "Update Activity (Time Change)",
+      "description": "Participant updates activity details. Should re-process.",
+      "payload": {
+        "aspect_type": "update",
+        "event_time": 1732471800,
+        "object_id": 9876543210,
+        "object_type": "activity",
+        "owner_id": 366880,
+        "subscription_id": 1,
+        "updates": {
+          "title": true,
+          "description": true
+        }
+      }
+    },
+    {
+      "name": "Delete Activity",
+      "description": "Participant deletes activity. Tests cleanup and recalculation.",
+      "payload": {
+        "aspect_type": "delete",
+        "event_time": 1732473600,
+        "object_id": 9876543210,
+        "object_type": "activity",
+        "owner_id": 366880,
+        "subscription_id": 1
+      }
+    },
+    {
+      "name": "Athlete Deauthorizes App",
+      "description": "Participant revokes access in Strava settings. Tests token cleanup.",
+      "payload": {
+        "aspect_type": "update",
+        "event_time": 1732475400,
+        "object_id": 0,
+        "object_type": "athlete",
+        "owner_id": 366880,
+        "subscription_id": 1,
+        "updates": {
+          "authorized": false
+        }
+      }
+    },
+    {
+      "name": "Activity Outside Event Time Window",
+      "description": "Activity completed before event window opened. Should be rejected.",
+      "payload": {
+        "aspect_type": "create",
+        "event_time": 1732350000,
+        "object_id": 9876543213,
+        "object_type": "activity",
+        "owner_id": 15179953,
+        "subscription_id": 1
+      }
+    },
+    {
+      "name": "Activity with No Matching Week",
+      "description": "Activity completed on date with no active event. Should log as info.",
+      "payload": {
+        "aspect_type": "create",
+        "event_time": 1735363200,
+        "object_id": 9876543214,
+        "object_type": "activity",
+        "owner_id": 366880,
+        "subscription_id": 1
+      }
+    }
+  ]
+}
