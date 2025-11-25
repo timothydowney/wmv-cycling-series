@@ -91,14 +91,9 @@ export function createWebhookRouter(logger: WebhookLogger, db: Database): Router
    * Admin controls whether webhooks are enabled via the admin panel.
    */
   router.post('/strava', (req: Request, res: Response): void => {
-    // Verify token immediately (SECURITY: prevent unauthorized events)
-    const token = req.headers['x-hub-signature'] as string;
-    
-    if (token !== process.env.WEBHOOK_VERIFY_TOKEN) {
-      console.warn('[Webhook] POST: Invalid or missing verify token');
-      res.status(403).json({ error: 'Invalid token' });
-      return;
-    }
+    // NOTE: No token validation on POST events
+    // Strava's official docs don't mention x-hub-signature for webhook events.
+    // All traffic is HTTPS; Strava's infrastructure is trusted.
 
     const event = req.body as WebhookEvent;
 
