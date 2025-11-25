@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './WebhookManagementPanel.css';
 import { api } from '../api';
-import { siteModeService } from '../utils/siteModeService';
+
 import SubscriptionStatusCard from './WebhookComponents/SubscriptionStatusCard';
 import WebhookEventHistory from './WebhookComponents/WebhookEventHistory';
 import StorageStatusCard from './WebhookComponents/StorageStatusCard';
@@ -41,8 +41,7 @@ export const WebhookManagementPanel: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'status' | 'events' | 'storage'>('status');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isMockMode, setIsMockMode] = useState(false);
-  const [mockServerRunning, setMockServerRunning] = useState<boolean | null>(null);
+
 
   const fetchSubscriptionStatus = async () => {
     try {
@@ -65,10 +64,7 @@ export const WebhookManagementPanel: React.FC = () => {
     }
   };
 
-  const checkMockServerStatus = async () => {
-    const isRunning = await siteModeService.checkMockWebhookServerHealth();
-    setMockServerRunning(isRunning);
-  };
+
 
   const handleRefresh = async () => {
     await fetchSubscriptionStatus();
@@ -80,13 +76,6 @@ export const WebhookManagementPanel: React.FC = () => {
       setLoading(true);
       try {
         await Promise.all([fetchSubscriptionStatus(), fetchStorageStatus()]);
-        
-        if (siteModeService.isWebhookMockMode()) {
-          setIsMockMode(true);
-          await checkMockServerStatus();
-        } else {
-          setIsMockMode(false);
-        }
       } finally {
         setLoading(false);
       }
@@ -114,18 +103,6 @@ export const WebhookManagementPanel: React.FC = () => {
       <div className="webhook-header">
         <h2>Webhook Management</h2>
       </div>
-
-      {isMockMode && (
-        <div className={`mock-mode-banner ${mockServerRunning ? 'server-running' : mockServerRunning === false ? 'server-down' : 'server-checking'}`}>
-          <span className="mock-badge">🧪 MOCK MODE</span>
-          <span className="mock-text">Using mock-strava API (localhost:4000) for webhook testing</span>
-          {mockServerRunning !== null && (
-            <span className={`server-status ${mockServerRunning ? 'running' : 'down'}`}>
-              {mockServerRunning ? '✓ Server running' : '✗ Server not responding'}
-            </span>
-          )}
-        </div>
-      )}
 
       {error && (
         <div className="error-banner">
