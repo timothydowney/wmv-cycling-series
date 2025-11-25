@@ -86,11 +86,20 @@ export function createWebhookRouter(logger: WebhookLogger, db: Database): Router
    *     "updates": { ... }  // optional, for updates
    *   }
    *
-   * NOTE: This endpoint always accepts events and returns 200.
+   * SECURITY: Verify token checked on all events.
    * Event processing is controlled by the database subscription status.
    * Admin controls whether webhooks are enabled via the admin panel.
    */
   router.post('/strava', (req: Request, res: Response): void => {
+    // Verify token immediately (SECURITY: prevent unauthorized events)
+    const token = req.headers['x-hub-signature'] as string;
+    
+    if (token !== process.env.WEBHOOK_VERIFY_TOKEN) {
+      console.warn('[Webhook] POST: Invalid or missing verify token');
+      res.status(403).json({ error: 'Invalid token' });
+      return;
+    }
+
     const event = req.body as WebhookEvent;
 
     console.log('[Webhook] Event received', {
