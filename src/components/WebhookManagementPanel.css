@@ -22,6 +22,87 @@
   color: #333;
 }
 
+.mock-mode-banner {
+  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+  border: 2px solid #ffb700;
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 2px 8px rgba(255, 183, 0, 0.2);
+}
+
+.mock-mode-banner.server-down {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ff8787 100%);
+  border-color: #ff5252;
+  box-shadow: 0 2px 8px rgba(255, 82, 82, 0.2);
+}
+
+.mock-mode-banner.server-running {
+  background: linear-gradient(135deg, #51cf66 0%, #69db7c 100%);
+  border-color: #40c057;
+  box-shadow: 0 2px 8px rgba(64, 192, 87, 0.2);
+}
+
+.mock-mode-banner.server-checking {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.mock-badge {
+  font-weight: 700;
+  font-size: 13px;
+  color: #333;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mock-mode-banner.server-down .mock-badge,
+.mock-mode-banner.server-running .mock-badge {
+  color: white;
+}
+
+.mock-text {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+  flex: 1;
+}
+
+.mock-mode-banner.server-down .mock-text,
+.mock-mode-banner.server-running .mock-text {
+  color: white;
+}
+
+.server-status {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.3);
+  white-space: nowrap;
+}
+
+.server-status.running {
+  background: rgba(255, 255, 255, 0.4);
+  color: white;
+}
+
+.server-status.down {
+  background: rgba(255, 255, 255, 0.4);
+  color: white;
+}
+
 .refresh-btn {
   padding: 8px 16px;
   background: #0066ff;

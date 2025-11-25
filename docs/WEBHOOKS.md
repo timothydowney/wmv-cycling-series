@@ -258,6 +258,287 @@ STRAVA_REDIRECT_URI=https://your-domain.com/auth/strava/callback
 
 ---
 
+## Local Development Testing
+
+**Problem:** You need to test webhooks locally without deploying to production, but Strava can only send webhooks to public HTTPS URLs.
+
+**Solutions:** WMV provides two complementary testing approaches:
+
+1. **Mock Strava Server** - Emulates real Strava API for end-to-end integration testing
+2. **Webhook Emulator CLI** - Sends test events to your local backend for fast iteration
+
+---
+
+### Option 1: Mock Strava Server (Recommended for E2E Testing)
+
+The mock-strava server emulates Strava's API on `localhost:4000`, allowing full webhook testing without real Strava credentials.
+
+**Quick Start:**
+
+```bash
+# Terminal 1: Start mock Strava server
+npm run mock:strava
+# Output: Mock Strava listening on localhost:4000
+
+# Terminal 2: Start app servers
+npm run dev:all
+# Backend automatically detects mock mode and logs:
+# [Webhook:SubscriptionManager] 🧪 MOCK MODE DETECTED
+# [Webhook:SubscriptionManager]    Using mock Strava API: http://localhost:4000
+
+# Terminal 3: Emit test event
+npm run webhook:emit -- --event create --participant 366880
+```
+
+**Benefits:**
+- ✅ Real Strava API integration testing (same code path as production)
+- ✅ No Strava credentials needed
+- ✅ Automatic webhook subscription handling
+- ✅ Full HTTP protocol testing (not just event injection)
+- ✅ Backend shows clear "🧪 MOCK MODE" indicator
+- ✅ Frontend banner shows mock server status (green when running, red when down)
+
+**How It Works:**
+- Backend reads `STRAVA_API_BASE_URL=http://localhost:4000` from `.env` (development)
+- All Strava API calls route through mock server
+- `siteModeService` detects development mode and enables mock-mode features
+- UI banner clearly indicates mock vs production mode
+
+**Verifying Mock Mode is Active:**
+1. Terminal with app server shows: `🧪 MOCK MODE DETECTED`
+2. Frontend Admin Panel → Webhooks shows yellow banner with "🧪 MOCK MODE"
+3. When mock-strava is running: banner shows green "✓ Server running"
+4. When mock-strava stops: banner shows red "✗ Server not responding"
+
+---
+
+### Option 2: Webhook Emulator CLI (Quick Iteration)
+
+Use the webhook emulator to rapidly test webhook event processing without running mock-strava.
+
+**Quick Start:**
+
+1. **Start the development servers:**
+   ```bash
+   npm run dev:all
+   ```
+   - Backend: http://localhost:3001
+   - Frontend: http://localhost:5173
+
+2. **In another terminal, emit a test webhook event:**
+   ```bash
+   npm run webhook:emit -- --event create --participant 366880
+   ```
+
+3. **Verify it worked:**
+   - Check backend logs for processing message
+   - Open frontend → Admin Panel → Webhooks → Events tab
+   - Should see the test event listed
+   - Check the leaderboard to see if activity was added
+
+---
+
+### Available Test Events
+
+**With Webhook Emulator CLI** (works with both real Strava and mock-strava):
+
+The webhook emulator comes with 8 pre-configured test scenarios:
+
+```bash
+# Activity created (happy path)
+npm run webhook:emit -- --event create
+
+# Activity updated (modified time, distance, etc.)
+npm run webhook:emit -- --event update
+
+# Activity deleted by participant
+npm run webhook:emit -- --event delete
+
+# Athlete disconnected their Strava account
+npm run webhook:emit -- --event deauth
+
+# Activity outside time window (won't match any week)
+npm run webhook:emit -- --event outside-window
+
+# Activity with no segment efforts (won't have required segment)
+npm run webhook:emit -- --event no-segment
+
+# Multiple activities for same week (tests best-selection logic)
+npm run webhook:emit -- --event multi-activity
+
+# Rapid-fire multiple events (tests queue/retry behavior)
+npm run webhook:emit -- --event burst
+```
+
+### Using Custom Participants & Activities
+
+By default, events use hardcoded test data. You can override with command-line arguments:
+
+```bash
+# Use a specific participant athlete ID
+npm run webhook:emit -- --event create --participant 12345678
+
+# Use a specific activity ID
+npm run webhook:emit -- --event create --activity 9876543210
+
+# Combine both
+npm run webhook:emit -- --event create --participant 12345678 --activity 9876543210
+```
+
+### Viewing Results
+
+**In the app:**
+1. Admin Panel → Webhooks → Events tab
+2. See all received webhook events
+3. Check "Status" column: "processed" = success, "error" = failure
+4. Click event for details (error message, retry info)
+
+**In the database:**
+```bash
+# Query webhook events
+sqlite3 server/data/wmv.db "SELECT id, object_type, aspect_type, processed, error_message FROM webhook_event LIMIT 10;"
+
+# Query activities that were stored from webhooks
+sqlite3 server/data/wmv.db "SELECT week_id, participant_id, total_time_seconds, validation_status FROM activities WHERE validation_status = 'valid';"
+
+# Check leaderboard for the week
+sqlite3 server/data/wmv.db "SELECT participant_id, rank, total_time_seconds, points FROM results WHERE week_id = 1 ORDER BY rank;"
+```
+
+### Troubleshooting
+
+**Event not appearing in Events tab?**
+- Ensure `WEBHOOK_ENABLED=true` in `.env`
+- Check backend logs for errors: `npm run dev:all` shows all output
+- Verify webhook emulator is posting to correct URL (http://localhost:3001/webhooks/strava)
+
+**Event marked as "error" in Events tab?**
+- Click the event to see error message
+- Common issues:
+  - No matching participant (use correct `--participant` value)
+  - Week time window doesn't match activity date
+  - Participant not connected to Strava (no OAuth token)
+- Check backend logs for full stack trace
+
+**Activity not appearing on leaderboard?**
+- Verify activity matches a week's time window
+- Verify participant is connected to Strava
+- Check `webhook_event` table: `processed=1` means success
+- Check `activities` table: should have a row with `validation_status='valid'`
+- Run diagnostic query above to verify
+
+### Complete Testing Workflow
+
+#### Scenario 1: Full End-to-End Testing (Mock Strava)
+
+```bash
+# Terminal 1: Start mock Strava server
+npm run mock:strava
+# Listens on localhost:4000
+
+# Terminal 2: Start app servers
+npm run dev:all
+# Backend logs show: 🧪 MOCK MODE DETECTED
+# Frontend shows: Yellow "🧪 MOCK MODE" banner, turns green when mock-strava responds
+
+# Terminal 3: Verify mock mode
+# Check that:
+# - Backend shows: [Webhook:SubscriptionManager] 🧪 MOCK MODE DETECTED
+# - Frontend Admin Panel → Webhooks shows green banner with "✓ Server running"
+
+# Terminal 4: Run integration tests
+npm run webhook:emit -- --event create --participant 366880
+
+# Verify in UI:
+# - http://localhost:5173 → Admin Panel → Webhooks → Events tab
+# - See test event with status "processed"
+# - Check leaderboard for the week
+# - See activity ranked and scored
+```
+
+**Benefits of this approach:**
+- Tests real Strava API integration (same code path as production)
+- Full end-to-end from mock Strava through app to leaderboard
+- Easy to see what's happening (clear logging)
+- Automatically uses mock credentials (no real API key needed)
+
+#### Scenario 2: Quick Iteration Testing (Webhook Emulator Only)
+
+```bash
+# Terminal 1: Start servers (uses real Strava API)
+npm run dev:all
+
+# Terminal 2: Run rapid tests
+npm run webhook:emit -- --event create
+npm run webhook:emit -- --event update
+npm run webhook:emit -- --event delete
+
+# Verify results in UI or database
+```
+
+**Benefits of this approach:**
+- Fast - no mock server startup time
+- Good for testing event processor logic
+- Useful when you don't need full API integration testing
+- Can test with real Strava OAuth tokens if desired
+
+**For detailed testing guide with database queries and advanced scenarios, see [WEBHOOK_TESTING.md](./WEBHOOK_TESTING.md)**
+
+---
+
+## Environment Configuration
+
+The webhook system uses environment variables to control behavior in development vs production.
+
+### Development Configuration (`.env`)
+
+```env
+# Enable/disable webhooks entirely
+WEBHOOK_ENABLED=false                    # Start false, set true when testing
+
+# Webhook verification token (for local testing)
+WEBHOOK_VERIFY_TOKEN=dev-token-for-testing
+
+# Strava API base URL - CRITICAL for mock-strava
+STRAVA_API_BASE_URL=http://localhost:4000    # Routes to mock-strava
+
+# Optional: log all webhook events for debugging
+WEBHOOK_LOG_EVENTS=false                 # Set to true to see all events in DB
+```
+
+**Key Variables:**
+
+| Variable | Value | Purpose |
+|----------|-------|---------|
+| `WEBHOOK_ENABLED` | `false` (by default) | Feature flag to enable/disable webhooks |
+| `STRAVA_API_BASE_URL` | `http://localhost:4000` | Backend detects this and enables mock mode |
+| `WEBHOOK_VERIFY_TOKEN` | Any value | Used by local webhook emulator |
+| `WEBHOOK_LOG_EVENTS` | `false` (optional) | Toggle event logging for debugging |
+
+**How It Works:**
+- Backend checks if `STRAVA_API_BASE_URL` contains "localhost"
+- If yes: logs "🧪 MOCK MODE DETECTED" and uses mock server
+- Frontend uses `siteModeService` to detect if in development
+- If in dev mode: shows mock mode banner with server status
+
+### Production Configuration (`.env.example`)
+
+```env
+WEBHOOK_ENABLED=true                          # Enable webhooks
+WEBHOOK_VERIFY_TOKEN=<your-secret-token>      # Strava includes this in requests
+WEBHOOK_CALLBACK_URL=https://yourdomain.com/webhooks/strava
+STRAVA_API_BASE_URL=https://www.strava.com    # Real Strava API
+WEBHOOK_LOG_EVENTS=false                      # Optional debug logging
+```
+
+**Key Differences:**
+- Webhooks ENABLED (to receive real events from Strava)
+- Real Strava API endpoint
+- Public HTTPS callback URL
+- Strong verification token
+
+---
+
 ## Security
 
 ### Webhook Verification

@@ -4,11 +4,10 @@ import './SubscriptionStatusCard.css';
 
 interface SubscriptionStatus {
   enabled: boolean;
-  status: 'inactive' | 'pending' | 'active' | 'failed';
-  status_message: string | null;
   subscription_id: number | null;
-  last_verified_at: string | null;
-  failed_attempt_count: number;
+  created_at: string | null;
+  expires_at: string | null;
+  last_refreshed_at: string | null;
   metrics: {
     total_events: number;
     successful_events: number;
@@ -16,10 +15,6 @@ interface SubscriptionStatus {
     pending_retries: number;
     events_last_24h: number;
     success_rate: number;
-  };
-  environment: {
-    webhook_enabled: boolean;
-    node_env: string;
   };
 }
 
@@ -32,29 +27,48 @@ const SubscriptionStatusCard: React.FC<Props> = ({ subscription, onStatusUpdate 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const getStatusColor = (status: string): string => {
-    switch (status) {
-      case 'active':
-        return '#2ecc71';
-      case 'pending':
-        return '#f39c12';
-      case 'failed':
-        return '#e74c3c';
-      default:
-        return '#95a5a6';
+  const getStatusIcon = (): string => {
+    if (!subscription.enabled) {
+      return '✕';
+    }
+    return '✓';
+  };
+
+  const getStatusColor = (): string => {
+    if (!subscription.enabled) {
+      return '#95a5a6';
+    }
+    return '#27ae60';
+  };
+
+  const getStatusLabel = (): string => {
+    if (!subscription.enabled) {
+      return 'Webhooks Inactive';
+    }
+    return 'Webhooks Active';
+  };
+
+  const formatDateTime = (isoString: string | null): string => {
+    if (!isoString) return '—';
+    try {
+      const date = new Date(isoString);
+      const month = date.toLocaleString('en-US', { month: 'short' });
+      const day = date.getDate();
+      const year = date.getFullYear();
+      const hour = String(date.getHours()).padStart(2, '0');
+      const minute = String(date.getMinutes()).padStart(2, '0');
+      return `${month} ${day}, ${year} at ${hour}:${minute}`;
+    } catch {
+      return '—';
     }
   };
 
-  const getStatusIcon = (status: string): string => {
-    switch (status) {
-      case 'active':
-        return '●';
-      case 'pending':
-        return '◐';
-      case 'failed':
-        return '✕';
-      default:
-        return '○';
+  const isExpired = (): boolean => {
+    if (!subscription.expires_at) return false;
+    try {
+      return new Date() > new Date(subscription.expires_at);
+    } catch {
+      return false;
     }
   };
 
@@ -62,144 +76,117 @@ const SubscriptionStatusCard: React.FC<Props> = ({ subscription, onStatusUpdate 
     setLoading(true);
     try {
       await api.enableWebhooks();
-      setMessage('Webhooks enabled successfully');
+      setMessage('✓ Webhooks enabled');
       await onStatusUpdate();
       setTimeout(() => setMessage(null), 3000);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to enable webhooks';
-      setMessage(msg);
+      setMessage(`✕ ${msg}`);
     } finally {
       setLoading(false);
     }
   };
 
   const handleDisable = async () => {
-    if (!window.confirm('Disable webhooks? You can re-enable them later.')) {
-      return;
-    }
     setLoading(true);
     try {
       await api.disableWebhooks();
-      setMessage('Webhooks disabled successfully');
+      setMessage('✓ Webhooks disabled');
       await onStatusUpdate();
       setTimeout(() => setMessage(null), 3000);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to disable webhooks';
-      setMessage(msg);
+      setMessage(`✕ ${msg}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleVerify = async () => {
+  const handleRenew = async () => {
     setLoading(true);
     try {
-      await api.verifyWebhooks();
-      setMessage('Subscription verified successfully');
+      await api.renewWebhooks();
+      setMessage('✓ Subscription renewed');
       await onStatusUpdate();
       setTimeout(() => setMessage(null), 3000);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to verify subscription';
-      setMessage(msg);
+      const msg = err instanceof Error ? err.message : 'Failed to renew subscription';
+      setMessage(`✕ ${msg}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const statusColor = getStatusColor(subscription.status);
-  const statusIcon = getStatusIcon(subscription.status);
-
-  const lastVerified = subscription.last_verified_at
-    ? new Date(subscription.last_verified_at).toLocaleString()
-    : 'Never';
-
-  const successRate = subscription.metrics.success_rate.toFixed(1);
+  const statusIcon = getStatusIcon();
+  const statusColor = getStatusColor();
+  const statusLabel = getStatusLabel();
 
   return (
     <div className="subscription-card">
-      <div className="card-header">
-        <div className="status-indicator" style={{ color: statusColor }}>
-          {statusIcon}
-          <span>{subscription.status.toUpperCase()}</span>
-        </div>
-        <div className="card-title">Webhook Subscription</div>
+      {/* Header with status */}
+      <div className="card-header" style={{ background: `linear-gradient(135deg, ${statusColor} 0%, ${statusColor}dd 100%)` }}>
+        <span className="status-icon" style={{ color: 'white', fontSize: '20px' }}>{statusIcon}</span>
+        <span className="status-label" style={{ color: 'white' }}>{statusLabel}</span>
       </div>
 
+      {/* Main content section */}
       <div className="card-body">
-        <div className="info-row">
-          <label>Current Status:</label>
-          <span style={{ color: statusColor, fontWeight: 600 }}>
-            {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
-          </span>
-        </div>
-
-        {subscription.status_message && (
-          <div className="info-row alert">
-            <label>Message:</label>
-            <span>{subscription.status_message}</span>
+        {subscription.enabled ? (
+          <>
+            <div className="subscription-info">
+              <div className="info-row">
+                <span className="label">Subscribed since:</span>
+                <span className="value">{formatDateTime(subscription.created_at)}</span>
+              </div>
+              <div className="info-row">
+                <span className="label">Expires:</span>
+                <span className="value" style={isExpired() ? { color: '#e74c3c', fontWeight: 'bold' } : {}}>
+                  {formatDateTime(subscription.expires_at)}
+                  {isExpired() && ' (expired - renew to reactivate)'}
+                </span>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="subscription-info">
+            <p className="inactive-message">Enable real-time activity updates from Strava</p>
           </div>
         )}
-
-        <div className="info-row">
-          <label>Subscription ID:</label>
-          <span className="mono">
-            {subscription.subscription_id ? subscription.subscription_id : 'Not created yet'}
-          </span>
-        </div>
-
-        <div className="info-row">
-          <label>Last Verified:</label>
-          <span>{lastVerified}</span>
-        </div>
-
-        <div className="metrics">
-          <div className="metric">
-            <div className="metric-label">Events Received</div>
-            <div className="metric-value">{subscription.metrics.total_events}</div>
-          </div>
-          <div className="metric">
-            <div className="metric-label">Processed</div>
-            <div className="metric-value">{subscription.metrics.successful_events}</div>
-          </div>
-          <div className="metric">
-            <div className="metric-label">Failed</div>
-            <div className="metric-value" style={{ color: '#e74c3c' }}>
-              {subscription.metrics.failed_events}
-            </div>
-          </div>
-          <div className="metric">
-            <div className="metric-label">Success Rate</div>
-            <div className="metric-value">{successRate}%</div>
-          </div>
-        </div>
       </div>
 
+      {/* Action buttons */}
       <div className="card-footer">
-        <button
-          className="action-btn primary"
-          onClick={handleEnable}
-          disabled={subscription.enabled || loading}
-        >
-          {loading ? 'Processing...' : 'Enable'}
-        </button>
-        <button
-          className="action-btn danger"
-          onClick={handleDisable}
-          disabled={!subscription.enabled || loading}
-        >
-          {loading ? 'Processing...' : 'Disable'}
-        </button>
-        <button
-          className="action-btn secondary"
-          onClick={handleVerify}
-          disabled={loading}
-        >
-          {loading ? 'Verifying...' : 'Verify Now'}
-        </button>
+        {subscription.enabled ? (
+          <>
+            <button
+              className="action-btn primary"
+              onClick={handleRenew}
+              disabled={loading}
+            >
+              {loading ? 'Renewing...' : 'Renew'}
+            </button>
+            <button
+              className="action-btn danger"
+              onClick={handleDisable}
+              disabled={loading}
+            >
+              {loading ? 'Processing...' : 'Disable'}
+            </button>
+          </>
+        ) : (
+          <button
+            className="action-btn primary"
+            onClick={handleEnable}
+            disabled={loading}
+          >
+            {loading ? 'Processing...' : 'Enable'}
+          </button>
+        )}
       </div>
 
+      {/* Status message */}
       {message && (
-        <div className={`status-message ${message.startsWith('Failed') ? 'error' : 'success'}`}>
+        <div className={`status-message ${message.startsWith('✕') ? 'error' : 'success'}`}>
           {message}
         </div>
       )}

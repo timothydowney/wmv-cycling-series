@@ -33,15 +33,12 @@ export function createWebhookRouter(logger: WebhookLogger, db: Database): Router
    *   { "hub.challenge": "<challenge-string>" }
    *
    * within 2 seconds to complete subscription.
+   *
+   * NOTE: This endpoint works regardless of WEBHOOK_ENABLED flag.
+   * The flag only controls event processing (POST), not validation (GET).
+   * This is required for Strava to validate the webhook subscription.
    */
   router.get('/strava', (req: Request, res: Response): void => {
-    // Feature flag check
-    if (process.env.WEBHOOK_ENABLED !== 'true') {
-      console.log('[Webhook] GET validation - webhooks disabled');
-      res.status(503).json({ error: 'Webhooks disabled' });
-      return;
-    }
-
     const mode = req.query['hub.mode'] as string;
     const challenge = req.query['hub.challenge'] as string;
     const token = req.query['hub.verify_token'] as string;
@@ -88,15 +85,12 @@ export function createWebhookRouter(logger: WebhookLogger, db: Database): Router
    *     "subscription_id": 1,
    *     "updates": { ... }  // optional, for updates
    *   }
+   *
+   * NOTE: This endpoint always accepts events and returns 200.
+   * Event processing is controlled by the database subscription status.
+   * Admin controls whether webhooks are enabled via the admin panel.
    */
   router.post('/strava', (req: Request, res: Response): void => {
-    // Feature flag check
-    if (process.env.WEBHOOK_ENABLED !== 'true') {
-      console.log('[Webhook] POST event - webhooks disabled');
-      res.status(503).json({ error: 'Webhooks disabled' });
-      return;
-    }
-
     const event = req.body as WebhookEvent;
 
     console.log('[Webhook] Event received', {
@@ -109,16 +103,23 @@ export function createWebhookRouter(logger: WebhookLogger, db: Database): Router
     // MUST respond immediately with 200 (Strava requirement: 2 seconds)
     res.status(200).json({ received: true });
 
+    // Check if webhooks are enabled in database
+    const subscription = db.prepare(`
+      SELECT enabled FROM webhook_subscription LIMIT 1
+    `).get() as { enabled: number } | undefined;
+
+    const webhooksEnabled = subscription?.enabled === 1;
+
+    if (!webhooksEnabled) {
+      console.log('[Webhook] Event received but webhooks are disabled in database - skipping processing');
+      return;
+    }
+
     // Log event (if enabled)
     if (process.env.WEBHOOK_LOG_EVENTS === 'true') {
       logger.logEvent({
-        subscriptionId: event.subscription_id,
-        aspectType: event.aspect_type,
-        objectType: event.object_type,
-        objectId: event.object_id,
-        ownerId: event.owner_id,
+        payload: event,
         processed: false,
-        processedAt: null,
         errorMessage: null
       });
     }

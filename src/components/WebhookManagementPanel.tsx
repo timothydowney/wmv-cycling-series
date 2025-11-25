@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import './WebhookManagementPanel.css';
 import { api } from '../api';
+import { siteModeService } from '../utils/siteModeService';
 import SubscriptionStatusCard from './WebhookComponents/SubscriptionStatusCard';
 import WebhookEventHistory from './WebhookComponents/WebhookEventHistory';
 import StorageStatusCard from './WebhookComponents/StorageStatusCard';
 
 interface SubscriptionStatus {
   enabled: boolean;
-  status: 'inactive' | 'pending' | 'active' | 'failed';
-  status_message: string | null;
   subscription_id: number | null;
-  last_verified_at: string | null;
-  failed_attempt_count: number;
+  created_at: string | null;
+  expires_at: string | null;
+  last_refreshed_at: string | null;
   metrics: {
     total_events: number;
     successful_events: number;
@@ -19,10 +19,6 @@ interface SubscriptionStatus {
     pending_retries: number;
     events_last_24h: number;
     success_rate: number;
-  };
-  environment: {
-    webhook_enabled: boolean;
-    node_env: string;
   };
 }
 
@@ -45,11 +41,11 @@ export const WebhookManagementPanel: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'status' | 'events' | 'storage'>('status');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
+  const [isMockMode, setIsMockMode] = useState(false);
+  const [mockServerRunning, setMockServerRunning] = useState<boolean | null>(null);
 
   const fetchSubscriptionStatus = async () => {
     try {
-      setRefreshing(true);
       const response = await api.getWebhookStatus();
       setSubscription(response);
       setError(null);
@@ -57,8 +53,6 @@ export const WebhookManagementPanel: React.FC = () => {
       const message = err instanceof Error ? err.message : 'Failed to fetch subscription status';
       setError(message);
       console.error('Failed to fetch subscription status:', err);
-    } finally {
-      setRefreshing(false);
     }
   };
 
@@ -71,6 +65,11 @@ export const WebhookManagementPanel: React.FC = () => {
     }
   };
 
+  const checkMockServerStatus = async () => {
+    const isRunning = await siteModeService.checkMockWebhookServerHealth();
+    setMockServerRunning(isRunning);
+  };
+
   const handleRefresh = async () => {
     await fetchSubscriptionStatus();
     await fetchStorageStatus();
@@ -81,6 +80,13 @@ export const WebhookManagementPanel: React.FC = () => {
       setLoading(true);
       try {
         await Promise.all([fetchSubscriptionStatus(), fetchStorageStatus()]);
+        
+        if (siteModeService.isWebhookMockMode()) {
+          setIsMockMode(true);
+          await checkMockServerStatus();
+        } else {
+          setIsMockMode(false);
+        }
       } finally {
         setLoading(false);
       }
@@ -107,14 +113,19 @@ export const WebhookManagementPanel: React.FC = () => {
     <div className="webhook-panel">
       <div className="webhook-header">
         <h2>Webhook Management</h2>
-        <button
-          className="refresh-btn"
-          onClick={handleRefresh}
-          disabled={refreshing}
-        >
-          {refreshing ? 'Refreshing...' : 'Refresh'}
-        </button>
       </div>
+
+      {isMockMode && (
+        <div className={`mock-mode-banner ${mockServerRunning ? 'server-running' : mockServerRunning === false ? 'server-down' : 'server-checking'}`}>
+          <span className="mock-badge">🧪 MOCK MODE</span>
+          <span className="mock-text">Using mock-strava API (localhost:4000) for webhook testing</span>
+          {mockServerRunning !== null && (
+            <span className={`server-status ${mockServerRunning ? 'running' : 'down'}`}>
+              {mockServerRunning ? '✓ Server running' : '✗ Server not responding'}
+            </span>
+          )}
+        </div>
+      )}
 
       {error && (
         <div className="error-banner">

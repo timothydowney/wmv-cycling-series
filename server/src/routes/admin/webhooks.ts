@@ -9,8 +9,7 @@
  * - GET /admin/webhooks/events - Get event history with pagination
  * - POST /admin/webhooks/enable - Enable webhooks
  * - POST /admin/webhooks/disable - Disable webhooks
- * - POST /admin/webhooks/verify - Verify subscription with Strava
- * - POST /admin/webhooks/events/:id/retry - Retry failed event
+ * - POST /admin/webhooks/renew - Renew webhook subscription
  * - DELETE /admin/webhooks/events - Clear event history
  */
 
@@ -29,12 +28,10 @@ export function createWebhookAdminRoutes(db: Database): Router {
    * Returns:
    * {
    *   enabled: boolean,
-   *   status: 'active' | 'inactive' | 'error',
-   *   status_message: string,
    *   subscription_id: number | null,
-   *   last_verified_at: string | null,
-   *   verify_token: string | null,
-   *   failed_attempt_count: number,
+   *   created_at: string | null,
+   *   expires_at: string | null,
+   *   last_refreshed_at: string | null,
    *   metrics: {
    *     total_events: number,
    *     successful_events: number,
@@ -42,10 +39,6 @@ export function createWebhookAdminRoutes(db: Database): Router {
    *     pending_retries: number,
    *     events_last_24h: number,
    *     success_rate: number
-   *   },
-   *   environment: {
-   *     webhook_enabled: boolean,
-   *     node_env: string
    *   }
    * }
    */
@@ -63,12 +56,12 @@ export function createWebhookAdminRoutes(db: Database): Router {
         .get() as { count: number };
 
       const failedEvents = db
-        .prepare('SELECT COUNT(*) as count FROM webhook_event WHERE processed = 0 AND processed_at IS NOT NULL')
+        .prepare('SELECT COUNT(*) as count FROM webhook_event WHERE processed = 0 AND error_message IS NOT NULL')
         .get() as { count: number };
 
       const pendingRetries = db
         .prepare(
-          'SELECT COUNT(*) as count FROM webhook_event WHERE retry_count > 0 AND retry_count < 3'
+          'SELECT COUNT(*) as count FROM webhook_event WHERE processed = 0 AND error_message IS NOT NULL'
         )
         .get() as { count: number };
 
@@ -82,12 +75,11 @@ export function createWebhookAdminRoutes(db: Database): Router {
         totalEvents.count > 0 ? ((successfulEvents.count / totalEvents.count) * 100).toFixed(1) : '0.0';
 
       res.json({
-        enabled: subscriptionStatus.enabled,
-        status: subscriptionStatus.status || 'inactive',
-        status_message: subscriptionStatus.status_message || 'Not configured',
-        subscription_id: subscriptionStatus.strava_subscription_id || null,
-        last_verified_at: subscriptionStatus.last_verified_at || null,
-        failed_attempt_count: subscriptionStatus.failed_attempt_count || 0,
+        enabled: subscriptionStatus.id !== null,
+        subscription_id: subscriptionStatus.subscription_id,
+        created_at: subscriptionStatus.created_at,
+        expires_at: subscriptionStatus.expires_at,
+        last_refreshed_at: subscriptionStatus.last_refreshed_at,
         metrics: {
           total_events: totalEvents.count,
           successful_events: successfulEvents.count,
@@ -95,10 +87,6 @@ export function createWebhookAdminRoutes(db: Database): Router {
           pending_retries: pendingRetries.count,
           events_last_24h: eventsLast24h.count,
           success_rate: parseFloat(successRate as string)
-        },
-        environment: {
-          webhook_enabled: process.env.WEBHOOK_ENABLED === 'true',
-          node_env: process.env.NODE_ENV || 'development'
         }
       });
     } catch (error) {
@@ -161,15 +149,9 @@ export function createWebhookAdminRoutes(db: Database): Router {
    *   events: [
    *     {
    *       id: number,
-   *       object_type: string,
-   *       aspect_type: string,
-   *       object_id: number,
-   *       owner_id: number,
+   *       payload: any,
    *       processed: boolean,
-   *       processed_at: string | null,
    *       error_message: string | null,
-   *       retry_count: number,
-   *       last_error_at: string | null,
    *       created_at: string
    *     }
    *   ],
@@ -208,8 +190,7 @@ export function createWebhookAdminRoutes(db: Database): Router {
       const events = db
         .prepare(
           `
-          SELECT id, object_type, aspect_type, object_id, owner_id, processed, processed_at, 
-                 error_message, retry_count, last_error_at, created_at
+          SELECT id, payload, processed, error_message, created_at
           FROM webhook_event
           ${whereClause}
           ORDER BY created_at DESC
@@ -218,8 +199,14 @@ export function createWebhookAdminRoutes(db: Database): Router {
         )
         .all(...params, limit, offset) as any[];
 
+      // Parse payload JSON for each event
+      const parsedEvents = events.map((event: any) => ({
+        ...event,
+        payload: event.payload ? JSON.parse(event.payload) : null
+      }));
+
       res.json({
-        events,
+        events: parsedEvents,
         total: countResult.count,
         limit,
         offset
@@ -243,7 +230,7 @@ export function createWebhookAdminRoutes(db: Database): Router {
    * {
    *   enabled: true,
    *   subscription_id: number | null,
-   *   status: string,
+   *   created_at: string | null,
    *   message: string
    * }
    */
@@ -252,9 +239,9 @@ export function createWebhookAdminRoutes(db: Database): Router {
       const result = await subscriptionService.enable();
 
       res.json({
-        enabled: result.enabled,
-        subscription_id: result.strava_subscription_id || null,
-        status: result.status,
+        enabled: result.id !== null,
+        subscription_id: result.subscription_id,
+        created_at: result.created_at,
         message: 'Webhooks enabled successfully'
       });
     } catch (error) {
@@ -284,7 +271,7 @@ export function createWebhookAdminRoutes(db: Database): Router {
       const result = await subscriptionService.disable();
 
       res.json({
-        enabled: result.enabled,
+        enabled: result.id !== null,
         message: 'Webhooks disabled successfully'
       });
     } catch (error) {
@@ -298,36 +285,36 @@ export function createWebhookAdminRoutes(db: Database): Router {
   });
 
   /**
-   * POST /admin/webhooks/verify
+   * POST /admin/webhooks/renew
    *
-   * Verify subscription status with Strava and check if renewal needed.
+   * Renew the webhook subscription by deleting the old one and creating a new one.
+   * This is needed when subscription is expiring (every 24 hours).
    *
    * Returns:
    * {
+   *   enabled: boolean,
    *   subscription_id: number | null,
-   *   status: 'active' | 'inactive' | 'error',
-   *   verified_at: string,
-   *   needs_renewal: boolean,
+   *   created_at: string | null,
+   *   expires_at: string | null,
    *   message: string
    * }
    */
-  router.post('/verify', async (_req: Request, res: Response) => {
+  router.post('/renew', async (_req: Request, res: Response) => {
     try {
-      const verifyResult = await subscriptionService.verify();
-      const needsRenewal = subscriptionService.needsRenewal();
+      const result = await subscriptionService.renew();
 
       res.json({
-        subscription_id: verifyResult.strava_subscription_id || null,
-        status: verifyResult.status,
-        verified_at: new Date().toISOString(),
-        needs_renewal: needsRenewal,
-        message: 'Verification complete'
+        enabled: result.id !== null,
+        subscription_id: result.subscription_id,
+        created_at: result.created_at,
+        expires_at: result.expires_at,
+        message: 'Webhooks renewed successfully'
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error('[Admin:Webhooks] POST /verify failed:', message);
+      console.error('[Admin:Webhooks] POST /renew failed:', message);
       res.status(500).json({
-        error: 'Failed to verify webhooks',
+        error: 'Failed to renew webhooks',
         message
       });
     }
@@ -372,15 +359,15 @@ export function createWebhookAdminRoutes(db: Database): Router {
         return;
       }
 
-      // Reset retry count to allow retry (will be picked up by queue/processor)
+      // Reset error to allow retry
       db.prepare(
         `UPDATE webhook_event
-         SET retry_count = 0, last_error_at = NULL, processed = 0, processed_at = NULL, error_message = NULL
+         SET processed = 0, error_message = NULL
          WHERE id = ?`
       ).run(eventId);
 
       console.log(
-        `[Admin:Webhooks] Event ${eventId} (${event.object_type}/${event.aspect_type}) marked for retry`
+        `[Admin:Webhooks] Event ${eventId} marked for retry`
       );
 
       res.json({
