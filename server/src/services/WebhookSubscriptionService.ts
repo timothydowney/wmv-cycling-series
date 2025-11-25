@@ -34,11 +34,179 @@ export interface SubscriptionStatus {
   callback_url: string | null;
 }
 
+/**
+ * Helper to get Strava API configuration
+ */
+function getStravaConfig() {
+  const clientId = process.env.STRAVA_CLIENT_ID;
+  const clientSecret = process.env.STRAVA_CLIENT_SECRET;
+  const apiBase = process.env.STRAVA_API_BASE_URL || 'https://www.strava.com';
+  
+  if (!clientId || !clientSecret) {
+    throw new Error('Missing STRAVA_CLIENT_ID or STRAVA_CLIENT_SECRET environment variables');
+  }
+  
+  return { clientId, clientSecret, apiBase };
+}
+
+/**
+ * Helper to build Strava API credentials form
+ */
+function buildStravaFormData(clientId: string, clientSecret: string, ...pairs: [string, string][]): URLSearchParams {
+  const form = new URLSearchParams();
+  form.append('client_id', clientId);
+  form.append('client_secret', clientSecret);
+  
+  for (const [key, value] of pairs) {
+    form.append(key, value);
+  }
+  
+  return form;
+}
+
+/**
+ * Helper to update subscription in database
+ * 
+ * ALWAYS uses id = 1 to enforce "only one subscription per app" constraint
+ * Stores both the full payload (for reference) and the subscription_id (for direct access)
+ */
+function updateSubscriptionInDb(
+  db: Database.Database,
+  payload: StravaSubscriptionPayload,
+  stravaSubscriptionId: number
+): void {
+  db.prepare(`
+    UPDATE webhook_subscription
+    SET subscription_payload = ?,
+        subscription_id = ?,
+        last_refreshed_at = CURRENT_TIMESTAMP
+    WHERE id = 1
+  `).run(JSON.stringify(payload), stravaSubscriptionId);
+}
+
+/**
+ * Helper to insert subscription into database
+ * 
+ * ALWAYS uses id = 1 to enforce "only one subscription per app" constraint
+ * Uses INSERT OR REPLACE to handle the case where a row already exists
+ * Stores both the full payload (for reference) and the subscription_id (for direct access)
+ */
+function insertSubscriptionInDb(
+  db: Database.Database,
+  payload: StravaSubscriptionPayload,
+  verifyToken: string,
+  stravaSubscriptionId: number
+): void {
+  db.prepare(`
+    INSERT INTO webhook_subscription (id, verify_token, subscription_payload, subscription_id, last_refreshed_at)
+    VALUES (1, ?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(id) DO UPDATE SET
+      verify_token = excluded.verify_token,
+      subscription_payload = excluded.subscription_payload,
+      subscription_id = excluded.subscription_id,
+      last_refreshed_at = CURRENT_TIMESTAMP
+  `).run(verifyToken, JSON.stringify(payload), stravaSubscriptionId);
+}
+
+/**
+ * Helper to delete subscription row from database
+ * 
+ * ALWAYS deletes id = 1 (the only subscription)
+ */
+function deleteSubscriptionFromDb(db: Database.Database): void {
+  const result = db.prepare('DELETE FROM webhook_subscription WHERE id = 1').run();
+  console.log('[WebhookSubscriptionService] Database delete result:', { 
+    changes: (result as any).changes 
+  });
+}
+
 export class WebhookSubscriptionService {
   private db: Database.Database;
 
   constructor(db: Database.Database) {
     this.db = db;
+  }
+
+  /**
+   * Fetch existing subscription from Strava API
+   */
+  private async fetchExistingFromStrava(): Promise<StravaSubscriptionPayload | null> {
+    const { clientId, clientSecret, apiBase } = getStravaConfig();
+    const url = new URL(`${apiBase}/api/v3/push_subscriptions`);
+    url.searchParams.append('client_id', clientId);
+    url.searchParams.append('client_secret', clientSecret);
+
+    try {
+      const response = await fetch(url.toString());
+      if (!response.ok) {
+        console.warn(`[WebhookSubscriptionService] Failed to fetch existing subscription: ${response.status}`);
+        return null;
+      }
+
+      const data = (await response.json()) as { data?: Array<StravaSubscriptionPayload> };
+      return data.data?.[0] ?? null;
+    } catch (error) {
+      console.warn('[WebhookSubscriptionService] Error fetching existing subscription from Strava:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Create a new subscription with Strava API
+   */
+  private async createSubscriptionWithStrava(): Promise<StravaSubscriptionPayload> {
+    const { clientId, clientSecret, apiBase } = getStravaConfig();
+    const callbackUrl = process.env.WEBHOOK_CALLBACK_URL;
+    const verifyToken = process.env.WEBHOOK_VERIFY_TOKEN;
+
+    if (!callbackUrl || !verifyToken) {
+      throw new Error('Missing WEBHOOK_CALLBACK_URL or WEBHOOK_VERIFY_TOKEN environment variables');
+    }
+
+    const url = `${apiBase}/api/v3/push_subscriptions`;
+    const form = buildStravaFormData(clientId, clientSecret, ['callback_url', callbackUrl], ['verify_token', verifyToken]);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      body: form,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Strava API error creating subscription: ${response.status} ${errorText}`);
+    }
+
+    const subscription = (await response.json()) as StravaSubscriptionPayload;
+    console.log('[WebhookSubscriptionService] ✓ Subscription created on Strava with ID:', subscription.id);
+    return subscription;
+  }
+
+  /**
+   * Delete a subscription from Strava API
+   */
+  private async deleteSubscriptionWithStrava(subscriptionId: number): Promise<void> {
+    const { clientId, clientSecret, apiBase } = getStravaConfig();
+    const url = `${apiBase}/api/v3/push_subscriptions/${subscriptionId}`;
+    const form = buildStravaFormData(clientId, clientSecret);
+
+    try {
+      const response = await fetch(url, {
+        method: 'DELETE',
+        body: form,
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.warn(`[WebhookSubscriptionService] Failed to delete subscription ${subscriptionId} on Strava: ${response.status} ${errorText}`);
+        // Don't throw - we still want to clean up locally
+      } else {
+        console.log('[WebhookSubscriptionService] ✓ Subscription deleted on Strava');
+      }
+    } catch (error) {
+      console.warn('[WebhookSubscriptionService] Error deleting subscription on Strava:', error);
+    }
   }
 
   /**
@@ -50,11 +218,10 @@ export class WebhookSubscriptionService {
   getStatus(): SubscriptionStatus {
     try {
       const row = this.db.prepare(`
-        SELECT 
-          id, verify_token, subscription_payload, last_refreshed_at
+        SELECT id, verify_token, subscription_payload, subscription_id, last_refreshed_at
         FROM webhook_subscription
         LIMIT 1
-      `).get() as { id: number; verify_token: string; subscription_payload: string | null; last_refreshed_at: string | null } | undefined;
+      `).get() as { id: number; verify_token: string; subscription_payload: string | null; subscription_id: number | null; last_refreshed_at: string | null } | undefined;
 
       if (!row) {
         // No subscription exists = disabled state
@@ -68,7 +235,7 @@ export class WebhookSubscriptionService {
         };
       }
 
-      // Parse subscription payload if it exists
+      // Parse subscription payload if it exists (for callback_url and created_at)
       let payload: StravaSubscriptionPayload | null = null;
       if (row.subscription_payload) {
         try {
@@ -86,9 +253,12 @@ export class WebhookSubscriptionService {
         expires_at = expires.toISOString();
       }
 
+      // Use subscription_id from column (clean, reliable source)
+      const subscription_id = row.subscription_id;
+
       return {
         id: row.id,
-        subscription_id: payload?.id ?? null,
+        subscription_id: subscription_id,
         created_at: payload?.created_at ?? null,
         expires_at,
         last_refreshed_at: row.last_refreshed_at,
@@ -107,7 +277,6 @@ export class WebhookSubscriptionService {
   async renew(): Promise<SubscriptionStatus> {
     try {
       const current = this.getStatus();
-
       console.log('[WebhookSubscriptionService] Renewing subscription');
 
       // First disable the old one
@@ -126,157 +295,80 @@ export class WebhookSubscriptionService {
   /**
    * Enable webhook subscription
    * 
-   * Creates or updates subscription with Strava API and stores the response JSON
-   * Row presence in database = subscription is enabled
+   * 1. Check if subscription already exists in database
+   * 2. If not, check if one exists on Strava (recovery scenario)
+   * 3. If not on Strava either, create a new one
+   * 4. Return updated status
    */
   async enable(): Promise<SubscriptionStatus> {
     try {
+      // Always re-fetch current status from database (don't rely on cached/stale in-memory status)
       const current = this.getStatus();
-      console.log('[WebhookSubscriptionService] enable() called, current status:', {
-        id: current.id,
-        subscription_id: current.subscription_id
+      console.log('[WebhookSubscriptionService] Enabling subscription', { has_db_record: !!current.id, has_strava_id: !!current.subscription_id });
+
+      // If we have a database record with Strava subscription, we're already enabled
+      // CRITICAL: Re-verify this by checking the database directly in case status is stale
+      // (e.g., after a disable() call followed by enable() in the same renew() sequence)
+      if (current.id && current.subscription_id) {
+        // Double-check the DB actually has this record (not a stale in-memory state)
+        const dbRecord = this.db.prepare('SELECT id FROM webhook_subscription WHERE id = 1').get();
+        if (dbRecord) {
+          console.log('[WebhookSubscriptionService] ✓ Already enabled');
+          return current;
+        }
+        // If DB check fails, fall through to create new one (DB was cleared)
+      }
+
+      // Try to recover from Strava if DB is missing subscription (DB loss scenario)
+      console.log('[WebhookSubscriptionService] enable() - trying fetchExistingFromStrava...');
+      const existingOnStrava = await this.fetchExistingFromStrava();
+      console.log('[WebhookSubscriptionService] enable() - fetchExistingFromStrava returned:', {
+        found: !!existingOnStrava,
+        id: existingOnStrava?.id
       });
-
-      // If no subscription record exists, create one with Strava
-      if (!current.id) {
-        console.log('[WebhookSubscriptionService] No subscription record exists, creating new one with Strava');
+      
+      if (existingOnStrava) {
+        console.log('[WebhookSubscriptionService] ✓ Found existing subscription on Strava, recovering...');
         
-        // Get required environment variables
-        const callbackUrl = process.env.WEBHOOK_CALLBACK_URL;
-        const clientId = process.env.STRAVA_CLIENT_ID;
-        const clientSecret = process.env.STRAVA_CLIENT_SECRET;
-        const verifyToken = process.env.WEBHOOK_VERIFY_TOKEN;
-        const apiBase = process.env.STRAVA_API_BASE_URL || 'https://www.strava.com';
-        
-        console.log('[WebhookSubscriptionService] Config:', {
-          callbackUrl,
-          clientId,
-          clientSecret: clientSecret ? '***' : 'missing',
-          apiBase
-        });
-        
-        if (!callbackUrl || !clientId || !clientSecret || !verifyToken) {
-          throw new Error('Missing required environment variables: WEBHOOK_CALLBACK_URL, STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET, WEBHOOK_VERIFY_TOKEN');
+        if (current.id) {
+          // Update existing DB record (always id = 1)
+          console.log('[WebhookSubscriptionService] enable() - calling updateSubscriptionInDb with existing record');
+          updateSubscriptionInDb(this.db, existingOnStrava, existingOnStrava.id);
+        } else {
+          // Create new DB record (always id = 1)
+          console.log('[WebhookSubscriptionService] enable() - calling insertSubscriptionInDb with existing from Strava');
+          const verifyToken = process.env.WEBHOOK_VERIFY_TOKEN || 'recovered';
+          insertSubscriptionInDb(this.db, existingOnStrava, verifyToken, existingOnStrava.id);
         }
         
-        // Call Strava API to create subscription
-        console.log('[WebhookSubscriptionService] Calling Strava API to create subscription...');
-        const subscriptionUrl = `${apiBase}/api/v3/push_subscriptions`;
-        console.log('[WebhookSubscriptionService] POST to:', subscriptionUrl);
-        
-        const formData = new URLSearchParams();
-        formData.append('client_id', clientId);
-        formData.append('client_secret', clientSecret);
-        formData.append('callback_url', callbackUrl);
-        formData.append('verify_token', verifyToken);
-        
-        const response = await fetch(subscriptionUrl, {
-          method: 'POST',
-          body: formData,
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-          }
-        });
-        
-        console.log('[WebhookSubscriptionService] Strava API response:', {
-          status: response.status,
-          statusText: response.statusText
-        });
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Strava API error: ${response.status} ${errorText}`);
-        }
-        
-        const stravaSubscription = (await response.json()) as StravaSubscriptionPayload;
-        
-        console.log('[WebhookSubscriptionService] ✓ Strava subscription created', {
-          subscription_id: stravaSubscription.id,
-          callback_url: stravaSubscription.callback_url
-        });
-        
-        // Store in database (row presence = enabled)
-        const result = this.db.prepare(`
-          INSERT INTO webhook_subscription (
-            verify_token, subscription_payload, last_refreshed_at
-          )
-          VALUES (?, ?, CURRENT_TIMESTAMP)
-          RETURNING id, verify_token, subscription_payload, last_refreshed_at
-        `).get(verifyToken, JSON.stringify(stravaSubscription)) as { id: number; verify_token: string; subscription_payload: string; last_refreshed_at: string };
-
-        console.log('[WebhookSubscriptionService] ✓ Subscription record created', {
-          id: result.id,
-          subscription_id: stravaSubscription.id
-        });
-
         return this.getStatus();
       }
 
-      // If subscription record exists but no payload, create with Strava
-      if (!current.subscription_id) {
-        console.log('[WebhookSubscriptionService] Subscription record exists but no Strava subscription yet - creating with Strava');
-        
-        const callbackUrl = process.env.WEBHOOK_CALLBACK_URL;
-        const clientId = process.env.STRAVA_CLIENT_ID;
-        const clientSecret = process.env.STRAVA_CLIENT_SECRET;
-        const apiBase = process.env.STRAVA_API_BASE_URL || 'https://www.strava.com';
-        
-        if (!callbackUrl || !clientId || !clientSecret) {
-          throw new Error('Missing required environment variables: WEBHOOK_CALLBACK_URL, STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET');
+      // Not on Strava, create new subscription
+      console.log('[WebhookSubscriptionService] Creating new subscription with Strava...');
+      const subscription = await this.createSubscriptionWithStrava();
+      console.log('[WebhookSubscriptionService] enable() - createSubscriptionWithStrava returned:', {
+        subscription_id: subscription.id,
+        subscription_id_type: typeof subscription.id,
+        full_subscription: subscription
+      });
+      
+      if (current.id) {
+        // Update existing DB record (always id = 1)
+        console.log('[WebhookSubscriptionService] enable() - calling updateSubscriptionInDb with newly created');
+        updateSubscriptionInDb(this.db, subscription, subscription.id);
+      } else {
+        // Create new DB record (always id = 1)
+        console.log('[WebhookSubscriptionService] enable() - calling insertSubscriptionInDb with newly created');
+        const verifyToken = process.env.WEBHOOK_VERIFY_TOKEN || '';
+        if (!verifyToken) {
+          throw new Error('WEBHOOK_VERIFY_TOKEN environment variable is required');
         }
-        
-        // Call Strava API to create subscription
-        console.log('[WebhookSubscriptionService] Calling Strava API to create subscription...');
-        const subscriptionUrl = `${apiBase}/api/v3/push_subscriptions`;
-        console.log('[WebhookSubscriptionService] POST to:', subscriptionUrl);
-        
-        const formData = new URLSearchParams();
-        formData.append('client_id', clientId);
-        formData.append('client_secret', clientSecret);
-        formData.append('callback_url', callbackUrl);
-        formData.append('verify_token', process.env.WEBHOOK_VERIFY_TOKEN || '');
-        
-        const response = await fetch(subscriptionUrl, {
-          method: 'POST',
-          body: formData,
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-          }
-        });
-        
-        console.log('[WebhookSubscriptionService] Strava API response:', {
-          status: response.status,
-          statusText: response.statusText
-        });
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Strava API error: ${response.status} ${errorText}`);
-        }
-        
-        const stravaSubscription = (await response.json()) as StravaSubscriptionPayload;
-        
-        console.log('[WebhookSubscriptionService] ✓ Strava subscription created', {
-          subscription_id: stravaSubscription.id,
-          callback_url: stravaSubscription.callback_url
-        });
-        
-        // Update database with subscription payload
-        this.db.prepare(`
-          UPDATE webhook_subscription
-          SET 
-            subscription_payload = ?,
-            last_refreshed_at = CURRENT_TIMESTAMP
-          WHERE id = ?
-        `).run(JSON.stringify(stravaSubscription), current.id);
-
-        console.log('[WebhookSubscriptionService] ✓ Subscription updated with Strava payload');
-        return this.getStatus();
+        insertSubscriptionInDb(this.db, subscription, verifyToken, subscription.id);
       }
 
-      // Already enabled
-      console.log('[WebhookSubscriptionService] Subscription already enabled');
-      return current;
+      console.log('[WebhookSubscriptionService] ✓ Subscription enabled', { subscription_id: subscription.id });
+      return this.getStatus();
     } catch (error) {
       console.error('[WebhookSubscriptionService] Failed to enable subscription', error);
       throw error;
@@ -286,7 +378,7 @@ export class WebhookSubscriptionService {
   /**
    * Disable webhook subscription
    * 
-   * Simply deletes the row from database (row absence = disabled state)
+   * Deletes subscription on Strava and removes row from database
    */
   async disable(): Promise<SubscriptionStatus> {
     try {
@@ -297,46 +389,15 @@ export class WebhookSubscriptionService {
         return current;
       }
 
-      // Call Strava API to delete the subscription
+      // Delete from Strava if subscription exists
       if (current.subscription_id) {
-        const clientId = process.env.STRAVA_CLIENT_ID;
-        const clientSecret = process.env.STRAVA_CLIENT_SECRET;
-        const apiBase = process.env.STRAVA_API_BASE_URL || 'https://www.strava.com';
-
-        if (!clientId || !clientSecret) {
-          throw new Error('Missing STRAVA_CLIENT_ID or STRAVA_CLIENT_SECRET');
-        }
-
-        const deleteUrl = `${apiBase}/api/v3/push_subscriptions/${current.subscription_id}`;
-        console.log('[WebhookSubscriptionService] Deleting subscription on Strava:', deleteUrl);
-
-        const formData = new URLSearchParams();
-        formData.append('client_id', clientId);
-        formData.append('client_secret', clientSecret);
-
-        const response = await fetch(deleteUrl, {
-          method: 'DELETE',
-          body: formData,
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-          }
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.warn('[WebhookSubscriptionService] Strava delete failed (continuing anyway):', response.status, errorText);
-          // Continue anyway - we still want to delete from our DB
-        } else {
-          console.log('[WebhookSubscriptionService] ✓ Subscription deleted on Strava');
-        }
+        console.log(`[WebhookSubscriptionService] Deleting Strava subscription ID: ${current.subscription_id}`);
+        await this.deleteSubscriptionWithStrava(current.subscription_id);
       }
 
-      // Delete from database
-      this.db.prepare(`
-        DELETE FROM webhook_subscription WHERE id = ?
-      `).run(current.id);
-
-      console.log('[WebhookSubscriptionService] ✓ Subscription disabled (row deleted)');
+      // Delete from database (always id = 1)
+      deleteSubscriptionFromDb(this.db);
+      console.log('[WebhookSubscriptionService] ✓ Subscription disabled');
       
       // Return empty status (no subscription)
       return {
@@ -371,8 +432,6 @@ export class WebhookSubscriptionService {
 
     return ageHours > 22; // Renew if older than 22 hours
   }
-
-
 
   /**
    * Get verify token for API setup

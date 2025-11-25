@@ -287,6 +287,76 @@ const migrations: Migration[] = [
         console.log('[MIGRATION] V7: Table already simplified, skipping');
       }
     }
+  },
+  {
+    version: 'V8',
+    name: 'Add subscription_id column to webhook_subscription table with CHECK constraint',
+    up: (db: Database) => {
+      // This migration adds a separate subscription_id column to store Strava's subscription ID
+      // independently from the JSON payload. This prevents ID confusion:
+      // - id (INTEGER PRIMARY KEY = 1, our database key, never changes)
+      // - subscription_id (Strava's subscription ID, e.g., 5, changes on renewal)
+      //
+      // Previously, we were extracting the ID from the JSON payload, but if the payload
+      // was corrupted, the ID would be wrong when trying to delete from Strava.
+      // Now we store it directly for clean, reliable access.
+      //
+      // NOTE: SQLite doesn't allow ALTER TABLE to add CHECK constraints, so we must
+      // recreate the table to enforce the constraint.
+      
+      const tableInfo = db
+        .prepare('PRAGMA table_info(webhook_subscription)')
+        .all() as Array<{ name: string; type: string }>;
+      
+      const hasSubscriptionId = tableInfo.some((col) => col.name === 'subscription_id');
+      const hasCheckConstraint = tableInfo.length > 0 && 
+        db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='webhook_subscription'")
+          .get() as { sql: string } | undefined;
+      
+      // Check if constraint is missing (old table without CHECK)
+      const needsRecreate = hasCheckConstraint && 
+        !(hasCheckConstraint as any).sql?.includes('CHECK');
+
+      if (!hasSubscriptionId || needsRecreate) {
+        console.log('[MIGRATION] V8: Recreating webhook_subscription table with subscription_id and CHECK constraint...');
+        
+        // Save existing data if any
+        const existingData = db.prepare(`
+          SELECT id, verify_token, subscription_payload, last_refreshed_at
+          FROM webhook_subscription
+          WHERE id = 1
+          LIMIT 1
+        `).get() as any;
+
+        // Drop old table
+        db.prepare('DROP TABLE IF EXISTS webhook_subscription').run();
+        console.log('[MIGRATION] V8: Dropped old webhook_subscription table');
+
+        // Create new table with all columns including CHECK constraint
+        db.prepare(`
+          CREATE TABLE webhook_subscription (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            verify_token TEXT NOT NULL,
+            subscription_payload TEXT,
+            subscription_id INTEGER,
+            last_refreshed_at TEXT,
+            CHECK (id = 1)
+          )
+        `).run();
+        console.log('[MIGRATION] V8: Created new webhook_subscription table with subscription_id and CHECK constraint');
+
+        // Restore existing data if any
+        if (existingData) {
+          db.prepare(`
+            INSERT INTO webhook_subscription (id, verify_token, subscription_payload, last_refreshed_at)
+            VALUES (?, ?, ?, ?)
+          `).run(existingData.id, existingData.verify_token, existingData.subscription_payload, existingData.last_refreshed_at);
+          console.log('[MIGRATION] V8: Restored existing subscription data');
+        }
+      } else {
+        console.log('[MIGRATION] V8: subscription_id column already exists with CHECK constraint, skipping');
+      }
+    }
   }
 ];
 

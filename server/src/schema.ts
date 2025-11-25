@@ -122,7 +122,9 @@ CREATE TABLE IF NOT EXISTS webhook_subscription (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   verify_token TEXT NOT NULL,
   subscription_payload TEXT,
-  last_refreshed_at TEXT
+  subscription_id INTEGER,
+  last_refreshed_at TEXT,
+  CHECK (id = 1)
 );
 
 CREATE INDEX IF NOT EXISTS idx_activity_week_participant ON activity(week_id, strava_athlete_id);
