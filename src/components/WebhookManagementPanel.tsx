@@ -163,7 +163,7 @@ export const WebhookManagementPanel: React.FC = () => {
         )}
 
         {activeTab === 'events' && (
-          <WebhookEventHistory onEventRetry={fetchSubscriptionStatus} />
+          <WebhookEventHistory />
         )}
 
         {activeTab === 'storage' && storage && (

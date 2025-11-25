@@ -31,10 +31,6 @@ export class WebhookLogger {
    * Log a webhook event to database
    */
   logEvent(entry: WebhookEventLogEntry): void {
-    if (process.env.WEBHOOK_LOG_EVENTS !== 'true') {
-      return;
-    }
-
     try {
       this.db.prepare(`
         INSERT INTO webhook_event (
@@ -58,10 +54,6 @@ export class WebhookLogger {
    * Mark event as processed by payload ID
    */
   markProcessed(payload: any): void {
-    if (process.env.WEBHOOK_LOG_EVENTS !== 'true') {
-      return;
-    }
-
     try {
       this.db.prepare(`
         UPDATE webhook_event
@@ -81,10 +73,6 @@ export class WebhookLogger {
    * Mark event as failed
    */
   markFailed(payload: any, errorMessage: string): void {
-    if (process.env.WEBHOOK_LOG_EVENTS !== 'true') {
-      return;
-    }
-
     try {
       this.db.prepare(`
         UPDATE webhook_event
