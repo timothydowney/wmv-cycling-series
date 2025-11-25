@@ -2,18 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../../api';
 import './WebhookEventHistory.css';
 
+interface WebhookPayload {
+  aspect_type: 'create' | 'update' | 'delete';
+  event_time: number;
+  object_id: number;
+  object_type: 'activity' | 'athlete';
+  owner_id: number;
+  subscription_id: number;
+  updates?: Record<string, unknown>;
+}
+
 interface WebhookEvent {
   id: number;
   created_at: string;
-  aspect_type: string;
-  object_type: string;
-  object_id: number;
-  owner_id: number;
-  participant_name: string | null;
+  payload: WebhookPayload;
   processed: boolean;
-  processed_at: string | null;
   error_message: string | null;
-  retry_count: number;
 }
 
 interface WebhookEventsResponse {
@@ -24,17 +28,17 @@ interface WebhookEventsResponse {
 }
 
 interface Props {
-  onEventRetry: () => Promise<void>;
+  // No props required for now
 }
 
-const WebhookEventHistory: React.FC<Props> = ({ onEventRetry }) => {
+const WebhookEventHistory: React.FC<Props> = () => {
   const [events, setEvents] = useState<WebhookEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState({ total: 0, limit: 50, offset: 0, has_more: false });
-  const [filters, setFilters] = useState({ type: 'all', status: 'all', since: 604800 });
-  const [retryingId, setRetryingId] = useState<number | null>(null);
+  const [filters, setFilters] = useState({ status: 'all', since: 604800 });
   const [message, setMessage] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<Record<number, 'raw' | 'formatted'>>({});
 
   const fetchEvents = async () => {
     setLoading(true);
@@ -61,22 +65,6 @@ const WebhookEventHistory: React.FC<Props> = ({ onEventRetry }) => {
     }
   };
 
-  const handleRetry = async (eventId: number) => {
-    setRetryingId(eventId);
-    try {
-      await api.retryWebhookEvent(eventId);
-      setMessage('Event retried successfully');
-      await onEventRetry();
-      await fetchEvents();
-      setTimeout(() => setMessage(null), 3000);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to retry event';
-      setMessage(msg);
-    } finally {
-      setRetryingId(null);
-    }
-  };
-
   const handleClearAll = async () => {
     if (!window.confirm(`Clear all ${pagination.total} webhook events? This cannot be undone.`)) {
       return;
@@ -99,21 +87,15 @@ const WebhookEventHistory: React.FC<Props> = ({ onEventRetry }) => {
     fetchEvents();
   }, [filters, pagination.offset]);
 
-  const getEventTypeLabel = (type: string): string => {
-    switch (type) {
-      case 'create':
-        return 'Created';
-      case 'update':
-        return 'Updated';
-      case 'delete':
-        return 'Deleted';
-      default:
-        return type.charAt(0).toUpperCase() + type.slice(1);
-    }
+  const toggleViewMode = (eventId: number) => {
+    setViewMode((prev) => ({
+      ...prev,
+      [eventId]: prev[eventId] === 'raw' ? 'formatted' : 'raw'
+    }));
   };
 
-  const getEventIcon = (type: string): string => {
-    switch (type) {
+  const getAspectTypeIcon = (aspectType: string): string => {
+    switch (aspectType) {
       case 'create':
         return '➕';
       case 'update':
@@ -125,26 +107,53 @@ const WebhookEventHistory: React.FC<Props> = ({ onEventRetry }) => {
     }
   };
 
+  const getObjectTypeIcon = (objectType: string): string => {
+    switch (objectType) {
+      case 'activity':
+        return '🚴';
+      case 'athlete':
+        return '👤';
+      default:
+        return '📦';
+    }
+  };
+
+  const formatPayloadForDisplay = (payload: WebhookPayload): React.ReactNode => {
+    return (
+      <div className="payload-formatted">
+        <div className="payload-row">
+          <span className="label">Aspect:</span>
+          <span className="value">{getAspectTypeIcon(payload.aspect_type)} {payload.aspect_type}</span>
+        </div>
+        <div className="payload-row">
+          <span className="label">Object:</span>
+          <span className="value">{getObjectTypeIcon(payload.object_type)} {payload.object_type}</span>
+        </div>
+        <div className="payload-row">
+          <span className="label">Object ID:</span>
+          <span className="value">{payload.object_id}</span>
+        </div>
+        <div className="payload-row">
+          <span className="label">Owner ID:</span>
+          <span className="value">{payload.owner_id}</span>
+        </div>
+        <div className="payload-row">
+          <span className="label">Event Time:</span>
+          <span className="value">{new Date(payload.event_time * 1000).toLocaleString()}</span>
+        </div>
+        {payload.updates && Object.keys(payload.updates).length > 0 && (
+          <div className="payload-row">
+            <span className="label">Updates:</span>
+            <span className="value">{Object.keys(payload.updates).join(', ')}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="event-history">
       <div className="event-filters">
-        <div className="filter-group">
-          <label htmlFor="type-filter">Type:</label>
-          <select
-            id="type-filter"
-            value={filters.type}
-            onChange={(e) => {
-              setFilters({ ...filters, type: e.target.value });
-              setPagination({ ...pagination, offset: 0 });
-            }}
-          >
-            <option value="all">All Types</option>
-            <option value="create">Created</option>
-            <option value="update">Updated</option>
-            <option value="delete">Deleted</option>
-          </select>
-        </div>
-
         <div className="filter-group">
           <label htmlFor="status-filter">Status:</label>
           <select
@@ -196,53 +205,39 @@ const WebhookEventHistory: React.FC<Props> = ({ onEventRetry }) => {
       ) : (
         <>
           <div className="events-list">
-            {events.map((event) => (
-              <div key={event.id} className={`event-item ${event.processed ? 'success' : 'failed'}`}>
-                <div className="event-icon">
-                  {event.processed ? '✓' : '✕'}
-                </div>
-                <div className="event-content">
-                  <div className="event-header">
-                    <span className="event-type">{getEventIcon(event.aspect_type)} {getEventTypeLabel(event.aspect_type)}</span>
-                    <span className="event-time">
-                      {new Date(event.created_at).toLocaleString()}
-                    </span>
+            {events.map((event) => {
+              const isRawMode = viewMode[event.id] === 'raw';
+              return (
+                <div key={event.id} className={`event-card ${event.processed ? 'processed' : 'failed'}`}>
+                  <div className="event-card-header">
+                    <div className="event-status">
+                      <span className="status-icon">{event.processed ? '✓' : '✕'}</span>
+                      <span className="status-text">{event.processed ? 'Processed' : 'Failed'}</span>
+                    </div>
+                    <div className="event-time">{new Date(event.created_at).toLocaleString()}</div>
+                    <button className="view-toggle-btn" onClick={() => toggleViewMode(event.id)}>
+                      {isRawMode ? 'Formatted' : 'Raw JSON'}
+                    </button>
                   </div>
-                  <div className="event-details">
-                    <span className="detail-item">
-                      <strong>Participant:</strong> {event.participant_name || 'Unknown'}
-                    </span>
-                    <span className="detail-item">
-                      <strong>Object ID:</strong> {event.object_id}
-                    </span>
-                    {event.processed && event.processed_at && (
-                      <span className="detail-item">
-                        <strong>Processed:</strong> {new Date(event.processed_at).toLocaleString()}
-                      </span>
-                    )}
-                    {!event.processed && event.error_message && (
-                      <span className="detail-item error">
-                        <strong>Error:</strong> {event.error_message}
-                      </span>
-                    )}
-                    {event.retry_count > 0 && (
-                      <span className="detail-item">
-                        <strong>Retries:</strong> {event.retry_count}/3
-                      </span>
+
+                  {!event.processed && event.error_message && (
+                    <div className="error-banner">
+                      <strong>Error:</strong> {event.error_message}
+                    </div>
+                  )}
+
+                  <div className="payload-container">
+                    {isRawMode ? (
+                      <pre className="payload-raw">
+                        <code>{JSON.stringify(event.payload, null, 2)}</code>
+                      </pre>
+                    ) : (
+                      formatPayloadForDisplay(event.payload)
                     )}
                   </div>
                 </div>
-                {!event.processed && event.retry_count < 3 && (
-                  <button
-                    className="retry-btn"
-                    onClick={() => handleRetry(event.id)}
-                    disabled={retryingId === event.id}
-                  >
-                    {retryingId === event.id ? 'Retrying...' : 'Retry'}
-                  </button>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="pagination">

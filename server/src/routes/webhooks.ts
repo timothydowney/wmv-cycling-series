@@ -103,26 +103,12 @@ export function createWebhookRouter(logger: WebhookLogger, db: Database): Router
     // MUST respond immediately with 200 (Strava requirement: 2 seconds)
     res.status(200).json({ received: true });
 
-    // Check if webhooks are enabled in database
-    const subscription = db.prepare(`
-      SELECT enabled FROM webhook_subscription LIMIT 1
-    `).get() as { enabled: number } | undefined;
-
-    const webhooksEnabled = subscription?.enabled === 1;
-
-    if (!webhooksEnabled) {
-      console.log('[Webhook] Event received but webhooks are disabled in database - skipping processing');
-      return;
-    }
-
-    // Log event (if enabled)
-    if (process.env.WEBHOOK_LOG_EVENTS === 'true') {
-      logger.logEvent({
-        payload: event,
-        processed: false,
-        errorMessage: null
-      });
-    }
+    // Log event
+    logger.logEvent({
+      payload: event,
+      processed: false,
+      errorMessage: null
+    });
 
     // Process async (don't await - processing happens in background)
     // This ensures we return 200 quickly to Strava
@@ -133,13 +119,11 @@ export function createWebhookRouter(logger: WebhookLogger, db: Database): Router
         error: err instanceof Error ? err.message : String(err)
       });
 
-      // Mark as failed in log if tracking enabled
-      if (process.env.WEBHOOK_LOG_EVENTS === 'true') {
-        logger.markFailed(
-          event.object_id,
-          err instanceof Error ? err.message : String(err)
-        );
-      }
+      // Mark as failed in log
+      logger.markFailed(
+        event.object_id,
+        err instanceof Error ? err.message : String(err)
+      );
     });
   });
 
