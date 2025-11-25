@@ -95,14 +95,17 @@ export class RequestHandlers {
     subscriptionId: number
   ): Promise<void> {
     try {
+      this.logger.info('DELETE request received for subscription', { subscriptionId });
       const deleted = this.store.delete(subscriptionId);
 
       if (!deleted) {
+        this.logger.warn('Subscription not found for deletion', { subscriptionId });
         res.writeHead(404, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Subscription not found' }));
         return;
       }
 
+      this.logger.info('✓ Successfully deleted subscription', { subscriptionId });
       res.writeHead(204);
       res.end();
     } catch (error) {

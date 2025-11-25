@@ -61,6 +61,24 @@
   text-align: right;
 }
 
+.info-row.auto-renewal-info {
+  background: #f0f9f8;
+  padding: 12px;
+  border-radius: 4px;
+  border-left: 3px solid #27ae60;
+  margin-top: 8px;
+}
+
+.info-row.auto-renewal-info .label {
+  color: #27ae60;
+  font-weight: 600;
+}
+
+.info-row.auto-renewal-info .value {
+  color: #229954;
+  font-size: 13px;
+}
+
 .inactive-message {
   font-size: 14px;
   color: #666;

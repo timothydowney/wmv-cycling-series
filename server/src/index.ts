@@ -30,6 +30,7 @@ import { createWebhookRouter } from './routes/webhooks';
 import { createWebhookAdminRoutes } from './routes/admin/webhooks';
 import { WebhookLogger } from './webhooks/logger';
 import { setupWebhookSubscription } from './webhooks/subscriptionManager';
+import { WebhookRenewalService } from './services/WebhookRenewalService';
 
 // Route modules (lazily loaded to avoid circular dependencies)
 const routes = {
@@ -383,6 +384,11 @@ if (process.env.NODE_ENV !== 'test') {
     
     // Setup webhook subscription if enabled
     await setupWebhookSubscription();
+    
+    // Start automatic webhook subscription renewal service
+    // Strava subscriptions expire after 24 hours and must be renewed
+    const webhookRenewalService = new WebhookRenewalService(db);
+    webhookRenewalService.start();
     
     // ===== TIMEZONE DIAGNOSTICS =====
     const utcString = nowISO();
