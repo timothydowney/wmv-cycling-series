@@ -1,13 +1,17 @@
 /**
  * Webhook Storage Monitoring
  *
- * Tracks disk usage for webhook event database and auto-disables webhooks
- * if storage exceeds 95% threshold to prevent Railway running out of space.
+ * Tracks database size against a configured maximum and auto-disables webhooks
+ * if storage exceeds 95% of the max threshold.
+ *
+ * Configuration:
+ * - MAX_DATABASE_SIZE: Environment variable in MB (default: 256MB)
+ * - Auto-disable threshold: 95% of max size
  *
  * Stores:
- * - Current disk usage as percentage
- * - Last calculated timestamp
- * - Database size in bytes
+ * - Current database size in bytes/MB
+ * - Percentage of max size used
+ * - Database size limit (from ENV var)
  * - Estimated weeks at current event rate
  * - Auto-disable threshold (95%)
  */
@@ -18,7 +22,7 @@ import fs from 'fs';
 export interface StorageStatus {
   database_size_bytes: number;
   database_size_mb: number;
-  available_space_mb: number;
+  max_size_mb: number;
   usage_percentage: number;
   auto_disable_threshold: number;
   should_auto_disable: boolean;
@@ -32,15 +36,42 @@ export interface StorageStatus {
 export class StorageMonitor {
   private db: Database;
   private dbPath: string;
-  private autoDisableThreshold = 95; // Disable webhooks at 95% full
+  private maxSizeMb: number;
+  private autoDisableThreshold = 95; // Disable webhooks at 95% of max
 
   constructor(db: Database, dbPath: string) {
     this.db = db;
     this.dbPath = dbPath;
+    // Read MAX_DATABASE_SIZE from env, default to 256MB
+    this.maxSizeMb = this.parseMaxSize();
   }
 
   /**
-   * Get current storage status
+   * Parse MAX_DATABASE_SIZE from environment variable
+   * Format: number (MB), e.g., "256" for 256MB
+   * Default: 256MB if not set or invalid
+   */
+  private parseMaxSize(): number {
+    const envValue = process.env.MAX_DATABASE_SIZE;
+    if (!envValue) {
+      console.log('[StorageMonitor] MAX_DATABASE_SIZE not set, using default 256MB');
+      return 256;
+    }
+
+    const parsed = parseInt(envValue, 10);
+    if (isNaN(parsed) || parsed <= 0) {
+      console.warn(
+        `[StorageMonitor] Invalid MAX_DATABASE_SIZE="${envValue}", using default 256MB`
+      );
+      return 256;
+    }
+
+    console.log(`[StorageMonitor] Using MAX_DATABASE_SIZE=${parsed}MB`);
+    return parsed;
+  }
+
+  /**
+   * Get current storage status against configured MAX_DATABASE_SIZE
    */
   getStatus(): StorageStatus {
     try {
@@ -48,11 +79,8 @@ export class StorageMonitor {
       const dbSizeBytes = dbStats.size;
       const dbSizeMb = dbSizeBytes / (1024 * 1024);
 
-      // Get disk space info (simplified - in production use statfs)
-      // For now, estimate based on Railway's typical volume size (5GB)
-      const allocatedMb = 5120; // 5GB
-      const usagePercent = (dbSizeMb / allocatedMb) * 100;
-      const availableMb = allocatedMb - dbSizeMb;
+      // Calculate usage percentage against configured max size
+      const usagePercent = (dbSizeMb / this.maxSizeMb) * 100;
 
       // Get event metrics
       const eventsCount = this.db
@@ -73,7 +101,7 @@ export class StorageMonitor {
       if (eventsPerDay > 0) {
         // Assume each event ~1KB on average
         const bytesPerEvent = 1000;
-        const bytesAvailable = allocatedMb * 1024 * 1024 - dbSizeBytes;
+        const bytesAvailable = this.maxSizeMb * 1024 * 1024 - dbSizeBytes;
         const daysRemaining = bytesAvailable / (eventsPerDay * bytesPerEvent);
         estimatedWeeksRemaining = Math.floor(daysRemaining / 7);
       }
@@ -83,13 +111,13 @@ export class StorageMonitor {
       let warningMessage: string | null = null;
 
       if (usagePercent >= 90) {
-        warningMessage = `Storage usage at ${usagePercent.toFixed(1)}%. Webhooks will auto-disable at ${this.autoDisableThreshold}%.`;
+        warningMessage = `Database usage at ${usagePercent.toFixed(1)}% of ${this.maxSizeMb}MB limit. Webhooks will auto-disable at ${this.autoDisableThreshold}%.`;
       }
 
       return {
         database_size_bytes: dbSizeBytes,
         database_size_mb: parseFloat(dbSizeMb.toFixed(2)),
-        available_space_mb: parseFloat(availableMb.toFixed(2)),
+        max_size_mb: this.maxSizeMb,
         usage_percentage: parseFloat(usagePercent.toFixed(1)),
         auto_disable_threshold: this.autoDisableThreshold,
         should_auto_disable: shouldAutoDisable,

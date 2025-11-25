@@ -24,7 +24,7 @@ interface SubscriptionStatus {
 
 interface StorageStatus {
   database_size_mb: number;
-  available_space_mb: number;
+  max_size_mb: number;
   usage_percentage: number;
   auto_disable_threshold: number;
   should_auto_disable: boolean;

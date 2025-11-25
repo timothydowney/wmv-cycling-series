@@ -3,7 +3,7 @@ import './StorageStatusCard.css';
 
 interface StorageStatus {
   database_size_mb: number;
-  available_space_mb: number;
+  max_size_mb: number;
   usage_percentage: number;
   auto_disable_threshold: number;
   should_auto_disable: boolean;
@@ -52,7 +52,7 @@ export const StorageStatusCard: React.FC<StorageStatusCardProps> = ({ storage })
         </div>
         <div className="usage-labels">
           <span>Database: {storage.database_size_mb.toFixed(2)} MB</span>
-          <span>Available: {storage.available_space_mb.toFixed(2)} MB</span>
+          <span>Max: {storage.max_size_mb} MB</span>
         </div>
       </div>
 

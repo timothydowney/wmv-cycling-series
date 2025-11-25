@@ -1,0 +1,26 @@
+{
+  "name": "mock-strava",
+  "version": "1.0.0",
+  "description": "Mock Strava API server for development and testing",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "node --test dist/**/*.test.js"
+  },
+  "keywords": [
+    "strava",
+    "mock",
+    "api",
+    "testing"
+  ],
+  "author": "WMV Cycling",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.3.0",
+    "tsx": "^4.0.0"
+  }
+}

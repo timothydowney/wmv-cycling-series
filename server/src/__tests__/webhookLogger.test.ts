@@ -17,17 +17,12 @@ describe('Webhook Logger', () => {
     // Create in-memory database for testing
     db = new Database(':memory:');
     
-    // Initialize schema (minimal schema needed for logger)
+    // Initialize schema (match actual schema from server/src/schema.ts)
     db.exec(`
       CREATE TABLE webhook_event (
-        id INTEGER PRIMARY KEY,
-        subscription_id INTEGER,
-        aspect_type TEXT,
-        object_type TEXT,
-        object_id INTEGER,
-        owner_id INTEGER,
-        processed INTEGER DEFAULT 0,
-        processed_at TEXT,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        payload TEXT NOT NULL,
+        processed BOOLEAN DEFAULT 0,
         error_message TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
       );
@@ -40,9 +35,6 @@ describe('Webhook Logger', () => {
     
     // Clear table
     db.prepare('DELETE FROM webhook_event').run();
-    
-    // Enable logging for tests
-    process.env.WEBHOOK_LOG_EVENTS = 'true';
   });
 
   afterAll(() => {
@@ -50,17 +42,17 @@ describe('Webhook Logger', () => {
   });
 
   describe('logEvent', () => {
-    it('should insert webhook event when logging enabled', () => {
+    it('should insert webhook event', () => {
       // Arrange
-      process.env.WEBHOOK_LOG_EVENTS = 'true';
+      const payload = {
+        object_id: 123456789,
+        aspect_type: 'delete',
+        object_type: 'activity',
+        owner_id: 12345
+      };
       const entry = {
-        subscriptionId: 1,
-        aspectType: 'delete',
-        objectType: 'activity',
-        objectId: 123456789,
-        ownerId: 12345,
+        payload,
         processed: false,
-        processedAt: null,
         errorMessage: null
       };
 
@@ -68,24 +60,25 @@ describe('Webhook Logger', () => {
       logger.logEvent(entry);
 
       // Assert
-      const record = db.prepare('SELECT * FROM webhook_event WHERE object_id = ?').get(123456789);
+      const record = db.prepare('SELECT * FROM webhook_event WHERE payload LIKE ?').get('%123456789%');
       expect(record).toBeDefined();
-      expect(record.aspect_type).toBe('delete');
-      expect(record.object_type).toBe('activity');
+      const parsedPayload = JSON.parse(record.payload);
+      expect(parsedPayload.aspect_type).toBe('delete');
+      expect(parsedPayload.object_type).toBe('activity');
       expect(record.processed).toBe(0);
     });
 
-    it('should not insert webhook event when logging disabled', () => {
-      // Arrange
-      process.env.WEBHOOK_LOG_EVENTS = 'false';
+    it('should always insert webhook events (always enabled)', () => {
+      // Arrange - webhook events are ALWAYS logged, no opt-out via env var
+      const payload = {
+        object_id: 987654321,
+        aspect_type: 'create',
+        object_type: 'activity',
+        owner_id: 12345
+      };
       const entry = {
-        subscriptionId: 1,
-        aspectType: 'create',
-        objectType: 'activity',
-        objectId: 987654321,
-        ownerId: 12345,
+        payload,
         processed: false,
-        processedAt: null,
         errorMessage: null
       };
 
@@ -93,21 +86,21 @@ describe('Webhook Logger', () => {
       logger.logEvent(entry);
 
       // Assert
-      const record = db.prepare('SELECT * FROM webhook_event WHERE object_id = ?').get(987654321);
-      expect(record).toBeUndefined();
+      const record = db.prepare('SELECT * FROM webhook_event WHERE payload LIKE ?').get('%987654321%');
+      expect(record).toBeDefined();
     });
 
     it('should insert with error message', () => {
       // Arrange
-      process.env.WEBHOOK_LOG_EVENTS = 'true';
+      const payload = {
+        object_id: 555555555,
+        aspect_type: 'create',
+        object_type: 'activity',
+        owner_id: 12345
+      };
       const entry = {
-        subscriptionId: 1,
-        aspectType: 'create',
-        objectType: 'activity',
-        objectId: 555555555,
-        ownerId: 12345,
+        payload,
         processed: false,
-        processedAt: null,
         errorMessage: 'Failed to fetch activity'
       };
 
@@ -115,7 +108,7 @@ describe('Webhook Logger', () => {
       logger.logEvent(entry);
 
       // Assert
-      const record = db.prepare('SELECT * FROM webhook_event WHERE object_id = ?').get(555555555);
+      const record = db.prepare('SELECT * FROM webhook_event WHERE payload LIKE ?').get('%555555555%');
       expect(record).toBeDefined();
       expect(record.error_message).toBe('Failed to fetch activity');
     });
@@ -143,112 +136,124 @@ describe('Webhook Logger', () => {
   describe('markProcessed', () => {
     it('should update event status to processed', () => {
       // Arrange
-      process.env.WEBHOOK_LOG_EVENTS = 'true';
-      const objectId = 222222222;
+      const payload = {
+        object_id: 222222222,
+        aspect_type: 'delete',
+        object_type: 'activity',
+        owner_id: 12345
+      };
       const entry = {
-        subscriptionId: 1,
-        aspectType: 'delete',
-        objectType: 'activity',
-        objectId,
-        ownerId: 12345,
+        payload,
         processed: false,
-        processedAt: null,
         errorMessage: null
       };
       logger.logEvent(entry);
 
       // Verify initial state
-      let record = db.prepare('SELECT processed FROM webhook_event WHERE object_id = ?').get(objectId);
+      let record = db.prepare('SELECT processed FROM webhook_event WHERE payload LIKE ?').get('%222222222%');
       expect(record.processed).toBe(0);
 
       // Act
-      const now = new Date().toISOString();
-      logger.markProcessed(objectId, now);
+      logger.markProcessed(payload);
 
       // Assert
-      record = db.prepare('SELECT processed, processed_at FROM webhook_event WHERE object_id = ?').get(objectId);
+      record = db.prepare('SELECT processed FROM webhook_event WHERE payload LIKE ?').get('%222222222%');
       expect(record.processed).toBe(1);
-      expect(record.processed_at).toBe(now);
     });
 
-    it('should not update when logging disabled', () => {
-      // Arrange
-      process.env.WEBHOOK_LOG_EVENTS = 'false';
-      const objectId = 333333333;
+    it('should update event status when called', () => {
+      // Arrange - webhook events are ALWAYS logged, always updateable
+      const payload = {
+        object_id: 333333333,
+        aspect_type: 'delete',
+        object_type: 'activity',
+        owner_id: 12345
+      };
+
+      // First log an event
+      const entry = { payload, processed: false, errorMessage: null };
+      logger.logEvent(entry);
 
       // Act
-      logger.markProcessed(objectId, new Date().toISOString());
+      logger.markProcessed(payload);
 
-      // Assert - should not throw, should do nothing
-      const record = db.prepare('SELECT * FROM webhook_event WHERE object_id = ?').get(objectId);
-      expect(record).toBeUndefined();
+      // Assert - should mark it as processed
+      const record = db.prepare('SELECT processed FROM webhook_event WHERE payload LIKE ?').get('%333333333%');
+      expect(record).toBeDefined();
+      expect(record.processed).toBe(1);
     });
 
     it('should handle database errors gracefully', () => {
       // Arrange
-      process.env.WEBHOOK_LOG_EVENTS = 'true';
       const badLogger = new WebhookLogger(null);
+      const payload = { object_id: 111111111 };
 
       // Act & Assert - should not throw
-      expect(() => badLogger.markProcessed(444444444, new Date().toISOString())).not.toThrow();
+      expect(() => badLogger.markProcessed(payload)).not.toThrow();
     });
   });
 
   describe('markFailed', () => {
     it('should update event with error message', () => {
       // Arrange
-      process.env.WEBHOOK_LOG_EVENTS = 'true';
-      const objectId = 555555556;
+      const payload = {
+        object_id: 555555556,
+        aspect_type: 'delete',
+        object_type: 'activity',
+        owner_id: 12345
+      };
       const entry = {
-        subscriptionId: 1,
-        aspectType: 'delete',
-        objectType: 'activity',
-        objectId,
-        ownerId: 12345,
+        payload,
         processed: false,
-        processedAt: null,
         errorMessage: null
       };
       logger.logEvent(entry);
 
       // Act
       const errorMsg = 'Activity not found in database';
-      logger.markFailed(objectId, errorMsg);
+      logger.markFailed(payload, errorMsg);
 
       // Assert
-      const record = db.prepare('SELECT error_message, processed_at FROM webhook_event WHERE object_id = ?').get(objectId);
+      const record = db.prepare('SELECT error_message FROM webhook_event WHERE payload LIKE ?').get('%555555556%');
       expect(record).toBeDefined();
       expect(record.error_message).toBe(errorMsg);
-      expect(record.processed_at).toBeDefined();
     });
 
-    it('should not update when logging disabled', () => {
+    it('should update failed when called', () => {
       // Arrange
-      process.env.WEBHOOK_LOG_EVENTS = 'false';
-      const objectId = 666666666;
+      const payload = {
+        object_id: 666666666,
+        aspect_type: 'delete',
+        object_type: 'activity',
+        owner_id: 12345
+      };
+
+      // First log an event
+      const entry = { payload, processed: false, errorMessage: null };
+      logger.logEvent(entry);
 
       // Act
-      logger.markFailed(objectId, 'Some error');
+      logger.markFailed(payload, 'Some error');
 
-      // Assert - should not throw, should do nothing
-      const record = db.prepare('SELECT * FROM webhook_event WHERE object_id = ?').get(objectId);
-      expect(record).toBeUndefined();
+      // Assert - should mark it as failed
+      const record = db.prepare('SELECT error_message FROM webhook_event WHERE payload LIKE ?').get('%666666666%');
+      expect(record).toBeDefined();
+      expect(record.error_message).toBe('Some error');
     });
 
     it('should handle database errors gracefully', () => {
       // Arrange
-      process.env.WEBHOOK_LOG_EVENTS = 'true';
       const badLogger = new WebhookLogger(null);
+      const payload = { object_id: 444444444 };
 
       // Act & Assert - should not throw
-      expect(() => badLogger.markFailed(777777777, 'Error')).not.toThrow();
+      expect(() => badLogger.markFailed(payload, 'Error')).not.toThrow();
     });
   });
 
   describe('getStatus', () => {
     it('should return stats for empty database', () => {
       // Arrange
-      process.env.WEBHOOK_LOG_EVENTS = 'true';
 
       // Act
       const status = logger.getStatus();
@@ -262,27 +267,25 @@ describe('Webhook Logger', () => {
 
     it('should calculate correct stats with mixed events', () => {
       // Arrange
-      process.env.WEBHOOK_LOG_EVENTS = 'true';
-
       // Insert several events
       const now = new Date().toISOString();
       db.prepare(`
         INSERT INTO webhook_event 
-        (subscription_id, aspect_type, object_type, object_id, owner_id, processed, processed_at, error_message, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(1, 'delete', 'activity', 1, 100, 1, now, null, now); // processed
+        (payload, processed, error_message, created_at)
+        VALUES (?, ?, ?, ?)
+      `).run(JSON.stringify({ object_id: 1, aspect_type: 'delete' }), 1, null, now); // processed
 
       db.prepare(`
         INSERT INTO webhook_event 
-        (subscription_id, aspect_type, object_type, object_id, owner_id, processed, processed_at, error_message, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(1, 'delete', 'activity', 2, 100, 0, null, 'Error: API timeout', now); // failed
+        (payload, processed, error_message, created_at)
+        VALUES (?, ?, ?, ?)
+      `).run(JSON.stringify({ object_id: 2, aspect_type: 'delete' }), 0, 'Error: API timeout', now); // failed
 
       db.prepare(`
         INSERT INTO webhook_event 
-        (subscription_id, aspect_type, object_type, object_id, owner_id, processed, processed_at, error_message, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(1, 'create', 'activity', 3, 100, 0, null, null, now); // pending
+        (payload, processed, error_message, created_at)
+        VALUES (?, ?, ?, ?)
+      `).run(JSON.stringify({ object_id: 3, aspect_type: 'create' }), 0, null, now); // pending
 
       // Act
       const status = logger.getStatus();
@@ -310,22 +313,21 @@ describe('Webhook Logger', () => {
 
     it('should count only error_message field as failed, not processed=0', () => {
       // Arrange
-      process.env.WEBHOOK_LOG_EVENTS = 'true';
       const now = new Date().toISOString();
 
       // Event with error
       db.prepare(`
         INSERT INTO webhook_event 
-        (subscription_id, aspect_type, object_type, object_id, owner_id, processed, processed_at, error_message, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(1, 'delete', 'activity', 1, 100, 0, null, 'Error: timeout', now);
+        (payload, processed, error_message, created_at)
+        VALUES (?, ?, ?, ?)
+      `).run(JSON.stringify({ object_id: 1, aspect_type: 'delete' }), 0, 'Error: timeout', now);
 
       // Event pending (no error)
       db.prepare(`
         INSERT INTO webhook_event 
-        (subscription_id, aspect_type, object_type, object_id, owner_id, processed, processed_at, error_message, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(1, 'delete', 'activity', 2, 100, 0, null, null, now);
+        (payload, processed, error_message, created_at)
+        VALUES (?, ?, ?, ?)
+      `).run(JSON.stringify({ object_id: 2, aspect_type: 'delete' }), 0, null, now);
 
       // Act
       const status = logger.getStatus();
