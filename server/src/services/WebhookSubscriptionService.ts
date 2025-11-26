@@ -144,6 +144,11 @@ export class WebhookSubscriptionService {
 
   /**
    * Fetch existing subscription from Strava API
+   * 
+   * Per Strava docs (View a Subscription):
+   * GET https://www.strava.com/api/v3/push_subscriptions?client_id=X&client_secret=Y
+   * Returns: { "id": N, "created_at": "...", "updated_at": "...", "callback_url": "...", "application_id": N }
+   * Or: {} if no subscription exists
    */
   private async fetchExistingFromStrava(): Promise<StravaSubscriptionPayload | null> {
     const { clientId, clientSecret, apiBase } = getStravaConfig();
@@ -151,17 +156,41 @@ export class WebhookSubscriptionService {
     url.searchParams.append('client_id', clientId);
     url.searchParams.append('client_secret', clientSecret);
 
+    console.log('[WebhookSubscriptionService] fetchExistingFromStrava - Querying Strava for existing subscription:', {
+      url: url.toString().replace(clientSecret, '***')
+    });
+
     try {
       const response = await fetch(url.toString());
       if (!response.ok) {
-        console.warn(`[WebhookSubscriptionService] Failed to fetch existing subscription: ${response.status}`);
+        console.warn(`[WebhookSubscriptionService] fetchExistingFromStrava - Strava API error: ${response.status}`);
         return null;
       }
 
-      const data = (await response.json()) as { data?: Array<StravaSubscriptionPayload> };
-      return data.data?.[0] ?? null;
+      const data = (await response.json()) as StravaSubscriptionPayload | { data?: Array<StravaSubscriptionPayload> };
+      console.log('[WebhookSubscriptionService] fetchExistingFromStrava - Raw Strava API response:', data);
+
+      // Handle both response formats:
+      // 1. Array format: { "data": [{ "id": N, ... }] }
+      // 2. Direct format: { "id": N, ... }
+      let subscription: StravaSubscriptionPayload | null = null;
+      
+      if (Array.isArray((data as any).data)) {
+        subscription = (data as any).data[0] ?? null;
+      } else if ((data as any).id) {
+        subscription = data as StravaSubscriptionPayload;
+      }
+
+      console.log('[WebhookSubscriptionService] fetchExistingFromStrava - Parsed subscription:', {
+        exists: !!subscription,
+        subscription_id: (subscription as any)?.id,
+        created_at: (subscription as any)?.created_at,
+        callback_url: (subscription as any)?.callback_url
+      });
+
+      return subscription;
     } catch (error) {
-      console.warn('[WebhookSubscriptionService] Error fetching existing subscription from Strava:', error);
+      console.error('[WebhookSubscriptionService] fetchExistingFromStrava - Error:', error);
       return null;
     }
   }
@@ -197,6 +226,21 @@ export class WebhookSubscriptionService {
         status: response.status,
         error: errorText
       });
+
+      // Special handling: If Strava says subscription already exists, fetch and return it
+      // This can happen if a previous subscription is still active on Strava but missing from our DB
+      if (response.status === 400 && errorText.includes('already exists')) {
+        console.log('[WebhookSubscriptionService] createSubscriptionWithStrava - Strava says "already exists", attempting to recover existing subscription...');
+        const existingSubscription = await this.fetchExistingFromStrava();
+        if (existingSubscription) {
+          console.log('[WebhookSubscriptionService] createSubscriptionWithStrava - ✓ Successfully recovered existing subscription:', {
+            subscription_id: existingSubscription.id
+          });
+          return existingSubscription;
+        }
+        console.error('[WebhookSubscriptionService] createSubscriptionWithStrava - Strava said "already exists" but we cannot fetch it - this is likely an orphaned subscription');
+      }
+
       throw new Error(`Strava API error creating subscription: ${response.status} ${errorText}`);
     }
 
