@@ -21,6 +21,7 @@
 import { Database } from 'better-sqlite3';
 import { WebhookEvent, ActivityWebhookEvent, AthleteWebhookEvent } from './types';
 import { WebhookLogger } from './logger';
+import { getWebhookConfig } from '../config';
 import * as stravaClient from '../stravaClient';
 import { getValidAccessToken } from '../tokenManager';
 import { findBestQualifyingActivity } from '../activityProcessor';
@@ -128,7 +129,8 @@ export function createWebhookProcessor(db: Database, service?: WebhookService) {
         duration: `${duration}ms`
       });
 
-      if (process.env.WEBHOOK_PERSIST_EVENTS === 'true') {
+      const { persistEvents } = getWebhookConfig();
+      if (persistEvents) {
         logger.markProcessed(event);
       }
     } catch (error) {
@@ -141,7 +143,8 @@ export function createWebhookProcessor(db: Database, service?: WebhookService) {
         error: error instanceof Error ? error.message : String(error)
       });
 
-      if (process.env.WEBHOOK_PERSIST_EVENTS === 'true') {
+      const { persistEvents } = getWebhookConfig();
+      if (persistEvents) {
         logger.markFailed(
           event,
           error instanceof Error ? error.message : String(error)

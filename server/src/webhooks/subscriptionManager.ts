@@ -17,8 +17,9 @@
  * - setupWebhookSubscription() factory accepts optional service for testing
  */
 
-const STRAVA_API_BASE = process.env.STRAVA_API_BASE_URL || 'https://www.strava.com';
-const STRAVA_SUBSCRIPTION_URL = `${STRAVA_API_BASE}/api/v3/push_subscriptions`;
+import { config } from '../config';
+
+const STRAVA_SUBSCRIPTION_URL = `${config.stravaWebhookApiUrl}/api/v3/push_subscriptions`;
 
 /**
  * Response from Strava when querying/creating subscription
@@ -187,35 +188,37 @@ export async function setupWebhookSubscription(service?: SubscriptionService): P
   const svc = service || createDefaultService();
 
   // Detect mock mode
-  const apiBase = process.env.STRAVA_API_BASE_URL || 'https://www.strava.com';
-  const isMockMode = apiBase.includes('localhost');
+  const isMockMode = config.stravaWebhookApiUrl.includes('localhost');
   
   if (isMockMode) {
     console.log('[Webhook:SubscriptionManager] 🧪 MOCK MODE DETECTED');
-    console.log(`[Webhook:SubscriptionManager]    Using mock Strava API: ${apiBase}`);
+    console.log(`[Webhook:SubscriptionManager]    Using mock Strava webhook API: ${config.stravaWebhookApiUrl}`);
   }
 
   // Early exit: feature not enabled
-  if (process.env.WEBHOOK_ENABLED !== 'true') {
+  if (!config.webhookEnabled) {
     console.log('[Webhook:SubscriptionManager] Webhooks disabled, skipping subscription setup');
     return;
   }
 
   // Early exit: required config missing
-  const callbackUrl = process.env.WEBHOOK_CALLBACK_URL;
-  const verifyToken = process.env.WEBHOOK_VERIFY_TOKEN;
-  const clientId = process.env.STRAVA_CLIENT_ID;
-  const clientSecret = process.env.STRAVA_CLIENT_SECRET;
+  const callbackUrl = config.webhookCallbackUrl;
+  const verifyToken = config.webhookVerifyToken;
+  const clientId = config.stravaClientId;
+  const clientSecret = config.stravaClientSecret;
 
-  if (!callbackUrl || !verifyToken) {
+  if (!verifyToken || !clientId || !clientSecret) {
     console.warn(
       '[Webhook:SubscriptionManager] Webhooks enabled but missing configuration:'
     );
-    if (!callbackUrl) {
-      console.warn('  - WEBHOOK_CALLBACK_URL is not set');
-    }
     if (!verifyToken) {
       console.warn('  - WEBHOOK_VERIFY_TOKEN is not set');
+    }
+    if (!clientId) {
+      console.warn('  - STRAVA_CLIENT_ID is not set');
+    }
+    if (!clientSecret) {
+      console.warn('  - STRAVA_CLIENT_SECRET is not set');
     }
     console.warn(
       'Set these environment variables to enable webhook subscriptions.'

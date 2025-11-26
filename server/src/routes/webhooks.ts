@@ -11,6 +11,7 @@
 
 import { Router, Request, Response } from 'express';
 import { Database } from 'better-sqlite3';
+import { config } from '../config';
 import { WebhookEvent } from '../webhooks/types';
 import { WebhookLogger } from '../webhooks/logger';
 import { createWebhookProcessor } from '../webhooks/processor';
@@ -49,7 +50,7 @@ export function createWebhookRouter(logger: WebhookLogger, db: Database): Router
     });
 
     // Verify token
-    if (token !== process.env.WEBHOOK_VERIFY_TOKEN) {
+    if (token !== config.webhookVerifyToken) {
       console.warn('[Webhook] Invalid verify token');
       res.status(403).json({ error: 'Invalid token' });
       return;

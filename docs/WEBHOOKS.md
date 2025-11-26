@@ -243,10 +243,10 @@ WEBHOOK_PERSIST_EVENTS=true
 **OPTIONAL:**
 
 ```bash
-# Strava API base URL (for mock mode - development only)
+# Strava webhook API URL (only used for webhook subscriptions)
 # Default: https://www.strava.com
 # Development: http://localhost:4000 (when using mock-strava)
-STRAVA_API_BASE_URL=https://www.strava.com
+STRAVA_WEBHOOK_API_URL=https://www.strava.com
 ```
 
 **ALWAYS REQUIRED:**
@@ -332,7 +332,7 @@ npm run webhook:emit -- --event create --participant 366880
 - ✅ Frontend banner shows mock server status (green when running, red when down)
 
 **How It Works:**
-- Backend reads `STRAVA_API_BASE_URL=http://localhost:4000` from `.env` (development)
+- Backend reads `STRAVA_WEBHOOK_API_URL=http://localhost:4000` from `.env` (development)
 - All Strava API calls route through mock server
 - `siteModeService` detects development mode and enables mock-mode features
 - UI banner clearly indicates mock vs production mode
@@ -533,7 +533,7 @@ WEBHOOK_ENABLED=false                    # Start false, set true when testing
 WEBHOOK_VERIFY_TOKEN=dev-token-for-testing
 
 # Strava API base URL - CRITICAL for mock-strava
-STRAVA_API_BASE_URL=http://localhost:4000    # Routes to mock-strava
+STRAVA_WEBHOOK_API_URL=http://localhost:4000    # Routes to mock-strava
 
 # Optional: log all webhook events for debugging
 WEBHOOK_PERSIST_EVENTS=true              # REQUIRED - persists events (processed/failed)
@@ -544,12 +544,12 @@ WEBHOOK_PERSIST_EVENTS=true              # REQUIRED - persists events (processed
 | Variable | Value | Purpose |
 |----------|-------|---------|
 | `WEBHOOK_ENABLED` | `false` (by default) | Feature flag to enable/disable webhooks |
-| `STRAVA_API_BASE_URL` | `http://localhost:4000` | Backend detects this and enables mock mode |
+| `STRAVA_WEBHOOK_API_URL` | `http://localhost:4000` | Backend detects this and enables mock mode |
 | `WEBHOOK_VERIFY_TOKEN` | Any value | Used by local webhook emulator |
 | `WEBHOOK_PERSIST_EVENTS` | `true` (required if webhooks enabled) | **Required** - persists events as processed/failed for monitoring |
 
 **How It Works:**
-- Backend checks if `STRAVA_API_BASE_URL` contains "localhost"
+- Backend checks if `STRAVA_WEBHOOK_API_URL` contains "localhost"
 - If yes: logs "🧪 MOCK MODE DETECTED" and uses mock server
 - Frontend uses `siteModeService` to detect if in development
 - If in dev mode: shows mock mode banner with server status
@@ -560,7 +560,7 @@ WEBHOOK_PERSIST_EVENTS=true              # REQUIRED - persists events (processed
 WEBHOOK_ENABLED=true                          # Enable webhooks
 WEBHOOK_VERIFY_TOKEN=<your-secret-token>      # Strava includes this in requests
 WEBHOOK_CALLBACK_URL=https://yourdomain.com/webhooks/strava
-STRAVA_API_BASE_URL=https://www.strava.com    # Real Strava API
+STRAVA_WEBHOOK_API_URL=https://www.strava.com    # Real Strava API
 WEBHOOK_PERSIST_EVENTS=true                   # REQUIRED - persists events
 ```
 

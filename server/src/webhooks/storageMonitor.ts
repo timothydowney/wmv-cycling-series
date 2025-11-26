@@ -18,6 +18,7 @@
 
 import { Database } from 'better-sqlite3';
 import fs from 'fs';
+import { getMaxDatabaseSize } from '../config';
 
 export interface StorageStatus {
   database_size_bytes: number;
@@ -47,27 +48,14 @@ export class StorageMonitor {
   }
 
   /**
-   * Parse MAX_DATABASE_SIZE from environment variable
+   * Parse MAX_DATABASE_SIZE from config
    * Format: number (MB), e.g., "256" for 256MB
    * Default: 256MB if not set or invalid
    */
   private parseMaxSize(): number {
-    const envValue = process.env.MAX_DATABASE_SIZE;
-    if (!envValue) {
-      console.log('[StorageMonitor] MAX_DATABASE_SIZE not set, using default 256MB');
-      return 256;
-    }
-
-    const parsed = parseInt(envValue, 10);
-    if (isNaN(parsed) || parsed <= 0) {
-      console.warn(
-        `[StorageMonitor] Invalid MAX_DATABASE_SIZE="${envValue}", using default 256MB`
-      );
-      return 256;
-    }
-
-    console.log(`[StorageMonitor] Using MAX_DATABASE_SIZE=${parsed}MB`);
-    return parsed;
+    const maxSize = getMaxDatabaseSize();
+    console.log(`[StorageMonitor] Using MAX_DATABASE_SIZE=${maxSize}MB`);
+    return maxSize;
   }
 
   /**

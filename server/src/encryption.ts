@@ -1,15 +1,13 @@
 import crypto from 'crypto';
+import { getTokenEncryptionKey } from './config';
 
 /**
- * Get encryption key from environment
+ * Get encryption key from config
  * This is a function so it can be re-read in tests
  * @throws {Error} if TOKEN_ENCRYPTION_KEY environment variable is not set
  */
 function getEncryptionKey(): Buffer {
-  if (!process.env.TOKEN_ENCRYPTION_KEY) {
-    throw new Error('TOKEN_ENCRYPTION_KEY environment variable not set. Cannot encrypt tokens.');
-  }
-  return Buffer.from(process.env.TOKEN_ENCRYPTION_KEY, 'hex');
+  return getTokenEncryptionKey();
 }
 
 /**

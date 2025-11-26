@@ -88,7 +88,7 @@ export const WebhookManagementPanel: React.FC = () => {
   useEffect(() => {
     const interval = setInterval(handleRefresh, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [handleRefresh]);
 
   if (loading) {
     return (

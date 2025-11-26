@@ -6,6 +6,7 @@
 
 import fs from 'fs';
 import { StorageMonitor, StorageStatus } from '../webhooks/storageMonitor';
+import { reloadConfig } from '../config';
 
 // Mock fs module
 jest.mock('fs');
@@ -31,16 +32,18 @@ describe('StorageMonitor', () => {
 
     // Reset environment variable
     delete process.env.MAX_DATABASE_SIZE;
+    reloadConfig(); // Reload config after changing env vars
   });
 
   describe('parseMaxSize', () => {
     it('should use default 256MB when MAX_DATABASE_SIZE is not set', () => {
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      reloadConfig();
       
       const monitor = new StorageMonitor(mockDb, dbPath);
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        '[StorageMonitor] MAX_DATABASE_SIZE not set, using default 256MB'
+        '[StorageMonitor] Using MAX_DATABASE_SIZE=256MB'
       );
       
       consoleSpy.mockRestore();
@@ -48,6 +51,7 @@ describe('StorageMonitor', () => {
 
     it('should parse and use MAX_DATABASE_SIZE from environment variable', () => {
       process.env.MAX_DATABASE_SIZE = '512';
+      reloadConfig();
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
       const monitor = new StorageMonitor(mockDb, dbPath);
@@ -61,28 +65,30 @@ describe('StorageMonitor', () => {
 
     it('should handle invalid MAX_DATABASE_SIZE and use default', () => {
       process.env.MAX_DATABASE_SIZE = 'invalid';
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      reloadConfig();
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
       const monitor = new StorageMonitor(mockDb, dbPath);
 
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Invalid MAX_DATABASE_SIZE="invalid"')
+      expect(consoleSpy).toHaveBeenCalledWith(
+        '[StorageMonitor] Using MAX_DATABASE_SIZE=256MB'
       );
 
-      consoleWarnSpy.mockRestore();
+      consoleSpy.mockRestore();
     });
 
     it('should reject negative or zero values and use default', () => {
       process.env.MAX_DATABASE_SIZE = '-256';
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      reloadConfig();
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
       const monitor = new StorageMonitor(mockDb, dbPath);
 
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Invalid MAX_DATABASE_SIZE')
+      expect(consoleSpy).toHaveBeenCalledWith(
+        '[StorageMonitor] Using MAX_DATABASE_SIZE=256MB'
       );
 
-      consoleWarnSpy.mockRestore();
+      consoleSpy.mockRestore();
     });
   });
 
@@ -118,6 +124,7 @@ describe('StorageMonitor', () => {
     it('should calculate correct usage percentage with custom MAX_DATABASE_SIZE', () => {
       mockStat.size = 128 * 1024 * 1024; // 128MB
       process.env.MAX_DATABASE_SIZE = '200';
+      reloadConfig();
 
       const monitor = new StorageMonitor(mockDb, dbPath);
       const status = monitor.getStatus();
@@ -130,6 +137,7 @@ describe('StorageMonitor', () => {
     it('should not auto-disable when below 95% threshold', () => {
       mockStat.size = 240 * 1024 * 1024; // 240MB
       process.env.MAX_DATABASE_SIZE = '256';
+      reloadConfig();
 
       const monitor = new StorageMonitor(mockDb, dbPath);
       const status = monitor.getStatus();
@@ -142,6 +150,7 @@ describe('StorageMonitor', () => {
       // Set to slightly above 95% to account for floating point precision
       mockStat.size = Math.floor(256 * 0.951 * 1024 * 1024);
       process.env.MAX_DATABASE_SIZE = '256';
+      reloadConfig();
 
       const monitor = new StorageMonitor(mockDb, dbPath);
       const status = monitor.getStatus();
@@ -531,6 +540,7 @@ describe('StorageMonitor', () => {
 
       sizes.forEach(maxSize => {
         process.env.MAX_DATABASE_SIZE = String(maxSize);
+        reloadConfig();
         mockStat.size = Math.floor(maxSize * 0.5 * 1024 * 1024); // 50% full
 
         mockDb.prepare.mockImplementation((sql: string) => ({

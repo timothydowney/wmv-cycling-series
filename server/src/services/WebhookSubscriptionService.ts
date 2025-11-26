@@ -16,6 +16,7 @@
  */
 
 import Database from 'better-sqlite3';
+import { getStravaConfig, getWebhookConfig } from '../config';
 
 interface StravaSubscriptionPayload {
   id: number;
@@ -32,21 +33,6 @@ export interface SubscriptionStatus {
   expires_at: string | null; // Calculated as created_at + 24 hours
   last_refreshed_at: string | null;
   callback_url: string | null;
-}
-
-/**
- * Helper to get Strava API configuration
- */
-function getStravaConfig() {
-  const clientId = process.env.STRAVA_CLIENT_ID;
-  const clientSecret = process.env.STRAVA_CLIENT_SECRET;
-  const apiBase = process.env.STRAVA_API_BASE_URL || 'https://www.strava.com';
-  
-  if (!clientId || !clientSecret) {
-    throw new Error('Missing STRAVA_CLIENT_ID or STRAVA_CLIENT_SECRET environment variables');
-  }
-  
-  return { clientId, clientSecret, apiBase };
 }
 
 /**
@@ -156,8 +142,7 @@ export class WebhookSubscriptionService {
    */
   private async createSubscriptionWithStrava(): Promise<StravaSubscriptionPayload> {
     const { clientId, clientSecret, apiBase } = getStravaConfig();
-    const callbackUrl = process.env.WEBHOOK_CALLBACK_URL;
-    const verifyToken = process.env.WEBHOOK_VERIFY_TOKEN;
+    const { callbackUrl, verifyToken } = getWebhookConfig();
 
     if (!callbackUrl || !verifyToken) {
       throw new Error('Missing WEBHOOK_CALLBACK_URL or WEBHOOK_VERIFY_TOKEN environment variables');
@@ -337,8 +322,8 @@ export class WebhookSubscriptionService {
         } else {
           // Create new DB record (always id = 1)
           console.log('[WebhookSubscriptionService] enable() - calling insertSubscriptionInDb with existing from Strava');
-          const verifyToken = process.env.WEBHOOK_VERIFY_TOKEN || 'recovered';
-          insertSubscriptionInDb(this.db, existingOnStrava, verifyToken, existingOnStrava.id);
+          const { verifyToken } = getWebhookConfig();
+          insertSubscriptionInDb(this.db, existingOnStrava, verifyToken || 'recovered', existingOnStrava.id);
         }
         
         return this.getStatus();
@@ -360,7 +345,7 @@ export class WebhookSubscriptionService {
       } else {
         // Create new DB record (always id = 1)
         console.log('[WebhookSubscriptionService] enable() - calling insertSubscriptionInDb with newly created');
-        const verifyToken = process.env.WEBHOOK_VERIFY_TOKEN || '';
+        const { verifyToken } = getWebhookConfig();
         if (!verifyToken) {
           throw new Error('WEBHOOK_VERIFY_TOKEN environment variable is required');
         }
@@ -439,7 +424,8 @@ export class WebhookSubscriptionService {
   getVerifyToken(): string | null {
     const status = this.getStatus();
     if (!status.id) {
-      return process.env.WEBHOOK_VERIFY_TOKEN || null;
+      const { verifyToken } = getWebhookConfig();
+      return verifyToken || null;
     }
 
     // For existing subscription, retrieve from database
