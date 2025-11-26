@@ -61,13 +61,27 @@ function updateSubscriptionInDb(
   payload: StravaSubscriptionPayload,
   stravaSubscriptionId: number
 ): void {
-  db.prepare(`
+  const payloadJson = JSON.stringify(payload);
+  console.log('[WebhookSubscriptionService] updateSubscriptionInDb - Updating subscription:', {
+    subscription_id: stravaSubscriptionId,
+    payload_size_bytes: payloadJson.length,
+    payload_keys: Object.keys(payload),
+    created_at: payload.created_at,
+    updated_at: payload.updated_at,
+    callback_url: payload.callback_url
+  });
+  
+  const result = db.prepare(`
     UPDATE webhook_subscription
     SET subscription_payload = ?,
         subscription_id = ?,
         last_refreshed_at = CURRENT_TIMESTAMP
     WHERE id = 1
-  `).run(JSON.stringify(payload), stravaSubscriptionId);
+  `).run(payloadJson, stravaSubscriptionId);
+  
+  console.log('[WebhookSubscriptionService] updateSubscriptionInDb - Database operation complete:', {
+    changes: (result as any).changes
+  });
 }
 
 /**
@@ -83,7 +97,17 @@ function insertSubscriptionInDb(
   verifyToken: string,
   stravaSubscriptionId: number
 ): void {
-  db.prepare(`
+  const payloadJson = JSON.stringify(payload);
+  console.log('[WebhookSubscriptionService] insertSubscriptionInDb - Storing subscription:', {
+    subscription_id: stravaSubscriptionId,
+    payload_size_bytes: payloadJson.length,
+    payload_keys: Object.keys(payload),
+    created_at: payload.created_at,
+    updated_at: payload.updated_at,
+    callback_url: payload.callback_url
+  });
+  
+  const result = db.prepare(`
     INSERT INTO webhook_subscription (id, verify_token, subscription_payload, subscription_id, last_refreshed_at)
     VALUES (1, ?, ?, ?, CURRENT_TIMESTAMP)
     ON CONFLICT(id) DO UPDATE SET
@@ -91,7 +115,12 @@ function insertSubscriptionInDb(
       subscription_payload = excluded.subscription_payload,
       subscription_id = excluded.subscription_id,
       last_refreshed_at = CURRENT_TIMESTAMP
-  `).run(verifyToken, JSON.stringify(payload), stravaSubscriptionId);
+  `).run(verifyToken, payloadJson, stravaSubscriptionId);
+  
+  console.log('[WebhookSubscriptionService] insertSubscriptionInDb - Database operation complete:', {
+    changes: (result as any).changes,
+    lastInsertRowid: (result as any).lastInsertRowid
+  });
 }
 
 /**
@@ -148,6 +177,11 @@ export class WebhookSubscriptionService {
       throw new Error('Missing WEBHOOK_CALLBACK_URL or WEBHOOK_VERIFY_TOKEN environment variables');
     }
 
+    console.log('[WebhookSubscriptionService] createSubscriptionWithStrava - Requesting subscription from Strava API:', {
+      callback_url: callbackUrl,
+      verify_token: verifyToken ? `[${verifyToken.length} chars]` : 'NOT SET'
+    });
+
     const url = `${apiBase}/api/v3/push_subscriptions`;
     const form = buildStravaFormData(clientId, clientSecret, ['callback_url', callbackUrl], ['verify_token', verifyToken]);
 
@@ -159,11 +193,22 @@ export class WebhookSubscriptionService {
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error('[WebhookSubscriptionService] createSubscriptionWithStrava - Strava API error:', {
+        status: response.status,
+        error: errorText
+      });
       throw new Error(`Strava API error creating subscription: ${response.status} ${errorText}`);
     }
 
     const subscription = (await response.json()) as StravaSubscriptionPayload;
-    console.log('[WebhookSubscriptionService] ✓ Subscription created on Strava with ID:', subscription.id);
+    console.log('[WebhookSubscriptionService] createSubscriptionWithStrava - ✓ Raw Strava API response received:', {
+      subscription_id: subscription.id,
+      created_at: subscription.created_at,
+      updated_at: subscription.updated_at,
+      callback_url: subscription.callback_url,
+      application_id: subscription.application_id,
+      full_response: subscription
+    });
     return subscription;
   }
 
@@ -208,8 +253,17 @@ export class WebhookSubscriptionService {
         LIMIT 1
       `).get() as { id: number; verify_token: string; subscription_payload: string | null; subscription_id: number | null; last_refreshed_at: string | null } | undefined;
 
+      console.log('[WebhookSubscriptionService] getStatus - Database query result:', {
+        row_exists: !!row,
+        subscription_id: row?.subscription_id,
+        payload_exists: !!row?.subscription_payload,
+        payload_size_bytes: row?.subscription_payload?.length || 0,
+        last_refreshed_at: row?.last_refreshed_at
+      });
+
       if (!row) {
         // No subscription exists = disabled state
+        console.log('[WebhookSubscriptionService] getStatus - No subscription found, returning disabled state');
         return {
           id: null,
           subscription_id: null,
@@ -225,9 +279,21 @@ export class WebhookSubscriptionService {
       if (row.subscription_payload) {
         try {
           payload = JSON.parse(row.subscription_payload);
+          console.log('[WebhookSubscriptionService] getStatus - Parsed subscription_payload:', {
+            parsed_keys: Object.keys(payload || {}),
+            created_at: payload?.created_at,
+            updated_at: payload?.updated_at,
+            callback_url: payload?.callback_url,
+            id: payload?.id
+          });
         } catch (e) {
-          console.warn('[WebhookSubscriptionService] Failed to parse subscription_payload', e);
+          console.warn('[WebhookSubscriptionService] getStatus - Failed to parse subscription_payload', {
+            error: e instanceof Error ? e.message : String(e),
+            payload_first_100_chars: row.subscription_payload.substring(0, 100)
+          });
         }
+      } else {
+        console.warn('[WebhookSubscriptionService] getStatus - subscription_payload is NULL in database despite row existing');
       }
 
       // Calculate expires_at (24 hours from created_at)
@@ -241,7 +307,7 @@ export class WebhookSubscriptionService {
       // Use subscription_id from column (clean, reliable source)
       const subscription_id = row.subscription_id;
 
-      return {
+      const status = {
         id: row.id,
         subscription_id: subscription_id,
         created_at: payload?.created_at ?? null,
@@ -249,8 +315,11 @@ export class WebhookSubscriptionService {
         last_refreshed_at: row.last_refreshed_at,
         callback_url: payload?.callback_url ?? null
       };
+
+      console.log('[WebhookSubscriptionService] getStatus - Returning status:', status);
+      return status;
     } catch (error) {
-      console.error('[WebhookSubscriptionService] Failed to get status', error);
+      console.error('[WebhookSubscriptionService] getStatus - Failed to get status', error);
       throw error;
     }
   }
