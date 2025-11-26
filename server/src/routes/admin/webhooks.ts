@@ -45,7 +45,10 @@ export function createWebhookAdminRoutes(db: Database): Router {
    */
   router.get('/status', (_req: Request, res: Response) => {
     try {
+      console.log('[Admin:Webhooks] GET /status - Fetching webhook status');
       const subscriptionStatus = subscriptionService.getStatus();
+
+      console.log('[Admin:Webhooks] GET /status - Subscription status retrieved:', subscriptionStatus);
 
       // Get event metrics
       const totalEvents = db
@@ -75,7 +78,16 @@ export function createWebhookAdminRoutes(db: Database): Router {
       const successRate =
         totalEvents.count > 0 ? ((successfulEvents.count / totalEvents.count) * 100).toFixed(1) : '0.0';
 
-      res.json({
+      console.log('[Admin:Webhooks] GET /status - Event metrics retrieved:', {
+        total_events: totalEvents.count,
+        successful_events: successfulEvents.count,
+        failed_events: failedEvents.count,
+        pending_retries: pendingRetries.count,
+        events_last_24h: eventsLast24h.count,
+        success_rate: successRate
+      });
+
+      const responsePayload = {
         enabled: subscriptionStatus.id !== null,
         subscription_id: subscriptionStatus.subscription_id,
         created_at: subscriptionStatus.created_at,
@@ -89,7 +101,10 @@ export function createWebhookAdminRoutes(db: Database): Router {
           events_last_24h: eventsLast24h.count,
           success_rate: parseFloat(successRate as string)
         }
-      });
+      };
+
+      console.log('[Admin:Webhooks] GET /status - Returning response:', responsePayload);
+      res.json(responsePayload);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error('[Admin:Webhooks] GET /status failed:', message);

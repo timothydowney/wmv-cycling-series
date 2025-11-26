@@ -54,7 +54,6 @@ export class StorageMonitor {
    */
   private parseMaxSize(): number {
     const maxSize = getMaxDatabaseSize();
-    console.log(`[StorageMonitor] Using MAX_DATABASE_SIZE=${maxSize}MB`);
     return maxSize;
   }
 
