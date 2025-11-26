@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../api';
 import './WebhookEventHistory.css';
 
@@ -40,7 +40,7 @@ const WebhookEventHistory: React.FC<Props> = () => {
   const [message, setMessage] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<Record<number, 'raw' | 'formatted'>>({});
 
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -63,9 +63,9 @@ const WebhookEventHistory: React.FC<Props> = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [pagination.limit, pagination.offset, filters.since]);
 
-  const handleClearAll = async () => {
+  const handleClearAll = useCallback(async () => {
     if (!window.confirm(`Clear all ${pagination.total} webhook events? This cannot be undone.`)) {
       return;
     }
@@ -81,11 +81,11 @@ const WebhookEventHistory: React.FC<Props> = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [pagination.total, fetchEvents]);
 
   useEffect(() => {
     fetchEvents();
-  }, [fetchEvents, filters, pagination.offset]);
+  }, [fetchEvents]);
 
   const toggleViewMode = (eventId: number) => {
     setViewMode((prev) => ({
