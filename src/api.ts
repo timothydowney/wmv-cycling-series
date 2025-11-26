@@ -452,6 +452,19 @@ export const api = {
     return response.json();
   },
 
+  async getWebhookEventEnrichment(eventId: number): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/admin/webhooks/events/enriched/${eventId}`, {
+      method: 'GET',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to fetch enriched event');
+    }
+    return response.json();
+  },
+
 };
 
 // Named exports for convenience (used by components)
