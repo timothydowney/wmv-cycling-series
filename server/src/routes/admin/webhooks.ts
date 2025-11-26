@@ -18,8 +18,10 @@ import { Database } from 'better-sqlite3';
 import { config } from '../../config';
 import { WebhookSubscriptionService } from '../../services/WebhookSubscriptionService';
 import { StorageMonitor } from '../../webhooks/storageMonitor';
+import { getActivity } from '../../stravaClient';
+import { getValidAccessToken } from '../../tokenManager';
 
-export function createWebhookAdminRoutes(db: Database): Router {
+export function createWebhookAdminRoutes(db: Database, stravaClientModule?: typeof import('../../stravaClient')): Router {
   const router = Router();
   const subscriptionService = new WebhookSubscriptionService(db);
 
@@ -459,7 +461,7 @@ export function createWebhookAdminRoutes(db: Database): Router {
    *   }
    * }
    */
-  router.get('/events/enriched/:id', (req: Request, res: Response): void => {
+  router.get('/events/enriched/:id', async (req: Request, res: Response): Promise<void> => {
     try {
       const eventId = parseInt(req.params.id);
 
@@ -496,8 +498,8 @@ export function createWebhookAdminRoutes(db: Database): Router {
 
         // Get participant from our database
         const participant = db
-          .prepare('SELECT name FROM participant WHERE strava_athlete_id = ?')
-          .get(athleteId) as { name: string } | undefined;
+          .prepare('SELECT strava_athlete_id, name FROM participant WHERE strava_athlete_id = ?')
+          .get(athleteId) as { strava_athlete_id: number; name: string } | undefined;
 
         // Initialize enrichment object
         const enrichment: any = {
@@ -514,6 +516,34 @@ export function createWebhookAdminRoutes(db: Database): Router {
             total_seasons: 0
           }
         };
+
+        // Try to fetch activity details from Strava
+        try {
+          if (participant && stravaClientModule) {
+            console.log(`[Admin:Webhooks] Fetching Strava activity details for activity ${activityId}`);
+            const token = await getValidAccessToken(db, stravaClientModule, participant.strava_athlete_id);
+            const activity = await getActivity(activityId, token);
+            enrichment.strava_data = {
+              activity_id: activity.id,
+              name: activity.name,
+              type: activity.type,
+              distance_m: activity.distance,
+              moving_time_sec: activity.moving_time,
+              elevation_gain_m: activity.elevation_gain,
+              start_date_iso: activity.start_date,
+              device_name: activity.device_name || null,
+              segment_effort_count: activity.segment_efforts?.length || 0,
+              visibility: activity.visibility || null
+            };
+            console.log(`[Admin:Webhooks] ✓ Activity details loaded: '${activity.name}'`);
+          } else {
+            console.log(`[Admin:Webhooks] No participant found for athlete ${athleteId}, skipping Strava API call`);
+          }
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          console.log(`[Admin:Webhooks] Activity fetch from Strava: ${msg}`);
+          // Don't fail enrichment if we can't fetch from Strava - continue with stored data
+        }
 
         // If not processed, return early
         if (!event.processed) {
