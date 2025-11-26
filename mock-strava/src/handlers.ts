@@ -32,6 +32,25 @@ export class RequestHandlers {
         return;
       }
 
+      // Check if subscription already exists (Strava only allows one per app)
+      if (this.store.getAll().length > 0) {
+        this.logger.warn('Subscription already exists', { callbackUrl });
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            message: 'Bad Request',
+            errors: [
+              {
+                resource: 'PushSubscription',
+                field: 'subscription',
+                code: 'already exists',
+              },
+            ],
+          })
+        );
+        return;
+      }
+
       // Validate callback URL
       this.logger.debug('Validating callback URL', { callbackUrl, verifyToken });
       const validated = await this.validateCallbackUrl(callbackUrl, verifyToken);
@@ -51,11 +70,14 @@ export class RequestHandlers {
         verify_token: verifyToken,
       });
 
-      // Return same format as GET /push_subscriptions
+      // Return full subscription data (matches Strava format)
       const responseBody = {
         id: subscription.id,
-        created_at: subscription.createdAt.toISOString(),
+        resource_state: 2,
+        application_id: clientId,
         callback_url: subscription.callbackUrl,
+        created_at: subscription.createdAt.toISOString(),
+        updated_at: subscription.createdAt.toISOString(),
       };
 
       res.writeHead(201, { 'Content-Type': 'application/json' });
@@ -74,10 +96,14 @@ export class RequestHandlers {
   ): Promise<void> {
     try {
       const subscriptions = this.store.getAll();
+      // Return array of full subscription objects (matches Strava format)
       const response = subscriptions.map((sub) => ({
         id: sub.id,
-        created_at: sub.createdAt.toISOString(),
+        resource_state: 2,
+        application_id: sub.clientId,
         callback_url: sub.callbackUrl,
+        created_at: sub.createdAt.toISOString(),
+        updated_at: sub.createdAt.toISOString(),
       }));
 
       res.writeHead(200, { 'Content-Type': 'application/json' });

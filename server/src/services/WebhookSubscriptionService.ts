@@ -147,8 +147,8 @@ export class WebhookSubscriptionService {
    * 
    * Per Strava docs (View a Subscription):
    * GET https://www.strava.com/api/v3/push_subscriptions?client_id=X&client_secret=Y
-   * Returns: { "id": N, "created_at": "...", "updated_at": "...", "callback_url": "...", "application_id": N }
-   * Or: {} if no subscription exists
+   * Returns: [{ "id": N, "created_at": "...", "updated_at": "...", "callback_url": "...", "application_id": N }]
+   * Or: [] if no subscription exists
    */
   private async fetchExistingFromStrava(): Promise<StravaSubscriptionPayload | null> {
     const { clientId, clientSecret, apiBase } = getStravaConfig();
@@ -167,17 +167,18 @@ export class WebhookSubscriptionService {
         return null;
       }
 
-      const data = (await response.json()) as StravaSubscriptionPayload | { data?: Array<StravaSubscriptionPayload> };
+      const data = await response.json();
       console.log('[WebhookSubscriptionService] fetchExistingFromStrava - Raw Strava API response:', data);
 
-      // Handle both response formats:
-      // 1. Array format: { "data": [{ "id": N, ... }] }
-      // 2. Direct format: { "id": N, ... }
+      // Strava returns an array of subscriptions (typically 0 or 1)
       let subscription: StravaSubscriptionPayload | null = null;
       
-      if (Array.isArray((data as any).data)) {
-        subscription = (data as any).data[0] ?? null;
-      } else if ((data as any).id) {
+      // Handle array response (the standard format)
+      if (Array.isArray(data)) {
+        subscription = data[0] ?? null;
+      } 
+      // Handle direct object format (fallback, if Strava ever changes format)
+      else if ((data as any).id) {
         subscription = data as StravaSubscriptionPayload;
       }
 
