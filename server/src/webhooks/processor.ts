@@ -128,7 +128,7 @@ export function createWebhookProcessor(db: Database, service?: WebhookService) {
         duration: `${duration}ms`
       });
 
-      if (process.env.WEBHOOK_LOG_EVENTS === 'true') {
+      if (process.env.WEBHOOK_PERSIST_EVENTS === 'true') {
         logger.markProcessed(event);
       }
     } catch (error) {
@@ -141,7 +141,7 @@ export function createWebhookProcessor(db: Database, service?: WebhookService) {
         error: error instanceof Error ? error.message : String(error)
       });
 
-      if (process.env.WEBHOOK_LOG_EVENTS === 'true') {
+      if (process.env.WEBHOOK_PERSIST_EVENTS === 'true') {
         logger.markFailed(
           event,
           error instanceof Error ? error.message : String(error)

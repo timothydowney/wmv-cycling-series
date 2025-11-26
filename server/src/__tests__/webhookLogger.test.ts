@@ -115,7 +115,7 @@ describe('Webhook Logger', () => {
 
     it('should handle database errors gracefully', () => {
       // Arrange
-      process.env.WEBHOOK_LOG_EVENTS = 'true';
+      process.env.WEBHOOK_PERSIST_EVENTS = 'true';
       const badLogger = new WebhookLogger(null); // Invalid db
       const entry = {
         subscriptionId: 1,
