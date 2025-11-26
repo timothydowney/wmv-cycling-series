@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import './WebhookEventCard.css';
 
 export interface WebhookPayload {
   aspect_type: 'create' | 'update' | 'delete';
@@ -18,69 +19,67 @@ export interface WebhookEvent {
   error_message: string | null;
 }
 
-interface AspectBadge {
-  icon: string;
-  label: string;
-  color: string;
-}
-
 interface WebhookEventCardProps {
   event: WebhookEvent;
-  onClose: () => void;
-  getAspectBadge?: (aspect: string) => AspectBadge;
   renderContent: (isRawMode: boolean) => React.ReactNode;
   cssClass?: string;
+  headerTitle?: React.ReactNode;
+  hasMatch?: boolean;
 }
 
 const WebhookEventCard: React.FC<WebhookEventCardProps> = ({
   event,
-  onClose,
-  getAspectBadge,
   renderContent,
-  cssClass = 'webhook-event-card'
+  cssClass = 'webhook-event-card',
+  headerTitle,
+  hasMatch = false
 }) => {
   const [showRawJson, setShowRawJson] = useState(false);
-
-  const defaultGetAspectBadge = (aspect: string): AspectBadge => {
-    const badges: Record<string, AspectBadge> = {
-      create: { icon: '➕', label: 'Created', color: '#27ae60' },
-      update: { icon: '♻️', label: 'Updated', color: '#3498db' },
-      delete: { icon: '🗑️', label: 'Deleted', color: '#e74c3c' }
-    };
-    return badges[aspect] || { icon: '📌', label: 'Event', color: '#95a5a6' };
-  };
-
-  const badge = getAspectBadge ? getAspectBadge(event.payload.aspect_type) : defaultGetAspectBadge(event.payload.aspect_type);
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   return (
     <div className={cssClass}>
       {/* Card Header */}
       <div className="card-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-          <span style={{ fontWeight: 'bold', color: badge.color }}>{badge.label}</span>
-          <span className="event-timestamp">{new Date(event.created_at).toLocaleString()}</span>
+        <div className="header-left">
+          <span className="header-created">Created</span>
+          <span className="header-timestamp">{new Date(event.created_at).toLocaleString()}</span>
         </div>
-        <button className="view-toggle-btn" onClick={() => setShowRawJson(!showRawJson)}>
-          {showRawJson ? 'Formatted' : 'Raw JSON'}
-        </button>
-        <button className="close-btn" onClick={onClose}>
-          ✕
-        </button>
+        
+        <div className="header-center">
+          {headerTitle || <span className="header-fallback">Event {event.id}</span>}
+          {hasMatch && <span className="match-indicator" title="Has matching weeks">✓</span>}
+        </div>
+        
+        <div className="header-right">
+          <button 
+            className="collapse-btn" 
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            title={isCollapsed ? 'Expand' : 'Collapse'}
+          >
+            {isCollapsed ? '▶' : '▼'}
+          </button>
+        </div>
       </div>
 
-      {/* Card Body */}
-      <div className="card-body">
-        {showRawJson ? (
-          // Raw Webhook Event Data
-          <section className="section raw-json-section">
-            <h4 className="section-title">RAW WEBHOOK EVENT</h4>
-            <pre className="raw-json-content">{JSON.stringify(event, null, 2)}</pre>
-          </section>
-        ) : (
-          // Formatted View - delegated to child
-          renderContent(false)
-        )}
-      </div>
+      {/* Card Body - Hidden when collapsed */}
+      {!isCollapsed && (
+        <div className="card-body">
+          <button className="view-toggle-btn" onClick={() => setShowRawJson(!showRawJson)}>
+            {showRawJson ? 'Formatted' : 'Raw JSON'}
+          </button>
+          {showRawJson ? (
+            // Raw Webhook Event Data
+            <section className="section raw-json-section">
+              <h4 className="section-title">RAW WEBHOOK EVENT</h4>
+              <pre className="raw-json-content">{JSON.stringify(event, null, 2)}</pre>
+            </section>
+          ) : (
+            // Formatted View - delegated to child
+            renderContent(false)
+          )}
+        </div>
+      )}
     </div>
   );
 };

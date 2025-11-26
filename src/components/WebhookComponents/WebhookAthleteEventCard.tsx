@@ -11,10 +11,9 @@ interface EnrichedAthlete {
 
 interface WebhookAthleteEventCardProps {
   event: WebhookEvent;
-  onClose: () => void;
 }
 
-const WebhookAthleteEventCard: React.FC<WebhookAthleteEventCardProps> = ({ event, onClose }) => {
+const WebhookAthleteEventCard: React.FC<WebhookAthleteEventCardProps> = ({ event }) => {
   const [enrichment, setEnrichment] = useState<EnrichedAthlete | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -38,6 +37,27 @@ const WebhookAthleteEventCard: React.FC<WebhookAthleteEventCardProps> = ({ event
     fetchEnrichment();
   }, [event.id]);
 
+  const getHeaderTitle = (): React.ReactNode => {
+    if (loading) {
+      return <span className="header-fallback">Athlete {event.payload.object_id}</span>;
+    }
+
+    if (!enrichment?.name) {
+      return <span className="header-fallback">Athlete {event.payload.object_id}</span>;
+    }
+
+    return (
+      <a
+        href={`https://www.strava.com/athletes/${enrichment.athlete_id}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="header-strava-link"
+      >
+        {enrichment.name}
+      </a>
+    );
+  };
+
   const renderAthleteContent = () => {
     if (loading) {
       return (
@@ -50,15 +70,8 @@ const WebhookAthleteEventCard: React.FC<WebhookAthleteEventCardProps> = ({ event
     return (
       <div className="card-body">
         {enrichment && enrichment.name ? (
-          <div className="athlete-link-line">
-            <a
-              href={`https://www.strava.com/athletes/${enrichment.athlete_id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="strava-link"
-            >
-              {enrichment.name}
-            </a>
+          <div className="athlete-detail">
+            <p>Athlete connected</p>
           </div>
         ) : (
           <div className="error-message-inline">
@@ -72,9 +85,10 @@ const WebhookAthleteEventCard: React.FC<WebhookAthleteEventCardProps> = ({ event
   return (
     <WebhookEventCard
       event={event}
-      onClose={onClose}
       renderContent={renderAthleteContent}
       cssClass="athlete-event-card"
+      headerTitle={getHeaderTitle()}
+      hasMatch={false}
     />
   );
 };
