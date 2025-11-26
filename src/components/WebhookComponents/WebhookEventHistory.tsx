@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../api';
+import WebhookActivityEventCard from './WebhookActivityEventCard';
+import WebhookAthleteEventCard from './WebhookAthleteEventCard';
 import './WebhookEventHistory.css';
 
 interface WebhookPayload {
@@ -38,7 +40,7 @@ const WebhookEventHistory: React.FC<Props> = () => {
   const [pagination, setPagination] = useState({ total: 0, limit: 50, offset: 0, has_more: false });
   const [filters, setFilters] = useState({ status: 'all', since: 604800 });
   const [message, setMessage] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<Record<number, 'raw' | 'formatted'>>({});
+  const [viewMode, setViewMode] = useState<Record<number, 'raw' | 'formatted'>>({})
 
   const fetchEvents = useCallback(async () => {
     setLoading(true);
@@ -59,7 +61,6 @@ const WebhookEventHistory: React.FC<Props> = () => {
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to fetch events';
       setError(msg);
-      console.error('Failed to fetch webhook events:', err);
     } finally {
       setLoading(false);
     }
@@ -206,6 +207,29 @@ const WebhookEventHistory: React.FC<Props> = () => {
         <>
           <div className="events-list">
             {events.map((event) => {
+              // For activity events, show enriched activity card
+              if (event.payload && event.payload.object_type === 'activity') {
+                return (
+                  <WebhookActivityEventCard
+                    key={event.id}
+                    event={event}
+                    onClose={() => {}}
+                  />
+                );
+              }
+
+              // For athlete events, show enriched athlete card
+              if (event.payload && event.payload.object_type === 'athlete') {
+                return (
+                  <WebhookAthleteEventCard
+                    key={event.id}
+                    event={event}
+                    onClose={() => {}}
+                  />
+                );
+              }
+
+              // For other event types, show simple card (shouldn't happen)
               const isRawMode = viewMode[event.id] === 'raw';
               return (
                 <div key={event.id} className={`event-card ${event.processed ? 'processed' : 'failed'}`}>
