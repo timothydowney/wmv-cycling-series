@@ -15,6 +15,7 @@
 
 import { Router, Request, Response } from 'express';
 import { Database } from 'better-sqlite3';
+import { config } from '../../config';
 import { WebhookSubscriptionService } from '../../services/WebhookSubscriptionService';
 import { StorageMonitor } from '../../webhooks/storageMonitor';
 
@@ -120,7 +121,7 @@ export function createWebhookAdminRoutes(db: Database): Router {
    */
   router.get('/storage-status', (_req: Request, res: Response) => {
     try {
-      const dbPath = process.env.DATABASE_PATH || '/data/wmv.db';
+      const dbPath = config.databasePath;
       const monitor = new StorageMonitor(db, dbPath);
       const status = monitor.getStatus();
 

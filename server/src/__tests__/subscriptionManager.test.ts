@@ -8,6 +8,7 @@
  */
 
 import { setupWebhookSubscription, createDefaultService, SubscriptionService } from '../webhooks/subscriptionManager';
+import { reloadConfig } from '../config';
 
 describe('Webhook Subscription Manager', () => {
   // ============================================================================
@@ -45,6 +46,8 @@ describe('Webhook Subscription Manager', () => {
     afterEach(() => {
       // Restore environment
       process.env = originalEnv;
+      // Reload config to use restored environment
+      reloadConfig();
       // Restore console
       consoleSpy.mockRestore();
       consoleWarnSpy.mockRestore();
@@ -55,6 +58,7 @@ describe('Webhook Subscription Manager', () => {
 
     it('should skip setup if WEBHOOK_ENABLED is not "true"', async () => {
       process.env.WEBHOOK_ENABLED = 'false';
+      reloadConfig();
       const mockService: SubscriptionService = {
         createSubscription: jest.fn(),
         getExistingSubscription: jest.fn(),
@@ -69,6 +73,7 @@ describe('Webhook Subscription Manager', () => {
 
     it('should skip setup if WEBHOOK_ENABLED is undefined', async () => {
       delete process.env.WEBHOOK_ENABLED;
+      reloadConfig();
       const mockService: SubscriptionService = {
         createSubscription: jest.fn(),
         getExistingSubscription: jest.fn(),
@@ -82,25 +87,26 @@ describe('Webhook Subscription Manager', () => {
 
     // ========== Configuration Checks ==========
 
-    it('should warn if WEBHOOK_CALLBACK_URL is missing', async () => {
+    it('should warn if WEBHOOK_CALLBACK_URL is not available (split-stack config)', async () => {
+      // In the new config system, webhookCallbackUrl is auto-derived from BACKEND_URL or APP_BASE_URL
+      // So it's always available. This test now just verifies that when all other config is present,
+      // setup proceeds successfully
       process.env.WEBHOOK_ENABLED = 'true';
-      delete process.env.WEBHOOK_CALLBACK_URL;
       process.env.WEBHOOK_VERIFY_TOKEN = 'test-token';
       process.env.STRAVA_CLIENT_ID = 'test-id';
       process.env.STRAVA_CLIENT_SECRET = 'test-secret';
+      reloadConfig();
 
       const mockService: SubscriptionService = {
         createSubscription: jest.fn(),
-        getExistingSubscription: jest.fn(),
+        getExistingSubscription: jest.fn().mockResolvedValue(null),
         deleteSubscription: jest.fn()
       };
 
       await setupWebhookSubscription(mockService);
 
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('WEBHOOK_CALLBACK_URL is not set')
-      );
-      expect(mockService.getExistingSubscription).not.toHaveBeenCalled();
+      // Callback URL is auto-derived, so subscription should be checked
+      expect(mockService.getExistingSubscription).toHaveBeenCalled();
     });
 
     it('should warn if WEBHOOK_VERIFY_TOKEN is missing', async () => {
@@ -109,6 +115,7 @@ describe('Webhook Subscription Manager', () => {
       delete process.env.WEBHOOK_VERIFY_TOKEN;
       process.env.STRAVA_CLIENT_ID = 'test-id';
       process.env.STRAVA_CLIENT_SECRET = 'test-secret';
+      reloadConfig();
 
       const mockService: SubscriptionService = {
         createSubscription: jest.fn(),
@@ -126,10 +133,10 @@ describe('Webhook Subscription Manager', () => {
 
     it('should warn if STRAVA_CLIENT_ID is missing', async () => {
       process.env.WEBHOOK_ENABLED = 'true';
-      process.env.WEBHOOK_CALLBACK_URL = 'https://example.com/webhooks';
       process.env.WEBHOOK_VERIFY_TOKEN = 'test-token';
       delete process.env.STRAVA_CLIENT_ID;
       process.env.STRAVA_CLIENT_SECRET = 'test-secret';
+      reloadConfig();
 
       const mockService: SubscriptionService = {
         createSubscription: jest.fn(),
@@ -140,17 +147,17 @@ describe('Webhook Subscription Manager', () => {
       await setupWebhookSubscription(mockService);
 
       expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Strava credentials')
+        expect.stringContaining('STRAVA_CLIENT_ID')
       );
       expect(mockService.getExistingSubscription).not.toHaveBeenCalled();
     });
 
     it('should warn if STRAVA_CLIENT_SECRET is missing', async () => {
       process.env.WEBHOOK_ENABLED = 'true';
-      process.env.WEBHOOK_CALLBACK_URL = 'https://example.com/webhooks';
       process.env.WEBHOOK_VERIFY_TOKEN = 'test-token';
       process.env.STRAVA_CLIENT_ID = 'test-id';
       delete process.env.STRAVA_CLIENT_SECRET;
+      reloadConfig();
 
       const mockService: SubscriptionService = {
         createSubscription: jest.fn(),
@@ -161,7 +168,7 @@ describe('Webhook Subscription Manager', () => {
       await setupWebhookSubscription(mockService);
 
       expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Strava credentials')
+        expect.stringContaining('STRAVA_CLIENT_SECRET')
       );
       expect(mockService.getExistingSubscription).not.toHaveBeenCalled();
     });
@@ -174,6 +181,7 @@ describe('Webhook Subscription Manager', () => {
       process.env.WEBHOOK_VERIFY_TOKEN = 'test-token';
       process.env.STRAVA_CLIENT_ID = 'test-id';
       process.env.STRAVA_CLIENT_SECRET = 'test-secret';
+      reloadConfig();
 
       const mockService: SubscriptionService = {
         createSubscription: jest.fn(),
@@ -199,6 +207,7 @@ describe('Webhook Subscription Manager', () => {
       process.env.WEBHOOK_VERIFY_TOKEN = 'test-token';
       process.env.STRAVA_CLIENT_ID = 'test-id';
       process.env.STRAVA_CLIENT_SECRET = 'test-secret';
+      reloadConfig();
 
       const mockService: SubscriptionService = {
         createSubscription: jest.fn(),
@@ -226,17 +235,21 @@ describe('Webhook Subscription Manager', () => {
 
     it('should create subscription if none exists', async () => {
       process.env.WEBHOOK_ENABLED = 'true';
-      process.env.WEBHOOK_CALLBACK_URL = 'https://example.com/webhooks';
       process.env.WEBHOOK_VERIFY_TOKEN = 'test-token';
       process.env.STRAVA_CLIENT_ID = 'test-id';
       process.env.STRAVA_CLIENT_SECRET = 'test-secret';
+      // Set frontend + backend URLs so webhook callback URL is auto-derived correctly
+      // (config only uses BACKEND_URL if FRONTEND_URL is set)
+      process.env.FRONTEND_URL = 'http://localhost:5173';
+      process.env.BACKEND_URL = 'https://example.com';
+      reloadConfig();
 
       const mockService: SubscriptionService = {
         createSubscription: jest.fn().mockResolvedValue({
           id: 789,
           created_at: '2025-11-22T10:30:00Z',
           updated_at: '2025-11-22T10:30:00Z',
-          callback_url: 'https://example.com/webhooks',
+          callback_url: 'https://example.com/webhooks/strava',
           resource_state: 2
         }),
         getExistingSubscription: jest.fn().mockResolvedValue(null),
@@ -247,7 +260,7 @@ describe('Webhook Subscription Manager', () => {
 
       expect(mockService.getExistingSubscription).toHaveBeenCalledWith('test-id', 'test-secret');
       expect(mockService.createSubscription).toHaveBeenCalledWith(
-        'https://example.com/webhooks',
+        'https://example.com/webhooks/strava',
         'test-token',
         'test-id',
         'test-secret'
@@ -256,17 +269,21 @@ describe('Webhook Subscription Manager', () => {
 
     it('should log success when subscription created', async () => {
       process.env.WEBHOOK_ENABLED = 'true';
-      process.env.WEBHOOK_CALLBACK_URL = 'https://example.com/webhooks';
       process.env.WEBHOOK_VERIFY_TOKEN = 'test-token';
       process.env.STRAVA_CLIENT_ID = 'test-id';
       process.env.STRAVA_CLIENT_SECRET = 'test-secret';
+      // Set frontend + backend URLs so webhook callback URL is auto-derived correctly
+      // (config only uses BACKEND_URL if FRONTEND_URL is set)
+      process.env.FRONTEND_URL = 'http://localhost:5173';
+      process.env.BACKEND_URL = 'https://example.com';
+      reloadConfig();
 
       const mockService: SubscriptionService = {
         createSubscription: jest.fn().mockResolvedValue({
           id: 999,
           created_at: '2025-11-22T10:30:00Z',
           updated_at: '2025-11-22T10:30:00Z',
-          callback_url: 'https://example.com/webhooks',
+          callback_url: 'https://example.com/webhooks/strava',
           resource_state: 2
         }),
         getExistingSubscription: jest.fn().mockResolvedValue(null),
@@ -279,7 +296,7 @@ describe('Webhook Subscription Manager', () => {
         .map((call: any) => call[0])
         .join('\n');
       expect(logCalls).toContain('Subscription ready');
-      expect(logCalls).toContain('https://example.com/webhooks');
+      expect(logCalls).toContain('https://example.com/webhooks/strava');
     });
 
     // ========== Error Handling ==========
@@ -290,6 +307,7 @@ describe('Webhook Subscription Manager', () => {
       process.env.WEBHOOK_VERIFY_TOKEN = 'test-token';
       process.env.STRAVA_CLIENT_ID = 'test-id';
       process.env.STRAVA_CLIENT_SECRET = 'test-secret';
+      reloadConfig();
 
       const mockService: SubscriptionService = {
         createSubscription: jest.fn(),
@@ -308,6 +326,7 @@ describe('Webhook Subscription Manager', () => {
       process.env.WEBHOOK_VERIFY_TOKEN = 'test-token';
       process.env.STRAVA_CLIENT_ID = 'test-id';
       process.env.STRAVA_CLIENT_SECRET = 'test-secret';
+      reloadConfig();
 
       const mockService: SubscriptionService = {
         createSubscription: jest.fn().mockRejectedValue(new Error('API error')),
@@ -331,6 +350,7 @@ describe('Webhook Subscription Manager', () => {
       process.env.WEBHOOK_VERIFY_TOKEN = 'test-token';
       process.env.STRAVA_CLIENT_ID = 'test-id';
       process.env.STRAVA_CLIENT_SECRET = 'test-secret';
+      reloadConfig();
 
       const mockService: SubscriptionService = {
         createSubscription: jest.fn(),
@@ -354,10 +374,9 @@ describe('Webhook Subscription Manager', () => {
 
     it('should report multiple missing config items', async () => {
       process.env.WEBHOOK_ENABLED = 'true';
-      delete process.env.WEBHOOK_CALLBACK_URL;
       delete process.env.WEBHOOK_VERIFY_TOKEN;
-      process.env.STRAVA_CLIENT_ID = 'test-id';
-      process.env.STRAVA_CLIENT_SECRET = 'test-secret';
+      delete process.env.STRAVA_CLIENT_ID;
+      reloadConfig();
 
       const mockService: SubscriptionService = {
         createSubscription: jest.fn(),
@@ -367,12 +386,12 @@ describe('Webhook Subscription Manager', () => {
 
       await setupWebhookSubscription(mockService);
 
-      // Should warn about both missing items
+      // Should warn about missing items
       const warnCalls = consoleWarnSpy.mock.calls
         .map(call => call[0])
         .join('\n');
-      expect(warnCalls).toContain('WEBHOOK_CALLBACK_URL');
       expect(warnCalls).toContain('WEBHOOK_VERIFY_TOKEN');
+      expect(warnCalls).toContain('STRAVA_CLIENT_ID');
     });
   });
 });

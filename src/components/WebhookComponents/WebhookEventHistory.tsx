@@ -85,7 +85,7 @@ const WebhookEventHistory: React.FC<Props> = () => {
 
   useEffect(() => {
     fetchEvents();
-  }, [filters, pagination.offset]);
+  }, [fetchEvents, filters, pagination.offset]);
 
   const toggleViewMode = (eventId: number) => {
     setViewMode((prev) => ({

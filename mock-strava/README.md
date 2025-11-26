@@ -104,7 +104,7 @@ npm test
 When `WEBHOOK_ENABLED=true` in dev mode, the main app should point to this mock server:
 
 ```bash
-STRAVA_API_BASE_URL=http://localhost:4000
+STRAVA_WEBHOOK_API_URL=http://localhost:4000
 ```
 
 ## Development Workflow

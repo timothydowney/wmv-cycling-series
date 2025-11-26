@@ -10,38 +10,33 @@
 
 import { Router, Request, Response } from 'express';
 import type LoginService from '../services/LoginService';
-
-interface AuthHelpers {
-  getBaseUrl: (req: Request) => string;
-  CLIENT_BASE_URL: string;
-}
+import { config, getStravaConfig } from '../config';
 
 interface AuthServices {
   loginService: LoginService;
 }
 
-export default (services: AuthServices, helpers: AuthHelpers): Router => {
+export default (services: AuthServices): Router => {
   const { loginService } = services;
-  const { getBaseUrl, CLIENT_BASE_URL } = helpers;
   const router = Router();
 
   /**
    * GET /auth/strava
    * Initiate OAuth flow - redirect to Strava authorization endpoint
    */
-  router.get('/strava', (req: Request, res: Response) => {
-    // Compute redirect URI with safe fallback if env not set
-    const computedRedirect = `${getBaseUrl(req)}/auth/strava/callback`;
-    const redirectUri = process.env.STRAVA_REDIRECT_URI || computedRedirect;
+  router.get('/strava', (_req: Request, res: Response) => {
+    // Use configured redirect URI (derived from APP_BASE_URL or explicit FRONTEND_URL/BACKEND_URL)
+    const redirectUri = config.stravaRedirectUri;
 
     // Helpful runtime trace (does not log secrets)
-    console.log('[AUTH] Using STRAVA_REDIRECT_URI:', redirectUri);
-    console.log('[AUTH] Using CLIENT_BASE_URL:', CLIENT_BASE_URL || '(not set, will fallback)');
+    console.log('[AUTH] Using OAuth redirect URI:', redirectUri);
+    console.log('[AUTH] Using frontend URL:', config.frontendUrl);
 
+    const { clientId } = getStravaConfig();
     const stravaAuthUrl =
       'https://www.strava.com/oauth/authorize?' +
       new URLSearchParams({
-        client_id: process.env.STRAVA_CLIENT_ID || '',
+        client_id: clientId || '',
         redirect_uri: redirectUri,
         response_type: 'code',
         approval_prompt: 'auto',
@@ -61,7 +56,7 @@ export default (services: AuthServices, helpers: AuthHelpers): Router => {
 
     if (!code) {
       console.error('OAuth callback missing authorization code');
-      return res.redirect(`${CLIENT_BASE_URL}?error=authorization_denied`);
+      return res.redirect(`${config.frontendUrl}?error=authorization_denied`);
     }
 
     try {
@@ -87,16 +82,15 @@ export default (services: AuthServices, helpers: AuthHelpers): Router => {
       req.session.save((err: Error | null) => {
         if (err) {
           console.error('[AUTH] Session save error:', err);
-          res.redirect(`${CLIENT_BASE_URL}?error=session_error`);
+          res.redirect(`${config.frontendUrl}?error=session_error`);
           return;
         }
 
         console.log(`[AUTH] Session saved successfully for athlete ${athleteId}`);
         console.log(`[AUTH] Session ID: ${req.sessionID}`);
 
-        // Redirect to dashboard with safe fallback to request base URL
-        const baseUrl = CLIENT_BASE_URL || getBaseUrl(req);
-        const finalRedirect = `${baseUrl}?connected=true`;
+        // Redirect to dashboard using configured frontend URL
+        const finalRedirect = `${config.frontendUrl}?connected=true`;
 
         console.log(`[AUTH] Redirecting to ${finalRedirect}`);
         // The rolling: true option in sessionConfig ensures the Set-Cookie header is sent
@@ -104,7 +98,7 @@ export default (services: AuthServices, helpers: AuthHelpers): Router => {
       });
     } catch (error) {
       console.error('OAuth callback error:', error);
-      res.redirect(`${CLIENT_BASE_URL}?error=server_error`);
+      res.redirect(`${config.frontendUrl}?error=server_error`);
     }
   });
 

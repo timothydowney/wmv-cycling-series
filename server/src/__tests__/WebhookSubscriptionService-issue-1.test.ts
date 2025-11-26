@@ -51,7 +51,7 @@ describe('WebhookSubscriptionService - Issue #1: Single Subscription Enforcement
     process.env.STRAVA_CLIENT_ID = 'test-client-id';
     process.env.STRAVA_CLIENT_SECRET = 'test-client-secret';
     process.env.WEBHOOK_VERIFY_TOKEN = 'test-verify-token';
-    process.env.STRAVA_API_BASE_URL = 'https://api-mock.example.com'; // Mock API
+    process.env.STRAVA_WEBHOOK_API_URL = 'https://api-mock.example.com'; // Mock API
   });
 
   afterEach(() => {
@@ -59,7 +59,7 @@ describe('WebhookSubscriptionService - Issue #1: Single Subscription Enforcement
     delete process.env.STRAVA_CLIENT_ID;
     delete process.env.STRAVA_CLIENT_SECRET;
     delete process.env.WEBHOOK_VERIFY_TOKEN;
-    delete process.env.STRAVA_API_BASE_URL;
+    delete process.env.STRAVA_WEBHOOK_API_URL;
   });
 
   afterAll(() => {

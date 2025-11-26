@@ -1,12 +1,15 @@
+// Configuration must be imported FIRST (it loads .env and provides all config)
+import { config, logConfigOnStartup, logEnvironmentVariables, isTestMode } from './config';
+
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
+
 import Database from 'better-sqlite3';
 import session from 'express-session';
 import SqliteStore from 'better-sqlite3-session-store';
 import strava from 'strava-v3';
-import fs from 'fs';
 import * as stravaClient from './stravaClient';
 import { getValidAccessToken } from './tokenManager';
 import { SCHEMA } from './schema';
@@ -43,32 +46,24 @@ const routes = {
   fallback: fallbackRouter
 };
 
-// Load .env from project root (one level up from server directory)
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+// Log configuration on startup
+logConfigOnStartup();
 
-// Configure strava-v3 with credentials from environment (skip if not set for tests)
-if (process.env.STRAVA_CLIENT_ID && process.env.STRAVA_CLIENT_SECRET) {
+// Configure strava-v3 with credentials from config (skip if not set for tests)
+if (config.stravaClientId && config.stravaClientSecret) {
   (strava.config as any)({
-    client_id: process.env.STRAVA_CLIENT_ID,
-    client_secret: process.env.STRAVA_CLIENT_SECRET,
-    redirect_uri: process.env.STRAVA_REDIRECT_URI || 'http://localhost:3001/auth/strava/callback'
+    client_id: config.stravaClientId,
+    client_secret: config.stravaClientSecret,
+    redirect_uri: config.stravaRedirectUri
   });
 }
 
-const PORT = parseInt(process.env.PORT || '3001', 10);
-const CLIENT_BASE_URL = process.env.CLIENT_BASE_URL || 'http://localhost:5173';
+const PORT = config.port;
 
-// Database path: use persistent /data volume in production, local dev folder otherwise
+// Database path from config (persistent /data volume in production, local dev folder otherwise)
 // In development: ./server/data/wmv.db (local)
 // In production (Railway): /data/wmv.db (persistent volume mounted in railway.toml)
-const DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, '..', 'data', 'wmv.db');
-
-// Log database startup information for troubleshooting mount/path issues
-console.log('========== DATABASE INITIALIZATION ==========');
-console.log(`[DB] NODE_ENV: ${process.env.NODE_ENV || 'undefined'}`);
-console.log(`[DB] DATABASE_PATH env var: ${process.env.DATABASE_PATH || '(not set - using default)'}`);
-console.log(`[DB] Resolved DB_PATH: ${DB_PATH}`);
-console.log(`[DB] Absolute DB_PATH: ${path.resolve(DB_PATH)}`);
+const DB_PATH = config.databasePath;
 
 // Check if database file exists and gather stats
 const dbDir = path.dirname(DB_PATH);
@@ -125,9 +120,9 @@ const app = express();
 // This is REQUIRED for secure cookies to work behind a proxy
 app.set('trust proxy', 1);
 
-// Enable CORS for frontend - use CLIENT_BASE_URL environment variable
+// Enable CORS for frontend - use frontend URL from config
 app.use(cors({ 
-  origin: CLIENT_BASE_URL,
+  origin: config.frontendUrl,
   credentials: true // Important: allow cookies to be sent
 }));
 app.use(express.json());
@@ -136,13 +131,13 @@ app.use(express.json());
 // Based on express-session best practices and Passport.js patterns
 const sessionStoreConfig = {
   name: 'wmv.sid',
-  secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
+  secret: config.sessionSecret,
   resave: false,
   saveUninitialized: true, // Ensure new sessions get a cookie
   rolling: true, // CRITICAL: Force session cookie to be set on EVERY response (including redirects)
   proxy: true, // CRITICAL: Trust reverse proxy (Railway) for X-Forwarded-Proto header
   cookie: {
-    secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+    secure: !config.isDevelopment, // HTTPS only in production
     httpOnly: true,
     sameSite: 'lax' as const, // 'lax' allows cookies on safe redirects from Strava OAuth
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
@@ -166,7 +161,7 @@ try {
 
 // Only use persistent session store in non-test environments
 // In test mode, use default MemoryStore to avoid open database handles
-if (process.env.NODE_ENV !== 'test') {
+if (!isTestMode()) {
   console.log('[SESSION] Setting up SQLite session store using main database');
   const SqliteSessionStore = SqliteStore(session);
   (sessionStoreConfig as any).store = new SqliteSessionStore({
@@ -184,8 +179,8 @@ app.use(session(sessionStoreConfig as any));
 
 // Test mode: Load session injection middleware from separate test file
 // SECURITY: This file only exists in source code, not in production builds
-// It will only load if NODE_ENV is explicitly 'test'
-if (process.env.NODE_ENV === 'test') {
+// It will only load if running in test mode
+if (isTestMode()) {
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const testMiddlewareModule = require('./__tests__/testMiddleware');
@@ -242,15 +237,9 @@ try {
 // SERVICE INITIALIZATION
 // ========================================
 
-// Helper: Parse and cache admin athlete IDs from environment variable
+// Helper: Get admin athlete IDs from config
 function getAdminAthleteIds(): number[] {
-  if (!process.env.ADMIN_ATHLETE_IDS) {
-    return [];
-  }
-  return process.env.ADMIN_ATHLETE_IDS
-    .split(',')
-    .map(id => parseInt(id.trim()))
-    .filter(id => !isNaN(id));
+  return config.adminAthleteIds;
 }
 
 // Initialize AuthorizationService with dependencies
@@ -299,17 +288,6 @@ const services = {
   participantService
 };
 
-// Helpers object for route handlers
-const helpers = {
-  getBaseUrl: (req: any) => {
-    // Use CLIENT_BASE_URL if configured, otherwise build from request
-    if (CLIENT_BASE_URL) return CLIENT_BASE_URL;
-    return `${req.protocol}://${req.get('host')}`;
-  },
-  CLIENT_BASE_URL,
-  db
-};
-
 // Middleware object for route handlers
 const middleware: any = {
   requireAdmin,
@@ -332,7 +310,7 @@ app.use(express.static(path.join(__dirname, '../../dist')));
 // Register modular route handlers
 
 // Auth routes
-app.use('/auth', routes.auth(services, helpers));
+app.use('/auth', routes.auth(services));
 
 // Public routes (no authentication required)
 app.use(routes.public());  // /health, /participants, /segments
@@ -363,8 +341,8 @@ app.use(routes.fallback());
 export { app, db, checkAuthorization };
 
 // Only start server if not being imported for tests
-// NODE_ENV=test for tests, otherwise start server
-if (process.env.NODE_ENV !== 'test') {
+// Skip startup in test mode
+if (!isTestMode()) {
   // Seed season on startup if needed
   const existingSeasons = db.prepare('SELECT COUNT(*) as count FROM season').get() as { count: number };
   if (existingSeasons.count === 0) {
@@ -418,21 +396,7 @@ if (process.env.NODE_ENV !== 'test') {
     }
     // ===== END TIMEZONE DIAGNOSTICS =====
     
-    // Startup diagnostics (non-sensitive) for env verification in Railway logs
-    const safeEnv = {
-      NODE_ENV: process.env.NODE_ENV,
-      CLIENT_BASE_URL: process.env.CLIENT_BASE_URL,
-      STRAVA_REDIRECT_URI: process.env.STRAVA_REDIRECT_URI,
-      STRAVA_CLIENT_ID: process.env.STRAVA_CLIENT_ID,
-      DATABASE_PATH: process.env.DATABASE_PATH,
-      TOKEN_ENCRYPTION_KEY_LENGTH: process.env.TOKEN_ENCRYPTION_KEY ? process.env.TOKEN_ENCRYPTION_KEY.length : 'missing'
-    };
-    console.log('[STARTUP] Effective env summary:', safeEnv);
-    if (!process.env.CLIENT_BASE_URL) {
-      console.warn('[STARTUP] CLIENT_BASE_URL not set; will fallback to request host for final redirects.');
-    }
-    if (!process.env.STRAVA_REDIRECT_URI) {
-      console.warn('[STARTUP] STRAVA_REDIRECT_URI not set; /auth/strava will compute one from request host.');
-    }
+    // Log environment variables for debugging in Railway logs
+    logEnvironmentVariables();
   });
 }
