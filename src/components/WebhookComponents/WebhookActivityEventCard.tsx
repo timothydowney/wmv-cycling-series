@@ -6,7 +6,7 @@ import './WebhookActivityEventCard.css';
 interface EnrichedActivity {
   athlete: {
     athlete_id: number;
-    name: string | null;
+    name: string;
   };
   strava_data?: {
     activity_id: number;
@@ -20,30 +20,19 @@ interface EnrichedActivity {
     segment_effort_count: number;
     visibility?: string | null;
   };
-  activity?: {
-    activity_id: number;
-    start_date_unix: number;
-    device_name: string | null;
-    segment_efforts: number;
-  };
   matching_seasons: Array<{
     season_id: number;
     season_name: string;
-    matched_weeks_count: number;
     matched_weeks: Array<{
       week_id: number;
       week_name: string;
-      segment_name: string;
-      required_laps: number;
-      segment_efforts_found?: number;
-      matched: boolean;
-      reason?: string;
+      segment_effort_count: number;
+      total_time_seconds: number;
     }>;
   }>;
   summary: {
-    status: 'qualified' | 'no_matching_weeks' | 'no_segments' | 'insufficient_laps' | 'error' | 'no_qualifying_weeks';
+    status: 'qualified' | 'no_match' | 'pending' | 'error' | 'not_processed';
     message: string;
-    total_weeks_checked: number;
     total_weeks_matched: number;
     total_seasons: number;
   };
@@ -51,10 +40,9 @@ interface EnrichedActivity {
 
 interface Props {
   event: WebhookEvent;
-  onClose: () => void;
 }
 
-const WebhookActivityEventCard: React.FC<Props> = ({ event, onClose }) => {
+const WebhookActivityEventCard: React.FC<Props> = ({ event }) => {
   const [enrichment, setEnrichment] = useState<EnrichedActivity | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -94,6 +82,30 @@ const WebhookActivityEventCard: React.FC<Props> = ({ event, onClose }) => {
     }
   };
 
+  const getHeaderTitle = (): React.ReactNode => {
+    if (loading) {
+      return <span className="header-fallback">Activity {event.payload.object_id}</span>;
+    }
+
+    if (!enrichment?.strava_data) {
+      return <span className="header-fallback">Activity {event.payload.object_id}</span>;
+    }
+
+    const athleteName = enrichment.athlete?.name || `Athlete ${enrichment.athlete?.athlete_id || 'unknown'}`;
+    const activityName = enrichment.strava_data.name;
+
+    return (
+      <a
+        href={`https://www.strava.com/activities/${enrichment.strava_data.activity_id}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="header-strava-link"
+      >
+        {athleteName} - {activityName}
+      </a>
+    );
+  };
+
   const renderActivityContent = () => {
     if (loading) {
       return (
@@ -117,19 +129,13 @@ const WebhookActivityEventCard: React.FC<Props> = ({ event, onClose }) => {
       <div className="card-body">
         {enrichment.strava_data ? (
           <>
-            <div className="activity-link-line">
-              <a
-                href={`https://www.strava.com/activities/${enrichment.strava_data.activity_id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="strava-link"
-              >
-                {enrichment.athlete?.name || 'Unknown'} - {enrichment.strava_data.name}
-              </a>
-              <span className="visibility-badge" data-visibility={enrichment.strava_data.visibility}>
-                {enrichment.strava_data.visibility?.replace(/_/g, ' ')}
-              </span>
-            </div>
+            {enrichment.strava_data.visibility && (
+              <div className="visibility-line">
+                <span className="visibility-badge" data-visibility={enrichment.strava_data.visibility}>
+                  {enrichment.strava_data.visibility?.replace(/_/g, ' ')}
+                </span>
+              </div>
+            )}
 
             {enrichment.summary && (
               <section className="section summary-section">
@@ -137,10 +143,6 @@ const WebhookActivityEventCard: React.FC<Props> = ({ event, onClose }) => {
                 <div className="summary-info" style={{ borderLeft: `3px solid ${statusColor}` }}>
                   <p className="summary-message">{enrichment.summary.message}</p>
                   <div className="summary-stats">
-                    <div className="stat">
-                      <span className="stat-label">Weeks Checked:</span>
-                      <span className="stat-value">{enrichment.summary.total_weeks_checked}</span>
-                    </div>
                     <div className="stat">
                       <span className="stat-label">Weeks Matched:</span>
                       <span className="stat-value" style={{ color: statusColor }}>
@@ -164,7 +166,7 @@ const WebhookActivityEventCard: React.FC<Props> = ({ event, onClose }) => {
                     <div className="season-header">
                       <h5>{season.season_name}</h5>
                       <span className="season-stats">
-                        {season.matched_weeks_count} / {season.matched_weeks.length} weeks matched
+                        {season.matched_weeks.length} week(s) stored
                       </span>
                     </div>
 
@@ -172,24 +174,22 @@ const WebhookActivityEventCard: React.FC<Props> = ({ event, onClose }) => {
                       {season.matched_weeks && season.matched_weeks.map((week) => (
                         <div
                           key={week.week_id}
-                          className={`week-item ${week.matched ? 'matched' : 'unmatched'}`}
+                          className="week-item matched"
                           style={{
-                            borderLeft: `3px solid ${week.matched ? '#27ae60' : '#e67e22'}`
+                            borderLeft: '3px solid #27ae60'
                           }}
                         >
                           <div className="week-info">
                             <div className="week-name">{week.week_name}</div>
-                            <div className="week-segment">{week.segment_name}</div>
+                            <div className="week-time">
+                              {week.total_time_seconds ? `${Math.round(week.total_time_seconds / 60)} min` : 'N/A'}
+                            </div>
                           </div>
 
                           <div className="week-status">
-                            {week.matched ? (
-                              <span className="badge matched">
-                                ✓ {week.segment_efforts_found}/{week.required_laps} laps
-                              </span>
-                            ) : (
-                              <span className="badge unmatched">{week.reason}</span>
-                            )}
+                            <div className="week-time">
+                              {week.total_time_seconds ? `${Math.round(week.total_time_seconds / 60)} min` : 'N/A'}
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -218,9 +218,10 @@ const WebhookActivityEventCard: React.FC<Props> = ({ event, onClose }) => {
   return (
     <WebhookEventCard
       event={event}
-      onClose={onClose}
       renderContent={renderActivityContent}
       cssClass="activity-event-card"
+      headerTitle={getHeaderTitle()}
+      hasMatch={(enrichment?.summary.total_weeks_matched ?? 0) > 0}
     />
   );
 };

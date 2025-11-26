@@ -18,8 +18,6 @@ import { Database } from 'better-sqlite3';
 import { config } from '../../config';
 import { WebhookSubscriptionService } from '../../services/WebhookSubscriptionService';
 import { StorageMonitor } from '../../webhooks/storageMonitor';
-import * as stravaClient from '../../stravaClient';
-import { getValidAccessToken } from '../../tokenManager';
 
 export function createWebhookAdminRoutes(db: Database): Router {
   const router = Router();
@@ -461,7 +459,7 @@ export function createWebhookAdminRoutes(db: Database): Router {
    *   }
    * }
    */
-  router.get('/events/enriched/:id', async (req: Request, res: Response): Promise<void> => {
+  router.get('/events/enriched/:id', (req: Request, res: Response): void => {
     try {
       const eventId = parseInt(req.params.id);
 
@@ -496,7 +494,7 @@ export function createWebhookAdminRoutes(db: Database): Router {
         const athleteId = payload.owner_id;
         const activityId = payload.object_id;
 
-        // Get participant from our database (for OAuth token)
+        // Get participant from our database
         const participant = db
           .prepare('SELECT name FROM participant WHERE strava_athlete_id = ?')
           .get(athleteId) as { name: string } | undefined;
@@ -505,208 +503,105 @@ export function createWebhookAdminRoutes(db: Database): Router {
         const enrichment: any = {
           athlete: {
             athlete_id: athleteId,
-            name: participant?.name || null // Will be filled from Strava
+            name: participant?.name || `Unknown (${athleteId})`
           },
-          activity: null,
           strava_data: null,
           matching_seasons: [],
           summary: {
-            status: 'error',
+            status: 'not_processed',
             message: '',
-            total_weeks_checked: 0,
             total_weeks_matched: 0,
             total_seasons: 0
           }
         };
 
-        try {
-          // ALWAYS fetch from Strava API (source of truth)
-          // Use participant's token if available
-          let accessToken: string | null = null;
-          if (participant) {
-            try {
-              accessToken = await getValidAccessToken(db, stravaClient, athleteId);
-            } catch (err) {
-              console.log(`[Admin:Webhooks] Could not get access token for athlete ${athleteId}`);
-              // Continue anyway - we may still have limited data
-            }
-          }
-
-          // Fetch activity from Strava
-          let stravaActivity: any = null;
-          if (accessToken) {
-            try {
-              stravaActivity = await stravaClient.getActivity(activityId, accessToken);
-            } catch (err) {
-              const msg = err instanceof Error ? err.message : String(err);
-              console.log(
-                `[Admin:Webhooks] Failed to fetch activity ${activityId} from Strava: ${msg}`
-              );
-            }
-          }
-
-          if (!stravaActivity) {
-            // Can't get Strava data - return limited enrichment with helpful message
-            enrichment.summary = {
-              status: 'error',
-              message: `Activity ${activityId} not found on Strava or not accessible. This could mean: (1) activity doesn't exist, (2) it was deleted, (3) athlete's token expired, or (4) activity is private and not shared.`,
-              total_weeks_checked: 0,
-              total_weeks_matched: 0,
-              total_seasons: 0
-            };
-            response.enrichment = enrichment;
-            res.json(response);
-            return;
-          }
-
-          // Use Strava as source of truth for activity data
-          enrichment.athlete.name = stravaActivity.athlete?.firstname || participant?.name || `Unknown (${athleteId})`;
-          enrichment.strava_data = {
-            activity_id: stravaActivity.id,
-            name: stravaActivity.name,
-            type: stravaActivity.type,
-            distance_m: stravaActivity.distance,
-            moving_time_sec: stravaActivity.moving_time,
-            elevation_gain_m: stravaActivity.total_elevation_gain,
-            start_date_iso: stravaActivity.start_date,
-            device_name: stravaActivity.device_name,
-            segment_effort_count: stravaActivity.segment_efforts?.length || 0,
-            visibility: stravaActivity.visibility
-          };
-
-          // Only query our database for matching context if activity has segment efforts
-          if (!stravaActivity.segment_efforts || stravaActivity.segment_efforts.length === 0) {
-            enrichment.summary = {
-              status: 'no_segments',
-              message: 'Activity has no segment efforts',
-              total_weeks_checked: 0,
-              total_weeks_matched: 0,
-              total_seasons: 0
-            };
-            response.enrichment = enrichment;
-            res.json(response);
-            return;
-          }
-
-          // Convert Strava timestamp to Unix for comparison with our season/week times
-          const activityUnix = Math.floor(
-            new Date(stravaActivity.start_date as string).getTime() / 1000
-          );
-
-          // Get matching weeks from our database
-          const seasons = db
-            .prepare('SELECT DISTINCT season_id FROM week ORDER BY season_id')
-            .all() as Array<{ season_id: number }>;
-
-          let totalWeeksChecked = 0;
-          let totalWeeksMatched = 0;
-          const matchingSeasons: any[] = [];
-
-          for (const { season_id } of seasons) {
-            const season = db
-              .prepare('SELECT id, name, start_at, end_at FROM season WHERE id = ?')
-              .get(season_id) as any;
-
-            if (!season) continue;
-
-            // Check if activity is within season's date range
-            if (activityUnix < season.start_at || activityUnix > season.end_at) {
-              continue;
-            }
-
-            // Get weeks in this season
-            const weeks = db
-              .prepare(
-                `SELECT w.id, w.week_name, s.name as segment_name, w.strava_segment_id, 
-                        w.required_laps, w.start_at, w.end_at
-                 FROM week w
-                 JOIN segment s ON w.strava_segment_id = s.strava_segment_id
-                 WHERE w.season_id = ?
-                 ORDER BY w.start_at`
-              )
-              .all(season_id) as Array<any>;
-
-            let seasonMatchedWeeks = 0;
-            const matchedWeeks: any[] = [];
-
-            for (const week of weeks) {
-              totalWeeksChecked++;
-
-              // Check if activity is within week's time window
-              if (activityUnix < week.start_at || activityUnix > week.end_at) {
-                matchedWeeks.push({
-                  week_id: week.id,
-                  week_name: week.week_name,
-                  segment_name: week.segment_name,
-                  required_laps: week.required_laps,
-                  matched: false,
-                  reason: 'Outside time window'
-                });
-                continue;
-              }
-
-              // Count segment efforts for this segment from Strava data
-              const segmentEffortsForWeek = stravaActivity.segment_efforts.filter(
-                (effort: any) => effort.segment.id === week.strava_segment_id
-              );
-
-              const matched = segmentEffortsForWeek.length >= week.required_laps;
-
-              if (matched) {
-                totalWeeksMatched++;
-                seasonMatchedWeeks++;
-              }
-
-              matchedWeeks.push({
-                week_id: week.id,
-                week_name: week.week_name,
-                segment_name: week.segment_name,
-                required_laps: week.required_laps,
-                segment_efforts_found: segmentEffortsForWeek.length,
-                matched,
-                reason: matched ? undefined : `${segmentEffortsForWeek.length}/${week.required_laps} laps`
-              });
-            }
-
-            if (weeks.length > 0) {
-              matchingSeasons.push({
-                season_id: season.id,
-                season_name: season.name,
-                matched_weeks_count: seasonMatchedWeeks,
-                matched_weeks: matchedWeeks
-              });
-            }
-          }
-
-          enrichment.matching_seasons = matchingSeasons;
+        // If not processed, return early
+        if (!event.processed) {
           enrichment.summary = {
-            status:
-              totalWeeksMatched > 0
-                ? 'qualified'
-                : totalWeeksChecked === 0
-                  ? 'no_matching_weeks'
-                  : 'no_qualifying_weeks',
-            message:
-              totalWeeksMatched > 0
-                ? `Activity matches ${totalWeeksMatched} week(s) across ${matchingSeasons.length} season(s)`
-                : totalWeeksChecked === 0
-                  ? 'Activity timestamp not in any season date range'
-                  : `Activity checked against ${totalWeeksChecked} week(s), but doesn't qualify for any`,
-            total_weeks_checked: totalWeeksChecked,
-            total_weeks_matched: totalWeeksMatched,
-            total_seasons: matchingSeasons.length
-          };
-        } catch (error) {
-          const msg = error instanceof Error ? error.message : String(error);
-          console.error(`[Admin:Webhooks] Error enriching activity: ${msg}`);
-          enrichment.summary = {
-            status: 'error',
-            message: `Failed to enrich activity: ${msg}`,
-            total_weeks_checked: 0,
+            status: 'pending',
+            message: 'Webhook is still being processed or has not been processed yet',
             total_weeks_matched: 0,
             total_seasons: 0
           };
+          response.enrichment = enrichment;
+          res.json(response);
+          return;
         }
+
+        // If processed but has error, show the error
+        if (event.error_message) {
+          enrichment.summary = {
+            status: 'error',
+            message: event.error_message,
+            total_weeks_matched: 0,
+            total_seasons: 0
+          };
+          response.enrichment = enrichment;
+          res.json(response);
+          return;
+        }
+
+        // Activity was processed successfully - query what was stored
+        // Get all activities and results stored for this activity from the webhook
+        const storedActivities = db
+          .prepare(
+            `SELECT a.id, a.strava_activity_id, a.week_id,
+                    w.week_name, w.season_id,
+                    s.name as season_name,
+                    COUNT(se.id) as segment_effort_count,
+                    COALESCE(SUM(se.elapsed_seconds), 0) as total_time_seconds
+             FROM activity a
+             JOIN week w ON a.week_id = w.id
+             JOIN season s ON w.season_id = s.id
+             LEFT JOIN segment_effort se ON a.id = se.activity_id
+             WHERE a.strava_activity_id = ?
+             GROUP BY w.id, s.id
+             ORDER BY s.id, w.id`
+          )
+          .all(activityId) as Array<any>;
+
+        if (storedActivities.length === 0) {
+          // Webhook was processed but didn't result in any stored activities
+          enrichment.summary = {
+            status: 'no_match',
+            message: 'Webhook was processed but activity does not match any active season/week combinations',
+            total_weeks_matched: 0,
+            total_seasons: 0
+          };
+          response.enrichment = enrichment;
+          res.json(response);
+          return;
+        }
+
+        // Group by season for display
+        const seasonMap = new Map<number, any>();
+        for (const activity of storedActivities) {
+          const seasonId = activity.season_id;
+          if (!seasonMap.has(seasonId)) {
+            seasonMap.set(seasonId, {
+              season_id: seasonId,
+              season_name: activity.season_name,
+              matched_weeks: []
+            });
+          }
+
+          seasonMap.get(seasonId)!.matched_weeks.push({
+            week_id: activity.week_id,
+            week_name: activity.week_name,
+            segment_effort_count: activity.segment_effort_count || 0,
+            total_time_seconds: activity.result_time || activity.total_time_seconds,
+            rank: activity.rank,
+            points: activity.points
+          });
+        }
+
+        enrichment.matching_seasons = Array.from(seasonMap.values());
+        enrichment.summary = {
+          status: 'qualified',
+          message: `Activity was processed and stored for ${storedActivities.length} week(s) across ${seasonMap.size} season(s)`,
+          total_weeks_matched: storedActivities.length,
+          total_seasons: seasonMap.size
+        };
 
         response.enrichment = enrichment;
       }

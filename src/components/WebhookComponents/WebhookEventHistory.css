@@ -116,11 +116,11 @@
   color: #bdc3c7;
 }
 
-/* Events List - Card Layout */
+/* Events List - Full Width Card Layout */
 .events-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(600px, 1fr));
-  gap: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   padding: 10px 0;
 }
 

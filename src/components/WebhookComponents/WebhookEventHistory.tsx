@@ -213,7 +213,6 @@ const WebhookEventHistory: React.FC<Props> = () => {
                   <WebhookActivityEventCard
                     key={event.id}
                     event={event}
-                    onClose={() => {}}
                   />
                 );
               }
@@ -224,7 +223,6 @@ const WebhookEventHistory: React.FC<Props> = () => {
                   <WebhookAthleteEventCard
                     key={event.id}
                     event={event}
-                    onClose={() => {}}
                   />
                 );
               }
