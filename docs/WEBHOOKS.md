@@ -90,10 +90,10 @@ graph TD
 - Both protected by feature flag: `WEBHOOK_ENABLED`
 
 **2. Webhook Logger** (`server/src/webhooks/logger.ts`)
-- Logs all webhook events to database table `webhook_event`
-- Tracks: received, processed, failed events
-- Optional - disabled by default (`WEBHOOK_LOG_EVENTS=false`)
-- Useful for debugging webhook issues in production
+- Persists webhook events to database table `webhook_event`
+- Marks each event as processed (success) or failed (with error message)
+- **Required when webhooks are enabled** - persists events for admin dashboard monitoring
+- Feeds the webhook status endpoint with event counts and success rates
 
 **3. Webhook Processor** (`server/src/webhooks/processor.ts`)
 - Async event processor - decoupled from HTTP layer
@@ -214,47 +214,80 @@ Result:
 
 ### Environment Variables
 
+**REQUIRED (only if enabling webhooks):**
+
 ```bash
-# Enable/disable webhooks (default: false)
+# Enable webhook subscriptions (default: false)
+# Set to 'true' to enable real-time activity processing
 WEBHOOK_ENABLED=true
 
-# Secret token for webhook validation (required if WEBHOOK_ENABLED=true)
+# Public callback URL where Strava sends webhook events
+# Must be HTTPS and publicly accessible
+# Strava will POST to: {WEBHOOK_CALLBACK_URL}/webhooks/strava
+WEBHOOK_CALLBACK_URL=https://your-domain.com
+
+# Secret verification token (used by Strava to sign events)
 # Generate: openssl rand -hex 32
+# This is sent to Strava when creating the subscription
 WEBHOOK_VERIFY_TOKEN=a3f7d8c2e9b1f4a6c8d5e7f9a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5
+```
 
-# Optional: Log all webhook events to database (default: false)
-WEBHOOK_LOG_EVENTS=true
+**REQUIRED (when webhooks are enabled):**
 
-# Strava credentials (needed for activity fetching)
-STRAVA_CLIENT_ID=your-id
-STRAVA_CLIENT_SECRET=your-secret
+```bash
+# Persist webhook events to database (REQUIRED for admin dashboard metrics)
+# Events marked as processed (success) or failed (with error message)
+WEBHOOK_PERSIST_EVENTS=true
+```
+
+**OPTIONAL:**
+
+```bash
+# Strava API base URL (for mock mode - development only)
+# Default: https://www.strava.com
+# Development: http://localhost:4000 (when using mock-strava)
+STRAVA_API_BASE_URL=https://www.strava.com
+```
+
+**ALWAYS REQUIRED:**
+
+```bash
+# Strava OAuth credentials (needed for activity fetching via API)
+STRAVA_CLIENT_ID=your-client-id
+STRAVA_CLIENT_SECRET=your-client-secret
 STRAVA_REDIRECT_URI=https://your-domain.com/auth/strava/callback
 ```
 
-### Production Setup
+### Production Setup Checklist
 
-1. **Enable webhooks:**
-   ```bash
-   WEBHOOK_ENABLED=true
-   ```
-
-2. **Generate secure verify token:**
+1. **Generate secure verify token:**
    ```bash
    openssl rand -hex 32
-   # Output: a3f7d8c2e9b1...
-   WEBHOOK_VERIFY_TOKEN=a3f7d8c2e9b1...
+   # Example output: a3f7d8c2e9b1f4a6c8d5e7f9a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9d1e3f5
    ```
 
-3. **Configure public domain:**
-   - Strava will send requests to: `https://your-domain.com/webhooks/strava`
-   - Must be HTTPS (Strava requirement)
-   - Must be publicly accessible (not localhost)
-   - Configure in Railway/your hosting platform
+2. **Set environment variables in Railway:**
+   - `WEBHOOK_ENABLED=true`
+   - `WEBHOOK_CALLBACK_URL=https://your-railway-domain.railway.app`
+   - `WEBHOOK_VERIFY_TOKEN=<generated-token>`
+   - All standard Strava credentials (already set)
 
-4. **Subscribe with Strava:**
-   - Call Strava API to create subscription (Phase 4 - Subscription Manager)
+3. **Verify webhook route is public:**
+   - `GET /webhooks/strava` - Strava verification (no auth required)
+   - `POST /webhooks/strava` - Event receipt (no auth required)
+   - Both protected by `WEBHOOK_VERIFY_TOKEN` validation
+
+4. **Subscribe with Strava (automatic on startup):**
+   - On first startup, app checks if subscription exists
+   - If not, app creates subscription automatically
    - Strava sends verification challenge to `GET /webhooks/strava`
-   - Your app echoes back challenge to complete subscription
+   - App echoes back challenge to complete subscription
+   - Check server logs for: `✓ Subscription ready`
+
+5. **Verify setup:**
+   - Server logs should show: `[Webhook:SubscriptionManager] ✓ Subscription ready`
+   - Database table `webhook_subscription` should have one row (id=1)
+   - Complete a test ride in Strava and check if results appear within ~30 seconds
 
 ---
 
@@ -503,7 +536,7 @@ WEBHOOK_VERIFY_TOKEN=dev-token-for-testing
 STRAVA_API_BASE_URL=http://localhost:4000    # Routes to mock-strava
 
 # Optional: log all webhook events for debugging
-WEBHOOK_LOG_EVENTS=false                 # Set to true to see all events in DB
+WEBHOOK_PERSIST_EVENTS=true              # REQUIRED - persists events (processed/failed)
 ```
 
 **Key Variables:**
@@ -513,7 +546,7 @@ WEBHOOK_LOG_EVENTS=false                 # Set to true to see all events in DB
 | `WEBHOOK_ENABLED` | `false` (by default) | Feature flag to enable/disable webhooks |
 | `STRAVA_API_BASE_URL` | `http://localhost:4000` | Backend detects this and enables mock mode |
 | `WEBHOOK_VERIFY_TOKEN` | Any value | Used by local webhook emulator |
-| `WEBHOOK_LOG_EVENTS` | `false` (optional) | Toggle event logging for debugging |
+| `WEBHOOK_PERSIST_EVENTS` | `true` (required if webhooks enabled) | **Required** - persists events as processed/failed for monitoring |
 
 **How It Works:**
 - Backend checks if `STRAVA_API_BASE_URL` contains "localhost"
@@ -528,7 +561,7 @@ WEBHOOK_ENABLED=true                          # Enable webhooks
 WEBHOOK_VERIFY_TOKEN=<your-secret-token>      # Strava includes this in requests
 WEBHOOK_CALLBACK_URL=https://yourdomain.com/webhooks/strava
 STRAVA_API_BASE_URL=https://www.strava.com    # Real Strava API
-WEBHOOK_LOG_EVENTS=false                      # Optional debug logging
+WEBHOOK_PERSIST_EVENTS=true                   # REQUIRED - persists events
 ```
 
 **Key Differences:**
@@ -626,7 +659,7 @@ Webhook processor reuses all logic from batch fetch service (zero duplication):
 
 5. **Verify processing:**
    - Check database for new activity/result records
-   - Check webhook_event table if `WEBHOOK_LOG_EVENTS=true`
+   - Check webhook_event table if `WEBHOOK_PERSIST_EVENTS=true`
 
 ### Test Data Requirements
 
@@ -663,7 +696,7 @@ if (process.env.WEBHOOK_ENABLED !== 'true') {
 
 ### Webhook Event Logging
 
-If `WEBHOOK_LOG_EVENTS=true`, all events are logged to `webhook_event` table:
+If `WEBHOOK_PERSIST_EVENTS=true`, all events are persisted to `webhook_event` table:
 
 ```sql
 SELECT * FROM webhook_event 
@@ -708,7 +741,7 @@ Fields:
 - Verify subscription with Strava API
 - Check firewall/proxy logs
 - Try test webhook locally first
-- Enable `WEBHOOK_LOG_EVENTS=true` to see if it's received
+- Enable `WEBHOOK_PERSIST_EVENTS=true` to persist and track the event
 
 ### Activity Not Processed
 

@@ -1,8 +1,9 @@
 /**
  * Webhook Event Logger
  *
- * Logs webhook events to database for debugging and monitoring.
- * Optional - can be enabled/disabled via WEBHOOK_LOG_EVENTS env var.
+ * Persists webhook events to database for monitoring and debugging.
+ * Events are marked as processed (success) or failed (with error message).
+ * Can be enabled/disabled via WEBHOOK_PERSIST_EVENTS env var.
  */
 
 import Database from 'better-sqlite3';
