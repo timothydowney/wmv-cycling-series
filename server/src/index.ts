@@ -326,7 +326,7 @@ app.use('/admin/weeks', routes.weeks(services, middleware, db));
 app.use('/admin/seasons', routes.seasons(services, middleware));
 app.use('/admin/participants', routes.participants(services, middleware));
 app.use('/admin/segments', routes.segments(services, middleware));
-app.use('/admin/webhooks', createWebhookAdminRoutes(db));
+app.use('/admin/webhooks', createWebhookAdminRoutes(db, stravaClient));
 
 // Webhook routes (for real-time Strava activity updates)
 // GET /webhooks/strava - subscription validation
