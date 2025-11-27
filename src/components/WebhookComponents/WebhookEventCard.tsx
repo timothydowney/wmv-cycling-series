@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import './WebhookEventCard.css';
+import { formatUtcIsoDateTime } from '../../utils/dateUtils';
 
 export interface WebhookPayload {
   aspect_type: 'create' | 'update' | 'delete';
@@ -43,7 +44,7 @@ const WebhookEventCard: React.FC<WebhookEventCardProps> = ({
       <div className="card-header">
         <div className="header-left">
           <span className="header-created">Created</span>
-          <span className="header-timestamp">{new Date(event.created_at).toLocaleString()}</span>
+          <span className="header-timestamp">{formatUtcIsoDateTime(event.created_at)}</span>
         </div>
         
         <div className="header-center">
