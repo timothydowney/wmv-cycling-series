@@ -136,7 +136,12 @@ export function formatUtcIsoDateTime(
   
   // Normalize the string: replace space with 'T' and append 'Z' if no timezone indicator
   let normalized = utcIsoString.replace(' ', 'T');
-  if (!normalized.endsWith('Z') && !normalized.includes('+') && !normalized.includes('-', 10)) {
+  
+  // Check for timezone indicator using regex:
+  // - Ends with 'Z' (UTC)
+  // - Contains '+HH:MM' or '-HH:MM' timezone offset after the time portion
+  const hasTimezone = /Z$|[+-]\d{2}:\d{2}$/.test(normalized);
+  if (!hasTimezone) {
     normalized += 'Z';
   }
   
