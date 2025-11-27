@@ -6,6 +6,7 @@ import {
   secondsToHHMMSS,
   defaultDayTimeWindow
 } from '../dateUtils';
+import { formatUtcIsoDateTime } from '../../../src/utils/dateUtils';
 
 describe('Date Utilities', () => {
   describe('isoToUnix()', () => {
@@ -445,6 +446,27 @@ describe('Date Utilities', () => {
       const unix = isoToUnix(iso);
       expect(typeof unix).toBe('number');
       expect(secondsToHHMMSS(0)).toBe('00:00:00');
+    });
+  });
+
+  describe('formatUtcIsoDateTime()', () => {
+    it('should return "—" for null/undefined/empty input', () => {
+      expect(formatUtcIsoDateTime(null)).toBe('—');
+      expect(formatUtcIsoDateTime(undefined)).toBe('—');
+      expect(formatUtcIsoDateTime('')).toBe('—');
+    });
+
+    it('should parse SQLite CURRENT_TIMESTAMP format and treat as UTC', () => {
+      // SQLite CURRENT_TIMESTAMP returns "YYYY-MM-DD HH:MM:SS" in UTC
+      const result = formatUtcIsoDateTime('2025-11-26 20:09:31');
+      expect(result).not.toBe('—');
+      expect(result).toContain('2025');
+      expect(result).toMatch(/\d{1,2}\/\d{1,2}\/\d{4}/); // date format
+      expect(result).toMatch(/\d{1,2}:\d{2}:\d{2}\s*(AM|PM)/); // time format with AM/PM
+    });
+
+    it('should return "—" for invalid date string', () => {
+      expect(formatUtcIsoDateTime('not-a-date')).toBe('—');
     });
   });
 });
