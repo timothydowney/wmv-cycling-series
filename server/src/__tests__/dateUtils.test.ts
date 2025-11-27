@@ -4,9 +4,9 @@ import {
   unixToISO,
   nowISO,
   secondsToHHMMSS,
-  defaultDayTimeWindow
+  defaultDayTimeWindow,
+  formatUtcIsoDateTime
 } from '../dateUtils';
-import { formatUtcIsoDateTime } from '../../../src/utils/dateUtils';
 
 describe('Date Utilities', () => {
   describe('isoToUnix()', () => {
