@@ -121,3 +121,35 @@ export function formatUnixDateShort(
     day: 'numeric'
   }).format(date);
 }
+
+/**
+ * Format a UTC ISO datetime string (from SQLite CURRENT_TIMESTAMP) to locale datetime string
+ * SQLite stores UTC timestamps as "YYYY-MM-DD HH:MM:SS" without timezone indicator.
+ * This function ensures the timestamp is parsed as UTC and formatted in user's local timezone.
+ * @param utcIsoString UTC datetime string (e.g., "2025-11-26 20:09:31" or "2025-11-26T20:09:31Z")
+ * @returns Formatted datetime string in user's local timezone (e.g., "11/26/2025, 3:09:31 PM")
+ */
+export function formatUtcIsoDateTime(
+  utcIsoString: string | null | undefined
+): string {
+  if (!utcIsoString) return '—';
+  
+  // Normalize the string: replace space with 'T' and append 'Z' if no timezone indicator
+  let normalized = utcIsoString.replace(' ', 'T');
+  if (!normalized.endsWith('Z') && !normalized.includes('+') && !normalized.includes('-', 10)) {
+    normalized += 'Z';
+  }
+  
+  const date = new Date(normalized);
+  if (isNaN(date.getTime())) return '—';
+  
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  }).format(date);
+}
