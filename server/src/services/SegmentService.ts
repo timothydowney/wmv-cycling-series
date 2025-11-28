@@ -142,5 +142,5 @@ class SegmentService {
   }
 }
 
-export { SegmentService, LogCallback };
+export { SegmentService, type LogCallback };
 export type { SegmentRow } from '../types/database';

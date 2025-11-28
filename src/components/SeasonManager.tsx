@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import './SeasonManager.css';
-import { getSeasons, Season, createSeason, updateSeason, deleteSeason } from '../api';
+import { Season } from '../api'; // Keep Type import for now, or infer it
 import { formatUnixDate, dateToUnixStart, dateToUnixEnd, unixToDateLocal } from '../utils/dateUtils';
 import { PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { trpc } from '../utils/trpc';
 
 interface SeasonFormData {
   name: string;
@@ -15,7 +16,29 @@ interface Props {
 }
 
 function SeasonManager({ onSeasonsChanged }: Props) {
-  const [seasons, setSeasons] = useState<Season[]>([]);
+  // tRPC Hooks
+  const utils = trpc.useUtils();
+  const { data: seasons = [] } = trpc.season.getAll.useQuery();
+  
+  const createMutation = trpc.season.create.useMutation({
+    onSuccess: () => {
+      utils.season.getAll.invalidate();
+      onSeasonsChanged?.();
+    }
+  });
+  const updateMutation = trpc.season.update.useMutation({
+    onSuccess: () => {
+      utils.season.getAll.invalidate();
+      onSeasonsChanged?.();
+    }
+  });
+  const deleteMutation = trpc.season.delete.useMutation({
+    onSuccess: () => {
+      utils.season.getAll.invalidate();
+      onSeasonsChanged?.();
+    }
+  });
+
   const [isCreating, setIsCreating] = useState(false);
   const [editingSeasonId, setEditingSeasonId] = useState<number | null>(null);
   const [formData, setFormData] = useState<SeasonFormData>({
@@ -24,19 +47,6 @@ function SeasonManager({ onSeasonsChanged }: Props) {
     end_at: ''
   });
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-
-  useEffect(() => {
-    fetchSeasons();
-  }, []);
-
-  const fetchSeasons = async () => {
-    try {
-      const data = await getSeasons();
-      setSeasons(data);
-    } catch (err) {
-      console.error('Failed to fetch seasons:', err);
-    }
-  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -74,9 +84,12 @@ function SeasonManager({ onSeasonsChanged }: Props) {
       };
 
       if (editingSeasonId) {
-        await updateSeason(editingSeasonId, submitData);
+        await updateMutation.mutateAsync({
+          id: editingSeasonId,
+          data: submitData
+        });
       } else {
-        await createSeason(submitData);
+        await createMutation.mutateAsync(submitData);
       }
 
       setMessage({
@@ -93,18 +106,10 @@ function SeasonManager({ onSeasonsChanged }: Props) {
         end_at: ''
       });
 
-      // Refresh seasons list
-      await fetchSeasons();
-
-      // Notify parent component of changes
-      if (onSeasonsChanged) {
-        onSeasonsChanged();
-      }
-
       // Clear message after 3 seconds
       setTimeout(() => setMessage(null), 3000);
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message });
+      setMessage({ type: 'error', text: err.message || 'Operation failed' });
       setTimeout(() => setMessage(null), 5000);
     }
   };
@@ -125,19 +130,13 @@ function SeasonManager({ onSeasonsChanged }: Props) {
     }
 
     try {
-      await deleteSeason(seasonId);
+      await deleteMutation.mutateAsync(seasonId);
 
       setMessage({ type: 'success', text: 'Season deleted successfully!' });
       
-      // Refresh seasons list and notify parent
-      await fetchSeasons();
-      if (onSeasonsChanged) {
-        onSeasonsChanged();
-      }
-      
       setTimeout(() => setMessage(null), 3000);
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message });
+      setMessage({ type: 'error', text: err.message || 'Delete failed' });
       setTimeout(() => setMessage(null), 5000);
     }
   };

@@ -16,9 +16,41 @@ import { api, getWeekLeaderboard, Week, Season, LeaderboardEntry } from './api';
 import { useCurrentUser } from './hooks/useCurrentUser';
 import { UnitProvider } from './context/UnitContext';
 
+// tRPC imports
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { httpBatchLink } from '@trpc/client';
+import { trpc } from './utils/trpc';
+
 type ViewMode = 'leaderboard' | 'admin' | 'participants' | 'segments' | 'seasons' | 'webhooks';
 
 function App() {
+  // tRPC Client Setup
+  const [queryClient] = useState(() => new QueryClient());
+  const [trpcClient] = useState(() =>
+    trpc.createClient({
+      links: [
+        httpBatchLink({
+          url: (() => {
+            // Logic matches src/api.ts
+            const baseUrl = import.meta.env.REACT_APP_BACKEND_URL || (() => {
+              if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+                return 'http://localhost:3001';
+              }
+              return '';
+            })();
+            // Remove trailing slash if present to avoid double slashes
+            const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+            // If baseUrl is empty (production relative path), just use /trpc
+            // If baseUrl is http://localhost:3001, use http://localhost:3001/trpc
+            return `${cleanBaseUrl}/trpc`;
+          })(),
+          // You can pass headers here if needed (e.g. for auth)
+          // headers() { return { Authorization: ... } }
+        }),
+      ],
+    }),
+  );
+
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<Season | null>(null);
@@ -194,134 +226,146 @@ function App() {
 
   if (loading) {
     return (
-      <UnitProvider>
-        <NavBar 
-          onAdminPanelToggle={() => setViewMode(viewMode === 'admin' ? 'leaderboard' : 'admin')} 
-          isAdminPanelOpen={viewMode === 'admin'}
-          onParticipantsClick={() => setViewMode('participants')}
-          onLeaderboardClick={() => setViewMode('leaderboard')}
-          onManageSeasonsClick={() => setViewMode('seasons')}
-          onWebhooksClick={() => setViewMode('webhooks')}
-        />
-        <div className="app app-content">
-          <p>Loading...</p>
-        </div>
-      </UnitProvider>
+      <trpc.Provider client={trpcClient} queryClient={queryClient}>
+        <QueryClientProvider client={queryClient}>
+          <UnitProvider>
+            <NavBar 
+              onAdminPanelToggle={() => setViewMode(viewMode === 'admin' ? 'leaderboard' : 'admin')} 
+              isAdminPanelOpen={viewMode === 'admin'}
+              onParticipantsClick={() => setViewMode('participants')}
+              onLeaderboardClick={() => setViewMode('leaderboard')}
+              onManageSeasonsClick={() => setViewMode('seasons')}
+              onWebhooksClick={() => setViewMode('webhooks')}
+            />
+            <div className="app app-content">
+              <p>Loading...</p>
+            </div>
+          </UnitProvider>
+        </QueryClientProvider>
+      </trpc.Provider>
     );
   }
 
   if (error) {
     return (
-      <UnitProvider>
-        <NavBar 
-          onAdminPanelToggle={() => setViewMode(viewMode === 'admin' ? 'leaderboard' : 'admin')} 
-          isAdminPanelOpen={viewMode === 'admin'}
-          onParticipantsClick={() => setViewMode('participants')}
-          onLeaderboardClick={() => setViewMode('leaderboard')}
-          onManageSeasonsClick={() => setViewMode('seasons')}
-          onWebhooksClick={() => setViewMode('webhooks')}
-        />
-        <div className="app app-content">
-          <div className="error">{error}</div>
-        </div>
-      </UnitProvider>
+      <trpc.Provider client={trpcClient} queryClient={queryClient}>
+        <QueryClientProvider client={queryClient}>
+          <UnitProvider>
+            <NavBar 
+              onAdminPanelToggle={() => setViewMode(viewMode === 'admin' ? 'leaderboard' : 'admin')} 
+              isAdminPanelOpen={viewMode === 'admin'}
+              onParticipantsClick={() => setViewMode('participants')}
+              onLeaderboardClick={() => setViewMode('leaderboard')}
+              onManageSeasonsClick={() => setViewMode('seasons')}
+              onWebhooksClick={() => setViewMode('webhooks')}
+            />
+            <div className="app app-content">
+              <div className="error">{error}</div>
+            </div>
+          </UnitProvider>
+        </QueryClientProvider>
+      </trpc.Provider>
     );
   }
 
   return (
-    <UnitProvider>
-      <NavBar 
-        onAdminPanelToggle={() => setViewMode(viewMode === 'admin' ? 'leaderboard' : 'admin')} 
-        isAdminPanelOpen={viewMode === 'admin'}
-        onParticipantsClick={() => setViewMode('participants')}
-        onLeaderboardClick={() => setViewMode('leaderboard')}
-        onManageSeasonsClick={() => setViewMode('seasons')}
-        onWebhooksClick={() => setViewMode('webhooks')}
-      />
-      
-      <div className="app app-content">
-        {viewMode === 'admin' ? (
-          <>
-            <AdminPanel 
-              onFetchResults={handleFetchResults}
-              seasons={seasons}
-              selectedSeasonId={selectedSeasonId}
-              onSeasonChange={setSelectedSeasonId}
-            />
-            <Footer />
-          </>
-        ) : viewMode === 'participants' ? (
-          <>
-            <div>
-              <h1 style={{ marginBottom: '2rem' }}>Participant Status</h1>
-              <ParticipantStatus />
-            </div>
-            <Footer />
-          </>
-        ) : viewMode === 'segments' ? (
-          <>
-            <div>
-              <h1 style={{ marginBottom: '1rem' }}>Manage Segments</h1>
-              <p className="admin-subtitle" style={{ marginTop: 0 }}>Add new Strava segments and manage known segments</p>
-              <ManageSegments />
-            </div>
-            <Footer />
-          </>
-        ) : viewMode === 'seasons' ? (
-          <>
-            <div>
-              <h1 style={{ marginBottom: '1rem' }}>Manage Seasons</h1>
-              <p className="admin-subtitle" style={{ marginTop: 0 }}>Add, edit, and remove seasons for the Zwift Hill Climb/Time Trial Series</p>
-              <SeasonManager onSeasonsChanged={handleSeasonsChanged} />
-            </div>
-            <Footer />
-          </>
-        ) : viewMode === 'webhooks' ? (
-          <>
-            <div>
-              <h1 style={{ marginBottom: '1rem' }}>Manage Webhooks</h1>
-              <p className="admin-subtitle" style={{ marginTop: 0 }}>Monitor and manage real-time activity updates from Strava</p>
-              <WebhookManagementPanel />
-            </div>
-            <Footer />
-          </>
-        ) : (
-          <>
-            <StravaConnectInfoBox show={userAthleteId === null} />
-            <SeasonWeekSelectors
-              seasons={seasons}
-              selectedSeasonId={selectedSeasonId}
-              setSelectedSeasonId={setSelectedSeasonId}
-              weeks={weeks}
-              selectedWeekId={selectedWeekId}
-              setSelectedWeekId={setSelectedWeekId}
-            />
-
-            {(() => {
-              // Calculate week number for display
-              let weekNumber = undefined;
-              if (selectedWeek && weeks.length > 0) {
-                const sortedWeeks = [...weeks].sort((a, b) => a.start_at - b.start_at);
-                weekNumber = sortedWeeks.findIndex(w => w.id === selectedWeek.id) + 1;
-              }
-              return (
-                <WeeklyLeaderboard 
-                  week={selectedWeek}
-                  leaderboard={weekLeaderboard}
-                  weekNumber={weekNumber}
+    <trpc.Provider client={trpcClient} queryClient={queryClient}>
+      <QueryClientProvider client={queryClient}>
+        <UnitProvider>
+          <NavBar 
+            onAdminPanelToggle={() => setViewMode(viewMode === 'admin' ? 'leaderboard' : 'admin')} 
+            isAdminPanelOpen={viewMode === 'admin'}
+            onParticipantsClick={() => setViewMode('participants')}
+            onLeaderboardClick={() => setViewMode('leaderboard')}
+            onManageSeasonsClick={() => setViewMode('seasons')}
+            onWebhooksClick={() => setViewMode('webhooks')}
+          />
+          
+          <div className="app app-content">
+            {viewMode === 'admin' ? (
+              <>
+                <AdminPanel 
+                  onFetchResults={handleFetchResults}
+                  seasons={seasons}
+                  selectedSeasonId={selectedSeasonId}
+                  onSeasonChange={setSelectedSeasonId}
                 />
-              );
-            })()}
+                <Footer />
+              </>
+            ) : viewMode === 'participants' ? (
+              <>
+                <div>
+                  <h1 style={{ marginBottom: '2rem' }}>Participant Status</h1>
+                  <ParticipantStatus />
+                </div>
+                <Footer />
+              </>
+            ) : viewMode === 'segments' ? (
+              <>
+                <div>
+                  <h1 style={{ marginBottom: '1rem' }}>Manage Segments</h1>
+                  <p className="admin-subtitle" style={{ marginTop: 0 }}>Add new Strava segments and manage known segments</p>
+                  <ManageSegments />
+                </div>
+                <Footer />
+              </>
+            ) : viewMode === 'seasons' ? (
+              <>
+                <div>
+                  <h1 style={{ marginBottom: '1rem' }}>Manage Seasons</h1>
+                  <p className="admin-subtitle" style={{ marginTop: 0 }}>Add, edit, and remove seasons for the Zwift Hill Climb/Time Trial Series</p>
+                  <SeasonManager onSeasonsChanged={handleSeasonsChanged} />
+                </div>
+                <Footer />
+              </>
+            ) : viewMode === 'webhooks' ? (
+              <>
+                <div>
+                  <h1 style={{ marginBottom: '1rem' }}>Manage Webhooks</h1>
+                  <p className="admin-subtitle" style={{ marginTop: 0 }}>Monitor and manage real-time activity updates from Strava</p>
+                  <WebhookManagementPanel />
+                </div>
+                <Footer />
+              </>
+            ) : (
+              <>
+                <StravaConnectInfoBox show={userAthleteId === null} />
+                <SeasonWeekSelectors
+                  seasons={seasons}
+                  selectedSeasonId={selectedSeasonId}
+                  setSelectedSeasonId={setSelectedSeasonId}
+                  weeks={weeks}
+                  selectedWeekId={selectedWeekId}
+                  setSelectedWeekId={setSelectedWeekId}
+                />
 
-            {selectedSeason && <SeasonLeaderboard season={selectedSeason} />}
+                {(() => {
+                  // Calculate week number for display
+                  let weekNumber = undefined;
+                  if (selectedWeek && weeks.length > 0) {
+                    const sortedWeeks = [...weeks].sort((a, b) => a.start_at - b.start_at);
+                    weekNumber = sortedWeeks.findIndex(w => w.id === selectedWeek.id) + 1;
+                  }
+                  return (
+                    <WeeklyLeaderboard 
+                      week={selectedWeek}
+                      leaderboard={weekLeaderboard}
+                      weekNumber={weekNumber}
+                    />
+                  );
+                })()}
 
-            <ScheduleTable weeks={weeks} season={selectedSeason || undefined} />
+                {selectedSeason && <SeasonLeaderboard season={selectedSeason} />}
 
-            <Footer />
-          </>
-        )}
-      </div>
-    </UnitProvider>
+                <ScheduleTable weeks={weeks} season={selectedSeason || undefined} />
+
+                <Footer />
+              </>
+            )}
+          </div>
+        </UnitProvider>
+      </QueryClientProvider>
+    </trpc.Provider>
   );
 }
 

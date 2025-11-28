@@ -127,6 +127,19 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// tRPC Middleware
+import * as trpcExpress from '@trpc/server/adapters/express';
+import { createContext } from './trpc/context';
+import { appRouter } from './routers';
+
+app.use(
+  '/trpc',
+  trpcExpress.createExpressMiddleware({
+    router: appRouter,
+    createContext,
+  })
+);
+
 // Session configuration for OAuth
 // Based on express-session best practices and Passport.js patterns
 const sessionStoreConfig = {
