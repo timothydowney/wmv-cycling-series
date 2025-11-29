@@ -6,7 +6,6 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 
-import Database from 'better-sqlite3';
 import session from 'express-session';
 import SqliteStore from 'better-sqlite3-session-store';
 import strava from 'strava-v3';
@@ -160,9 +159,7 @@ const sessionStoreConfig = {
 
 // Initialize DB first (needed for session store)
 // Database path uses persistent /data volume on Railway, local dev folder otherwise
-console.log('[DB] Connecting to database...');
-const db: any = new Database(DB_PATH);
-console.log('[DB] ✓ Database connection opened successfully');
+import { db } from './db';
 
 // Verify database is readable by attempting a simple query
 try {

@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import Database, { type Database as DatabaseType } from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 import { config } from './config';
@@ -20,5 +20,5 @@ try {
 }
 
 console.log('[DB] Connecting to database from db.ts...');
-export const db = new Database(DB_PATH);
+export const db: DatabaseType = new Database(DB_PATH);
 console.log('[DB] ✓ Database connection opened successfully');

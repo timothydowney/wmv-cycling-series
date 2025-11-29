@@ -5,7 +5,7 @@ import SeasonService from '../services/SeasonService';
 
 // We instantiate the service here using the global DB instance
 // In a more complex app, we might want dependency injection via Context
-import { db } from '../index';
+import { db } from '../db';
 
 const seasonService = new SeasonService(db);
 
