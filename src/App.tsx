@@ -12,219 +12,111 @@ import SeasonManager from './components/SeasonManager';
 import WebhookManagementPanel from './components/WebhookManagementPanel';
 import StravaConnectInfoBox from './components/StravaConnectInfoBox';
 import Footer from './components/Footer';
-import { api, getWeekLeaderboard, Week, Season, LeaderboardEntry } from './api';
 import { useCurrentUser } from './hooks/useCurrentUser';
 import { UnitProvider } from './context/UnitContext';
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { httpBatchLink } from '@trpc/client';
+import { trpc } from './utils/trpc';
+import { Season, Week } from './types'; // Import shared types
+
 type ViewMode = 'leaderboard' | 'admin' | 'participants' | 'segments' | 'seasons' | 'webhooks';
 
-function App() {
-  const [seasons, setSeasons] = useState<Season[]>([]);
+function AppContent() {
+  const utils = trpc.useUtils();
   const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(null);
-  const [selectedSeason, setSelectedSeason] = useState<Season | null>(null);
-  const [weeks, setWeeks] = useState<Week[]>([]);
   const [selectedWeekId, setSelectedWeekId] = useState<number | null>(null);
-  const [selectedWeek, setSelectedWeek] = useState<Week | null>(null);
-  const [weekLeaderboard, setWeekLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('leaderboard');
   const userAthleteId = useCurrentUser();
 
+  // tRPC Queries
+  const seasonsQuery = trpc.season.getAll.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+  });
+
+  const weeksQuery = trpc.week.getAll.useQuery(
+    { seasonId: selectedSeasonId! },
+    { 
+      enabled: !!selectedSeasonId,
+      refetchOnWindowFocus: false
+    }
+  );
+
+  const weekLeaderboardQuery = trpc.leaderboard.getWeekLeaderboard.useQuery(
+    { weekId: selectedWeekId! },
+    {
+      enabled: !!selectedWeekId,
+      refetchOnWindowFocus: false,
+    }
+  );
+
+  const seasons = seasonsQuery.data || [];
+  const weeks = weeksQuery.data || [];
+  const selectedSeason = seasons.find(s => s.id === selectedSeasonId) || null;
+  
+  // Extract week and leaderboard data from tRPC query result
+  // We cast the week from tRPC to match our frontend Week type which might have legacy fields
+  const selectedWeek = weekLeaderboardQuery.data?.week ? (weekLeaderboardQuery.data.week as unknown as Week) : null;
+  const weekLeaderboard = weekLeaderboardQuery.data?.leaderboard || [];
+
+  const isLoading = seasonsQuery.isLoading || (!!selectedSeasonId && weeksQuery.isLoading) || (!!selectedWeekId && weekLeaderboardQuery.isLoading);
+  const error = seasonsQuery.error || weeksQuery.error || weekLeaderboardQuery.error;
+
+  // Effect: Select default season when seasons load
   useEffect(() => {
-    const fetchSeasonsAndWeeks = async () => {
-      try {
-        setLoading(true);
+    if (seasons.length > 0 && selectedSeasonId === null) {
+      const now = Math.floor(Date.now() / 1000);
+      const currentSeason = seasons.find(season => season.start_at <= now && now <= season.end_at);
+      setSelectedSeasonId(currentSeason ? currentSeason.id : seasons[0].id);
+    }
+  }, [seasons, selectedSeasonId]);
+
+  // Effect: Select default week when weeks load (or when season changes)
+  useEffect(() => {
+    if (weeks.length > 0) {
+      // If no week selected OR the selected week is not in the current weeks list (season changed)
+      const isSelectedWeekInList = selectedWeekId && weeks.some(w => w.id === selectedWeekId);
+      
+      if (!selectedWeekId || !isSelectedWeekInList) {
+        const now = Math.floor(Date.now() / 1000);
+        const today = Math.floor(now / 86400) * 86400;
         
-        // Fetch all seasons
-        const seasonsData = await api.getSeasons();
-        setSeasons(seasonsData);
+        const sortedWeeks = [...weeks].sort((a, b) => b.start_at - a.start_at);
+        const pastWeek = sortedWeeks.find(week => week.start_at <= today);
         
-        if (seasonsData.length === 0) {
-          setLoading(false);
-          return;
-        }
-        
-        // Find the current season (season that contains today's date)
-        const now = Math.floor(Date.now() / 1000); // Current Unix timestamp in seconds
-        
-        const currentSeason = seasonsData.find(season => {
-          return season.start_at <= now && now <= season.end_at;
-        });
-        
-        // If no current season, use the most recent one
-        const selectedSeasonObj = currentSeason || seasonsData[0];
-        setSelectedSeasonId(selectedSeasonObj.id);
-        setSelectedSeason(selectedSeasonObj);
-        
-        // Fetch weeks for the selected season
-        const weeksData = await api.getWeeks(selectedSeasonObj.id);
-        setWeeks(weeksData);
-        
-        if (weeksData.length > 0) {
-          // Select the most recent week (closest to today, preferring past/current weeks)
-          const now = Math.floor(Date.now() / 1000); // Current Unix timestamp in seconds
-          const today = Math.floor(now / 86400) * 86400; // Midnight today in Unix seconds
-          
-          const sortedWeeks = [...weeksData].sort((a, b) => b.start_at - a.start_at);
-          
-          // Find most recent week that is today or in the past
-          const pastWeek = sortedWeeks.find(week => week.start_at <= today);
-          
-          setSelectedWeekId(pastWeek ? pastWeek.id : sortedWeeks[0].id);
-        }
-      } catch (err) {
-        setError('Failed to load seasons and weeks. Make sure the backend server is running on port 3001.');
-        console.error(err);
-      } finally {
-        setLoading(false);
+        setSelectedWeekId(pastWeek ? pastWeek.id : sortedWeeks[0].id);
       }
-    };
-
-    fetchSeasonsAndWeeks();
-  }, []);
-
-  // When season changes, refresh weeks and reset week selection
-  useEffect(() => {
-    const fetchWeeksForSeason = async () => {
-      if (selectedSeasonId === null) return;
-      try {
-        // Find the season object to get its dates
-        const seasonObj = seasons.find(s => s.id === selectedSeasonId);
-        if (seasonObj) {
-          setSelectedSeason(seasonObj);
-        }
-        
-        const weeksData = await api.getWeeks(selectedSeasonId);
-        setWeeks(weeksData);
-        
-        // Reset week selection
+    } else if (weeksQuery.isFetched && weeks.length === 0) {
         setSelectedWeekId(null);
-        
-        if (weeksData.length > 0) {
-          // Select the most recent week
-          const now = Math.floor(Date.now() / 1000); // Current Unix timestamp in seconds
-          const today = Math.floor(now / 86400) * 86400; // Midnight today in Unix seconds
-          
-          const sortedWeeks = [...weeksData].sort((a, b) => b.start_at - a.start_at);
-          
-          const pastWeek = sortedWeeks.find(week => week.start_at <= today);
-          
-          setSelectedWeekId(pastWeek ? pastWeek.id : sortedWeeks[0].id);
-        }
-      } catch (err) {
-        console.error('Failed to fetch weeks for season:', err);
-      }
-    };
-
-    fetchWeeksForSeason();
-  }, [selectedSeasonId, seasons]);
-
-  // Refresh weeks when switching back to leaderboard view
-  useEffect(() => {
-    const refreshWeeks = async () => {
-      if (viewMode === 'leaderboard' && selectedSeasonId) {
-        try {
-          const weeksData = await api.getWeeks(selectedSeasonId);
-          setWeeks(weeksData);
-          // If no week is selected but we have weeks, select the most recent past/current week
-          if (selectedWeekId === null && weeksData.length > 0) {
-            const now = Math.floor(Date.now() / 1000); // Current Unix timestamp in seconds
-            const todayMidnight = Math.floor(now / 86400) * 86400; // Midnight today in Unix seconds
-            
-            // Sort weeks by date (descending - most recent first)
-            const sortedWeeks = [...weeksData].sort((a, b) => b.start_at - a.start_at);
-            
-            // Find most recent week that is today or in the past
-            const pastWeek = sortedWeeks.find(week => week.start_at <= todayMidnight);
-            
-            setSelectedWeekId(pastWeek ? pastWeek.id : sortedWeeks[0].id);
-          }
-        } catch (err) {
-          console.error('Failed to refresh weeks:', err);
-        }
-      }
-    };
-
-    refreshWeeks();
-  }, [viewMode, selectedSeasonId, selectedWeekId]);
-
-  // Function to fetch/refresh leaderboard
-  const fetchLeaderboard = async (weekId: number) => {
-    try {
-      const leaderboardData = await getWeekLeaderboard(weekId);
-      setSelectedWeek(leaderboardData.week);
-      setWeekLeaderboard(leaderboardData.leaderboard);
-    } catch (err) {
-      setError('Failed to load leaderboard');
-      console.error(err);
     }
-  };
-
-  // Refresh leaderboard when week changes
-  useEffect(() => {
-    if (selectedWeekId === null) {
-      setSelectedWeek(null);
-      setWeekLeaderboard([]);
-      return;
-    }
-    fetchLeaderboard(selectedWeekId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedWeekId]);
+  }, [weeks, weeksQuery.isFetched, selectedWeekId]);
 
   // Handler for when results are fetched - refresh leaderboard
   const handleFetchResults = () => {
     if (selectedWeekId !== null) {
-      fetchLeaderboard(selectedWeekId);
+      weekLeaderboardQuery.refetch();
     }
   };
 
   // Handler for when seasons are changed in SeasonManager - refresh seasons list
-  const handleSeasonsChanged = async () => {
-    try {
-      const seasonsData = await api.getSeasons();
-      setSeasons(seasonsData);
-      
-      // Return to leaderboard to show updated season selector
-      setViewMode('leaderboard');
-    } catch (err) {
-      console.error('Failed to refresh seasons:', err);
-    }
+  const handleSeasonsChanged = () => {
+    utils.season.getAll.invalidate();
+    setViewMode('leaderboard');
   };
 
-  if (loading) {
+  if (isLoading && !seasons.length) {
     return (
-      <UnitProvider>
-        <NavBar 
-          onAdminPanelToggle={() => setViewMode(viewMode === 'admin' ? 'leaderboard' : 'admin')} 
-          isAdminPanelOpen={viewMode === 'admin'}
-          onParticipantsClick={() => setViewMode('participants')}
-          onLeaderboardClick={() => setViewMode('leaderboard')}
-          onManageSeasonsClick={() => setViewMode('seasons')}
-          onWebhooksClick={() => setViewMode('webhooks')}
-        />
-        <div className="app app-content">
-          <p>Loading...</p>
-        </div>
-      </UnitProvider>
+      <div className="app app-content">
+        <p>Loading...</p>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <UnitProvider>
-        <NavBar 
-          onAdminPanelToggle={() => setViewMode(viewMode === 'admin' ? 'leaderboard' : 'admin')} 
-          isAdminPanelOpen={viewMode === 'admin'}
-          onParticipantsClick={() => setViewMode('participants')}
-          onLeaderboardClick={() => setViewMode('leaderboard')}
-          onManageSeasonsClick={() => setViewMode('seasons')}
-          onWebhooksClick={() => setViewMode('webhooks')}
-        />
-        <div className="app app-content">
-          <div className="error">{error}</div>
-        </div>
-      </UnitProvider>
+      <div className="app app-content">
+        <div className="error">{error.message}</div>
+      </div>
     );
   }
 
@@ -292,7 +184,7 @@ function App() {
               seasons={seasons}
               selectedSeasonId={selectedSeasonId}
               setSelectedSeasonId={setSelectedSeasonId}
-              weeks={weeks}
+              weeks={weeks as Week[]} // Cast to compatible Week type
               selectedWeekId={selectedWeekId}
               setSelectedWeekId={setSelectedWeekId}
             />
@@ -301,8 +193,19 @@ function App() {
               // Calculate week number for display
               let weekNumber = undefined;
               if (selectedWeek && weeks.length > 0) {
-                const sortedWeeks = [...weeks].sort((a, b) => a.start_at - b.start_at);
-                weekNumber = sortedWeeks.findIndex(w => w.id === selectedWeek.id) + 1;
+                // Find the original index of the selected week in the full weeks list
+                const originalWeekIndex = weeks.findIndex(w => w.id === selectedWeek.id);
+                if (originalWeekIndex !== -1) {
+                  // Get all weeks that have the same season_id as the selectedWeek
+                  const weeksInSelectedSeason = weeks.filter(w => w.season_id === selectedWeek.season_id);
+                  // Sort these weeks by start_at to determine the correct week number within the season
+                  const sortedWeeksInSeason = [...weeksInSelectedSeason].sort((a, b) => a.start_at - b.start_at);
+                  // Find the index of the selected week within this sorted list
+                  const weekIndexInSeason = sortedWeeksInSeason.findIndex(w => w.id === selectedWeek.id);
+                  if (weekIndexInSeason !== -1) {
+                    weekNumber = weekIndexInSeason + 1;
+                  }
+                }
               }
               return (
                 <WeeklyLeaderboard 
@@ -315,13 +218,44 @@ function App() {
 
             {selectedSeason && <SeasonLeaderboard season={selectedSeason} />}
 
-            <ScheduleTable weeks={weeks} season={selectedSeason || undefined} />
+            <ScheduleTable weeks={weeks as Week[]} season={selectedSeason || undefined} />
 
             <Footer />
           </>
         )}
       </div>
     </UnitProvider>
+  );
+}
+
+function App() {
+  const [queryClient] = useState(() => new QueryClient());
+  const [trpcClient] = useState(() =>
+    trpc.createClient({
+      links: [
+        httpBatchLink({
+          url: (() => {
+            const baseUrl = import.meta.env.REACT_APP_BACKEND_URL || (() => {
+              if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+                return 'http://localhost:3001';
+              }
+              return '';
+            })();
+            const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+            return `${cleanBaseUrl}/trpc`;
+          })(),
+          fetch: (input, init) => fetch(input, { ...init, credentials: 'include' }),
+        }),
+      ],
+    }),
+  );
+
+  return (
+    <trpc.Provider client={trpcClient} queryClient={queryClient}>
+      <QueryClientProvider client={queryClient}>
+        <AppContent />
+      </QueryClientProvider>
+    </trpc.Provider>
   );
 }
 

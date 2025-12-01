@@ -11,7 +11,6 @@
  */
 
 import { Database } from 'better-sqlite3';
-import { CountRow } from '../types/database';
 
 export interface ActivitySummary {
   activityId: number;
@@ -321,22 +320,22 @@ export class LeaderboardQueryService {
     } {
     return {
       participantCount: (
-        this.db.prepare('SELECT COUNT(*) as count FROM participant').get() as CountRow
+        this.db.prepare('SELECT COUNT(*) as count FROM participant').get() as { count: number }
       ).count,
       weekCount: (
-        this.db.prepare('SELECT COUNT(*) as count FROM week').get() as CountRow
+        this.db.prepare('SELECT COUNT(*) as count FROM week').get() as { count: number }
       ).count,
       activityCount: (
-        this.db.prepare('SELECT COUNT(*) as count FROM activity').get() as CountRow
+        this.db.prepare('SELECT COUNT(*) as count FROM activity').get() as { count: number }
       ).count,
       resultCount: (
-        this.db.prepare('SELECT COUNT(*) as count FROM result').get() as CountRow
+        this.db.prepare('SELECT COUNT(*) as count FROM result').get() as { count: number }
       ).count,
       segmentEffortCount: (
-        this.db.prepare('SELECT COUNT(*) as count FROM segment_effort').get() as CountRow
+        this.db.prepare('SELECT COUNT(*) as count FROM segment_effort').get() as { count: number }
       ).count,
       webhookEventCount: (
-        this.db.prepare('SELECT COUNT(*) as count FROM webhook_event').get() as CountRow
+        this.db.prepare('SELECT COUNT(*) as count FROM webhook_event').get() as { count: number }
       ).count
     };
   }

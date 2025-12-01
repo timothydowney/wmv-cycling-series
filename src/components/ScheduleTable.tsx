@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Week, Season } from '../api';
+import { Week, Season } from '../types';
 import { formatUnixDate, formatUnixTime } from '../utils/dateUtils';
 import { NotesDisplay } from './NotesDisplay';
 import SegmentMetadataDisplay from './SegmentMetadataDisplay';

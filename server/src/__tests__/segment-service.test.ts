@@ -9,6 +9,7 @@ import { SegmentService } from '../services/SegmentService';
 import { createParticipant, createSegment, clearAllData } from './testDataHelpers';
 import path from 'path';
 import fs from 'fs';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
 
 // Mock strava-v3 and stravaClient
 jest.mock('strava-v3', () => ({
@@ -74,7 +75,7 @@ describe('SegmentService', () => {
   beforeEach(() => {
     clearAllData(testDb);
     db = testDb;
-    service = new SegmentService(db);
+    service = new SegmentService(drizzle(db));
   });
 
   describe('fetchAndStoreSegmentMetadata()', () => {

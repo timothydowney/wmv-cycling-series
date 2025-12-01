@@ -83,8 +83,8 @@ describe('Webhook Integration Tests', () => {
       });
 
       const week = createWeek(db, {
-        seasonId: season.seasonId,
-        stravaSegmentId: segment.stravaSegmentId,
+        seasonId: season.id,
+        stravaSegmentId: segment.strava_segment_id,
         weekName: 'Week 1: Test',
         date: '2025-11-01',
         requiredLaps: 1,
@@ -106,13 +106,13 @@ describe('Webhook Integration Tests', () => {
       // Alice: fast activity (1200s)
       mockStravaClient.setActivity(
         9001,
-        ActivityScenarios.withPR(9001, segment.stravaSegmentId, 1200)
+        ActivityScenarios.withPR(9001, segment.strava_segment_id, 1200)
       );
 
       // Bob: slower activity (1500s)
       mockStravaClient.setActivity(
         9002,
-        ActivityScenarios.withoutPR(9002, segment.stravaSegmentId, 1500)
+        ActivityScenarios.withoutPR(9002, segment.strava_segment_id, 1500)
       );
 
       // Simulate webhook receipt for Alice's activity
@@ -159,8 +159,8 @@ describe('Webhook Integration Tests', () => {
       });
 
       const week = createWeek(db, {
-        seasonId: season.seasonId,
-        stravaSegmentId: segment.stravaSegmentId,
+        seasonId: season.id,
+        stravaSegmentId: segment.strava_segment_id,
         weekName: 'Week 2',
         date: '2025-11-08',
         requiredLaps: 1,
@@ -175,13 +175,13 @@ describe('Webhook Integration Tests', () => {
       // Activity A: slower (2000s)
       mockStravaClient.setActivity(
         9101,
-        ActivityScenarios.withoutPR(9101, segment.stravaSegmentId, 2000)
+        ActivityScenarios.withoutPR(9101, segment.strava_segment_id, 2000)
       );
 
       // Activity B: faster (1500s)
       mockStravaClient.setActivity(
         9102,
-        ActivityScenarios.withoutPR(9102, segment.stravaSegmentId, 1500)
+        ActivityScenarios.withoutPR(9102, segment.strava_segment_id, 1500)
       );
 
       // Get Activity A (simulating first webhook)
@@ -210,8 +210,8 @@ describe('Webhook Integration Tests', () => {
       const segment = createSegment(db, 33345678, 'Segment 3');
 
       const week = createWeek(db, {
-        seasonId: season.seasonId,
-        stravaSegmentId: segment.stravaSegmentId,
+        seasonId: season.id,
+        stravaSegmentId: segment.strava_segment_id,
         weekName: 'Week 3',
         date: '2025-11-15',
         requiredLaps: 1
@@ -224,7 +224,7 @@ describe('Webhook Integration Tests', () => {
       // Activity with PR achievement (pr_rank present)
       mockStravaClient.setActivity(
         9201,
-        ActivityScenarios.withPR(9201, segment.stravaSegmentId, 1300)
+        ActivityScenarios.withPR(9201, segment.strava_segment_id, 1300)
       );
 
       const activity = await mockStravaClient.getActivity('diana_token', 9201);
@@ -237,7 +237,7 @@ describe('Webhook Integration Tests', () => {
       // Activity without PR (no pr_rank field)
       mockStravaClient.setActivity(
         9202,
-        ActivityScenarios.withoutPR(9202, segment.stravaSegmentId, 1400)
+        ActivityScenarios.withoutPR(9202, segment.strava_segment_id, 1400)
       );
 
       const activityNoPR = await mockStravaClient.getActivity('diana_token', 9202);
@@ -302,8 +302,8 @@ describe('Webhook Integration Tests', () => {
       const segment = createSegment(db, 55345678, 'Segment 5');
 
       const week = createWeek(db, {
-        seasonId: season.seasonId,
-        stravaSegmentId: segment.stravaSegmentId,
+        seasonId: season.id,
+        stravaSegmentId: segment.strava_segment_id,
         weekName: 'Week 5',
         requiredLaps: 1
       });
@@ -319,11 +319,11 @@ describe('Webhook Integration Tests', () => {
       // Create activities
       mockStravaClient.setActivity(
         9401,
-        ActivityScenarios.withoutPR(9401, segment.stravaSegmentId, 1000)
+        ActivityScenarios.withoutPR(9401, segment.strava_segment_id, 1000)
       );
       mockStravaClient.setActivity(
         9402,
-        ActivityScenarios.withoutPR(9402, segment.stravaSegmentId, 1200)
+        ActivityScenarios.withoutPR(9402, segment.strava_segment_id, 1200)
       );
 
       // Verify activities exist
@@ -355,8 +355,8 @@ describe('Webhook Integration Tests', () => {
       const segment = createSegment(db, 66345678, 'Segment 6');
 
       const week = createWeek(db, {
-        seasonId: season.seasonId,
-        stravaSegmentId: segment.stravaSegmentId,
+        seasonId: season.id,
+        stravaSegmentId: segment.strava_segment_id,
         weekName: 'Week 6',
         requiredLaps: 1
       });
@@ -375,15 +375,15 @@ describe('Webhook Integration Tests', () => {
       // Set up concurrent activities
       mockStravaClient.setActivity(
         9501,
-        ActivityScenarios.withoutPR(9501, segment.stravaSegmentId, 1100)
+        ActivityScenarios.withoutPR(9501, segment.strava_segment_id, 1100)
       );
       mockStravaClient.setActivity(
         9502,
-        ActivityScenarios.withoutPR(9502, segment.stravaSegmentId, 1050)
+        ActivityScenarios.withoutPR(9502, segment.strava_segment_id, 1050)
       );
       mockStravaClient.setActivity(
         9503,
-        ActivityScenarios.withoutPR(9503, segment.stravaSegmentId, 1200)
+        ActivityScenarios.withoutPR(9503, segment.strava_segment_id, 1200)
       );
 
       // Simulate concurrent fetches (would be triggered by webhook events)
@@ -418,8 +418,8 @@ describe('Webhook Integration Tests', () => {
       const segment = createSegment(db, 77345678, 'Segment 7');
 
       const week = createWeek(db, {
-        seasonId: season.seasonId,
-        stravaSegmentId: segment.stravaSegmentId,
+        seasonId: season.id,
+        stravaSegmentId: segment.strava_segment_id,
         weekName: 'Week 7',
         requiredLaps: 2 // Requires 2 laps
       });
@@ -431,7 +431,7 @@ describe('Webhook Integration Tests', () => {
       // Activity with only 1 lap (doesn't meet requirement)
       mockStravaClient.setActivity(
         9601,
-        ActivityScenarios.withoutPR(9601, segment.stravaSegmentId, 1000)
+        ActivityScenarios.withoutPR(9601, segment.strava_segment_id, 1000)
       );
 
       const activity = await mockStravaClient.getActivity('kate_token', 9601);
@@ -458,8 +458,8 @@ describe('Webhook Integration Tests', () => {
       const segment = createSegment(db, 88345678, 'Segment 8');
 
       const week = createWeek(db, {
-        seasonId: season.seasonId,
-        stravaSegmentId: segment.stravaSegmentId,
+        seasonId: season.id,
+        stravaSegmentId: segment.strava_segment_id,
         weekName: 'Week 8',
         requiredLaps: 1
       });
@@ -470,7 +470,7 @@ describe('Webhook Integration Tests', () => {
 
       mockStravaClient.setActivity(
         9701,
-        ActivityScenarios.withoutPR(9701, segment.stravaSegmentId, 1150)
+        ActivityScenarios.withoutPR(9701, segment.strava_segment_id, 1150)
       );
 
       // Simulate webhook received twice (network retry or operator replay)
@@ -507,8 +507,8 @@ describe('Webhook Integration Tests', () => {
       const segment = createSegment(db, 99345678, 'Segment 9');
 
       const week = createWeek(db, {
-        seasonId: season.seasonId,
-        stravaSegmentId: segment.stravaSegmentId,
+        seasonId: season.id,
+        stravaSegmentId: segment.strava_segment_id,
         weekName: 'Week 9',
         requiredLaps: 2 // Requires 2 laps
       });
@@ -521,7 +521,7 @@ describe('Webhook Integration Tests', () => {
       // Best 2-lap window: [580, 590] = 1170
       mockStravaClient.setActivity(
         9801,
-        ActivityScenarios.withMultipleLaps(9801, segment.stravaSegmentId, 3, [600, 580, 590])
+        ActivityScenarios.withMultipleLaps(9801, segment.strava_segment_id, 3, [600, 580, 590])
       );
 
       const activity = await mockStravaClient.getActivity('mike_token', 9801);
@@ -550,8 +550,8 @@ describe('Webhook Integration Tests', () => {
       const segment = createSegment(db, 100345678, 'Segment 10');
 
       const week = createWeek(db, {
-        seasonId: season.seasonId,
-        stravaSegmentId: segment.stravaSegmentId,
+        seasonId: season.id,
+        stravaSegmentId: segment.strava_segment_id,
         weekName: 'Week 10',
         requiredLaps: 1
       });
@@ -573,19 +573,19 @@ describe('Webhook Integration Tests', () => {
       // Set up activities with increasing times
       mockStravaClient.setActivity(
         9901,
-        ActivityScenarios.withPR(9901, segment.stravaSegmentId, 1000) // Fastest, with PR
+        ActivityScenarios.withPR(9901, segment.strava_segment_id, 1000) // Fastest, with PR
       );
       mockStravaClient.setActivity(
         9902,
-        ActivityScenarios.withoutPR(9902, segment.stravaSegmentId, 1100)
+        ActivityScenarios.withoutPR(9902, segment.strava_segment_id, 1100)
       );
       mockStravaClient.setActivity(
         9903,
-        ActivityScenarios.withoutPR(9903, segment.stravaSegmentId, 1200)
+        ActivityScenarios.withoutPR(9903, segment.strava_segment_id, 1200)
       );
       mockStravaClient.setActivity(
         9904,
-        ActivityScenarios.withoutPR(9904, segment.stravaSegmentId, 1300) // Slowest
+        ActivityScenarios.withoutPR(9904, segment.strava_segment_id, 1300) // Slowest
       );
 
       // Fetch all activities

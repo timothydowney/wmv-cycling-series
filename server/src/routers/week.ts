@@ -1,0 +1,68 @@
+import { z } from 'zod';
+import { router, publicProcedure, adminProcedure } from '../trpc/init';
+import WeekService from '../services/WeekService';
+import { drizzleDb } from '../db';
+
+const weekService = new WeekService(drizzleDb);
+
+export const weekRouter = router({
+  getAll: publicProcedure
+    .input(z.object({ seasonId: z.number() }))
+    .query(async ({ input }) => {
+      return weekService.getAllWeeks(input.seasonId);
+    }),
+
+  getById: publicProcedure
+    .input(z.number())
+    .query(async ({ input }) => {
+      return weekService.getWeekById(input);
+    }),
+
+  getLeaderboard: publicProcedure
+    .input(z.number())
+    .query(async ({ input }) => {
+      return weekService.getWeekLeaderboard(input);
+    }),
+
+  create: adminProcedure
+    .input(z.object({
+      season_id: z.number().optional(),
+      week_name: z.string(),
+      segment_id: z.number(),
+      segment_name: z.string().optional(),
+      required_laps: z.number(),
+      start_at: z.number().optional(),
+      end_at: z.number().optional(),
+      notes: z.string().optional()
+    }))
+    .mutation(async ({ input }) => {
+      return weekService.createWeek(input);
+    }),
+
+  update: adminProcedure
+    .input(z.object({
+      id: z.number(),
+      data: z.object({
+        season_id: z.number().optional(),
+        week_name: z.string().optional(),
+        date: z.string().optional(),
+        segment_id: z.number().optional(),
+        required_laps: z.number().optional(),
+        start_time: z.string().optional(),
+        end_time: z.string().optional(),
+        start_at: z.number().optional(),
+        end_at: z.number().optional(),
+        segment_name: z.string().optional(),
+        notes: z.string().optional()
+      })
+    }))
+    .mutation(async ({ input }) => {
+      return weekService.updateWeek(input.id, input.data);
+    }),
+
+  delete: adminProcedure
+    .input(z.number())
+    .mutation(async ({ input }) => {
+      return weekService.deleteWeek(input);
+    })
+});

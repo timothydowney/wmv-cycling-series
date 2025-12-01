@@ -9,7 +9,7 @@
  */
 
 import { Database } from 'better-sqlite3';
-import type { SeasonRow } from '../types/database';
+import { Season } from '../db/schema'; // Import Drizzle Season type
 import { isoToUnix } from '../dateUtils';
 
 /**
@@ -61,7 +61,7 @@ class ActivityValidationService {
    * @param season Season object with end_at timestamp
    * @returns { isClosed: boolean, reason?: string, end_at?: number }
    */
-  isSeasonClosed(season: SeasonRow): { isClosed: boolean; reason?: string; end_at?: number } {
+  isSeasonClosed(season: Season): { isClosed: boolean; reason?: string; end_at?: number } {
     const now = Math.floor(Date.now() / 1000); // Current Unix time
 
     if (season.end_at && now > season.end_at) {
@@ -88,7 +88,7 @@ class ActivityValidationService {
    * @param season Season object with start_at and end_at timestamps
    * @returns { isOpen: boolean, reason?: string, start_at?: number, end_at?: number }
    */
-  isSeasonOpen(season: SeasonRow): SeasonStatusResult {
+  isSeasonOpen(season: Season): SeasonStatusResult {
     const now = Math.floor(Date.now() / 1000);
 
     // Check if season has started
@@ -164,7 +164,7 @@ class ActivityValidationService {
    * @param season Season with start_at and end_at timestamps
    * @returns { valid: boolean, reason?: string }
    */
-  isActivityWithinSeasonRange(activity: ActivityWithTimestamp, season: SeasonRow): ValidationResult {
+  isActivityWithinSeasonRange(activity: ActivityWithTimestamp, season: Season): ValidationResult {
     const activityUnix = isoToUnix(activity.start_date);
 
     if (activityUnix === null) {
@@ -208,7 +208,7 @@ class ActivityValidationService {
    * @param unixTimestamp Activity timestamp in Unix seconds (UTC)
    * @returns Season object or null if no season contains timestamp
    */
-  getActiveSeason(unixTimestamp: number): SeasonRow | null {
+  getActiveSeason(unixTimestamp: number): Season | null {
     const season = this.db
       .prepare(
         `
@@ -218,7 +218,7 @@ class ActivityValidationService {
         LIMIT 1
       `
       )
-      .get(unixTimestamp, unixTimestamp) as SeasonRow | undefined;
+      .get(unixTimestamp, unixTimestamp) as Season | undefined;
 
     return season || null;
   }
@@ -234,7 +234,7 @@ class ActivityValidationService {
    * @param unixTimestamp Activity timestamp in Unix seconds (UTC)
    * @returns Array of seasons that contain this timestamp, ordered by start_at DESC then id DESC
    */
-  getAllActiveSeasonsContainingTimestamp(unixTimestamp: number): SeasonRow[] {
+  getAllActiveSeasonsContainingTimestamp(unixTimestamp: number): Season[] {
     const seasons = this.db
       .prepare(
         `
@@ -243,7 +243,7 @@ class ActivityValidationService {
         ORDER BY start_at DESC, id DESC
       `
       )
-      .all(unixTimestamp, unixTimestamp) as SeasonRow[];
+      .all(unixTimestamp, unixTimestamp) as Season[];
 
     return seasons;
   }

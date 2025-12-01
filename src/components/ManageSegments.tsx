@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import './ManageSegments.css';
-import { addSegment, getAdminSegments, validateSegment, AdminSegment, ValidatedSegmentDetails, getAuthStatus } from '../api';
+import { getAuthStatus } from '../api';
+import { AdminSegment, ValidatedSegmentDetails } from '../types';
+import { trpc } from '../utils/trpc';
 import SegmentCard from './SegmentCard';
 
 const parseSegmentInput = (input: string): number | null => {
@@ -16,10 +18,18 @@ const parseSegmentInput = (input: string): number | null => {
 function ManageSegments() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
-  const [segments, setSegments] = useState<AdminSegment[]>([]);
-  const [loading, setLoading] = useState(true);
-  // Internal load error for segment list; we just show a generic message inline
-  const [loadError, setLoadError] = useState<string | null>(null);
+  
+  const utils = trpc.useUtils();
+  const { data: segments = [], isLoading: loading, error: loadErrorObject, refetch } = trpc.segment.getAll.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+  });
+  const loadError = loadErrorObject?.message || null;
+
+  const createMutation = trpc.segment.create.useMutation({
+    onSuccess: () => {
+      refetch();
+    }
+  });
 
   const [input, setInput] = useState('');
   const [validating, setValidating] = useState(false);
@@ -45,20 +55,6 @@ function ManageSegments() {
     checkAdmin();
   }, []);
 
-  const refresh = async () => {
-    try {
-      setLoading(true);
-      const data = await getAdminSegments();
-      setSegments(data);
-    } catch (e) {
-      setLoadError('Failed to load segments');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { refresh(); }, []);
-
   const existingIds = useMemo(() => new Set(segments.map(s => String(s.strava_segment_id))), [segments]);
 
   const handleValidate = async () => {
@@ -73,8 +69,10 @@ function ManageSegments() {
 
     setValidating(true);
     try {
-      const details = await validateSegment(id);
-      setValidated(details);
+      // Manually trigger query
+      const details = await utils.client.segment.validate.query(id);
+      // The router returns ValidatedSegmentDetails compatible object
+      setValidated(details as ValidatedSegmentDetails);
       setLastValidatedId(id);
       if (existingIds.has(String(details.id))) {
         setActionMessage({ type: 'success', text: 'Segment already exists in database.' });
@@ -107,12 +105,20 @@ function ManageSegments() {
   const handleAdd = async () => {
     if (!validated) return;
     try {
-      await addSegment(validated.id, validated.name, validated);
+      await createMutation.mutateAsync({
+        strava_segment_id: validated.id,
+        name: validated.name,
+        distance: validated.distance,
+        average_grade: validated.average_grade,
+        city: validated.city,
+        state: validated.state,
+        country: validated.country
+      });
+      
       setActionMessage({ type: 'success', text: 'Segment saved to database.' });
       setValidated(null);
       setInput('');
       setLastValidatedId(null);
-      await refresh();
     } catch (e: any) {
       setActionMessage({ type: 'error', text: e?.message || 'Failed to save segment' });
     }
@@ -129,8 +135,16 @@ function ManageSegments() {
 
     for (const segment of segments) {
       try {
-        const details = await validateSegment(segment.strava_segment_id);
-        await addSegment(details.id, details.name, details);
+        const details = await utils.client.segment.validate.query(segment.strava_segment_id);
+        await createMutation.mutateAsync({
+            strava_segment_id: details.id,
+            name: details.name,
+            distance: details.distance,
+            average_grade: details.average_grade,
+            city: details.city,
+            state: details.state,
+            country: details.country
+        });
         successCount++;
       } catch (e) {
         console.error(`Failed to refresh segment ${segment.strava_segment_id}:`, e);
@@ -146,7 +160,6 @@ function ManageSegments() {
       setActionMessage({ type: 'error', text: `Refreshed ${successCount} segments, ${errorCount} failed.` });
     }
 
-    await refresh();
     setTimeout(() => setActionMessage(null), 5000);
   };
 
@@ -243,11 +256,11 @@ function ManageSegments() {
               key={s.strava_segment_id}
               id={s.strava_segment_id}
               name={s.name}
-              distance={s.distance}
-              average_grade={s.average_grade}
-              city={s.city}
-              state={s.state}
-              country={s.country}
+              distance={s.distance || undefined}
+              average_grade={s.average_grade || undefined}
+              city={s.city || undefined}
+              state={s.state || undefined}
+              country={s.country || undefined}
             />
           ))}
         </div>

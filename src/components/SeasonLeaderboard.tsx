@@ -1,45 +1,30 @@
-import React, { useState, useEffect } from 'react';
-import { getSeasonLeaderboard, SeasonStanding } from '../api';
+import React from 'react'; // Removed useState, useEffect
 import { useCurrentUser } from '../hooks/useCurrentUser';
 import StravaAthleteBadge from './StravaAthleteBadge';
-
-import { Season } from '../api';
+import { Season } from '../types'; // Still need Season type for props
+import { trpc } from '../utils/trpc'; // Import trpc
 
 interface Props {
   season?: Season;
 }
 
 const SeasonLeaderboard: React.FC<Props> = ({ season }) => {
-  const [standings, setStandings] = useState<SeasonStanding[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const userAthleteId = useCurrentUser();
 
-  useEffect(() => {
-    const fetchSeasonStandings = async () => {
-      if (!season?.id) return;
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await getSeasonLeaderboard(season.id);
-        setStandings(data);
-      } catch (err) {
-        setError('Failed to load season standings');
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const { data: standings = [], isLoading, isError, error } = trpc.leaderboard.getSeasonLeaderboard.useQuery(
+    { seasonId: season?.id! },
+    {
+      enabled: season?.id !== undefined && season?.id !== null, // Only run if season ID is available
+      refetchOnWindowFocus: false, // Prevent refetching on window focus
+    }
+  );
 
-    fetchSeasonStandings();
-  }, [season?.id]);
-
-  if (loading) {
+  if (isLoading) {
     return <div>Loading season standings...</div>;
   }
 
-  if (error) {
-    return <div>Error: {error}</div>;
+  if (isError) {
+    return <div>Error: {error?.message || 'Failed to load season standings'}</div>;
   }
 
   return (
@@ -61,19 +46,19 @@ const SeasonLeaderboard: React.FC<Props> = ({ season }) => {
             </tr>
           ) : (
             standings.map((standing, index) => {
-              const isCurrentUser = userAthleteId !== null && userAthleteId === standing.strava_athlete_id;
+              const isCurrentUser = userAthleteId !== null && userAthleteId === standing.participantId; // Adjusted to participantId
               return (
-              <tr key={standing.id} style={isCurrentUser ? { backgroundColor: 'var(--wmv-orange-light, #fff5f0)', fontWeight: 500 } : {}}>
+              <tr key={standing.participantId} style={isCurrentUser ? { backgroundColor: 'var(--wmv-orange-light, #fff5f0)', fontWeight: 500 } : {}}>
                 <td style={{ width: '60px' }}>{index + 1}</td>
                 <td style={{ width: '200px' }}>
                   <StravaAthleteBadge 
-                    athleteId={standing.strava_athlete_id} 
+                    athleteId={standing.participantId} // Adjusted to participantId
                     name={standing.name}
-                    profilePictureUrl={standing.profile_picture_url}
+                    profilePictureUrl={standing.profile_picture_url} // Assuming this will be available from tRPC
                   />
                 </td>
-                <td>{standing.total_points}</td>
-                <td>{standing.weeks_completed}</td>
+                <td>{standing.totalPoints}</td>
+                <td>{standing.weeksCompleted}</td>
               </tr>
             );
             })
@@ -85,3 +70,4 @@ const SeasonLeaderboard: React.FC<Props> = ({ season }) => {
 };
 
 export default SeasonLeaderboard;
+

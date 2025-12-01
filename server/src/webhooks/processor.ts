@@ -27,7 +27,7 @@ import { getValidAccessToken } from '../tokenManager';
 import { findBestQualifyingActivity } from '../activityProcessor';
 import { storeActivityAndEfforts } from '../activityStorage';
 import ActivityValidationService from '../services/ActivityValidationService';
-import { WeekRow } from '../types/database';
+import { Week } from '../db/schema'; // Import Drizzle Week type
 
 /**
  * Service layer for webhook operations
@@ -293,7 +293,7 @@ async function processActivityEvent(
           week.strava_segment_id,
           week.required_laps,
           accessToken,
-          { start_at: week.start_at, end_at: week.end_at } as Pick<WeekRow, 'start_at' | 'end_at'>
+          { start_at: week.start_at, end_at: week.end_at } as Pick<Week, 'start_at' | 'end_at'>
         );
 
         if (bestActivity) {
