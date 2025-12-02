@@ -114,9 +114,6 @@ class LoginService {
 
     const adminIds = this.getAdminAthleteIds();
     const isAdmin = adminIds.includes(athleteId);
-    
-    // Debug logging
-    console.log(`[LoginService:getAuthStatus] DEBUG: athleteId=${athleteId}, adminIds=[${adminIds.join(',')}], isAdmin=${isAdmin}`);
 
     return {
       authenticated: true,

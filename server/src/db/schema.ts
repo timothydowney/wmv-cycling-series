@@ -7,11 +7,11 @@ export const sessions = sqliteTable('sessions', {
   expire: text().notNull(),
 });
 
-export const participant = sqliteTable("participant", {
-	strava_athlete_id: integer("strava_athlete_id").primaryKey(),
-	name: text().notNull(),
-	created_at: text("created_at").default("sql`(CURRENT_TIMESTAMP)`"),
-	active: integer("active", { mode: "boolean" }).default(true).notNull(),
+export const participant = sqliteTable('participant', {
+  strava_athlete_id: integer('strava_athlete_id').primaryKey(),
+  name: text().notNull(),
+  created_at: text('created_at').default('sql`(CURRENT_TIMESTAMP)`'),
+  active: integer('active', { mode: 'boolean' }).default(true).notNull(),
 });
 
 export const season = sqliteTable('season', {

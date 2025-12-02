@@ -261,7 +261,7 @@ app.use(routes.public());
 // app.use('/admin/seasons', routes.seasons(services, middleware));
 // app.use('/admin/participants', routes.participants(services, middleware));
 // app.use('/admin/segments', routes.segments(services, middleware));
-app.use('/admin', createFetchRouter(db));
+app.use('/admin', createFetchRouter(db, drizzleDb));
 app.use('/admin/webhooks', createWebhookAdminRoutes(db, stravaClient));
 
 // Webhook routes

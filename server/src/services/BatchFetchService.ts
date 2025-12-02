@@ -36,7 +36,8 @@ class BatchFetchService {
     private db: Database,
     private getValidAccessToken: (
       db: Database,
-      athleteId: number
+      athleteId: number,
+      forceRefresh?: boolean
     ) => Promise<string>
   ) {
     this.validationService = new ActivityValidationService(db);
@@ -164,12 +165,40 @@ class BatchFetchService {
         logger.section(`Checking ${participant.name}...`);
 
         // Get valid token (auto-refreshes if needed)
-        const accessToken = await this.getValidAccessToken(this.db, participant.strava_athlete_id);
+        let accessToken = await this.getValidAccessToken(this.db, participant.strava_athlete_id);
 
         // Fetch activities using Unix timestamps (already UTC)
-        const activities = await stravaClient.listAthleteActivities(accessToken, startUnix, endUnix, {
-          includeAllEfforts: true
-        });
+        let activities;
+        try {
+          activities = await stravaClient.listAthleteActivities(accessToken, startUnix, endUnix, {
+            includeAllEfforts: true
+          });
+        } catch (error: any) {
+          // Check for 401 Unauthorized
+          if (error.statusCode === 401 || (error.message && error.message.includes('Authorization Error'))) {
+            logger.info(`Got 401 for ${participant.name}, attempting force refresh...`);
+            try {
+              // Force refresh
+              accessToken = await this.getValidAccessToken(this.db, participant.strava_athlete_id, true);
+              // Retry once
+              activities = await stravaClient.listAthleteActivities(accessToken, startUnix, endUnix, {
+                includeAllEfforts: true
+              });
+            } catch (retryError: any) {
+              // If retry fails, log and SKIP this user
+              logger.error(`Failed to refresh/retry for ${participant.name}: ${retryError.message}`);
+              results.push({
+                participant_id: participant.strava_athlete_id,
+                participant_name: participant.name,
+                activity_found: false,
+                reason: `Authorization failed (401): ${retryError.message}`
+              });
+              continue; // Skip to next participant
+            }
+          } else {
+            throw error; // Re-throw other errors
+          }
+        }
 
         if (activities.length === 0) {
           logger.info('No activities found on that day', participant.name);

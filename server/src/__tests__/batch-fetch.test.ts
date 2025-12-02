@@ -73,8 +73,8 @@ describe('Batch Fetch - POST /admin/weeks/:id/fetch-results', () => {
       next();
     });
 
-    // Mount router with injected DB
-    app.use('/admin', createFetchRouter(db));
+    // Mount router with injected DB (needs both sqlite and drizzle)
+    app.use('/admin', createFetchRouter(db, drizzleDb));
 
     const season = createSeason(drizzleDb, 'Test Season', true);
     seasonId = season.id;

@@ -107,17 +107,11 @@ export default (services: AuthServices): Router => {
    * Check current authentication status
    */
   router.get('/status', (req: Request, res: Response): void => {
-    console.log(`[AUTH_STATUS] Checking status. Session ID: ${req.sessionID}`);
     const sess = req.session as any;
-    console.log('[AUTH_STATUS] Session data:', {
-      stravaAthleteId: sess.stravaAthleteId,
-      athleteName: sess.athleteName
-    });
 
     try {
       const athleteId = sess.stravaAthleteId;
       if (!athleteId) {
-        console.log('[AUTH_STATUS] No session found - not authenticated');
         res.json({
           authenticated: false,
           participant: null,
@@ -128,7 +122,6 @@ export default (services: AuthServices): Router => {
 
       // Use LoginService to get full auth status
       const status = loginService.getAuthStatus(athleteId);
-      console.log('[AUTH_STATUS] Auth status:', status);
       res.json(status);
     } catch (error) {
       console.error('Error getting auth status:', error);

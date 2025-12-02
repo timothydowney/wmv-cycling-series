@@ -45,7 +45,8 @@ interface StravaClient {
 async function getValidAccessToken(
   db: Database,
   stravaClient: StravaClient,
-  stravaAthleteId: number
+  stravaAthleteId: number,
+  forceRefresh: boolean = false
 ): Promise<string> {
   const tokenRecord = db.prepare(`
     SELECT * FROM participant_token WHERE strava_athlete_id = ?
@@ -69,10 +70,10 @@ async function getValidAccessToken(
 
   const now = Math.floor(Date.now() / 1000); // Current Unix timestamp
 
-  // Token expires in less than 1 hour? Refresh it proactively
-  if (tokenRecord.expires_at < now + 3600) {
+  // Token expires in less than 1 hour? OR force refresh requested?
+  if (forceRefresh || tokenRecord.expires_at < now + 3600) {
     console.log(
-      `Token expiring soon for participant ${stravaAthleteId}, refreshing...`
+      `Token ${forceRefresh ? 'force refresh' : 'expiring soon'} for participant ${stravaAthleteId}, refreshing...`
     );
 
     try {

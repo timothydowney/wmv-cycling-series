@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { week, result, participant, activity, segmentEffort } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { calculateWeekScoringDrizzle } from '../services/ScoringServiceDrizzle';
+import { getAthleteProfilePictures } from '../services/StravaProfileService';
 import { LeaderboardEntryWithDetails } from './types';
 
 // Helper to format seconds into HH:MM:SS or MM:SS
@@ -81,6 +82,16 @@ export const leaderboardRouter = router({
 
       const totalParticipants = rawResults.length;
 
+      // Fetch profile pictures for all participants in this leaderboard
+      const participantIds = rawResults
+        .map(r => r.participant_id)
+        .filter(id => id !== null) as number[];
+      
+      const profilePictures = await getAthleteProfilePictures(
+        participantIds,
+        (drizzleDb as any).$client
+      );
+
       const leaderboardEntries: LeaderboardEntryWithDetails[] = await Promise.all(
         rawResults.map(async (rawResult, index) => {
           // Calculate Rank and Points
@@ -123,7 +134,7 @@ export const leaderboardRouter = router({
             rank: rank,
             participant_id: rawResult.participant_id,
             name: rawResult.name || 'Unknown',
-            profile_picture_url: null, // Schema doesn't have it
+            profile_picture_url: profilePictures.get(rawResult.participant_id) || null,
             total_time_seconds: rawResult.total_time_seconds || 0,
             time_hhmmss: formatSecondsToHHMMSS(rawResult.total_time_seconds),
             points: totalPoints,
@@ -138,7 +149,8 @@ export const leaderboardRouter = router({
                 day: 'numeric',
               })
               : '',
-            effort_breakdown: effortBreakdown.length > 0 ? effortBreakdown : null,
+            // Only show effort breakdown if more than 1 lap required
+            effort_breakdown: weekData.required_laps > 1 && effortBreakdown.length > 0 ? effortBreakdown : null,
             device_name: rawResult.device_name,
           };
         })
@@ -217,6 +229,13 @@ export const leaderboardRouter = router({
         }))
         .sort((a, b) => b.totalPoints - a.totalPoints);
 
+      // Fetch profile pictures for all participants in the season
+      const participantIds = leaderboardResults.map(r => r.participantId);
+      const profilePictures = await getAthleteProfilePictures(
+        participantIds,
+        (drizzleDb as any).$client
+      );
+
       return leaderboardResults.map((res, index) => ({
         rank: index + 1,
         name: res.name,
@@ -225,7 +244,7 @@ export const leaderboardRouter = router({
         // Add missing fields expected by SeasonStanding interface if any
         // For now, matching the shape returned previously
         strava_athlete_id: res.participantId, // Aliasing for frontend compat if needed
-        profile_picture_url: null 
+        profile_picture_url: profilePictures.get(res.participantId) || null 
       }));
     }),
 });
