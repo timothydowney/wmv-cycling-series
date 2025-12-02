@@ -1,18 +1,19 @@
 # API reference
 
+**NOTE: The project is migrating to tRPC. The REST endpoints below are legacy or specific to Auth/Webhooks.**
+**For all data fetching (Week, Season, Leaderboard, Segments, Participants), refer to the tRPC routers in `server/src/routers`.**
+
 Base URL (dev): http://localhost:3001
 
-All responses are JSON.
+## Public endpoints (Legacy - Migrated to tRPC)
 
-## Public endpoints
+- `GET /segments` — **Migrated to `trpc.segment.getAll`**
+- `GET /weeks` — **Migrated to `trpc.week.getAll`**
+- `GET /weeks/:id` — **Migrated to `trpc.week.getById`**
+- `GET /weeks/:id/leaderboard` — **Migrated to `trpc.leaderboard.getWeekLeaderboard`**
+- `GET /seasons/:id/leaderboard` — **Migrated to `trpc.leaderboard.getSeasonLeaderboard`**
 
-- GET /segments — list all known segments
-- GET /weeks — list all weeks with time windows
-- GET /weeks/:id — week details
-- GET /weeks/:id/leaderboard — leaderboard and results for a week
-- GET /seasons/:id/leaderboard — season standings for a specific season
-
-### GET /weeks/:id/leaderboard
+### GET /weeks/:id/leaderboard (Legacy)
 
 Response shape:
 ```

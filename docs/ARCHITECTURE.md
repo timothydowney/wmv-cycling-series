@@ -4,9 +4,9 @@ High-level system design for WMV Cycling Series.
 
 ## Tech Stack
 
-- **Frontend:** React 18 + TypeScript (Vite)
-- **Backend:** Node.js 24.x + Express + SQLite
-- **Database:** SQLite via better-sqlite3
+- **Frontend:** React 18 + TypeScript (Vite) + **tRPC Client**
+- **Backend:** Node.js 24.x + Express + **tRPC Server** + SQLite
+- **Database:** SQLite via **Drizzle ORM** (better-sqlite3 driver)
 - **Auth:** Express sessions + Strava OAuth
 
 ## System Architecture
@@ -17,7 +17,8 @@ Vite dev server on http://localhost:5173
 
 **Structure:**
 - `App.tsx` - Main component with state management
-- `api.ts` - HTTP client for backend
+- `api.ts` - Legacy HTTP client for REST endpoints
+- `utils/trpc.ts` - tRPC client instance
 - `components/` - UI components
   - `WeeklyLeaderboard` - Week results display
   - `SeasonLeaderboard` - Season standings
@@ -31,35 +32,37 @@ Express app on http://localhost:3001
 
 **Structure (Pure TypeScript):**
 - `server/src/index.ts` - Express setup, routes, middleware
-- `server/src/routes/` - Route handlers (`.ts` files)
-- `server/src/services/` - Business logic services (`.ts` files)
-- `server/src/schema.ts` - Database schema
+- `server/src/trpc/` - tRPC routers and procedures
+- `server/src/db/` - Drizzle schema (`schema.ts`) and database connection
+- `server/src/routes/` - Legacy REST route handlers (`.ts` files)
+- `server/src/services/` - Business logic services (`.ts` files) - injected with `drizzleDb`
 - `server/src/__tests__/` - Jest test suite (TypeScript test files)
 - `server/dist/` - Compiled JavaScript output (production)
 - `server/data/wmv.db` - SQLite database
 - `server/scripts/` - Database seed/import/export helpers
 
 **Routes:**
-- **Public:** `/weeks`, `/weeks/:id/leaderboard`, `/season/leaderboard`
+- **tRPC:** `/trpc/*` (All new features and data fetching)
 - **Auth:** `/auth/strava`, `/auth/strava/callback`, `/auth/status`, `/POST auth/disconnect`
-- **Admin:** `/admin/weeks`, `/admin/segments`, `/admin/weeks/:id/fetch-results`
+- **Admin:** `/admin/weeks/*` (Batch fetch triggers)
+- **Webhooks:** `/webhooks/*` (Strava event handling)
 
-See `docs/API.md` for complete reference.
+See `docs/API.md` for reference (REST API).
 
 ### Database
 
-SQLite file-based database at `server/data/wmv.db`
+SQLite file-based database at `server/data/wmv.db`, managed by **Drizzle ORM**.
 
-**Core tables:**
-- `participants` - Users
-- `segments` - Strava segments
-- `weeks` - Weekly competitions
-- `activities` - Strava activities per participant per week
-- `segment_efforts` - Individual lap times
-- `results` - Calculated leaderboard scores
-- `participant_tokens` - OAuth tokens (1 per participant)
+**Core tables (defined in `server/src/db/schema.ts`):**
+- `participant` - Users
+- `segment` - Strava segments
+- `week` - Weekly competitions
+- `activity` - Strava activities per participant per week
+- `segment_effort` - Individual lap times
+- `result` - Calculated leaderboard scores
+- `participant_token` - OAuth tokens (1 per participant)
 
-**For complete schema:** See `docs/DATABASE_DESIGN.md`
+**For complete schema:** See `server/src/db/schema.ts` or `docs/DATABASE_DESIGN.md`
 
 ---
 
