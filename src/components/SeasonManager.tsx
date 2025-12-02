@@ -176,14 +176,17 @@ function SeasonManager({ onSeasonsChanged }: Props) {
               </tr>
             </thead>
             <tbody>
-              {seasons.map(season => (
+              {seasons.map(season => {
+                const now = Math.floor(Date.now() / 1000);
+                const isWithinDates = season.start_at <= now && now <= season.end_at;
+                return (
                 <tr key={season.id}>
                   <td>{season.name}</td>
                   <td>{formatUnixDate(season.start_at)}</td>
                   <td>{formatUnixDate(season.end_at)}</td>
                   <td>
-                    <span className={`status-badge ${Number(season.is_active) ? 'active' : 'inactive'}`}>
-                      {Number(season.is_active) ? 'Active' : 'Inactive'}
+                    <span className={`status-badge ${isWithinDates ? 'active' : 'inactive'}`}>
+                      {isWithinDates ? 'Active' : 'Inactive'}
                     </span>
                   </td>
                   <td>
@@ -205,7 +208,8 @@ function SeasonManager({ onSeasonsChanged }: Props) {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}
