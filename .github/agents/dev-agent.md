@@ -21,21 +21,27 @@ Your output is production-ready code that is tested, typed, and documented.
 ## Project Knowledge
 
 **Tech Stack:**
-- Frontend: React 18 + TypeScript + Vite
-- Backend: Node.js 24.x + Express + TypeScript
-- Database: SQLite (file-based, `better-sqlite3`)
-- Auth: Strava OAuth 2.0 with AES-256-GCM token encryption
-- Testing: Jest + ts-jest (backend), Vitest (frontend planned)
+- **Frontend:** React 18 + TypeScript + Vite + **tRPC Client**
+- **Backend:** Node.js 24.x + Express + **tRPC Server** + TypeScript
+- **Database:** SQLite (file-based, `better-sqlite3`) + **Drizzle ORM**
+- **Auth:** Strava OAuth 2.0 with AES-256-GCM token encryption
+- **Testing:** Jest + ts-jest (backend), Vitest (frontend planned)
+
+**Key Architectural Patterns:**
+- **Dependency Injection:** Services and Routers accept a `drizzleDb` instance. This is critical for testing.
+- **Drizzle ORM:** Use Drizzle for all database interactions. Avoid raw SQL unless absolutely necessary.
+- **In-Memory Tests:** Tests use an isolated, in-memory SQLite database seeded via `setupTestDb`, not file-based test DBs.
 
 **File Structure:**
-- `src/` – React TypeScript frontend (components, hooks, utils)
-- `src/api.ts` – HTTP client for backend API
-- `server/src/` – Express backend (all TypeScript)
-  - `index.ts` – Routes and middleware
-  - `routes/` – Express route handlers
-  - `services/` – Business logic (ActivityService, TokenManager, etc.)
-  - `__tests__/` – Jest test suite
-- `server/data/wmv.db` – SQLite database
+- `src/` – React TypeScript frontend
+  - `components/` - UI Components
+  - `utils/trpc.ts` - tRPC client instance
+- `server/src/` – Express/tRPC backend
+  - `trpc/` - tRPC procedures and routers
+  - `db/` - Drizzle schema and connection
+  - `services/` – Business logic classes (must accept `drizzleDb` in constructor)
+  - `__tests__/` – Jest test suite (uses `setupTestDb` pattern)
+- `server/data/wmv.db` – SQLite database (production/dev)
 - `docs/` – Comprehensive documentation
 
 **Node Version:** 24.x ONLY (required for `better-sqlite3` native module)
@@ -73,361 +79,167 @@ Your output is production-ready code that is tested, typed, and documented.
 
 ## Code Standards
 
-### TypeScript
+### TypeScript & Drizzle
+
+**Database Access:**
+```typescript
+// ✅ GOOD: Use Drizzle ORM with Dependency Injection
+class WeekService {
+  constructor(private db: BetterSQLite3Database) {}
+
+  async getAllWeeks() {
+    return this.db.select().from(week).all();
+  }
+}
+
+// ❌ BAD: Raw SQL or Global Import
+import { db } from '../db'; // Avoid global import in services
+function getWeeks() {
+  return db.prepare('SELECT * FROM week').all(); // Avoid raw SQL
+}
+```
 
 **Naming Conventions:**
-```typescript
-// ✅ Functions/methods: camelCase
-async function fetchUserActivities(userId: number): Promise<Activity[]> {
-  return db.prepare('SELECT * FROM activities WHERE user_id = ?').all(userId);
-}
-
-// ✅ Classes: PascalCase
-class ActivityService {
-  private db: Database;
-  
-  constructor(db: Database) {
-    this.db = db;
-  }
-}
-
-// ✅ Constants: UPPER_SNAKE_CASE
-const MAX_RETRIES = 3;
-const API_TIMEOUT_MS = 5000;
-
-// ❌ DON'T: Use vague or abbreviated names
-function get(x) { /* ... */ }
-const max = 3;
-```
+- Functions/methods: `camelCase`
+- Classes: `PascalCase`
+- Constants: `UPPER_SNAKE_CASE`
+- Private members: `private` keyword (not `_` prefix)
 
 **Error Handling:**
-```typescript
-// ✅ GOOD: Explicit errors with context
-try {
-  const token = await getValidAccessToken(participantId);
-  if (!token) {
-    throw new Error('Participant not connected to Strava');
-  }
-} catch (error) {
-  logger.error('Failed to fetch token', { participantId, error });
-  throw new Error(`Token fetch failed for participant ${participantId}`);
-}
+- Explicitly handle errors.
+- Return user-friendly messages where appropriate (e.g. via tRPC error codes).
+- Log technical details using `logger`.
 
-// ❌ BAD: Silent failures or no context
-try {
-  await getValidAccessToken(participantId);
-} catch (e) {
-  console.log('error');
-  return null;  // Silent failure
-}
-```
-
-**Type Safety:**
-- Always type function parameters and return values
-- Use `interface` for object shapes, never `any`
-- Use `unknown` instead of `any` if type is uncertain, then type-guard
-- Avoid implicit `any` (TypeScript strict mode enforced)
-
-### React Components
+### React Components (tRPC)
 
 ```typescript
-// ✅ GOOD: Typed props, clear JSX
-interface WeeklyLeaderboardProps {
-  weekId: number;
-  onRefresh?: () => Promise<void>;
-}
+// ✅ GOOD: Use tRPC hooks
+export const WeeklyLeaderboard = ({ weekId }) => {
+  const { data: leaderboard, isLoading } = trpc.leaderboard.getWeekLeaderboard.useQuery({ weekId });
 
-export const WeeklyLeaderboard: React.FC<WeeklyLeaderboardProps> = ({ weekId, onRefresh }) => {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleFetch = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      await onRefresh?.();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return <div>{/* ... */}</div>;
+  if (isLoading) return <div>Loading...</div>;
+  return <div>{leaderboard.map(...)}</div>;
 };
-
-// ❌ BAD: No prop types, poor error handling
-function Leaderboard(props) {
-  const [data, setData] = useState();
-  useEffect(() => {
-    api.fetch().then(setData).catch(() => alert('Error'));
-  });
-  return <div>{data}</div>;
-}
 ```
-
-**Rules:**
-- Define `interface Props` for all props
-- Use `React.FC<Props>` for type safety
-- Handle all error states explicitly (never silently fail)
-- Use TypeScript for type inference where beneficial
 
 ### Database & Timestamps
 
 **CRITICAL: Timestamp Strategy**
-```typescript
-// ✅ ALWAYS use start_date (UTC with Z suffix)
-const unixSeconds = isoToUnix(activityData.start_date);  // "2025-10-28T14:30:00Z"
 
-// ❌ NEVER use start_date_local (causes timezone bugs)
-const unixSeconds = isoToUnix(activityData.start_date_local);  // ❌ WRONG
+**Golden Rule:** Timestamps flow as ISO strings with Z suffix → Unix seconds internally → Browser timezone at display
 
-// Store as Unix seconds
-db.prepare('INSERT INTO activities (start_at) VALUES (?)').run(unixSeconds);
+### ⚠️ CRITICAL: Strava API Field Usage
 
-// Display to user (browser timezone)
-const displayTime = formatUnixDate(unixSeconds);  // Uses Intl.DateTimeFormat()
+When processing Strava API responses, **ALWAYS use `start_date` (UTC), NEVER use `start_date_local` (local timezone).**
+
+**This is the #1 timezone bug source. It was caught and fixed in November 2025.**
+
+**Strava Response Fields:**
+
+| Field | Format | Timezone | Usage |
+|-------|--------|----------|-------|
+| `start_date` | `"2025-10-28T14:52:54Z"` | UTC (has Z) | ✅ **USE THIS** |
+| `start_date_local` | `"2025-10-28T06:52:54"` | Athlete's local (no Z) | ❌ **NEVER USE** |
+
+**Why This Matters:**
+- Using `start_date_local` causes timestamps to be stored with athlete's timezone offset
+- This replicates the original timezone bug that forced the entire UTC refactoring
+- Always use `start_date` which has explicit Z suffix (UTC, unambiguous)
+
+**Code Example:**
+```javascript
+// CORRECT: Use start_date (UTC)
+const unixSeconds = isoToUnix(activityData.start_date);  // ✅
+
+// WRONG: Using start_date_local causes timezone bug
+const unixSeconds = isoToUnix(activityData.start_date_local);  // ❌
 ```
 
-**Rules:**
-- Strava API: Always use `start_date` (has Z suffix = UTC)
-- Database: Store as INTEGER Unix seconds (UTC-based)
-- API responses: Return Unix numbers, never ISO strings
-- Frontend: Use `formatUnixDate()`, `formatUnixTime()` from `src/utils/dateUtils.ts`
-- Never do timezone math in code (use `Intl` API at display edge)
+**Applies To:** Activity, SegmentEffort, and Lap responses from Strava API
+
+### 1. From Strava API (Input)
+- Strava returns `start_date` as ISO 8601 UTC: `"2025-10-28T14:30:00Z"`
+- **Always includes Z suffix** (explicit UTC marker, not timezone-dependent parsing)
+- Never use `start_date_local` (athlete's timezone, causes bugs)
+- Pass `start_date` directly to `isoToUnix()` for conversion to Unix seconds
+
+### 2. Internal Storage (Database)
+- Store all timestamps as **INTEGER Unix seconds** (UTC-based)
+- Example: `1730126400` (Oct 28, 2025 14:30:00 UTC)
+- All database fields: `start_at`, `end_at`, `start_at` (INTEGER type)
+- No timezone assumptions in database layer - timestamps are absolute points in time
+
+### 3. API Responses (Backend → Frontend)
+- Return timestamps as **numbers** (Unix seconds)
+- Example: `{ "week": { "start_at": 1730126400, "end_at": 1730212800 } }`
+- Never return ISO strings from API - always raw Unix
+
+### 4. Frontend Display (Edge)
+- Convert Unix seconds to user's browser timezone using `Intl.DateTimeFormat()`
+- Use formatters from `src/utils/dateUtils.ts`:
+  - `formatUnixDate(unix)` → "October 28, 2025" (user's timezone)
+  - `formatUnixTime(unix)` → "2:30 PM" (user's timezone)
+  - `formatUnixDateShort(unix)` → "Oct 28" (user's timezone)
+  - `formatUnixTimeRange(start, end)` → "2:30 PM - 4:00 PM" (user's timezone)
+
+### Why This Approach
+- ✅ **Zero timezone math in code** - no offset calculations, no DST handling
+- ✅ **Portable everywhere** - container runs UTC, deployment location irrelevant
+- ✅ **Matches Strava format** - consistent with API source
+- ✅ **Browser-aware** - each user sees their local time automatically
+- ✅ **Testable** - Unix timestamps are deterministic, no timezone assumptions
+
+### Common Mistakes to Avoid
+- ❌ **Don't:** Store ISO strings in database (breaks comparisons, timezone-dependent)
+- ❌ **Don't:** Return ISO strings from API (forces frontend to re-parse)
+- ❌ **Don't:** Use `new Date(isoString)` without Z suffix (timezone-dependent parsing)
+- ❌ **Don't:** Display UTC times to users (show local timezone instead)
+- ✅ **DO:** Always use Z suffix on ISO strings
+- ✅ **DO:** Convert to Unix immediately at input
+- ✅ **DO:** Format only at display edge using `Intl` API
+
 
 ---
 
 ## Boundaries (3-Tier System)
 
 ### ✅ **Always Do**
-- Write **TypeScript only** in `server/src/` (no `.js` files)
-- Write **unit tests with new features** (happy path + error cases, aim for >85% coverage)
-- **Verify Node version** (`node --version` must be 24.x.x)
-- **Run tests before committing** (`npm test`)
-- **Check `git status` before committing** (verify only intended files staged)
-- **Use `start_date` from Strava** (UTC), never `start_date_local`
-- **Store timestamps as Unix seconds** (database)
-- **Format timestamps at display edge** (browser timezone)
+- Write **TypeScript only**.
+- Use **Dependency Injection** for all new services/routers.
+- Write **tests using `setupTestDb`** pattern (in-memory DB).
+- **Run tests before committing** (`npm test`).
+- **Check `git status` before committing**.
+- **Use `start_date` from Strava** (UTC).
 
 ### ⚠️ **Ask First**
-- Database schema changes (impact on migrations, migration safety)
-- Adding new dependencies (verify no conflicts with existing ones)
-- OAuth or session handling changes
-- Leaderboard scoring logic changes (complex, deletion-safe architecture)
-- Adding new data collection (privacy/GDPR implications)
-- Environment variable or config changes
+- Database schema changes (Drizzle migration generation required).
+- Adding new dependencies.
+- Major architectural shifts.
 
 ### 🚫 **Never Do**
-- Commit secrets, API keys, or `.env` files
-- Use `start_date_local` from Strava (causes timezone bugs)
-- Create temp files outside `.copilot-temp/` directory
-- Use `git add .` (always specify file paths)
-- Edit `node_modules/` or other generated files
-- Commit generated artifacts (build outputs, coverage reports)
-- Store plaintext OAuth tokens (must encrypt at rest)
-- Remove failing tests without user approval
-- Use vague variable names (`x`, `data`, `temp`)
+- Commit secrets/API keys.
+- Use `start_date_local`.
+- Create temp files outside `.copilot-temp/`.
+- Use `git add .`.
+- Store plaintext OAuth tokens.
+- Remove failing tests without fixing them.
 
 ---
 
 ## Git Workflow
 
-### Before Every Commit
-
-1. **Check what's staged:**
-   ```bash
-   git status
-   ```
-   - Review each file: Is this intended?
-   - Remove junk files (temp scripts, duplicates, debug artifacts)
-
-2. **Only add specific files:**
-   ```bash
-   git add src/components/NewComponent.tsx
-   git add server/src/routes/newRoute.ts
-   git add server/src/__tests__/newRoute.test.ts
-   ```
-   Never use `git add .`
-
-3. **Run linter:**
-   ```bash
-   npm run lint:all
-   ```
-   If errors: `npm run lint:fix` (auto-fixes style, don't change logic)
-
-4. **Run tests:**
-   ```bash
-   npm test
-   ```
-   All tests must pass before commit
-
-5. **Run full checks:**
-   ```bash
-   npm run check
-   ```
-   (Includes audit, typecheck, lint, build, test)
-
-6. **Commit with clear message:**
-   ```bash
-   git commit -m "Add activity validation endpoint with tests"
-   ```
-   Be specific about what changed
-
-### Pre-Commit Checks
-
-The repo has a pre-commit hook that enforces linting. If it fails:
-- Fix manually or use `npm run lint:fix`
-- Re-stage files
-- Re-commit
+1. **Check Status:** `git status`
+2. **Stage Files:** `git add <file>` (specific files only)
+3. **Lint:** `npm run lint:all` (fix with `npm run lint:fix`)
+4. **Test:** `npm test`
+5. **Check:** `npm run check`
+6. **Commit:** `git commit -m "feat: ..."`
 
 ---
 
-## Key Features & Architecture
-
-### Strava OAuth Flow
-- User clicks "Connect" → Redirected to Strava
-- Strava redirects back with authorization code
-- Backend exchanges code for access + refresh tokens
-- Tokens stored **encrypted** (AES-256-GCM) in database
-- Tokens auto-refresh every 6 hours
-
-**Never commit:** Plaintext OAuth tokens, Strava client secret
-
-### Activity Batch Fetch
-- Admin clicks "Fetch Results" for a week
-- System fetches activities from all connected participants
-- Filters to activities containing required segment + time window
-- Finds best qualifying activity (fastest total time)
-- Stores activity + segment efforts + calculates leaderboard
-
-**Key query validation:**
-- Date must be in event time window (start_time to end_time)
-- Activity must contain required segment efforts
-- Activity must have >= required repetitions in same activity
-
-### Leaderboard Scoring
-- Points = (participants beaten) + 1 (for competing) + (1 if PR)
-- Example with 4 finishers:
-  - 1st place: (4-1)+1 = 4 points
-  - 2nd place: (4-2)+1 = 3 points
-  - 3rd place: (4-3)+1 = 2 points
-  - 4th place: (4-4)+1 = 1 point
-- Scores computed on-read (not cached) for deletion safety
-
----
-
-## Testing
-
-### Test Structure
-
-```typescript
-// ✅ GOOD: Clear test cases with setup/assertion
-describe('ActivityService', () => {
-  let db: Database;
-  let service: ActivityService;
-
-  beforeEach(() => {
-    db = createTestDatabase();
-    service = new ActivityService(db);
-  });
-
-  it('should fetch activities for a participant', () => {
-    // Setup
-    const participantId = 1;
-    insertTestActivity(participantId);
-
-    // Execute
-    const activities = service.getActivities(participantId);
-
-    // Assert
-    expect(activities).toHaveLength(1);
-    expect(activities[0].name).toBe('Test Activity');
-  });
-
-  it('should return empty array if no activities exist', () => {
-    const activities = service.getActivities(999);
-    expect(activities).toEqual([]);
-  });
-});
-```
-
-**Rules:**
-- Test names describe behavior (`should fetch...`, `should return...`, `should throw...`)
-- Each test is independent (no shared state between tests)
-- Include happy path AND error cases
-- Use descriptive assertions (not just `toBe(true)`)
-
-### Test Coverage
-
-```bash
-# Run tests with coverage
-npm test -- --coverage
-
-# Expected: >85% coverage
-# Critical paths (OAuth, activity validation, scoring) must be 100% covered
-```
-
----
-
-## Quick Debugging
-
-### "Port already in use"
-```bash
-npm stop
-# Or manually: lsof -ti:3001 | xargs kill -9
-```
-
-### "Tests failing"
-```bash
-npm install && npm test
-```
-
-### "OAuth not working locally"
-Check `src/api.ts` – should use `http://localhost:3001` for backend, not production URL
-
-### "Timezone issues"
-Verify using `start_date` (never `start_date_local`):
-```typescript
-// Check Strava API response
-const { start_date, start_date_local } = stravaActivity;
-console.log(start_date);        // "2025-10-28T14:30:00Z" ✅
-console.log(start_date_local);  // "2025-10-28T06:30:00" ❌
-```
-
-### "TypeScript errors"
-```bash
-npm run typecheck
-```
-Fix all errors before committing
-
----
-
-## Documentation References
-
-- **Architecture & Design:** [`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md)
-- **API Reference:** [`docs/API.md`](../../docs/API.md)
-- **Database Design:** [`docs/DATABASE_DESIGN.md`](../../docs/DATABASE_DESIGN.md)
-- **Strava Integration:** [`docs/STRAVA_INTEGRATION.md`](../../docs/STRAVA_INTEGRATION.md)
-- **Admin Workflow:** [`ADMIN_GUIDE.md`](../../ADMIN_GUIDE.md)
-- **Scoring Logic:** [`docs/SCORING.md`](../../docs/SCORING.md)
-- **Process Management:** [`docs/DEV_PROCESS_MANAGEMENT.md`](../../docs/DEV_PROCESS_MANAGEMENT.md)
-- **Deployment:** [`docs/DEPLOYMENT.md`](../../docs/DEPLOYMENT.md)
-
----
-
-## When You're Unsure
-
-1. Check the **full project instructions:** `.github/copilot-instructions.md`
-2. Check **relevant documentation:** Links above
-3. Search the codebase for **similar patterns** (grep for function names, class patterns)
-4. Ask for **clarification** (be specific about what's uncertain)
-
----
-
-**Current Status (November 2025):** 
-- ✅ Backend API complete (150+ tests, pure TypeScript)
-- ✅ Frontend UI complete (React 18, TypeScript)
-- ✅ Strava OAuth working (token encryption, auto-refresh)
-- ✅ Batch activity fetch implemented
-- ✅ Production-ready (Railway deployment verified)
+**Current Status (December 2025):** 
+- ✅ Backend: tRPC + Drizzle ORM (Refactor Complete)
+- ✅ Frontend: React + tRPC Client
+- ✅ Tests: 100% Passing (using In-Memory SQLite + DI)
+- ✅ Auth: Strava OAuth with encrypted tokens
+- ✅ Deployment: Production-ready on Railway
