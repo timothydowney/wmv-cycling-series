@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import './App.css';
 import WeeklyLeaderboard from './components/WeeklyLeaderboard';
 import SeasonLeaderboard from './components/SeasonLeaderboard';
@@ -18,7 +18,7 @@ import { UnitProvider } from './context/UnitContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { httpBatchLink } from '@trpc/client';
 import { trpc } from './utils/trpc';
-import { Season, Week } from './types'; // Import shared types
+import { Week } from './types'; // Import shared types
 
 type ViewMode = 'leaderboard' | 'admin' | 'participants' | 'segments' | 'seasons' | 'webhooks';
 
@@ -50,8 +50,8 @@ function AppContent() {
     }
   );
 
-  const seasons = seasonsQuery.data || [];
-  const weeks = weeksQuery.data || [];
+  const seasons = useMemo(() => seasonsQuery.data || [], [seasonsQuery.data]);
+  const weeks = useMemo(() => weeksQuery.data || [], [weeksQuery.data]);
   const selectedSeason = seasons.find(s => s.id === selectedSeasonId) || null;
   
   // Extract week and leaderboard data from tRPC query result

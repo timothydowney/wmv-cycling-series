@@ -1,26 +1,26 @@
 import { z } from 'zod';
 import { router, publicProcedure, adminProcedure } from '../trpc/init';
 import WeekService from '../services/WeekService';
-import { drizzleDb } from '../db';
-
-const weekService = new WeekService(drizzleDb);
 
 export const weekRouter = router({
   getAll: publicProcedure
     .input(z.object({ seasonId: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      const weekService = new WeekService(ctx.drizzleDb);
       return weekService.getAllWeeks(input.seasonId);
     }),
 
   getById: publicProcedure
     .input(z.number())
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      const weekService = new WeekService(ctx.drizzleDb);
       return weekService.getWeekById(input);
     }),
 
   getLeaderboard: publicProcedure
     .input(z.number())
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      const weekService = new WeekService(ctx.drizzleDb);
       return weekService.getWeekLeaderboard(input);
     }),
 
@@ -35,7 +35,8 @@ export const weekRouter = router({
       end_at: z.number().optional(),
       notes: z.string().optional()
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      const weekService = new WeekService(ctx.drizzleDb);
       return weekService.createWeek(input);
     }),
 
@@ -56,13 +57,15 @@ export const weekRouter = router({
         notes: z.string().optional()
       })
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      const weekService = new WeekService(ctx.drizzleDb);
       return weekService.updateWeek(input.id, input.data);
     }),
 
   delete: adminProcedure
     .input(z.number())
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      const weekService = new WeekService(ctx.drizzleDb);
       return weekService.deleteWeek(input);
     })
 });

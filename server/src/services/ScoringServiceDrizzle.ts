@@ -1,6 +1,6 @@
-import { drizzleDb as db } from '../db';
 import { activity, participant, result, segmentEffort } from '../db/schema';
 import { eq, max, sql } from 'drizzle-orm';
+import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
 export interface ScoringResult {
   participantId: number;
@@ -21,10 +21,11 @@ export interface LeaderboardResult {
  * Calculate scoring for a week's leaderboard using Drizzle ORM
  */
 export async function calculateWeekScoringDrizzle(
+  drizzleDb: BetterSQLite3Database, // Accept drizzleDb as argument
   weekId: number
 ): Promise<LeaderboardResult> {
   // Get all results for the week, sorted by time
-  const rawResults = await db
+  const rawResults = await drizzleDb // Use injected drizzleDb
     .select({
       id: result.id,
       strava_athlete_id: result.strava_athlete_id,

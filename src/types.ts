@@ -6,7 +6,7 @@ export interface Season {
   name: string;
   start_at: number;
   end_at: number;
-  is_active: number;
+  is_active: number | null;
 }
 
 export interface Week {
@@ -58,13 +58,13 @@ export interface AdminSegment {
 }
 
 export interface ValidatedSegmentDetails {
-  id: number;
+  strava_segment_id: number;
   name: string;
-  distance?: number;
-  average_grade?: number;
-  city?: string;
-  state?: string;
-  country?: string;
+  distance?: number | null;
+  average_grade?: number | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
 }
 
 export interface LeaderboardEntry {

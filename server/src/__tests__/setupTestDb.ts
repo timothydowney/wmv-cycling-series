@@ -1,49 +1,96 @@
 import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { drizzle, BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+// import { migrate } from 'drizzle-orm/better-sqlite3/migrator'; // Commented out to prevent accidental re-enabling
 import path from 'path';
-import fs from 'fs';
-import { createFullUserWithActivity, createWeekWithResults } from './testDataHelpers';
+import fs from 'fs'; // Re-import fs
+import { participant, season, segment, week, activity, result } from '../db/schema';
+import { InsertActivity, InsertParticipant, InsertSeason, InsertSegment, InsertWeek, InsertResult } from './testDataHelpers'; // Import Insert types
+import { isoToUnix } from '../dateUtils';
 
 export interface SeedData {
   seasons: any[];
   weeks: any[];
 }
 
-export function setupTestDb(): { db: Database.Database; seedData: SeedData } {
+export function setupTestDb(): { db: Database.Database; drizzleDb: BetterSQLite3Database; seedData: SeedData } {
   const db = new Database(':memory:');
   const drizzleDb = drizzle(db);
   
   // Run migrations manually
   const migrationsFolder = path.resolve(__dirname, '../../drizzle');
   const migrationSql = fs.readFileSync(path.join(migrationsFolder, '0000_init.sql'), 'utf-8');
-  
-  // Split by Drizzle's statement breakpoint and execute
-  const statements = migrationSql.split('--> statement-breakpoint');
-  for (const statement of statements) {
-    if (statement.trim()) {
-      db.exec(statement);
-    }
-  }
+  db.exec(migrationSql);
 
-  // Seed basic data
-  // Creating a user, season, week, activity, result implicitly
-  const fullData = createFullUserWithActivity(db, { stravaAthleteId: 12345 });
+
+  // Manually seed data for debugging Foreign Key issues
+  const p1_data: InsertParticipant = { strava_athlete_id: 100, name: 'Test User 1' };
+  const testParticipant = drizzleDb.insert(participant).values(p1_data).returning().get();
+
+  const s1_data: InsertSeason = { 
+    name: 'Test Season', 
+    start_at: isoToUnix('2025-01-01T00:00:00Z') || 0, // Ensure number
+    end_at: isoToUnix('2025-12-31T23:59:59Z') || 0,   // Ensure number
+    is_active: 1 
+  };
+  const testSeason = drizzleDb.insert(season).values(s1_data).returning().get();
   
-  // Additional week with results for leaderboard testing
-  const weekWithResults = createWeekWithResults(db, {
-    seasonId: fullData.season.id,
-    stravaSegmentId: fullData.segment.strava_segment_id,
-    weekName: 'Leaderboard Week',
-    participantIds: [12345, 67890],
-    times: [1000, 1200]
-  });
+  const sg1_data: InsertSegment = { strava_segment_id: 1000, name: 'Test Segment' };
+  const testSegment = drizzleDb.insert(segment).values(sg1_data).returning().get();
+
+  const w1_data: InsertWeek = {
+    season_id: testSeason.id,
+    week_name: 'Test Week',
+    strava_segment_id: testSegment.strava_segment_id,
+    required_laps: 1,
+    start_at: isoToUnix('2025-06-01T00:00:00Z') || 0, // Ensure number
+    end_at: isoToUnix('2025-06-01T22:00:00Z') || 0
+  };
+  const testWeek = drizzleDb.insert(week).values(w1_data).returning().get();
+
+  const a1_data: InsertActivity = {
+    week_id: testWeek.id,
+    strava_athlete_id: testParticipant.strava_athlete_id,
+    strava_activity_id: Math.floor(Math.random() * 1000000000),
+    start_at: isoToUnix('2025-06-01T10:00:00Z') || 0, // Ensure number
+    validation_status: 'valid'
+  };
+  const testActivity = drizzleDb.insert(activity).values(a1_data).returning().get();
+  
+  const r1_data: InsertResult = {
+    week_id: testWeek.id,
+    strava_athlete_id: testParticipant.strava_athlete_id,
+    activity_id: testActivity.id,
+    total_time_seconds: 100
+  };
+  drizzleDb.insert(result).values(r1_data).returning().get();
+
+  // Create second participant for leaderboard testing
+  const p2_data: InsertParticipant = { strava_athlete_id: 200, name: 'Test User 2' };
+  const testParticipant2 = drizzleDb.insert(participant).values(p2_data).returning().get();
+
+  const a2_data: InsertActivity = {
+    week_id: testWeek.id,
+    strava_athlete_id: testParticipant2.strava_athlete_id,
+    strava_activity_id: Math.floor(Math.random() * 1000000000),
+    start_at: isoToUnix('2025-06-01T11:00:00Z') || 0,
+    validation_status: 'valid'
+  };
+  const testActivity2 = drizzleDb.insert(activity).values(a2_data).returning().get();
+
+  const r2_data: InsertResult = {
+    week_id: testWeek.id,
+    strava_athlete_id: testParticipant2.strava_athlete_id,
+    activity_id: testActivity2.id,
+    total_time_seconds: 200 // Slower than user 1 (100s)
+  };
+  drizzleDb.insert(result).values(r2_data).returning().get();
 
   const seedData: SeedData = {
-    seasons: [fullData.season],
-    weeks: [fullData.week, weekWithResults.week]
+    seasons: [testSeason],
+    weeks: [testWeek]
   };
 
-  return { db, seedData };
+  return { db, drizzleDb, seedData };
 }
 
 export function teardownTestDb(db: Database.Database) {

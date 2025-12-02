@@ -1,68 +1,63 @@
-import path from 'path';
-import fs from 'fs';
-import { clearAllData, createSegment } from '../testDataHelpers';
-
-// Set test database path BEFORE requiring modules that use it
-const TEST_DB_PATH = path.join(__dirname, '..', '..', '..', 'data', 'trpc-segment-test.db');
-process.env.DATABASE_PATH = TEST_DB_PATH;
-process.env.NODE_ENV = 'test';
-
-// Remove test database if it exists
-if (fs.existsSync(TEST_DB_PATH)) {
-  fs.unlinkSync(TEST_DB_PATH);
-}
+import { Database } from 'better-sqlite3';
+import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { appRouter } from '../../routers';
+import { createContext } from '../../trpc/context';
+import { setupTestDb, teardownTestDb, clearAllData, createSegment } from '../testDataHelpers';
+import { segment } from '../../db/schema';
+import { eq } from 'drizzle-orm';
 
 describe('segmentRouter', () => {
-  let appRouter: any;
-  let db: any;
+  let db: Database;
+  let drizzleDb: BetterSQLite3Database;
+  let caller: ReturnType<typeof appRouter.createCaller>;
 
   beforeAll(() => {
-    const routerModule = require('../../routers');
-    appRouter = routerModule.appRouter;
-    const dbModule = require('../../db');
-    db = dbModule.db;
-
-    try {
-        const { SCHEMA } = require('../../schema');
-        db.exec(SCHEMA);
-    } catch (e) {
-        // Ignore if schema already init
-    }
-  });
-
-  const createMockContext = (isAdmin: boolean = false) => ({
-    req: {} as any,
-    res: {} as any,
-    db: db,
-    session: {} as any,
-    userId: isAdmin ? 999001 : undefined,
-    isAdmin,
-  });
-
-  beforeEach(() => {
-    clearAllData(db);
+    const testDb = setupTestDb();
+    db = testDb.db;
+    drizzleDb = testDb.drizzleDb;
   });
 
   afterAll(() => {
-    if (fs.existsSync(TEST_DB_PATH)) {
-      fs.unlinkSync(TEST_DB_PATH);
-    }
+    teardownTestDb(db);
+  });
+
+  // Helper to create caller with specific auth state
+  const getCaller = (isAdmin: boolean) => {
+    const req = {
+      session: {
+        stravaAthleteId: isAdmin ? 999001 : undefined,
+        isAdmin
+      }
+    } as any;
+    
+    return appRouter.createCaller(createContext({
+      req,
+      res: {} as any,
+      dbOverride: db,
+      drizzleDbOverride: drizzleDb
+    }));
+  };
+
+  beforeEach(() => {
+    clearAllData(drizzleDb);
   });
 
   describe('getAll', () => {
     it('should return empty array when no segments exist', async () => {
-      const caller = appRouter.createCaller(createMockContext());
+      const caller = getCaller(false);
       const result = await caller.segment.getAll();
       expect(result).toEqual([]);
     });
 
     it('should return all segments', async () => {
-      const caller = appRouter.createCaller(createMockContext());
-      createSegment(db, 1, 'Segment A');
-      createSegment(db, 2, 'Segment B');
+      const caller = getCaller(false);
+      createSegment(drizzleDb, 1, 'Segment A');
+      createSegment(drizzleDb, 2, 'Segment B');
 
       const result = await caller.segment.getAll();
       expect(result).toHaveLength(2);
+      // Order is not guaranteed by default unless sorted, but service sorts by name?
+      // SegmentService.getAllSegments() sorts by name.
       expect(result[0].name).toBe('Segment A');
       expect(result[1].name).toBe('Segment B');
     });
@@ -70,7 +65,7 @@ describe('segmentRouter', () => {
 
   describe('create', () => {
     it('should create a segment when admin', async () => {
-      const caller = appRouter.createCaller(createMockContext(true));
+      const caller = getCaller(true);
       const input = {
         strava_segment_id: 123,
         name: 'Manual Segment',
@@ -82,34 +77,36 @@ describe('segmentRouter', () => {
       expect(result.strava_segment_id).toBe(123);
       
       // Verify in DB
-      const inDb = await caller.segment.getAll();
-      expect(inDb).toHaveLength(1);
+      const foundSegment = await drizzleDb.select().from(segment).where(eq(segment.strava_segment_id, 123)).get();
+      expect(foundSegment).toBeDefined();
+      expect(foundSegment?.name).toBe('Manual Segment');
     });
 
     it('should fail when not admin', async () => {
-      const caller = appRouter.createCaller(createMockContext(false));
+      const caller = getCaller(false);
       const input = {
         strava_segment_id: 123,
         name: 'Manual Segment'
       };
 
+      // @ts-ignore
       await expect(caller.segment.create(input)).rejects.toThrow('UNAUTHORIZED');
     });
   });
 
   describe('validate', () => {
     it('should fail when not admin', async () => {
-      const caller = appRouter.createCaller(createMockContext(false));
+      const caller = getCaller(false);
       await expect(caller.segment.validate(123)).rejects.toThrow('UNAUTHORIZED');
     });
 
     it('should validate (create placeholder if no token) when admin', async () => {
-      const caller = appRouter.createCaller(createMockContext(true));
+      const caller = getCaller(true);
       // This will likely log "No connected participants, creating placeholder segment"
       const result = await caller.segment.validate(999);
       expect(result).toBeDefined();
-      expect(result.strava_segment_id).toBe(999);
-      expect(result.name).toBe('Segment 999'); // Placeholder name
+      expect(result!.strava_segment_id).toBe(999);
+      expect(result!.name).toBe('Segment 999'); // Placeholder name logic
     });
   });
 });

@@ -1,12 +1,10 @@
 import { z } from 'zod';
 import { router, publicProcedure, adminProcedure } from '../trpc/init';
 import { SegmentService } from '../services/SegmentService';
-import { drizzleDb } from '../db';
-
-const segmentService = new SegmentService(drizzleDb);
 
 export const segmentRouter = router({
-  getAll: publicProcedure.query(async () => {
+  getAll: publicProcedure.query(async ({ ctx }) => {
+    const segmentService = new SegmentService(ctx.drizzleDb);
     return segmentService.getAllSegments();
   }),
 
@@ -20,13 +18,15 @@ export const segmentRouter = router({
       state: z.string().optional(),
       country: z.string().optional()
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      const segmentService = new SegmentService(ctx.drizzleDb);
       return segmentService.createSegment(input);
     }),
 
   validate: adminProcedure
     .input(z.number())
-    .query(async ({ input }) => {
-      return segmentService.fetchAndStoreSegmentMetadata(input, 'trpc-validate');
+    .query(async ({ ctx, input }) => {
+      const segmentService = new SegmentService(ctx.drizzleDb);
+      return segmentService.fetchAndStoreSegmentMetadata(input, 'trpc-validate', undefined, ctx.userId);
     }),
 });

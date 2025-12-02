@@ -1,19 +1,27 @@
-import { Database as BetterSqlite3Database } from 'better-sqlite3'; // Renamed to avoid conflict with Drizzle's Database type
+import { BetterSQLite3Database as DrizzleBetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { isoToUnix } from '../dateUtils';
-import { drizzleDb } from '../db';
 import { season, activity, participant, participantToken, result, segment, segmentEffort, week, deletionRequest } from '../db/schema';
-import { InferSelectModel } from 'drizzle-orm';
+import { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 
 // Type definitions for Drizzle models
-type SelectParticipant = InferSelectModel<typeof participant>;
-type SelectSeason = InferSelectModel<typeof season>;
-type SelectSegment = InferSelectModel<typeof segment>;
-type SelectWeek = InferSelectModel<typeof week>;
-type SelectActivity = InferSelectModel<typeof activity>;
-type SelectResult = InferSelectModel<typeof result>;
+export type InsertParticipant = InferInsertModel<typeof participant>;
+export type SelectParticipant = InferSelectModel<typeof participant>;
+export type InsertSeason = InferInsertModel<typeof season>;       // Exported
+export type SelectSeason = InferSelectModel<typeof season>;
+export type InsertSegment = InferInsertModel<typeof segment>;     // Exported
+export type SelectSegment = InferSelectModel<typeof segment>;
+export type InsertWeek = InferInsertModel<typeof week>;           // Exported
+export type SelectWeek = InferSelectModel<typeof week>;
+export type InsertActivity = InferInsertModel<typeof activity>;   // Exported
+export type SelectActivity = InferSelectModel<typeof activity>;
+export type InsertResult = InferInsertModel<typeof result>;       // Exported
+export type SelectResult = InferSelectModel<typeof result>;
+export type InsertSegmentEffort = InferInsertModel<typeof segmentEffort>;
+export type SelectSegmentEffort = InferSelectModel<typeof segmentEffort>;
+export type InsertParticipantToken = InferInsertModel<typeof participantToken>;
 
-// Type for the database instance passed to helper functions
-type TestDb = BetterSqlite3Database;
+// Type for the database instance passed to helper functions - using Drizzle instance now
+type TestDb = DrizzleBetterSQLite3Database;
 
 interface TokenOptions {
   accessToken?: string;
@@ -22,7 +30,6 @@ interface TokenOptions {
 }
 
 interface CreateSeasonOptions {
-  seasonId?: number;
   startAt?: number;
   endAt?: number;
 }
@@ -48,7 +55,7 @@ interface CreateWeekOptions {
 interface CreateActivityOptions {
   weekId: number;
   stravaAthleteId: number;
-  stravaActivityId?: string;
+  stravaActivityId?: number; 
   stravaSegmentId: number;
   elapsedSeconds?: number;
   prAchieved?: boolean;
@@ -61,7 +68,6 @@ interface CreateResultOptions {
   stravaAthleteId: number;
   activityId?: number | null;
   totalTimeSeconds?: number;
-  rank?: number;
 }
 
 interface CreateFullUserOptions {
@@ -70,7 +76,7 @@ interface CreateFullUserOptions {
   seasonName?: string;
   weekName?: string;
   stravaSegmentId?: number;
-  stravaActivityId?: string;
+  stravaActivityId?: number;
 }
 
 interface CreateWeekWithResultsOptions {
@@ -84,16 +90,21 @@ interface CreateWeekWithResultsOptions {
 /**
  * Create a test participant with optional token
  */
-export function createParticipant(_db: TestDb, stravaAthleteId: number, name: string | null = null, withToken: boolean | TokenOptions = false): SelectParticipant {
+export function createParticipant(db: TestDb, stravaAthleteId: number, name: string | null = null, withToken: boolean | TokenOptions = false): SelectParticipant {
   const participantName = name || `Test User ${stravaAthleteId}`;
   
-  const newParticipant = drizzleDb.insert(participant).values({
+  const newParticipant: InsertParticipant = {
     strava_athlete_id: stravaAthleteId,
     name: participantName,
-  } as any).returning().get();
+  };
+
+  const insertedParticipant = db.insert(participant).values(newParticipant).returning().get();
+  console.log(`[TEST_HELPER] Created Participant: id=${insertedParticipant.strava_athlete_id}, name=${insertedParticipant.name}`);
 
   if (withToken) {
-    let accessToken: string, refreshToken: string, expiresAt: number;
+    let accessToken: string;
+    let refreshToken: string;
+    let expiresAt: number;
     
     if (typeof withToken === 'object') {
       accessToken = withToken.accessToken || `token_${stravaAthleteId}`;
@@ -102,54 +113,49 @@ export function createParticipant(_db: TestDb, stravaAthleteId: number, name: st
     } else {
       accessToken = `token_${stravaAthleteId}`;
       refreshToken = `refresh_${stravaAthleteId}`;
-      expiresAt = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
+      expiresAt = Math.floor(Date.now() / 1000) + 3600; // Default value
     }
     
-    drizzleDb.insert(participantToken).values({
+    const newParticipantToken: InsertParticipantToken = {
       strava_athlete_id: stravaAthleteId,
       access_token: accessToken,
       refresh_token: refreshToken,
       expires_at: expiresAt
-    } as any).run();
+    };
+    db.insert(participantToken).values(newParticipantToken).run();
+    console.log(`[TEST_HELPER] Created Token for Participant ${stravaAthleteId}`);
   }
   
-  return newParticipant;
+  return insertedParticipant;
 }
 
 /**
  * Create a test season
  */
-export function createSeason(_db: TestDb, name: string = 'Test Season', isActive: boolean = true, options: CreateSeasonOptions = {}): SelectSeason {
+export function createSeason(db: TestDb, name: string = 'Test Season', isActive: boolean = true, options: CreateSeasonOptions = {}): SelectSeason {
   const startAt = options.startAt || isoToUnix('2025-01-01T00:00:00Z');
   const endAt = options.endAt || isoToUnix('2025-12-31T23:59:59Z');
   
-  let newSeason: SelectSeason;
-  if (options.seasonId) {
-    newSeason = drizzleDb.insert(season).values({
-      id: options.seasonId,
-      name: name,
-      start_at: startAt,
-      end_at: endAt,
-      is_active: isActive ? 1 : 0
-    } as any).returning().get();
-  } else {
-    newSeason = drizzleDb.insert(season).values({
-      name: name,
-      start_at: startAt,
-      end_at: endAt,
-      is_active: isActive ? 1 : 0
-    } as any).returning().get();
-  }
+  // Do not provide 'id' for autoIncrement primary key
+  const newSeasonData: InsertSeason = {
+    name: name,
+    start_at: startAt || 0, // Ensure number
+    end_at: endAt || 0,     // Ensure number
+    is_active: isActive ? 1 : 0
+  };
+  
+  const newSeason = db.insert(season).values(newSeasonData).returning().get();
+  console.log(`[TEST_HELPER] Created Season: id=${newSeason.id}, name=${newSeason.name}`);
   return newSeason;
 }
 
 /**
  * Create a test segment
  */
-export function createSegment(_db: TestDb, stravaSegmentId: number, name: string | null = null, options: CreateSegmentOptions = {}): SelectSegment {
+export function createSegment(db: TestDb, stravaSegmentId: number, name: string | null = null, options: CreateSegmentOptions = {}): SelectSegment {
   const segmentName = name || `Segment ${stravaSegmentId}`;
   
-  const newSegment = drizzleDb.insert(segment).values({
+  const newSegmentData: InsertSegment = {
     strava_segment_id: stravaSegmentId,
     name: segmentName,
     distance: options.distance,
@@ -157,15 +163,16 @@ export function createSegment(_db: TestDb, stravaSegmentId: number, name: string
     city: options.city,
     state: options.state,
     country: options.country
-  } as any).returning().get();
-  
+  };
+  const newSegment = db.insert(segment).values(newSegmentData).returning().get();
+  console.log(`[TEST_HELPER] Created Segment: id=${newSegment.strava_segment_id}, name=${newSegment.name}`);
   return newSegment;
 }
 
 /**
  * Create a test week
  */
-export function createWeek(_db: TestDb, options: CreateWeekOptions): SelectWeek {
+export function createWeek(db: TestDb, options: CreateWeekOptions): SelectWeek {
   const {
     seasonId,
     stravaSegmentId,
@@ -179,26 +186,27 @@ export function createWeek(_db: TestDb, options: CreateWeekOptions): SelectWeek 
   const startAtUnix = isoToUnix(startTime);
   const endAtUnix = isoToUnix(endTime);
   
-  const newWeek = drizzleDb.insert(week).values({
+  const newWeekData: InsertWeek = {
     season_id: seasonId,
     week_name: weekName,
     strava_segment_id: stravaSegmentId,
     required_laps: requiredLaps,
-    start_at: startAtUnix,
-    end_at: endAtUnix
-  } as any).returning().get();
-  
+    start_at: startAtUnix || 0, // Ensure number
+    end_at: endAtUnix || 0
+  };
+  const newWeek = db.insert(week).values(newWeekData).returning().get();
+  console.log(`[TEST_HELPER] Created Week: id=${newWeek.id}, name=${newWeek.week_name}, seasonId=${newWeek.season_id}, segmentId=${newWeek.strava_segment_id}`);
   return newWeek;
 }
 
 /**
  * Create a test activity with segment efforts
  */
-export function createActivity(_db: TestDb, options: CreateActivityOptions): SelectActivity & { segmentEffortId: number; totalTime: number } {
+export function createActivity(db: TestDb, options: CreateActivityOptions): SelectActivity & { segmentEffortId: number; totalTime: number } {
   const {
     weekId,
     stravaAthleteId,
-    stravaActivityId = `${stravaAthleteId}-activity-${Math.random().toString(36).substring(7)}`,
+    stravaActivityId = Math.floor(Math.random() * 1000000000), // Generate a random number
     stravaSegmentId,
     elapsedSeconds = 1000,
     prAchieved = false,
@@ -211,24 +219,28 @@ export function createActivity(_db: TestDb, options: CreateActivityOptions): Sel
   const effortStartAtUnix = isoToUnix(effortStartTime);
   
   // Create activity
-  const newActivity = drizzleDb.insert(activity).values({
+  const newActivityData: InsertActivity = {
     week_id: weekId,
     strava_athlete_id: stravaAthleteId,
     strava_activity_id: stravaActivityId,
-    start_at: activityStartAtUnix,
+    start_at: activityStartAtUnix || 0, // Ensure number
     validation_status: 'valid'
-  } as any).returning().get();
+  };
+  const newActivity = db.insert(activity).values(newActivityData).returning().get();
+  console.log(`[TEST_HELPER] Created Activity: id=${newActivity.id}, weekId=${newActivity.week_id}, athleteId=${newActivity.strava_athlete_id}, stravaActivityId=${newActivity.strava_activity_id}`);
   
   // Create segment effort
-  const newSegmentEffort = drizzleDb.insert(segmentEffort).values({
+  const newSegmentEffortData: InsertSegmentEffort = {
     activity_id: newActivity.id,
     strava_segment_id: stravaSegmentId,
     effort_index: 0, // Assuming first effort by default
     elapsed_seconds: elapsedSeconds,
-    start_at: effortStartAtUnix,
+    start_at: effortStartAtUnix || 0, // Ensure number
     pr_achieved: prAchieved ? 1 : 0,
     strava_effort_id: String(Math.floor(Math.random() * 1000000000000000000))
-  } as any).returning().get();
+  };
+  const newSegmentEffort = db.insert(segmentEffort).values(newSegmentEffortData).returning().get();
+  console.log(`[TEST_HELPER] Created SegmentEffort: id=${newSegmentEffort.id}, activityId=${newSegmentEffort.activity_id}, segmentId=${newSegmentEffort.strava_segment_id}`);
   
   return {
     ...newActivity,
@@ -240,20 +252,17 @@ export function createActivity(_db: TestDb, options: CreateActivityOptions): Sel
 /**
  * Create a test result record
  */
-export function createResult(_db: TestDb, options: CreateResultOptions): SelectResult {
-  const { weekId, stravaAthleteId, activityId = null, totalTimeSeconds = 1000, rank = 1 } = options;
+export function createResult(db: TestDb, options: CreateResultOptions): SelectResult {
+  const { weekId, stravaAthleteId, activityId = null, totalTimeSeconds = 1000 } = options; // Removed rank, total_points, etc.
 
-  const newResult = drizzleDb.insert(result).values({
+  const newResultData: InsertResult = {
     week_id: weekId,
     strava_athlete_id: stravaAthleteId,
     activity_id: activityId,
     total_time_seconds: totalTimeSeconds,
-    rank: rank,
-    total_points: 0, // Default, can be updated later
-    base_points: 0,
-    pr_bonus_points: 0
-  } as any).returning().get();
-
+  };
+  const newResult = db.insert(result).values(newResultData).returning().get();
+  console.log(`[TEST_HELPER] Created Result: id=${newResult.id}, weekId=${newResult.week_id}, athleteId=${newResult.strava_athlete_id}`);
   return newResult;
 }
 
@@ -292,7 +301,7 @@ export function createFullUserWithActivity(db: TestDb, options: CreateFullUserOp
   const newActivity = createActivity(db, {
     weekId: newWeek.id,
     stravaAthleteId: newParticipant.strava_athlete_id,
-    stravaActivityId: stravaActivityId || `${stravaAthleteId}-activity-1`,
+    stravaActivityId: stravaActivityId || Math.floor(Math.random() * 1000000000),
     stravaSegmentId: newSegment.strava_segment_id
   });
   
@@ -301,7 +310,6 @@ export function createFullUserWithActivity(db: TestDb, options: CreateFullUserOp
     stravaAthleteId: newParticipant.strava_athlete_id,
     activityId: newActivity.id,
     totalTimeSeconds: newActivity.totalTime,
-    rank: 1
   });
   
   return {
@@ -318,17 +326,17 @@ export function createFullUserWithActivity(db: TestDb, options: CreateFullUserOp
  * Clear all test data (truncate all tables)
  * Useful for test cleanup
  */
-export function clearAllData(_db: TestDb) {
+export function clearAllData(db: TestDb) {
   // Use Drizzle to delete from tables
-  drizzleDb.delete(deletionRequest).run();
-  drizzleDb.delete(segmentEffort).run();
-  drizzleDb.delete(result).run();
-  drizzleDb.delete(activity).run();
-  drizzleDb.delete(participantToken).run();
-  drizzleDb.delete(participant).run();
-  drizzleDb.delete(week).run();
-  drizzleDb.delete(segment).run();
-  drizzleDb.delete(season).run();
+  db.delete(deletionRequest).run();
+  db.delete(segmentEffort).run();
+  db.delete(result).run();
+  db.delete(activity).run();
+  db.delete(participantToken).run();
+  db.delete(participant).run();
+  db.delete(week).run();
+  db.delete(segment).run();
+  db.delete(season).run();
 }
 
 /**
@@ -378,23 +386,22 @@ export function createWeekWithResults(db: TestDb, options: CreateWeekWithResults
     const newActivity = createActivity(db, {
       weekId: newWeek.id,
       stravaAthleteId: athleteId,
-      stravaActivityId: `${athleteId}-week-${newWeek.id}-activity-${index + 1}`,
+      stravaActivityId: Math.floor(Math.random() * 1000000000),
       stravaSegmentId,
       elapsedSeconds: totalTime,
       prAchieved: index === 0 // First person gets PR
     });
     
-    // Determine rank for createResult
-    const currentTimes = times.slice(0, index + 1);
-    const sortedCurrentTimes = [...currentTimes].sort((a, b) => a - b);
-    const rank = sortedCurrentTimes.indexOf(totalTime) + 1;
+    // Determine rank for createResult - not passed to result.values, but needed for test
+    // const currentTimes = times.slice(0, index + 1);
+    // const sortedCurrentTimes = [...currentTimes].sort((a, b) => a - b);
+    // const rank = sortedCurrentTimes.indexOf(totalTime) + 1; // Unused
 
     const newResult = createResult(db, {
       weekId: newWeek.id,
       stravaAthleteId: athleteId,
       activityId: newActivity.id,
       totalTimeSeconds: totalTime,
-      rank: rank
     });
     
     activities.push(newActivity);
@@ -448,4 +455,5 @@ export async function makeRequestAsUser(requestModule: any, app: any, options: {
 
 // Re-export setupTestDb and teardownTestDb for convenience in test files
 import { setupTestDb, teardownTestDb, SeedData } from './setupTestDb';
-export { setupTestDb, teardownTestDb, SeedData };
+export { setupTestDb, teardownTestDb };
+export type { SeedData };

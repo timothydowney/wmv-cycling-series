@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "ff6f1618-171a-4d75-b921-23702f8f0362",
+  "id": "8be2ca87-8348-4c3c-bfaf-e12362fb7fd6",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "activity": {
@@ -128,12 +128,7 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {
-        "webhook_subscription_check_1": {
-          "name": "webhook_subscription_check_1",
-          "value": "id = 1"
-        }
-      }
+      "checkConstraints": {}
     },
     "deletion_request": {
       "name": "deletion_request",
@@ -179,12 +174,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {
-        "webhook_subscription_check_1": {
-          "name": "webhook_subscription_check_1",
-          "value": "id = 1"
-        }
-      }
+      "checkConstraints": {}
     },
     "participant": {
       "name": "participant",
@@ -216,12 +206,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {
-        "webhook_subscription_check_1": {
-          "name": "webhook_subscription_check_1",
-          "value": "id = 1"
-        }
-      }
+      "checkConstraints": {}
     },
     "participant_token": {
       "name": "participant_token",
@@ -304,12 +289,7 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {
-        "webhook_subscription_check_1": {
-          "name": "webhook_subscription_check_1",
-          "value": "id = 1"
-        }
-      }
+      "checkConstraints": {}
     },
     "result": {
       "name": "result",
@@ -425,12 +405,7 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {
-        "webhook_subscription_check_1": {
-          "name": "webhook_subscription_check_1",
-          "value": "id = 1"
-        }
-      }
+      "checkConstraints": {}
     },
     "schema_migrations": {
       "name": "schema_migrations",
@@ -462,12 +437,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {
-        "webhook_subscription_check_1": {
-          "name": "webhook_subscription_check_1",
-          "value": "id = 1"
-        }
-      }
+      "checkConstraints": {}
     },
     "season": {
       "name": "season",
@@ -520,12 +490,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {
-        "webhook_subscription_check_1": {
-          "name": "webhook_subscription_check_1",
-          "value": "id = 1"
-        }
-      }
+      "checkConstraints": {}
     },
     "segment": {
       "name": "segment",
@@ -606,12 +571,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {
-        "webhook_subscription_check_1": {
-          "name": "webhook_subscription_check_1",
-          "value": "id = 1"
-        }
-      }
+      "checkConstraints": {}
     },
     "segment_effort": {
       "name": "segment_effort",
@@ -712,12 +672,7 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {
-        "webhook_subscription_check_1": {
-          "name": "webhook_subscription_check_1",
-          "value": "id = 1"
-        }
-      }
+      "checkConstraints": {}
     },
     "sessions": {
       "name": "sessions",
@@ -748,12 +703,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {
-        "webhook_subscription_check_1": {
-          "name": "webhook_subscription_check_1",
-          "value": "id = 1"
-        }
-      }
+      "checkConstraints": {}
     },
     "webhook_event": {
       "name": "webhook_event",
@@ -807,12 +757,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {
-        "webhook_subscription_check_1": {
-          "name": "webhook_subscription_check_1",
-          "value": "id = 1"
-        }
-      }
+      "checkConstraints": {}
     },
     "webhook_subscription": {
       "name": "webhook_subscription",
@@ -857,12 +802,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {
-        "webhook_subscription_check_1": {
-          "name": "webhook_subscription_check_1",
-          "value": "id = 1"
-        }
-      }
+      "checkConstraints": {}
     },
     "week": {
       "name": "week",
@@ -973,12 +913,7 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {
-        "webhook_subscription_check_1": {
-          "name": "webhook_subscription_check_1",
-          "value": "id = 1"
-        }
-      }
+      "checkConstraints": {}
     }
   },
   "views": {},

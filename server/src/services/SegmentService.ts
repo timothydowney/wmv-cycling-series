@@ -26,17 +26,31 @@ class SegmentService {
   async fetchAndStoreSegmentMetadata(
     segmentId: number,
     context: string, // e.g., "week-create", "fetch-results", "validation"
-    logCallback?: LogCallback
+    logCallback?: LogCallback,
+    preferredAthleteId?: number // Optional: Try this athlete first
   ): Promise<Segment | null> {
     const log = logCallback ? (level: string, msg: string) => logCallback(level, msg) : () => {};
 
     try {
-      // Get an access token from any connected participant
-      const tokenRecord = this.db
-        .select({ strava_athlete_id: participantToken.strava_athlete_id })
-        .from(participantToken)
-        .limit(1)
-        .get();
+      let tokenRecord;
+
+      // Try preferred athlete first
+      if (preferredAthleteId) {
+        tokenRecord = this.db
+          .select({ strava_athlete_id: participantToken.strava_athlete_id })
+          .from(participantToken)
+          .where(eq(participantToken.strava_athlete_id, preferredAthleteId))
+          .get();
+      }
+
+      // Fallback to any connected participant if preferred not found
+      if (!tokenRecord) {
+        tokenRecord = this.db
+          .select({ strava_athlete_id: participantToken.strava_athlete_id })
+          .from(participantToken)
+          .limit(1)
+          .get();
+      }
 
       if (!tokenRecord) {
         console.log(`[${context}] No connected participants, creating placeholder segment`);
@@ -198,4 +212,5 @@ class SegmentService {
   }
 }
 
-export { SegmentService, LogCallback };
+export { SegmentService };
+export type { LogCallback };

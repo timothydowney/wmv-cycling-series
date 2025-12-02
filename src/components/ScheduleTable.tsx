@@ -114,9 +114,9 @@ const ScheduleTable: React.FC<Props> = ({ weeks, season }) => {
                     {week.segment_distance && (
                       <SegmentMetadataDisplay
                         segment={{
-                          distance: week.segment_distance,
-                          total_elevation_gain: week.segment_total_elevation_gain,
-                          segment_average_grade: week.segment_average_grade
+                          distance: week.segment_distance || undefined,
+                          total_elevation_gain: week.segment_total_elevation_gain || undefined,
+                          segment_average_grade: week.segment_average_grade || undefined
                         }}
                       />
                     )}

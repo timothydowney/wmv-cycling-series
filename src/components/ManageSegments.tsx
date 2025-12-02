@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import './ManageSegments.css';
 import { getAuthStatus } from '../api';
-import { AdminSegment, ValidatedSegmentDetails } from '../types';
+import { ValidatedSegmentDetails } from '../types';
 import { trpc } from '../utils/trpc';
 import SegmentCard from './SegmentCard';
 
@@ -71,10 +71,11 @@ function ManageSegments() {
     try {
       // Manually trigger query
       const details = await utils.client.segment.validate.query(id);
+      if (!details) throw new Error('Segment not found or invalid');
       // The router returns ValidatedSegmentDetails compatible object
       setValidated(details as ValidatedSegmentDetails);
       setLastValidatedId(id);
-      if (existingIds.has(String(details.id))) {
+      if (existingIds.has(String(details.strava_segment_id))) {
         setActionMessage({ type: 'success', text: 'Segment already exists in database.' });
       } else {
         setActionMessage({ type: 'success', text: 'Segment validated. Click "Add to Database" to save.' });
@@ -106,13 +107,13 @@ function ManageSegments() {
     if (!validated) return;
     try {
       await createMutation.mutateAsync({
-        strava_segment_id: validated.id,
+        strava_segment_id: validated.strava_segment_id,
         name: validated.name,
-        distance: validated.distance,
-        average_grade: validated.average_grade,
-        city: validated.city,
-        state: validated.state,
-        country: validated.country
+        distance: validated.distance || undefined,
+        average_grade: validated.average_grade || undefined,
+        city: validated.city || undefined,
+        state: validated.state || undefined,
+        country: validated.country || undefined
       });
       
       setActionMessage({ type: 'success', text: 'Segment saved to database.' });
@@ -136,14 +137,19 @@ function ManageSegments() {
     for (const segment of segments) {
       try {
         const details = await utils.client.segment.validate.query(segment.strava_segment_id);
+        if (!details) {
+            console.error(`Failed to refresh segment ${segment.strava_segment_id}: Not found`);
+            errorCount++;
+            continue;
+        }
         await createMutation.mutateAsync({
-            strava_segment_id: details.id,
+            strava_segment_id: details.strava_segment_id,
             name: details.name,
-            distance: details.distance,
-            average_grade: details.average_grade,
-            city: details.city,
-            state: details.state,
-            country: details.country
+            distance: details.distance || undefined,
+            average_grade: details.average_grade || undefined,
+            city: details.city || undefined,
+            state: details.state || undefined,
+            country: details.country || undefined
         });
         successCount++;
       } catch (e) {
@@ -208,13 +214,13 @@ function ManageSegments() {
         {validated && (
           <div className="validated-preview">
             <SegmentCard
-              id={validated.id}
+              id={validated.strava_segment_id}
               name={validated.name}
-              distance={validated.distance}
-              average_grade={validated.average_grade}
-              city={validated.city}
-              state={validated.state}
-              country={validated.country}
+              distance={validated.distance || undefined}
+              average_grade={validated.average_grade || undefined}
+              city={validated.city || undefined}
+              state={validated.state || undefined}
+              country={validated.country || undefined}
             />
           </div>
         )}
@@ -222,7 +228,7 @@ function ManageSegments() {
         <div className="actions-row">
           <button
             className="secondary-btn"
-            disabled={validating || !validated || existingIds.has(String(validated?.id))}
+            disabled={validating || !validated || existingIds.has(String(validated?.strava_segment_id))}
             onClick={handleAdd}
           >
             Add to Database

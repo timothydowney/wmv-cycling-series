@@ -1,75 +1,59 @@
-import path from 'path';
-import fs from 'fs';
-
-// Set test database path BEFORE requiring modules that use it
-const TEST_DB_PATH = path.join(__dirname, '..', '..', '..', 'data', 'trpc-season-test.db');
-process.env.DATABASE_PATH = TEST_DB_PATH;
-process.env.NODE_ENV = 'test';
-
-// Remove test database if it exists
-if (fs.existsSync(TEST_DB_PATH)) {
-  fs.unlinkSync(TEST_DB_PATH);
-}
-
-// Import helpers using require to ensure they use the same db instance context if needed, 
-// though helpers usually take db as arg.
-import { clearAllData, createSeason } from '../testDataHelpers';
+import { Database } from 'better-sqlite3';
+import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { appRouter } from '../../routers';
+import { createContext } from '../../trpc/context';
+import { setupTestDb, teardownTestDb, clearAllData, createSeason } from '../testDataHelpers';
+import { season } from '../../db/schema';
+import { eq } from 'drizzle-orm';
 
 describe('seasonRouter', () => {
-
-  let appRouter: any;
-  let db: any;
+  let db: Database;
+  let drizzleDb: BetterSQLite3Database;
+  let caller: ReturnType<typeof appRouter.createCaller>;
 
   beforeAll(() => {
-    // Require modules AFTER setting env vars
-    const routerModule = require('../../routers');
-    appRouter = routerModule.appRouter;
-    const dbModule = require('../../db');
-    db = dbModule.db;
-
-    // Initialize schema
-    const { SCHEMA } = require('../../schema');
-    db.exec(SCHEMA);
-  });
-
-  // Mock context creator
-  const createMockContext = (isAdmin: boolean = false) => ({
-    req: {} as any,
-    res: {} as any,
-    db: db,
-    session: {} as any,
-    userId: isAdmin ? 999001 : undefined,
-    isAdmin,
-  });
-
-  beforeEach(() => {
-    clearAllData(db);
+    const testDb = setupTestDb();
+    db = testDb.db;
+    drizzleDb = testDb.drizzleDb;
   });
 
   afterAll(() => {
-    if (fs.existsSync(TEST_DB_PATH)) {
-      fs.unlinkSync(TEST_DB_PATH);
-    }
+    teardownTestDb(db);
+  });
+
+  // Helper to create caller with specific auth state
+  const getCaller = (isAdmin: boolean) => {
+    const req = {
+      session: {
+        stravaAthleteId: isAdmin ? 999001 : undefined,
+        isAdmin
+      }
+    } as any;
+    
+    return appRouter.createCaller(createContext({
+      req,
+      res: {} as any,
+      dbOverride: db,
+      drizzleDbOverride: drizzleDb
+    }));
+  };
+
+  beforeEach(() => {
+    clearAllData(drizzleDb);
   });
 
   describe('getAll', () => {
     it('should return empty array when no seasons exist', async () => {
-      try {
-        const caller = appRouter.createCaller(createMockContext());
-        const result = await caller.season.getAll();
-        console.log('GetAll Result:', result);
-        // expect(result).toEqual([]);
-      } catch (e) {
-        console.error('GetAll Error:', e);
-        throw e;
-      }
+      const caller = getCaller(false);
+      const result = await caller.season.getAll();
+      expect(result).toEqual([]);
     });
 
     it('should return seasons ordered by start_at desc', async () => {
-      const caller = appRouter.createCaller(createMockContext());
+      const caller = getCaller(false);
       
-      createSeason(db, 'Season 1', true, { startAt: 1000, endAt: 2000 });
-      createSeason(db, 'Season 2', false, { startAt: 3000, endAt: 4000 });
+      createSeason(drizzleDb, 'Season 1', true, { startAt: 1000, endAt: 2000 });
+      createSeason(drizzleDb, 'Season 2', false, { startAt: 3000, endAt: 4000 });
 
       const result = await caller.season.getAll();
       expect(result).toHaveLength(2);
@@ -80,23 +64,23 @@ describe('seasonRouter', () => {
 
   describe('getById', () => {
     it('should return a season by ID', async () => {
-      const caller = appRouter.createCaller(createMockContext());
+      const caller = getCaller(false);
       
-      const { id: seasonId } = createSeason(db, 'Target Season');
+      const { id: seasonId } = createSeason(drizzleDb, 'Target Season');
 
       const result = await caller.season.getById(Number(seasonId));
       expect(result.name).toBe('Target Season');
     });
 
     it('should throw NOT_FOUND for non-existent season', async () => {
-      const caller = appRouter.createCaller(createMockContext());
+      const caller = getCaller(false);
       await expect(caller.season.getById(999)).rejects.toThrow('Season not found');
     });
   });
 
   describe('create', () => {
     it('should create a season when admin', async () => {
-      const caller = appRouter.createCaller(createMockContext(true));
+      const caller = getCaller(true);
       
       const input = {
         name: 'New Season',
@@ -108,13 +92,13 @@ describe('seasonRouter', () => {
       expect(result.name).toBe('New Season');
 
       // Verify in DB
-      const season = db.prepare('SELECT * FROM season WHERE id = ?').get(result.id) as any;
-      expect(season).toBeDefined();
-      expect(season.name).toBe('New Season');
+      const foundSeason = await drizzleDb.select().from(season).where(eq(season.id, result.id)).get();
+      expect(foundSeason).toBeDefined();
+      expect(foundSeason?.name).toBe('New Season');
     });
 
     it('should fail when not admin', async () => {
-      const caller = appRouter.createCaller(createMockContext(false));
+      const caller = getCaller(false);
       
       const input = {
         name: 'New Season',
@@ -122,15 +106,16 @@ describe('seasonRouter', () => {
         end_at: 2000,
       };
 
+      // @ts-ignore
       await expect(caller.season.create(input)).rejects.toThrow('UNAUTHORIZED');
     });
   });
 
   describe('update', () => {
     it('should update a season when admin', async () => {
-      const caller = appRouter.createCaller(createMockContext(true));
+      const caller = getCaller(true);
       
-      const { id: seasonId } = createSeason(db, 'Old Name');
+      const { id: seasonId } = createSeason(drizzleDb, 'Old Name');
 
       const result = await caller.season.update({
         id: Number(seasonId),
@@ -141,10 +126,11 @@ describe('seasonRouter', () => {
     });
 
     it('should fail when not admin', async () => {
-      const caller = appRouter.createCaller(createMockContext(false));
+      const caller = getCaller(false);
       
-      const { id: seasonId } = createSeason(db, 'Old Name');
+      const { id: seasonId } = createSeason(drizzleDb, 'Old Name');
 
+      // @ts-ignore
       await expect(caller.season.update({
         id: Number(seasonId),
         data: { name: 'New Name' },
@@ -154,22 +140,23 @@ describe('seasonRouter', () => {
 
   describe('delete', () => {
     it('should delete a season when admin', async () => {
-      const caller = appRouter.createCaller(createMockContext(true));
+      const caller = getCaller(true);
       
-      const { id: seasonId } = createSeason(db, 'To Delete');
+      const { id: seasonId } = createSeason(drizzleDb, 'To Delete');
 
       const result = await caller.season.delete(Number(seasonId));
       expect(result.message).toBe('Season deleted successfully');
 
-      const season = db.prepare('SELECT * FROM season WHERE id = ?').get(seasonId);
-      expect(season).toBeUndefined();
+      const foundSeason = await drizzleDb.select().from(season).where(eq(season.id, seasonId)).get();
+      expect(foundSeason).toBeUndefined();
     });
 
     it('should fail when not admin', async () => {
-      const caller = appRouter.createCaller(createMockContext(false));
+      const caller = getCaller(false);
       
-      const { id: seasonId } = createSeason(db, 'To Delete');
+      const { id: seasonId } = createSeason(drizzleDb, 'To Delete');
 
+      // @ts-ignore
       await expect(caller.season.delete(Number(seasonId))).rejects.toThrow('UNAUTHORIZED');
     });
   });

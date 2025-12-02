@@ -2,18 +2,17 @@ import { z } from 'zod';
 import { router, publicProcedure, adminProcedure } from '../trpc/init';
 import { TRPCError } from '@trpc/server';
 import SeasonService from '../services/SeasonService';
-import { drizzleDb } from '../db';
-
-const seasonService = new SeasonService(drizzleDb);
 
 export const seasonRouter = router({
-  getAll: publicProcedure.query(() => {
+  getAll: publicProcedure.query(({ ctx }) => {
+    const seasonService = new SeasonService(ctx.drizzleDb);
     return seasonService.getAllSeasons();
   }),
 
   getById: publicProcedure
     .input(z.number())
-    .query(({ input }) => {
+    .query(({ ctx, input }) => {
+      const seasonService = new SeasonService(ctx.drizzleDb);
       try {
         return seasonService.getSeasonById(input);
       } catch (error: any) {
@@ -31,7 +30,8 @@ export const seasonRouter = router({
       end_at: z.number(),
       is_active: z.boolean().optional(),
     }))
-    .mutation(({ input }) => {
+    .mutation(({ ctx, input }) => {
+      const seasonService = new SeasonService(ctx.drizzleDb);
       return seasonService.createSeason(input);
     }),
 
@@ -45,13 +45,15 @@ export const seasonRouter = router({
         is_active: z.boolean().optional(),
       }),
     }))
-    .mutation(({ input }) => {
+    .mutation(({ ctx, input }) => {
+      const seasonService = new SeasonService(ctx.drizzleDb);
       return seasonService.updateSeason(input.id, input.data);
     }),
 
   delete: adminProcedure
     .input(z.number())
-    .mutation(({ input }) => {
+    .mutation(({ ctx, input }) => {
+      const seasonService = new SeasonService(ctx.drizzleDb);
       try {
         return seasonService.deleteSeason(input);
       } catch (error: any) {

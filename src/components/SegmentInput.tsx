@@ -60,6 +60,7 @@ function SegmentInput({ value, onChange }: SegmentInputProps) {
     
     try {
       const segmentData = await utils.client.segment.validate.query(segmentId);
+      if (!segmentData) throw new Error('Segment not found');
       setValidationState('valid');
       onChange(segmentId, segmentData.name);
     } catch (error: any) {

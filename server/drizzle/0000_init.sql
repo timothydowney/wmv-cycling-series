@@ -10,8 +10,7 @@ CREATE TABLE `activity` (
 	`validated_at` text DEFAULT 'sql`(CURRENT_TIMESTAMP)`',
 	`created_at` text DEFAULT 'sql`(CURRENT_TIMESTAMP)`',
 	FOREIGN KEY (`week_id`) REFERENCES `week`(`id`) ON UPDATE no action ON DELETE no action,
-	FOREIGN KEY (`strava_athlete_id`) REFERENCES `participant`(`strava_athlete_id`) ON UPDATE no action ON DELETE no action,
-	CONSTRAINT "webhook_subscription_check_1" CHECK(id = 1)
+	FOREIGN KEY (`strava_athlete_id`) REFERENCES `participant`(`strava_athlete_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
 CREATE INDEX `idx_activity_status` ON `activity` (`validation_status`);--> statement-breakpoint
@@ -21,15 +20,13 @@ CREATE TABLE `deletion_request` (
 	`strava_athlete_id` integer NOT NULL,
 	`requested_at` text NOT NULL,
 	`status` text DEFAULT 'pending',
-	`completed_at` text,
-	CONSTRAINT "webhook_subscription_check_1" CHECK(id = 1)
+	`completed_at` text
 );
 --> statement-breakpoint
 CREATE TABLE `participant` (
 	`strava_athlete_id` integer PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
-	`created_at` text DEFAULT 'sql`(CURRENT_TIMESTAMP)`',
-	CONSTRAINT "webhook_subscription_check_1" CHECK(id = 1)
+	`created_at` text DEFAULT 'sql`(CURRENT_TIMESTAMP)`'
 );
 --> statement-breakpoint
 CREATE TABLE `participant_token` (
@@ -40,8 +37,7 @@ CREATE TABLE `participant_token` (
 	`scope` text,
 	`created_at` text DEFAULT 'sql`(CURRENT_TIMESTAMP)`',
 	`updated_at` text DEFAULT 'sql`(CURRENT_TIMESTAMP)`',
-	FOREIGN KEY (`strava_athlete_id`) REFERENCES `participant`(`strava_athlete_id`) ON UPDATE no action ON DELETE cascade,
-	CONSTRAINT "webhook_subscription_check_1" CHECK(id = 1)
+	FOREIGN KEY (`strava_athlete_id`) REFERENCES `participant`(`strava_athlete_id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
 CREATE INDEX `idx_participant_token_participant` ON `participant_token` (`strava_athlete_id`);--> statement-breakpoint
@@ -55,8 +51,7 @@ CREATE TABLE `result` (
 	`updated_at` text DEFAULT 'sql`(CURRENT_TIMESTAMP)`',
 	FOREIGN KEY (`week_id`) REFERENCES `week`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`strava_athlete_id`) REFERENCES `participant`(`strava_athlete_id`) ON UPDATE no action ON DELETE no action,
-	FOREIGN KEY (`activity_id`) REFERENCES `activity`(`id`) ON UPDATE no action ON DELETE no action,
-	CONSTRAINT "webhook_subscription_check_1" CHECK(id = 1)
+	FOREIGN KEY (`activity_id`) REFERENCES `activity`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
 CREATE INDEX `idx_result_participant` ON `result` (`strava_athlete_id`);--> statement-breakpoint
@@ -64,8 +59,7 @@ CREATE INDEX `idx_result_week` ON `result` (`week_id`);--> statement-breakpoint
 CREATE TABLE `schema_migrations` (
 	`version` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
-	`executed_at` text DEFAULT 'sql`(CURRENT_TIMESTAMP)`',
-	CONSTRAINT "webhook_subscription_check_1" CHECK(id = 1)
+	`executed_at` text DEFAULT 'sql`(CURRENT_TIMESTAMP)`'
 );
 --> statement-breakpoint
 CREATE TABLE `season` (
@@ -74,8 +68,7 @@ CREATE TABLE `season` (
 	`start_at` integer NOT NULL,
 	`end_at` integer NOT NULL,
 	`is_active` integer,
-	`created_at` text DEFAULT 'sql`(CURRENT_TIMESTAMP)`',
-	CONSTRAINT "webhook_subscription_check_1" CHECK(id = 1)
+	`created_at` text DEFAULT 'sql`(CURRENT_TIMESTAMP)`'
 );
 --> statement-breakpoint
 CREATE TABLE `segment` (
@@ -88,8 +81,7 @@ CREATE TABLE `segment` (
 	`country` text,
 	`created_at` text DEFAULT 'sql`(CURRENT_TIMESTAMP)`',
 	`total_elevation_gain` real,
-	`climb_category` integer,
-	CONSTRAINT "webhook_subscription_check_1" CHECK(id = 1)
+	`climb_category` integer
 );
 --> statement-breakpoint
 CREATE TABLE `segment_effort` (
@@ -102,16 +94,14 @@ CREATE TABLE `segment_effort` (
 	`start_at` integer NOT NULL,
 	`pr_achieved` integer,
 	FOREIGN KEY (`activity_id`) REFERENCES `activity`(`id`) ON UPDATE no action ON DELETE no action,
-	FOREIGN KEY (`strava_segment_id`) REFERENCES `segment`(`strava_segment_id`) ON UPDATE no action ON DELETE no action,
-	CONSTRAINT "webhook_subscription_check_1" CHECK(id = 1)
+	FOREIGN KEY (`strava_segment_id`) REFERENCES `segment`(`strava_segment_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
 CREATE INDEX `idx_segment_effort_activity` ON `segment_effort` (`activity_id`);--> statement-breakpoint
 CREATE TABLE `sessions` (
 	`sid` text PRIMARY KEY NOT NULL,
 	`sess` numeric NOT NULL,
-	`expire` text NOT NULL,
-	CONSTRAINT "webhook_subscription_check_1" CHECK(id = 1)
+	`expire` text NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `webhook_event` (
@@ -119,8 +109,7 @@ CREATE TABLE `webhook_event` (
 	`payload` text NOT NULL,
 	`processed` integer,
 	`error_message` text,
-	`created_at` text DEFAULT 'sql`(CURRENT_TIMESTAMP)`',
-	CONSTRAINT "webhook_subscription_check_1" CHECK(id = 1)
+	`created_at` text DEFAULT 'sql`(CURRENT_TIMESTAMP)`'
 );
 --> statement-breakpoint
 CREATE INDEX `idx_webhook_event_created` ON `webhook_event` (`created_at`);--> statement-breakpoint
@@ -129,8 +118,7 @@ CREATE TABLE `webhook_subscription` (
 	`verify_token` text NOT NULL,
 	`subscription_payload` text,
 	`subscription_id` integer,
-	`last_refreshed_at` text,
-	CONSTRAINT "webhook_subscription_check_1" CHECK(id = 1)
+	`last_refreshed_at` text
 );
 --> statement-breakpoint
 CREATE TABLE `week` (
@@ -144,8 +132,7 @@ CREATE TABLE `week` (
 	`created_at` text DEFAULT 'sql`(CURRENT_TIMESTAMP)`',
 	`notes` text DEFAULT '',
 	FOREIGN KEY (`season_id`) REFERENCES `season`(`id`) ON UPDATE no action ON DELETE no action,
-	FOREIGN KEY (`strava_segment_id`) REFERENCES `segment`(`strava_segment_id`) ON UPDATE no action ON DELETE no action,
-	CONSTRAINT "webhook_subscription_check_1" CHECK(id = 1)
+	FOREIGN KEY (`strava_segment_id`) REFERENCES `segment`(`strava_segment_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
 CREATE INDEX `idx_week_season` ON `week` (`season_id`);

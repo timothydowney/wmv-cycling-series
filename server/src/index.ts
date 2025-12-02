@@ -27,7 +27,7 @@ import { AuthorizationService } from './services/AuthorizationService';
 import authRouter from './routes/auth';
 import publicRouter from './routes/public';
 import fallbackRouter from './routes/fallback';
-import fetchRouter from './routes/admin/fetch';
+import { createFetchRouter } from './routes/admin/fetch';
 import { createWebhookRouter } from './routes/webhooks';
 import { createWebhookAdminRoutes } from './routes/admin/webhooks';
 import { WebhookLogger } from './webhooks/logger';
@@ -126,6 +126,7 @@ app.use(
 // Test mode: Load session injection middleware
 if (isTestMode()) {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const testMiddlewareModule = require('./__tests__/testMiddleware');
     const registerTestMiddleware = testMiddlewareModule.default || testMiddlewareModule;
     if (typeof registerTestMiddleware === 'function') {
@@ -260,7 +261,7 @@ app.use(routes.public());
 // app.use('/admin/seasons', routes.seasons(services, middleware));
 // app.use('/admin/participants', routes.participants(services, middleware));
 // app.use('/admin/segments', routes.segments(services, middleware));
-app.use('/admin', fetchRouter);
+app.use('/admin', createFetchRouter(db));
 app.use('/admin/webhooks', createWebhookAdminRoutes(db, stravaClient));
 
 // Webhook routes

@@ -1,85 +1,80 @@
-import path from 'path';
-import fs from 'fs';
-import { clearAllData, createParticipant } from '../testDataHelpers';
-
-// Set test database path BEFORE requiring modules that use it
-const TEST_DB_PATH = path.join(__dirname, '..', '..', '..', 'data', 'trpc-participant-test.db');
-process.env.DATABASE_PATH = TEST_DB_PATH;
-process.env.NODE_ENV = 'test';
-
-// Remove test database if it exists
-if (fs.existsSync(TEST_DB_PATH)) {
-  fs.unlinkSync(TEST_DB_PATH);
-}
+import { Database } from 'better-sqlite3';
+import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { appRouter } from '../../routers';
+import { createContext } from '../../trpc/context';
+import { setupTestDb, teardownTestDb, clearAllData, createParticipant } from '../testDataHelpers';
 
 describe('participantRouter', () => {
-  let appRouter: any;
-  let db: any;
+  let db: Database;
+  let drizzleDb: BetterSQLite3Database;
+  let caller: ReturnType<typeof appRouter.createCaller>;
 
   beforeAll(() => {
-    const routerModule = require('../../routers');
-    appRouter = routerModule.appRouter;
-    const dbModule = require('../../db');
-    db = dbModule.db;
-
-    try {
-        const { SCHEMA } = require('../../schema');
-        db.exec(SCHEMA);
-    } catch (e) {
-        // Ignore
-    }
-  });
-
-  const createMockContext = (isAdmin: boolean = false) => ({
-    req: {} as any,
-    res: {} as any,
-    db: db,
-    session: {} as any,
-    userId: isAdmin ? 999001 : undefined,
-    isAdmin,
-  });
-
-  beforeEach(() => {
-    clearAllData(db);
+    const testDb = setupTestDb();
+    db = testDb.db;
+    drizzleDb = testDb.drizzleDb;
   });
 
   afterAll(() => {
-    if (fs.existsSync(TEST_DB_PATH)) {
-      fs.unlinkSync(TEST_DB_PATH);
-    }
+    teardownTestDb(db);
+  });
+
+  // Helper to create caller with specific auth state
+  const getCaller = (isAdmin: boolean) => {
+    const req = {
+      session: {
+        stravaAthleteId: isAdmin ? 999001 : undefined,
+        isAdmin
+      }
+    } as any;
+    
+    return appRouter.createCaller(createContext({
+      req,
+      res: {} as any,
+      dbOverride: db,
+      drizzleDbOverride: drizzleDb
+    }));
+  };
+
+  beforeEach(() => {
+    clearAllData(drizzleDb);
   });
 
   describe('getAll', () => {
     it('should return empty array when no participants exist', async () => {
-      const caller = appRouter.createCaller(createMockContext());
+      const caller = getCaller(false);
       const result = await caller.participant.getAll();
       expect(result).toEqual([]);
     });
 
     it('should return all participants', async () => {
-      const caller = appRouter.createCaller(createMockContext());
-      createParticipant(db, 1, 'Alice');
-      createParticipant(db, 2, 'Bob');
+      const caller = getCaller(false);
+      createParticipant(drizzleDb, 1, 'Alice');
+      createParticipant(drizzleDb, 2, 'Bob');
 
       const result = await caller.participant.getAll();
       expect(result).toHaveLength(2);
-      expect(result[0].name).toBe('Alice');
-      expect(result[1].name).toBe('Bob');
+      // Order isn't guaranteed unless sorted, but service sorts by created_at or name?
+      // ParticipantService.getAllParticipantsWithStatus doesn't explicitly sort, but let's assume insertion order or similar.
+      // Let's check for containment instead of strict index.
+      const names = result.map((p: any) => p.name);
+      expect(names).toContain('Alice');
+      expect(names).toContain('Bob');
     });
   });
 
   describe('getById', () => {
     it('should return a participant by ID', async () => {
-      const caller = appRouter.createCaller(createMockContext());
-      createParticipant(db, 1, 'Charlie');
+      const caller = getCaller(false);
+      createParticipant(drizzleDb, 1, 'Charlie');
 
       const result = await caller.participant.getById(1);
       expect(result).toBeDefined();
-      expect(result.name).toBe('Charlie');
+      expect(result!.name).toBe('Charlie');
     });
 
     it('should return null for non-existent participant', async () => {
-      const caller = appRouter.createCaller(createMockContext());
+      const caller = getCaller(false);
       const result = await caller.participant.getById(999);
       expect(result).toBeNull();
     });

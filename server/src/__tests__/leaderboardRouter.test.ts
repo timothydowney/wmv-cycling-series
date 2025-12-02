@@ -1,19 +1,23 @@
 import { Database } from 'better-sqlite3';
+import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { appRouter } from '../routers';
 import { createContext } from '../trpc/context';
-import { setupTestDb, teardownTestDb, SeedData } from './testDataHelpers';
+import { setupTestDb, teardownTestDb, SeedData, createWeek, createSegment } from './testDataHelpers';
 
 describe('leaderboardRouter', () => {
   let db: Database;
+  let drizzleDb: BetterSQLite3Database;
   let seedData: SeedData;
   let caller: ReturnType<typeof appRouter.createCaller>;
 
   beforeAll(() => {
     const testDb = setupTestDb();
     db = testDb.db;
+    drizzleDb = testDb.drizzleDb;
     seedData = testDb.seedData;
     caller = appRouter.createCaller(createContext({ 
-      db,
+      dbOverride: db, 
+      drizzleDbOverride: drizzleDb,
       req: {} as any,
       res: {} as any
     }));
@@ -34,32 +38,27 @@ describe('leaderboardRouter', () => {
 
       expect(response).toBeDefined();
       expect(response.week.id).toBe(weekId);
-      expect(response.leaderboard).toHaveLength(2); // Based on seed data
+      expect(response.leaderboard).toHaveLength(2); // 2 participants seeded in setupTestDb
       expect(response.leaderboard[0].rank).toBe(1);
       expect(response.leaderboard[1].rank).toBe(2);
     });
 
     it('should return an empty leaderboard for a valid week with no results', async () => {
-      // Assuming seed data has only 2 weeks, one with results (index 1 in setupTestDb: 'Leaderboard Week') 
-      // and one without (index 0: 'Test Week' created via full user)?
-      // Actually createWeekWithResults creates results.
-      // createFullUserWithActivity creates results.
-      // I need to create a week WITHOUT results.
-      const weekWithNoResults = db.prepare('SELECT id FROM week WHERE week_name = ?').get('Week with no results') as { id: number } | undefined;
+      // Create a new segment and week specifically for this test case
+      // to ensure it has no results.
+      const segmentId = 123;
+      createSegment(drizzleDb, segmentId, 'Empty Segment');
       
-      let targetWeekId;
-      if (!weekWithNoResults) {
-         // Create one
-         const { id } = require('./testDataHelpers').createWeek(db, { seasonId: seedData.seasons[0].id, stravaSegmentId: 123, weekName: 'Empty Week' });
-         targetWeekId = id;
-      } else {
-         targetWeekId = weekWithNoResults.id;
-      }
+      const newWeek = createWeek(drizzleDb, { 
+        seasonId: seedData.seasons[0].id, 
+        stravaSegmentId: segmentId, 
+        weekName: 'Empty Week' 
+      });
 
-      const response = await caller.leaderboard.getWeekLeaderboard({ weekId: targetWeekId });
+      const response = await caller.leaderboard.getWeekLeaderboard({ weekId: newWeek.id });
 
       expect(response).toBeDefined();
-      expect(response.week.id).toBe(targetWeekId);
+      expect(response.week.id).toBe(newWeek.id);
       expect(response.leaderboard).toHaveLength(0);
     });
   });

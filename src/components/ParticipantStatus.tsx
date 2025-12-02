@@ -4,16 +4,6 @@ import { getAuthStatus } from '../api';
 import { trpc } from '../utils/trpc';
 import StravaAthleteBadge from './StravaAthleteBadge';
 
-interface Participant {
-  id: number;
-  name: string;
-  strava_athlete_id: number;
-  is_connected: number;
-  has_token: boolean;
-  token_expires_at?: string;
-  profile_picture_url?: string | null;
-}
-
 function ParticipantStatus() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);

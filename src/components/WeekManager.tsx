@@ -29,8 +29,7 @@ interface WeekManagerProps {
 
 function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
   // tRPC hooks
-  const utils = trpc.useUtils();
-  const { data: weeksData = [], isLoading: isLoadingWeeks, refetch: refetchWeeks } = trpc.week.getAll.useQuery(
+  const { data: weeksData = [], isLoading: _isLoadingWeeks, refetch: refetchWeeks } = trpc.week.getAll.useQuery(
     { seasonId: seasonId! },
     { 
       enabled: !!seasonId,
@@ -360,9 +359,9 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
                       <div className="segment-name">{week.segment_name || 'Unknown Segment'}</div>
                       <SegmentMetadataDisplay
                         segment={{
-                          distance: week.segment_distance,
-                          total_elevation_gain: week.segment_total_elevation_gain,
-                          segment_average_grade: week.segment_average_grade
+                          distance: week.segment_distance || undefined,
+                          total_elevation_gain: week.segment_total_elevation_gain || undefined,
+                          segment_average_grade: week.segment_average_grade || undefined
                         }}
                       />
                     </div>

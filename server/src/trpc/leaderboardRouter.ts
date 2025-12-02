@@ -1,6 +1,5 @@
 import { router, publicProcedure } from './init';
 import { z } from 'zod';
-import { drizzleDb as db } from '../db';
 import { week, result, participant, activity, segmentEffort } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { calculateWeekScoringDrizzle } from '../services/ScoringServiceDrizzle';
@@ -28,8 +27,10 @@ function formatSecondsToHHMMSS(totalSeconds: number | null): string {
 export const leaderboardRouter = router({
   getWeekLeaderboard: publicProcedure
     .input(z.object({ weekId: z.number() }))
-    .query(async ({ input }) => {
-      const weekData = await db.select({
+    .query(async ({ ctx, input }) => {
+      const { drizzleDb } = ctx; // Use injected drizzleDb
+
+      const weekData = await drizzleDb.select({
         id: week.id,
         season_id: week.season_id,
         week_name: week.week_name,
@@ -39,9 +40,9 @@ export const leaderboardRouter = router({
         end_at: week.end_at,
         notes: week.notes,
       })
-      .from(week)
-      .where(eq(week.id, input.weekId))
-      .get();
+        .from(week)
+        .where(eq(week.id, input.weekId))
+        .get();
 
       if (!weekData) {
         throw new Error(`Week ${input.weekId} not found`);
@@ -49,7 +50,7 @@ export const leaderboardRouter = router({
 
       // Fetch results with participant and activity details
       // Rank and points are NOT stored in DB, so we must fetch raw data and calculate them
-      const rawResults = await db.select({
+      const rawResults = await drizzleDb.select({
         // Result fields
         id: result.id,
         week_id: result.week_id,
@@ -71,12 +72,12 @@ export const leaderboardRouter = router({
         // PR info (calculated via subquery or just checking segment efforts later)
         // For now, we'll fetch efforts per row to be safe and accurate
       })
-      .from(result)
-      .leftJoin(participant, eq(result.strava_athlete_id, participant.strava_athlete_id))
-      .leftJoin(activity, eq(result.activity_id, activity.id))
-      .where(eq(result.week_id, input.weekId))
-      .orderBy(result.total_time_seconds)
-      .all();
+        .from(result)
+        .leftJoin(participant, eq(result.strava_athlete_id, participant.strava_athlete_id))
+        .leftJoin(activity, eq(result.activity_id, activity.id))
+        .where(eq(result.week_id, input.weekId))
+        .orderBy(result.total_time_seconds)
+        .all();
 
       const totalParticipants = rawResults.length;
 
@@ -90,12 +91,12 @@ export const leaderboardRouter = router({
           let effortBreakdown: any[] = [];
 
           if (rawResult.activity_id) {
-            const efforts = await db.select({
-                lap: segmentEffort.effort_index,
-                time_seconds: segmentEffort.elapsed_seconds,
-                pr_achieved: segmentEffort.pr_achieved,
-                strava_effort_id: segmentEffort.strava_effort_id,
-              })
+            const efforts = await drizzleDb.select({
+              lap: segmentEffort.effort_index,
+              time_seconds: segmentEffort.elapsed_seconds,
+              pr_achieved: segmentEffort.pr_achieved,
+              strava_effort_id: segmentEffort.strava_effort_id,
+            })
               .from(segmentEffort)
               .where(eq(segmentEffort.activity_id, rawResult.activity_id))
               .orderBy(segmentEffort.effort_index)
@@ -132,10 +133,10 @@ export const leaderboardRouter = router({
               : '',
             activity_date: rawResult.activity_start_at
               ? new Date(rawResult.activity_start_at * 1000).toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                })
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })
               : '',
             effort_breakdown: effortBreakdown.length > 0 ? effortBreakdown : null,
             device_name: rawResult.device_name,
@@ -164,9 +165,11 @@ export const leaderboardRouter = router({
     }),
   getSeasonLeaderboard: publicProcedure
     .input(z.object({ seasonId: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      const { drizzleDb } = ctx; // Use injected drizzleDb
+
       // Get all weeks in this season
-      const weeks = await db
+      const weeks = await drizzleDb
         .select({ id: week.id })
         .from(week)
         .where(eq(week.season_id, input.seasonId))
@@ -184,7 +187,7 @@ export const leaderboardRouter = router({
       }> = new Map();
 
       for (const w of weeks) {
-        const weekResults = await calculateWeekScoringDrizzle(w.id);
+        const weekResults = await calculateWeekScoringDrizzle(drizzleDb, w.id); // Pass drizzleDb
         
         for (const res of weekResults.results) {
           const existing = participantTotals.get(res.participantId);

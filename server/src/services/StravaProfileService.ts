@@ -112,7 +112,7 @@ async function getAthleteProfilePictures(
     try {
       // Get any participant that has a token and refresh it
       const anyParticipant = db.prepare(
-        'SELECT strava_athlete_id FROM participant_token LIMIT 1'
+        'SELECT strava_athlete_id FROM participant_token ORDER BY updated_at DESC LIMIT 1'
       ).get() as { strava_athlete_id: number } | undefined;
       
       if (anyParticipant) {

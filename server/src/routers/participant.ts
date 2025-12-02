@@ -1,22 +1,22 @@
 import { z } from 'zod';
 import { router, publicProcedure } from '../trpc/init';
 import ParticipantService from '../services/ParticipantService';
-import { drizzleDb } from '../db';
-
-const participantService = new ParticipantService(drizzleDb);
 
 export const participantRouter = router({
-  getAll: publicProcedure.query(async () => {
+  getAll: publicProcedure.query(async ({ ctx }) => {
+    const participantService = new ParticipantService(ctx.drizzleDb);
     return participantService.getAllParticipantsWithStatus();
   }),
 
-  getAllWithStatus: publicProcedure.query(async () => {
+  getAllWithStatus: publicProcedure.query(async ({ ctx }) => {
+    const participantService = new ParticipantService(ctx.drizzleDb);
     return participantService.getAllParticipantsWithStatus();
   }),
 
   getById: publicProcedure
     .input(z.number())
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      const participantService = new ParticipantService(ctx.drizzleDb);
       return participantService.getParticipantByStravaAthleteId(input);
     }),
 });

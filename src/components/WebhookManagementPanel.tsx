@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './WebhookManagementPanel.css';
 import { api } from '../api';
 
@@ -43,7 +43,7 @@ export const WebhookManagementPanel: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
 
-  const fetchSubscriptionStatus = async () => {
+  const fetchSubscriptionStatus = useCallback(async () => {
     try {
       const response = await api.getWebhookStatus();
       setSubscription(response);
@@ -53,36 +53,36 @@ export const WebhookManagementPanel: React.FC = () => {
       setError(message);
       console.error('Failed to fetch subscription status:', err);
     }
-  };
+  }, []);
 
-  const fetchStorageStatus = async () => {
+  const fetchStorageStatus = useCallback(async () => {
     try {
       const response = await api.getWebhookStorageStatus();
       setStorage(response);
     } catch (err) {
       console.error('Failed to fetch storage status:', err);
     }
-  };
+  }, []);
 
 
 
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     await fetchSubscriptionStatus();
     await fetchStorageStatus();
-  };
+  }, [fetchSubscriptionStatus, fetchStorageStatus]);
 
   useEffect(() => {
     const initLoad = async () => {
       setLoading(true);
       try {
-        await Promise.all([fetchSubscriptionStatus(), fetchStorageStatus()]);
+        await handleRefresh();
       } finally {
         setLoading(false);
       }
     };
 
     initLoad();
-  }, []);
+  }, [handleRefresh]);
 
   // Auto-refresh every 30 seconds
   useEffect(() => {
