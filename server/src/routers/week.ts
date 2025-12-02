@@ -4,10 +4,13 @@ import WeekService from '../services/WeekService';
 
 export const weekRouter = router({
   getAll: publicProcedure
-    .input(z.object({ seasonId: z.number() }))
+    .input(z.object({ seasonId: z.number(), includeParticipantCount: z.boolean().optional().default(false) }))
     .query(async ({ ctx, input }) => {
       const weekService = new WeekService(ctx.drizzleDb);
-      // Use lightweight summary for dropdown selector (no participant count needed)
+      // Use full version with participant count if requested, otherwise lightweight summary for speed
+      if (input.includeParticipantCount) {
+        return weekService.getAllWeeks(input.seasonId);
+      }
       return weekService.getAllWeeksSummary(input.seasonId);
     }),
 

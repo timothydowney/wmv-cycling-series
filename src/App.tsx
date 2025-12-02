@@ -35,7 +35,7 @@ function AppContent() {
   });
 
   const weeksQuery = trpc.week.getAll.useQuery(
-    { seasonId: selectedSeasonId! },
+    { seasonId: selectedSeasonId!, includeParticipantCount: true },
     { 
       enabled: !!selectedSeasonId,
       refetchOnWindowFocus: false
