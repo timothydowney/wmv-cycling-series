@@ -7,7 +7,8 @@ export const weekRouter = router({
     .input(z.object({ seasonId: z.number() }))
     .query(async ({ ctx, input }) => {
       const weekService = new WeekService(ctx.drizzleDb);
-      return weekService.getAllWeeks(input.seasonId);
+      // Use lightweight summary for dropdown selector (no participant count needed)
+      return weekService.getAllWeeksSummary(input.seasonId);
     }),
 
   getById: publicProcedure

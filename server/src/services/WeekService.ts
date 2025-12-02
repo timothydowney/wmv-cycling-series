@@ -23,7 +23,48 @@ class WeekService {
   constructor(private db: BetterSQLite3Database) {}
 
   /**
-   * Get all weeks for a season
+   * Get all weeks for a season - lightweight version for dropdowns (no participant count)
+   * Much faster: no JOINs to result table, no COUNT aggregation
+   * Used by: week selector dropdown on main page
+   */
+  async getAllWeeksSummary(seasonId: number): Promise<WeekWithDetails[]> {
+    if (!seasonId) {
+      throw new Error('season_id is required');
+    }
+
+    return this.db
+      .select({
+        id: week.id,
+        season_id: week.season_id,
+        week_name: week.week_name,
+        strava_segment_id: week.strava_segment_id,
+        required_laps: week.required_laps,
+        start_at: week.start_at,
+        end_at: week.end_at,
+        notes: week.notes,
+        created_at: week.created_at,
+        // Joined fields
+        segment_name: segment.name,
+        segment_distance: segment.distance,
+        segment_total_elevation_gain: segment.total_elevation_gain,
+        segment_average_grade: segment.average_grade,
+        segment_climb_category: segment.climb_category,
+        segment_city: segment.city,
+        segment_state: segment.state,
+        segment_country: segment.country,
+        participants_count: sql<number>`0`, // Placeholder - not used in dropdown
+      })
+      .from(week)
+      .leftJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
+      .where(eq(week.season_id, seasonId))
+      .orderBy(desc(week.start_at))
+      .all() as unknown as WeekWithDetails[];
+  }
+
+  /**
+   * Get all weeks for a season - full version with participant count
+   * Used by: admin schedule table (ScheduleTable.tsx) which displays participants_count
+   * NOTE: Database index on result(week_id, strava_athlete_id) improves performance
    */
   async getAllWeeks(seasonId: number): Promise<WeekWithDetails[]> { // Specify return type
     if (!seasonId) {

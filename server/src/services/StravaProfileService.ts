@@ -20,6 +20,32 @@ interface CachedProfile {
 }
 const profileCache = new Map<number, CachedProfile>();
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const PROFILE_FETCH_TIMEOUT_MS = 5000; // 5 second timeout for Strava API calls
+
+/**
+ * Wrap a promise with a timeout
+ * Rejects with a timeout error if the promise doesn't resolve within the timeout
+ * 
+ * TODO: Remove this wrapper function once strava-v3 client is upgraded or replaced.
+ * The strava-v3 library uses the deprecated `request` package and doesn't support
+ * configurable timeouts. This wrapper is a workaround for intermittent Strava API
+ * connectivity issues (ETIMEDOUT errors). Once we migrate to a modern HTTP client
+ * (e.g., axios, fetch, or an updated Strava SDK), we can set timeouts directly
+ * on the client configuration and remove this utility.
+ */
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  timeoutMsg: string
+): Promise<T> {
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    setTimeout(() => {
+      reject(new Error(`${timeoutMsg} (timeout after ${timeoutMs}ms)`));
+    }, timeoutMs);
+  });
+
+  return Promise.race([promise, timeoutPromise]);
+}
 
 /**
  * Fetch athlete profile from Strava API using their own token
@@ -40,9 +66,15 @@ async function getAthleteProfilePicture(athleteId: number, accessToken: string):
     // Use strava client library to fetch athlete profile
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const client = new (strava.client as any)(accessToken);
-    const athleteData = await client.athletes.get({ id: athleteId });
     
-    const profileUrl = athleteData.profile || null;
+    // Wrap the API call with a timeout to prevent hanging on slow/unreachable Strava API
+    const athleteData = await withTimeout(
+      client.athletes.get({ id: athleteId }),
+      PROFILE_FETCH_TIMEOUT_MS,
+      `Strava profile fetch for athlete ${athleteId}`
+    ) as any;
+    
+    const profileUrl = (athleteData?.profile as string | null) || null;
     
     // Cache the result
     profileCache.set(athleteId, {
@@ -52,7 +84,10 @@ async function getAthleteProfilePicture(athleteId: number, accessToken: string):
 
     return profileUrl;
   } catch (error) {
-    console.warn(`Error fetching Strava profile for athlete ${athleteId}:`, error);
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.warn(
+      `[Profile] Failed to fetch profile for athlete ${athleteId}: ${errorMsg}`
+    );
     return null;
   }
 }

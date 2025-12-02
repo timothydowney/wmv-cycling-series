@@ -7,10 +7,11 @@ export const sessions = sqliteTable('sessions', {
   expire: text().notNull(),
 });
 
-export const participant = sqliteTable('participant', {
-  strava_athlete_id: integer('strava_athlete_id').primaryKey(),
-  name: text().notNull(),
-  created_at: text('created_at').default('sql`(CURRENT_TIMESTAMP)`'),
+export const participant = sqliteTable("participant", {
+	strava_athlete_id: integer("strava_athlete_id").primaryKey(),
+	name: text().notNull(),
+	created_at: text("created_at").default("sql`(CURRENT_TIMESTAMP)`"),
+	active: integer("active", { mode: "boolean" }).default(true).notNull(),
 });
 
 export const season = sqliteTable('season', {
@@ -80,6 +81,7 @@ export const result = sqliteTable('result', {
 (t) => [
   index('idx_result_participant').on(t.strava_athlete_id),
   index('idx_result_week').on(t.week_id),
+  index('idx_result_week_athlete').on(t.week_id, t.strava_athlete_id), // Composite index for GROUP BY performance
 ]);
 
 export const participantToken = sqliteTable('participant_token', {
