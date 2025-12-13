@@ -9,7 +9,7 @@ import { AuthorizationService } from '../../services/AuthorizationService';
 import { config } from '../../config';
 import WeekService from '../../services/WeekService';
 
-export function createFetchRouter(sqliteDb: Database, drizzleDb: BetterSQLite3Database) {
+export function createFetchRouter(_sqliteDb: Database, drizzleDb: BetterSQLite3Database) {
   const router = express.Router();
 
   // Initialize services
@@ -18,7 +18,7 @@ export function createFetchRouter(sqliteDb: Database, drizzleDb: BetterSQLite3Da
   const weekService = new WeekService(drizzleDb);
 
   const batchFetchService = new BatchFetchService(
-    sqliteDb,
+    drizzleDb,
     (database, athleteId, forceRefresh) => getValidAccessToken(database, stravaClient, athleteId, forceRefresh)
   );
 

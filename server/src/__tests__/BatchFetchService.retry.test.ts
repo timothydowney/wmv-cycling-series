@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { Database } from 'better-sqlite3';
+import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import BatchFetchService from '../services/BatchFetchService';
 import { setupTestDb, teardownTestDb, createParticipant, createSeason, createWeek, createSegment } from './testDataHelpers';
 import * as stravaClient from '../stravaClient';
@@ -12,6 +13,7 @@ jest.mock('../stravaClient', () => ({
 
 describe('BatchFetchService Retry Logic', () => {
   let db: Database;
+  let drizzleDb: BetterSQLite3Database;
   let service: BatchFetchService;
   let mockGetToken: jest.Mock;
   let weekId: number;
@@ -19,7 +21,7 @@ describe('BatchFetchService Retry Logic', () => {
   beforeEach(() => {
     const testDb = setupTestDb();
     db = testDb.db;
-    const drizzleDb = testDb.drizzleDb;
+    drizzleDb = testDb.drizzleDb;
 
     // Setup seed data
     const season = createSeason(drizzleDb, 'Season 1', true);
@@ -39,7 +41,7 @@ describe('BatchFetchService Retry Logic', () => {
     // Mock getValidAccessToken
     mockGetToken = jest.fn();
     
-    service = new BatchFetchService(db, mockGetToken as any);
+    service = new BatchFetchService(drizzleDb, mockGetToken as any);
   });
 
   afterEach(() => {

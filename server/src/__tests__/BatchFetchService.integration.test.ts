@@ -7,19 +7,22 @@
 
 import { describe, it, expect, beforeEach, afterEach, beforeAll } from '@jest/globals';
 import Database from 'better-sqlite3';
+import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import BatchFetchService from '../services/BatchFetchService';
 import { setupTestDb } from './setupTestDb'; // Import setupTestDb
 // import { SCHEMA } from '../schema'; // Removed
 
 describe('BatchFetchService with Season Validation', () => {
   let db: Database.Database;
+  let drizzleDb: BetterSQLite3Database;
   let service: BatchFetchService;
   const now = Math.floor(Date.now() / 1000);
 
   beforeEach(() => {
     // Create in-memory test database and run migrations
-    const { db: newDb } = setupTestDb({ seed: false });
-    db = newDb;
+    const testDb = setupTestDb({ seed: false });
+    db = testDb.db;
+    drizzleDb = testDb.drizzleDb;
 
     // Create a common segment for all tests in this suite
     db.prepare(
@@ -28,7 +31,7 @@ describe('BatchFetchService with Season Validation', () => {
     ).run(999999, 'Test Segment', 2500, 6.5);
 
     // Create service instance with mock token provider (reset for each test)
-    service = new BatchFetchService(db, async () => 'mock-token');
+    service = new BatchFetchService(drizzleDb, async () => 'mock-token');
   });
 
 

@@ -1,54 +1,49 @@
-// @ts-nocheck
 /**
  * Activity Storage Tests
- * Tests for activity and segment effort persistence
+ * Tests for activity and segment effort persistence using Drizzle ORM
  */
 
-import { isoToUnix } from '../dateUtils';
-import { storeActivityAndEfforts } from '../activityStorage';
+import { setupTestDb } from './setupTestDb';
+import { storeActivityAndEfforts, type ActivityToStore } from '../activityStorage';
+import { createParticipant, createSeason, createSegment, createWeek } from './testDataHelpers';
+import { activity, segmentEffort, result } from '../db/schema';
+import Database from 'better-sqlite3';
+import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
 describe('Activity Storage', () => {
-  let mockDb;
-  const testAthleteId = 12345678;
-  const testWeekId = 1;
-  const testSegmentId = 98765432;
+  let db: Database.Database;
+  let drizzleDb: BetterSQLite3Database;
+  let testAthleteId: number;
+  let testWeekId: number;
+  let testSegmentId: number;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    const setup = setupTestDb({ seed: false });
+    db = setup.db;
+    drizzleDb = setup.drizzleDb;
 
-    // Mock database with chainable methods
-    mockDb = {
-      prepare: jest.fn()
-    };
+    // Create test data
+    testAthleteId = 12345678;
+    testSegmentId = 98765432;
+    
+    createParticipant(drizzleDb, testAthleteId, 'Test User');
+    const season = createSeason(drizzleDb, 'Test Season');
+    const segment = createSegment(drizzleDb, testSegmentId, 'Test Segment');
+    const week = createWeek(drizzleDb, {
+      seasonId: season.id,
+      stravaSegmentId: segment.strava_segment_id,
+      weekName: 'Test Week'
+    });
+    testWeekId = week.id;
+  });
+
+  afterEach(() => {
+    db.close();
   });
 
   describe('storeActivityAndEfforts', () => {
     it('should store activity and segment efforts when no existing activity', () => {
-      const mockSelectAllActivitiesStatement = {
-        all: jest.fn().mockReturnValue([]) // No existing activities
-      };
-      const mockInsertActivityStatement = {
-        run: jest.fn().mockReturnValue({ lastInsertRowid: 100 })
-      };
-      const mockInsertSegmentEffortStatement = {
-        run: jest.fn()
-      };
-      const mockInsertResultStatement = {
-        run: jest.fn()
-      };
-      const mockDeleteResultStatement = { run: jest.fn() };
-      const mockDeleteActivityStatement = { run: jest.fn() };
-
-      mockDb.prepare
-        .mockReturnValueOnce(mockSelectAllActivitiesStatement) // SELECT all existing activities
-        .mockReturnValueOnce(mockDeleteResultStatement) // DELETE result
-        .mockReturnValueOnce(mockDeleteActivityStatement) // DELETE activity
-        .mockReturnValueOnce(mockInsertActivityStatement) // INSERT activity
-        .mockReturnValueOnce(mockInsertSegmentEffortStatement) // INSERT segment effort 1
-        .mockReturnValueOnce(mockInsertSegmentEffortStatement) // INSERT segment effort 2
-        .mockReturnValueOnce(mockInsertResultStatement); // INSERT result
-
-      const activityData = {
+      const activityData: ActivityToStore = {
         id: 9876543210,
         start_date: '2025-06-01T10:00:00Z',
         device_name: 'Garmin Edge 530',
@@ -56,8 +51,7 @@ describe('Activity Storage', () => {
           {
             id: 1111111111,
             start_date: '2025-06-01T10:05:00Z',
-            elapsed_time: 720,
-            pr_rank: null
+            elapsed_time: 720
           },
           {
             id: 2222222222,
@@ -69,357 +63,227 @@ describe('Activity Storage', () => {
         totalTime: 1430
       };
 
-      storeActivityAndEfforts(mockDb, testAthleteId, testWeekId, activityData, testSegmentId);
+      storeActivityAndEfforts(drizzleDb, testAthleteId, testWeekId, activityData, testSegmentId);
 
-      // Verify activity was inserted with Unix timestamp
-      expect(mockInsertActivityStatement.run).toHaveBeenCalledWith(
-        testWeekId,
-        testAthleteId,
-        9876543210,
-        isoToUnix('2025-06-01T10:00:00Z'),
-        'Garmin Edge 530'
-      );
+      // Verify activity was inserted
+      const activities = drizzleDb.select().from(activity).all();
+      expect(activities).toHaveLength(1);
+      expect(activities[0].strava_activity_id).toBe(9876543210);
+      expect(activities[0].week_id).toBe(testWeekId);
+      expect(activities[0].strava_athlete_id).toBe(testAthleteId);
 
-      // Verify segment efforts were inserted with Unix timestamps
-      expect(mockInsertSegmentEffortStatement.run).toHaveBeenCalledTimes(2);
-      expect(mockInsertSegmentEffortStatement.run).toHaveBeenNthCalledWith(
-        1,
-        100,
-        testSegmentId,
-        '1111111111',
-        0,
-        720,
-        isoToUnix('2025-06-01T10:05:00Z'),
-        0 // No PR
-      );
-      expect(mockInsertSegmentEffortStatement.run).toHaveBeenNthCalledWith(
-        2,
-        100,
-        testSegmentId,
-        '2222222222',
-        1,
-        710,
-        isoToUnix('2025-06-01T10:07:00Z'),
-        1 // PR achieved
-      );
+      // Verify segment efforts were inserted
+      const efforts = drizzleDb.select().from(segmentEffort).all();
+      expect(efforts).toHaveLength(2);
+      expect(efforts[0].elapsed_seconds).toBe(720);
+      expect(efforts[0].pr_achieved).toBe(0);
+      expect(efforts[1].elapsed_seconds).toBe(710);
+      expect(efforts[1].pr_achieved).toBe(1);
 
       // Verify result was stored
-      expect(mockInsertResultStatement.run).toHaveBeenCalledWith(
-        testWeekId,
-        testAthleteId,
-        100,
-        1430
-      );
+      const results = drizzleDb.select().from(result).all();
+      expect(results).toHaveLength(1);
+      expect(results[0].total_time_seconds).toBe(1430);
     });
 
+
     it('should delete existing activity and efforts before storing new ones', () => {
-      const existingActivityId = 50;
-      // New deletion logic: SELECT all old activities, then delete at week+participant level
-      const mockSelectAllActivitiesStatement = {
-        all: jest.fn().mockReturnValue([{ id: existingActivityId }])
+      // First, store an activity
+      const firstActivity: ActivityToStore = {
+        id: 9876543210,
+        start_date: '2025-06-01T10:00:00Z',
+        device_name: 'Garmin Edge 530',
+        segmentEfforts: [
+          {
+            id: 1111111111,
+            start_date: '2025-06-01T10:05:00Z',
+            elapsed_time: 720
+          }
+        ],
+        totalTime: 720
       };
-      const mockDeleteSegmentEffortStatement = { run: jest.fn() };
-      const mockDeleteResultStatement = { run: jest.fn() };
-      const mockDeleteActivityStatement = { run: jest.fn() };
-      const mockInsertActivityStatement = {
-        run: jest.fn().mockReturnValue({ lastInsertRowid: 101 })
-      };
-      const mockInsertSegmentEffortStatement = { run: jest.fn() };
-      const mockInsertResultStatement = { run: jest.fn() };
 
-      mockDb.prepare
-        .mockReturnValueOnce(mockSelectAllActivitiesStatement) // SELECT all existing activities
-        .mockReturnValueOnce(mockDeleteSegmentEffortStatement) // DELETE segment_effort for activity 50
-        .mockReturnValueOnce(mockDeleteResultStatement) // DELETE result for week+participant
-        .mockReturnValueOnce(mockDeleteActivityStatement) // DELETE activity for week+participant
-        .mockReturnValueOnce(mockInsertActivityStatement) // INSERT activity
-        .mockReturnValueOnce(mockInsertSegmentEffortStatement) // INSERT segment effort
-        .mockReturnValueOnce(mockInsertResultStatement); // INSERT result
+      storeActivityAndEfforts(drizzleDb, testAthleteId, testWeekId, firstActivity, testSegmentId);
 
-      const activityData = {
+      // Verify initial state
+      expect(drizzleDb.select().from(activity).all()).toHaveLength(1);
+      expect(drizzleDb.select().from(segmentEffort).all()).toHaveLength(1);
+      expect(drizzleDb.select().from(result).all()).toHaveLength(1);
+
+      // Now store a different activity (should replace the old one)
+      const secondActivity: ActivityToStore = {
         id: 9876543211,
         start_date: '2025-06-01T11:00:00Z',
-        device_name: null,
         segmentEfforts: [
-          { id: 3333333333, start_date: '2025-06-01T11:05:00Z', elapsed_time: 650, pr_rank: null }
+          {
+            id: 3333333333,
+            start_date: '2025-06-01T11:05:00Z',
+            elapsed_time: 650
+          }
         ],
         totalTime: 650
       };
 
-      storeActivityAndEfforts(mockDb, testAthleteId, testWeekId, activityData, testSegmentId);
+      storeActivityAndEfforts(drizzleDb, testAthleteId, testWeekId, secondActivity, testSegmentId);
 
-      // Verify deletions happened in correct order
-      // Now we delete at week+participant level to ensure full refresh
-      expect(mockDeleteSegmentEffortStatement.run).toHaveBeenCalledWith(existingActivityId);
-      expect(mockDeleteResultStatement.run).toHaveBeenCalledWith(testWeekId, testAthleteId);
-      expect(mockDeleteActivityStatement.run).toHaveBeenCalledWith(testWeekId, testAthleteId);
+      // Verify old data was replaced
+      const activities = drizzleDb.select().from(activity).all();
+      expect(activities).toHaveLength(1);
+      expect(activities[0].strava_activity_id).toBe(9876543211);
 
-      // Verify new activity was inserted with Unix timestamp
-      expect(mockInsertActivityStatement.run).toHaveBeenCalledWith(
-        testWeekId,
-        testAthleteId,
-        9876543211,
-        isoToUnix('2025-06-01T11:00:00Z'),
-        null
-      );
+      const efforts = drizzleDb.select().from(segmentEffort).all();
+      expect(efforts).toHaveLength(1);
+      expect(efforts[0].strava_effort_id).toBe('3333333333');
+
+      const results = drizzleDb.select().from(result).all();
+      expect(results).toHaveLength(1);
+      expect(results[0].total_time_seconds).toBe(650);
     });
 
     it('should handle activity with no device name', () => {
-      const mockSelectAllActivitiesStatement = {
-        all: jest.fn().mockReturnValue([])
-      };
-      const mockInsertActivityStatement = {
-        run: jest.fn().mockReturnValue({ lastInsertRowid: 102 })
-      };
-      const mockInsertSegmentEffortStatement = { run: jest.fn() };
-      const mockInsertResultStatement = { run: jest.fn() };
-      const mockDeleteResultStatement = { run: jest.fn() };
-      const mockDeleteActivityStatement = { run: jest.fn() };
-
-      mockDb.prepare
-        .mockReturnValueOnce(mockSelectAllActivitiesStatement)
-        .mockReturnValueOnce(mockDeleteResultStatement)
-        .mockReturnValueOnce(mockDeleteActivityStatement)
-        .mockReturnValueOnce(mockInsertActivityStatement)
-        .mockReturnValueOnce(mockInsertSegmentEffortStatement)
-        .mockReturnValueOnce(mockInsertResultStatement);
-
-      const activityData = {
+      const activityData: ActivityToStore = {
         id: 9876543212,
         start_date: '2025-06-01T12:00:00Z',
-        device_name: undefined, // No device name
+        device_name: undefined,
         segmentEfforts: [
-          { id: 4444444444, start_date: '2025-06-01T12:05:00Z', elapsed_time: 680, pr_rank: null }
+          {
+            id: 4444444444,
+            start_date: '2025-06-01T12:05:00Z',
+            elapsed_time: 680
+          }
         ],
         totalTime: 680
       };
 
-      storeActivityAndEfforts(mockDb, testAthleteId, testWeekId, activityData, testSegmentId);
+      storeActivityAndEfforts(drizzleDb, testAthleteId, testWeekId, activityData, testSegmentId);
 
-      // Should pass null for device_name when undefined and Unix timestamp
-      expect(mockInsertActivityStatement.run).toHaveBeenCalledWith(
-        testWeekId,
-        testAthleteId,
-        9876543212,
-        isoToUnix('2025-06-01T12:00:00Z'),
-        null
-      );
+      const activities = drizzleDb.select().from(activity).all();
+      expect(activities).toHaveLength(1);
+      expect(activities[0].device_name).toBeNull();
     });
 
     it('should handle multiple segment efforts correctly', () => {
-      const mockSelectAllActivitiesStatement = {
-        all: jest.fn().mockReturnValue([])
-      };
-      const mockInsertActivityStatement = {
-        run: jest.fn().mockReturnValue({ lastInsertRowid: 103 })
-      };
-      const mockInsertSegmentEffortStatement = { run: jest.fn() };
-      const mockInsertResultStatement = { run: jest.fn() };
-      const mockDeleteResultStatement = { run: jest.fn() };
-      const mockDeleteActivityStatement = { run: jest.fn() };
-
-      mockDb.prepare
-        .mockReturnValueOnce(mockSelectAllActivitiesStatement)
-        .mockReturnValueOnce(mockDeleteResultStatement)
-        .mockReturnValueOnce(mockDeleteActivityStatement)
-        .mockReturnValueOnce(mockInsertActivityStatement)
-        .mockReturnValueOnce(mockInsertSegmentEffortStatement)
-        .mockReturnValueOnce(mockInsertSegmentEffortStatement)
-        .mockReturnValueOnce(mockInsertSegmentEffortStatement)
-        .mockReturnValueOnce(mockInsertResultStatement);
-
-      const activityData = {
+      const activityData: ActivityToStore = {
         id: 9876543213,
-        start_date_local: '2025-06-01T13:00:00Z',
+        start_date: '2025-06-01T13:00:00Z',
         device_name: 'Garmin Edge 1030+',
         segmentEfforts: [
-          { id: 5555555555, start_date: '2025-06-01T13:05:00Z', elapsed_time: 600, pr_rank: 1 },
-          { id: 6666666666, start_date: '2025-06-01T13:15:00Z', elapsed_time: 590, pr_rank: 2 },
-          { id: 7777777777, start_date: '2025-06-01T13:25:00Z', elapsed_time: 595, pr_rank: null }
+          {
+            id: 5555555555,
+            start_date: '2025-06-01T13:05:00Z',
+            elapsed_time: 600,
+            pr_rank: 1
+          },
+          {
+            id: 6666666666,
+            start_date: '2025-06-01T13:15:00Z',
+            elapsed_time: 590,
+            pr_rank: 2
+          },
+          {
+            id: 7777777777,
+            start_date: '2025-06-01T13:25:00Z',
+            elapsed_time: 595
+          }
         ],
         totalTime: 1785
       };
 
-      storeActivityAndEfforts(mockDb, testAthleteId, testWeekId, activityData, testSegmentId);
+      storeActivityAndEfforts(drizzleDb, testAthleteId, testWeekId, activityData, testSegmentId);
 
-      // Should insert 3 segment efforts with correct indices and Unix timestamps
-      expect(mockInsertSegmentEffortStatement.run).toHaveBeenCalledTimes(3);
-      expect(mockInsertSegmentEffortStatement.run).toHaveBeenNthCalledWith(
-        1,
-        103,
-        testSegmentId,
-        '5555555555',
-        0, // First effort
-        600,
-        isoToUnix('2025-06-01T13:05:00Z'),
-        1
-      );
-      expect(mockInsertSegmentEffortStatement.run).toHaveBeenNthCalledWith(
-        2,
-        103,
-        testSegmentId,
-        '6666666666',
-        1, // Second effort
-        590,
-        isoToUnix('2025-06-01T13:15:00Z'),
-        0 // pr_rank = 2 (not fastest ever, so no PR bonus)
-      );
-      expect(mockInsertSegmentEffortStatement.run).toHaveBeenNthCalledWith(
-        3,
-        103,
-        testSegmentId,
-        '7777777777',
-        2, // Third effort
-        595,
-        isoToUnix('2025-06-01T13:25:00Z'),
-        0
-      );
+      const efforts = drizzleDb.select().from(segmentEffort).all();
+      expect(efforts).toHaveLength(3);
+      expect(efforts[0].effort_index).toBe(0);
+      expect(efforts[0].elapsed_seconds).toBe(600);
+      expect(efforts[0].pr_achieved).toBe(1);
+      expect(efforts[1].effort_index).toBe(1);
+      expect(efforts[1].elapsed_seconds).toBe(590);
+      expect(efforts[1].pr_achieved).toBe(0); // pr_rank = 2 means not fastest ever
+      expect(efforts[2].effort_index).toBe(2);
+      expect(efforts[2].elapsed_seconds).toBe(595);
+      expect(efforts[2].pr_achieved).toBe(0);
     });
 
     it('should convert pr_rank to boolean correctly (truthy = 1, falsy = 0)', () => {
-      const mockSelectAllActivitiesStatement = {
-        all: jest.fn().mockReturnValue([])
-      };
-      const mockInsertActivityStatement = {
-        run: jest.fn().mockReturnValue({ lastInsertRowid: 104 })
-      };
-      const mockInsertSegmentEffortStatement = { run: jest.fn() };
-      const mockInsertResultStatement = { run: jest.fn() };
-      const mockDeleteResultStatement = { run: jest.fn() };
-      const mockDeleteActivityStatement = { run: jest.fn() };
-
-      mockDb.prepare
-        .mockReturnValueOnce(mockSelectAllActivitiesStatement)
-        .mockReturnValueOnce(mockDeleteResultStatement)
-        .mockReturnValueOnce(mockDeleteActivityStatement)
-        .mockReturnValueOnce(mockInsertActivityStatement)
-        .mockReturnValueOnce(mockInsertSegmentEffortStatement)
-        .mockReturnValueOnce(mockInsertSegmentEffortStatement)
-        .mockReturnValueOnce(mockInsertSegmentEffortStatement)
-        .mockReturnValueOnce(mockInsertResultStatement);
-
-      const activityData = {
+      const activityData: ActivityToStore = {
         id: 9876543214,
-        start_date_local: '2025-06-01T14:00:00Z',
-        device_name: null,
+        start_date: '2025-06-01T14:00:00Z',
         segmentEfforts: [
-          { id: 8888888888, start_date: '2025-06-01T14:05:00Z', elapsed_time: 700, pr_rank: 1 }, // pr_rank = 1 (truthy)
-          { id: 9999999999, start_date: '2025-06-01T14:15:00Z', elapsed_time: 710, pr_rank: null }, // pr_rank = null (falsy)
-          { id: 1010101010, start_date: '2025-06-01T14:25:00Z', elapsed_time: 705, pr_rank: 0 } // pr_rank = 0 (falsy)
+          {
+            id: 8888888888,
+            start_date: '2025-06-01T14:05:00Z',
+            elapsed_time: 700,
+            pr_rank: 1
+          },
+          {
+            id: 9999999999,
+            start_date: '2025-06-01T14:15:00Z',
+            elapsed_time: 710
+          },
+          {
+            id: 1010101010,
+            start_date: '2025-06-01T14:25:00Z',
+            elapsed_time: 705,
+            pr_rank: 0
+          }
         ],
         totalTime: 2115
       };
 
-      storeActivityAndEfforts(mockDb, testAthleteId, testWeekId, activityData, testSegmentId);
+      storeActivityAndEfforts(drizzleDb, testAthleteId, testWeekId, activityData, testSegmentId);
 
-      // Check pr_achieved conversion (pr_rank ? 1 : 0) with Unix timestamps
-      expect(mockInsertSegmentEffortStatement.run).toHaveBeenNthCalledWith(
-        1,
-        104,
-        testSegmentId,
-        '8888888888',
-        0,
-        700,
-        isoToUnix('2025-06-01T14:05:00Z'),
-        1 // pr_rank = 1 → pr_achieved = 1
-      );
-      expect(mockInsertSegmentEffortStatement.run).toHaveBeenNthCalledWith(
-        2,
-        104,
-        testSegmentId,
-        '9999999999',
-        1,
-        710,
-        isoToUnix('2025-06-01T14:15:00Z'),
-        0 // pr_rank = null → pr_achieved = 0
-      );
-      expect(mockInsertSegmentEffortStatement.run).toHaveBeenNthCalledWith(
-        3,
-        104,
-        testSegmentId,
-        '1010101010',
-        2,
-        705,
-        isoToUnix('2025-06-01T14:25:00Z'),
-        0 // pr_rank = 0 → pr_achieved = 0
-      );
+      const efforts = drizzleDb.select().from(segmentEffort).all();
+      expect(efforts[0].pr_achieved).toBe(1); // pr_rank = 1 → truthy
+      expect(efforts[1].pr_achieved).toBe(0); // pr_rank = null → falsy
+      expect(efforts[2].pr_achieved).toBe(0); // pr_rank = 0 → falsy
     });
 
     it('should store result with correct total time', () => {
-      const mockSelectAllActivitiesStatement = {
-        all: jest.fn().mockReturnValue([])
-      };
-      const mockInsertActivityStatement = {
-        run: jest.fn().mockReturnValue({ lastInsertRowid: 105 })
-      };
-      const mockInsertSegmentEffortStatement = { run: jest.fn() };
-      const mockInsertResultStatement = { run: jest.fn() };
-      const mockDeleteResultStatement = { run: jest.fn() };
-      const mockDeleteActivityStatement = { run: jest.fn() };
-
-      mockDb.prepare
-        .mockReturnValueOnce(mockSelectAllActivitiesStatement)
-        .mockReturnValueOnce(mockDeleteResultStatement)
-        .mockReturnValueOnce(mockDeleteActivityStatement)
-        .mockReturnValueOnce(mockInsertActivityStatement)
-        .mockReturnValueOnce(mockInsertSegmentEffortStatement)
-        .mockReturnValueOnce(mockInsertResultStatement);
-
-      const activityData = {
+      const activityData: ActivityToStore = {
         id: 9876543215,
+        start_date: '2025-06-01T15:00:00Z',
         device_name: 'Wahoo Elemnt',
         segmentEfforts: [
-          { id: 1212121212, elapsed_time: 1420, pr_rank: null }
+          {
+            id: 1212121212,
+            start_date: '2025-06-01T15:05:00Z',
+            elapsed_time: 1420
+          }
         ],
         totalTime: 1420
       };
 
-      storeActivityAndEfforts(mockDb, testAthleteId, testWeekId, activityData, testSegmentId);
+      storeActivityAndEfforts(drizzleDb, testAthleteId, testWeekId, activityData, testSegmentId);
 
-      // Verify result includes activity ID
-      expect(mockInsertResultStatement.run).toHaveBeenCalledWith(
-        testWeekId,
-        testAthleteId,
-        105,
-        1420
-      );
+      const results = drizzleDb.select().from(result).all();
+      expect(results).toHaveLength(1);
+      expect(results[0].total_time_seconds).toBe(1420);
+      expect(results[0].week_id).toBe(testWeekId);
+      expect(results[0].strava_athlete_id).toBe(testAthleteId);
     });
 
-    it('should use INSERT OR REPLACE for results', () => {
-      const mockSelectAllActivitiesStatement = {
-        all: jest.fn().mockReturnValue([])
-      };
-      const mockInsertActivityStatement = {
-        run: jest.fn().mockReturnValue({ lastInsertRowid: 106 })
-      };
-      const mockInsertSegmentEffortStatement = { run: jest.fn() };
-      const mockInsertResultStatement = { run: jest.fn() };
-      const mockDeleteResultStatement = { run: jest.fn() };
-      const mockDeleteActivityStatement = { run: jest.fn() };
-
-      mockDb.prepare
-        .mockReturnValueOnce(mockSelectAllActivitiesStatement)
-        .mockReturnValueOnce(mockDeleteResultStatement)
-        .mockReturnValueOnce(mockDeleteActivityStatement)
-        .mockReturnValueOnce(mockInsertActivityStatement)
-        .mockReturnValueOnce(mockInsertSegmentEffortStatement)
-        .mockReturnValueOnce(mockInsertResultStatement);
-
-      const activityData = {
+    it('should handle transactional rollback on error', () => {
+      const activityData: ActivityToStore = {
         id: 9876543216,
-        device_name: null,
+        start_date: '2025-06-01T16:00:00Z',
+        device_name: 'Test Device',
         segmentEfforts: [
-          { id: 1313131313, elapsed_time: 750, pr_rank: null }
+          {
+            id: 1313131313,
+            start_date: '2025-06-01T16:05:00Z',
+            elapsed_time: 750
+          }
         ],
         totalTime: 750
       };
 
-      storeActivityAndEfforts(mockDb, testAthleteId, testWeekId, activityData, testSegmentId);
+      // Close the DB to cause an error
+      db.close();
 
-      // Check that result insert uses INSERT OR REPLACE
-      // With 1 segment effort, calls are: SELECT, DELETE result, DELETE activity, INSERT activity, INSERT segment effort, INSERT result
-      const resultInsertCall = mockDb.prepare.mock.calls[5][0];
-      expect(resultInsertCall).toContain('INSERT OR REPLACE INTO result');
+      // Expect the operation to fail
+      expect(() => {
+        storeActivityAndEfforts(drizzleDb, testAthleteId, testWeekId, activityData, testSegmentId);
+      }).toThrow();
     });
   });
 });

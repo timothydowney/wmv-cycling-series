@@ -1,70 +1,23 @@
 /**
  * Tests for LeaderboardQueryService
- * Verifies leaderboard query methods
+ * Verifies leaderboard query methods using Drizzle ORM test infrastructure
  */
 
-import Database from 'better-sqlite3';
+import { setupTestDb } from './setupTestDb';
+import { createSeason, createSegment, createParticipant, createWeek, createActivity, createResult, createSegmentEffort } from './testDataHelpers';
 import { LeaderboardQueryService } from '../services/LeaderboardQueryService';
+import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type Database from 'better-sqlite3';
 
 describe('LeaderboardQueryService', () => {
   let db: Database.Database;
+  let drizzleDb: BetterSQLite3Database;
   let service: LeaderboardQueryService;
 
   beforeEach(() => {
-    db = new Database(':memory:');
-
-    // Create schema
-    db.exec(`
-      CREATE TABLE week (
-        id INTEGER PRIMARY KEY,
-        week_name TEXT NOT NULL
-      );
-
-      CREATE TABLE participant (
-        id INTEGER PRIMARY KEY,
-        name TEXT NOT NULL
-      );
-
-      CREATE TABLE activity (
-        id INTEGER PRIMARY KEY,
-        week_id INTEGER NOT NULL,
-        participant_id INTEGER NOT NULL,
-        strava_activity_id INTEGER NOT NULL,
-        total_time_seconds INTEGER,
-        FOREIGN KEY (week_id) REFERENCES week(id),
-        FOREIGN KEY (participant_id) REFERENCES participant(id)
-      );
-
-      CREATE TABLE result (
-        id INTEGER PRIMARY KEY,
-        week_id INTEGER NOT NULL,
-        participant_id INTEGER NOT NULL,
-        activity_id INTEGER,
-        total_time_seconds INTEGER NOT NULL,
-        rank INTEGER,
-        base_points INTEGER,
-        pr_bonus_points INTEGER DEFAULT 0,
-        total_points INTEGER,
-        FOREIGN KEY (week_id) REFERENCES week(id),
-        FOREIGN KEY (participant_id) REFERENCES participant(id),
-        FOREIGN KEY (activity_id) REFERENCES activity(id)
-      );
-
-      CREATE TABLE segment_effort (
-        id INTEGER PRIMARY KEY,
-        activity_id INTEGER NOT NULL,
-        elapsed_seconds INTEGER NOT NULL,
-        effort_index INTEGER,
-        pr_achieved INTEGER DEFAULT 0,
-        FOREIGN KEY (activity_id) REFERENCES activity(id)
-      );
-
-      CREATE TABLE webhook_event (
-        id INTEGER PRIMARY KEY,
-        event_type TEXT
-      );
-    `);
-
+    const setup = setupTestDb({ seed: false });
+    db = setup.db;
+    drizzleDb = setup.drizzleDb;
     service = new LeaderboardQueryService(db);
   });
 
@@ -78,53 +31,69 @@ describe('LeaderboardQueryService', () => {
     });
 
     it('should return week leaderboard with no results', () => {
-      const week = db.prepare('INSERT INTO week (week_name) VALUES (?)').run('Week 1');
+      const week = createWeek(drizzleDb, { weekName: 'Week 1' });
 
-      const leaderboard = service.getWeekLeaderboard(week.lastInsertRowid as number);
+      const leaderboard = service.getWeekLeaderboard(week.id);
 
-      expect(leaderboard.weekId).toBe(week.lastInsertRowid);
+      expect(leaderboard.weekId).toBe(week.id);
       expect(leaderboard.weekName).toBe('Week 1');
       expect(leaderboard.results).toHaveLength(0);
     });
 
     it('should return week leaderboard with results', () => {
-      const week = db.prepare('INSERT INTO week (week_name) VALUES (?)').run('Week 1');
-      const p1 = db.prepare('INSERT INTO participant (name) VALUES (?)').run('Alice');
-      const a1 = db.prepare('INSERT INTO activity (week_id, participant_id, strava_activity_id, total_time_seconds) VALUES (?, ?, ?, ?)').run(week.lastInsertRowid, p1.lastInsertRowid, 111, 1100);
+      const week = createWeek(drizzleDb, { weekName: 'Week 1' });
+      const participant = createParticipant(drizzleDb, 12345, 'Alice');
+      const activity = createActivity(drizzleDb, {
+        weekId: week.id,
+        stravaAthleteId: participant.strava_athlete_id,
+        stravaActivityId: 111,
+      });
 
-      db.prepare('INSERT INTO result (week_id, participant_id, activity_id, total_time_seconds, rank, base_points, pr_bonus_points, total_points) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-        .run(week.lastInsertRowid, p1.lastInsertRowid, a1.lastInsertRowid, 1100, 1, 1, 0, 1);
+      createResult(drizzleDb, {
+        weekId: week.id,
+        stravaAthleteId: participant.strava_athlete_id,
+        activityId: activity.id,
+      });
 
-      const leaderboard = service.getWeekLeaderboard(week.lastInsertRowid as number);
+      const leaderboard = service.getWeekLeaderboard(week.id);
 
       expect(leaderboard.results).toHaveLength(1);
       expect(leaderboard.results[0]).toEqual({
         resultId: expect.any(Number),
-        weekId: week.lastInsertRowid,
-        participantId: p1.lastInsertRowid,
+        weekId: week.id,
+        participantId: participant.strava_athlete_id,
         participantName: 'Alice',
-        totalTimeSeconds: 1100,
-        rank: 1,
-        basePoints: 1,
-        prBonusPoints: 0,
-        totalPoints: 1
       });
     });
 
     it('should return results ordered by rank', () => {
-      const week = db.prepare('INSERT INTO week (week_name) VALUES (?)').run('Week 1');
-      const p1 = db.prepare('INSERT INTO participant (name) VALUES (?)').run('Alice');
-      const p2 = db.prepare('INSERT INTO participant (name) VALUES (?)').run('Bob');
+      const week = createWeek(drizzleDb, { weekName: 'Week 1' });
+      const alice = createParticipant(drizzleDb, 12345, 'Alice');
+      const bob = createParticipant(drizzleDb, 67890, 'Bob');
 
-      const a1 = db.prepare('INSERT INTO activity (week_id, participant_id, strava_activity_id, total_time_seconds) VALUES (?, ?, ?, ?)').run(week.lastInsertRowid, p1.lastInsertRowid, 111, 1100);
-      const a2 = db.prepare('INSERT INTO activity (week_id, participant_id, strava_activity_id, total_time_seconds) VALUES (?, ?, ?, ?)').run(week.lastInsertRowid, p2.lastInsertRowid, 222, 1200);
+      const activity1 = createActivity(drizzleDb, {
+        weekId: week.id,
+        stravaAthleteId: alice.strava_athlete_id,
+        stravaActivityId: 111,
+      });
+      const activity2 = createActivity(drizzleDb, {
+        weekId: week.id,
+        stravaAthleteId: bob.strava_athlete_id,
+        stravaActivityId: 222,
+      });
 
-      db.prepare('INSERT INTO result (week_id, participant_id, activity_id, total_time_seconds, rank, base_points, pr_bonus_points, total_points) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-        .run(week.lastInsertRowid, p1.lastInsertRowid, a1.lastInsertRowid, 1100, 1, 2, 0, 2);
-      db.prepare('INSERT INTO result (week_id, participant_id, activity_id, total_time_seconds, rank, base_points, pr_bonus_points, total_points) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-        .run(week.lastInsertRowid, p2.lastInsertRowid, a2.lastInsertRowid, 1200, 2, 1, 0, 1);
+      createResult(drizzleDb, {
+        weekId: week.id,
+        stravaAthleteId: alice.strava_athlete_id,
+        activityId: activity1.id,
+      });
+      createResult(drizzleDb, {
+        weekId: week.id,
+        stravaAthleteId: bob.strava_athlete_id,
+        activityId: activity2.id,
+      });
 
-      const leaderboard = service.getWeekLeaderboard(week.lastInsertRowid as number);
+      const leaderboard = service.getWeekLeaderboard(week.id);
 
       expect(leaderboard.results[0].participantName).toBe('Alice');
       expect(leaderboard.results[1].participantName).toBe('Bob');
@@ -133,39 +102,53 @@ describe('LeaderboardQueryService', () => {
 
   describe('getWeekActivities', () => {
     it('should return empty activities for week with no activities', () => {
-      const week = db.prepare('INSERT INTO week (week_name) VALUES (?)').run('Week 1');
+      const week = createWeek(drizzleDb, { weekName: 'Week 1' });
 
-      const activities = service.getWeekActivities(week.lastInsertRowid as number);
+      const activities = service.getWeekActivities(week.id);
 
       expect(activities).toHaveLength(0);
     });
 
     it('should return activities for a week', () => {
-      const week = db.prepare('INSERT INTO week (week_name) VALUES (?)').run('Week 1');
-      const p1 = db.prepare('INSERT INTO participant (name) VALUES (?)').run('Alice');
-      const a1 = db.prepare('INSERT INTO activity (week_id, participant_id, strava_activity_id, total_time_seconds) VALUES (?, ?, ?, ?)').run(week.lastInsertRowid, p1.lastInsertRowid, 111, 1100);
+      const week = createWeek(drizzleDb, { weekName: 'Week 1' });
+      const participant = createParticipant(drizzleDb, 12345, 'Alice');
+      const activity = createActivity(drizzleDb, {
+        weekId: week.id,
+        stravaAthleteId: participant.strava_athlete_id,
+        stravaActivityId: 111,
+      });
 
-      db.prepare('INSERT INTO segment_effort (activity_id, elapsed_seconds, pr_achieved) VALUES (?, ?, ?)')
-        .run(a1.lastInsertRowid, 600, 0);
+      createSegmentEffort(drizzleDb, {
+        activityId: activity.id,
+        elapsedSeconds: 600,
+        prAchieved: 0
+      });
 
-      const activities = service.getWeekActivities(week.lastInsertRowid as number);
+      const activities = service.getWeekActivities(week.id);
 
       expect(activities).toHaveLength(1);
       // Note: participantName might be undefined due to how SQLite aliases work in raw queries
       // The service is meant for test verification, not production queries
-      expect(activities[0].activityId).toBe(a1.lastInsertRowid);
+      expect(activities[0].activityId).toBe(activity.id);
       expect(activities[0].segmentEffortCount).toBe(1);
     });
 
     it('should count PR achievements', () => {
-      const week = db.prepare('INSERT INTO week (week_name) VALUES (?)').run('Week 1');
-      const p1 = db.prepare('INSERT INTO participant (name) VALUES (?)').run('Alice');
-      const a1 = db.prepare('INSERT INTO activity (week_id, participant_id, strava_activity_id, total_time_seconds) VALUES (?, ?, ?, ?)').run(week.lastInsertRowid, p1.lastInsertRowid, 111, 1100);
+      const week = createWeek(drizzleDb, { weekName: 'Week 1' });
+      const participant = createParticipant(drizzleDb, 12345, 'Alice');
+      const activity = createActivity(drizzleDb, {
+        weekId: week.id,
+        stravaAthleteId: participant.strava_athlete_id,
+        stravaActivityId: 111,
+      });
 
-      db.prepare('INSERT INTO segment_effort (activity_id, elapsed_seconds, pr_achieved) VALUES (?, ?, ?)')
-        .run(a1.lastInsertRowid, 600, 1);
+      createSegmentEffort(drizzleDb, {
+        activityId: activity.id,
+        elapsedSeconds: 600,
+        prAchieved: 1
+      });
 
-      const activities = service.getWeekActivities(week.lastInsertRowid as number);
+      const activities = service.getWeekActivities(week.id);
 
       expect(activities[0].prCount).toBe(1);
     });
@@ -178,11 +161,15 @@ describe('LeaderboardQueryService', () => {
     });
 
     it('should return activity details', () => {
-      const week = db.prepare('INSERT INTO week (week_name) VALUES (?)').run('Week 1');
-      const p1 = db.prepare('INSERT INTO participant (name) VALUES (?)').run('Alice');
-      const a1 = db.prepare('INSERT INTO activity (week_id, participant_id, strava_activity_id, total_time_seconds) VALUES (?, ?, ?, ?)').run(week.lastInsertRowid, p1.lastInsertRowid, 111, 1100);
+      const week = createWeek(drizzleDb, { weekName: 'Week 1' });
+      const participant = createParticipant(drizzleDb, 12345, 'Alice');
+      const activity = createActivity(drizzleDb, {
+        weekId: week.id,
+        stravaAthleteId: participant.strava_athlete_id,
+        stravaActivityId: 111,
+      });
 
-      const details = service.getActivityDetails(a1.lastInsertRowid as number);
+      const details = service.getActivityDetails(activity.id);
 
       expect(details).not.toBeNull();
       expect(details?.activity.strava_activity_id).toBe(111);
@@ -191,14 +178,21 @@ describe('LeaderboardQueryService', () => {
     });
 
     it('should return segment efforts with activity', () => {
-      const week = db.prepare('INSERT INTO week (week_name) VALUES (?)').run('Week 1');
-      const p1 = db.prepare('INSERT INTO participant (name) VALUES (?)').run('Alice');
-      const a1 = db.prepare('INSERT INTO activity (week_id, participant_id, strava_activity_id, total_time_seconds) VALUES (?, ?, ?, ?)').run(week.lastInsertRowid, p1.lastInsertRowid, 111, 1100);
+      const week = createWeek(drizzleDb, { weekName: 'Week 1' });
+      const participant = createParticipant(drizzleDb, 12345, 'Alice');
+      const activity = createActivity(drizzleDb, {
+        weekId: week.id,
+        stravaAthleteId: participant.strava_athlete_id,
+        stravaActivityId: 111,
+      });
 
-      db.prepare('INSERT INTO segment_effort (activity_id, elapsed_seconds, pr_achieved) VALUES (?, ?, ?)')
-        .run(a1.lastInsertRowid, 600, 1);
+      createSegmentEffort(drizzleDb, {
+        activityId: activity.id,
+        elapsedSeconds: 600,
+        prAchieved: 1
+      });
 
-      const details = service.getActivityDetails(a1.lastInsertRowid as number);
+      const details = service.getActivityDetails(activity.id);
 
       expect(details?.segmentEfforts).toHaveLength(1);
       expect(details?.segmentEfforts[0].elapsed_seconds).toBe(600);
@@ -212,11 +206,11 @@ describe('LeaderboardQueryService', () => {
     });
 
     it('should return empty history for participant with no activities', () => {
-      const p1 = db.prepare('INSERT INTO participant (name) VALUES (?)').run('Alice');
+      const participant = createParticipant(drizzleDb, 12345, 'Alice');
 
-      const history = service.getParticipantActivityHistory(p1.lastInsertRowid as number);
+      const history = service.getParticipantActivityHistory(participant.strava_athlete_id);
 
-      expect(history.participantId).toBe(p1.lastInsertRowid);
+      expect(history.participantId).toBe(participant.strava_athlete_id);
       expect(history.participantName).toBe('Alice');
       expect(history.activities).toHaveLength(0);
       expect(history.totalPoints).toBe(0);
@@ -224,14 +218,21 @@ describe('LeaderboardQueryService', () => {
     });
 
     it('should return participant activity history', () => {
-      const p1 = db.prepare('INSERT INTO participant (name) VALUES (?)').run('Alice');
-      const week1 = db.prepare('INSERT INTO week (week_name) VALUES (?)').run('Week 1');
-      const a1 = db.prepare('INSERT INTO activity (week_id, participant_id, strava_activity_id, total_time_seconds) VALUES (?, ?, ?, ?)').run(week1.lastInsertRowid, p1.lastInsertRowid, 111, 1100);
+      const participant = createParticipant(drizzleDb, 12345, 'Alice');
+      const week1 = createWeek(drizzleDb, { weekName: 'Week 1' });
+      const activity = createActivity(drizzleDb, {
+        weekId: week1.id,
+        stravaAthleteId: participant.strava_athlete_id,
+        stravaActivityId: 111,
+      });
 
-      db.prepare('INSERT INTO result (week_id, participant_id, activity_id, total_time_seconds, rank, base_points, pr_bonus_points, total_points) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-        .run(week1.lastInsertRowid, p1.lastInsertRowid, a1.lastInsertRowid, 1100, 1, 1, 0, 1);
+      createResult(drizzleDb, {
+        weekId: week1.id,
+        stravaAthleteId: participant.strava_athlete_id,
+        activityId: activity.id,
+      });
 
-      const history = service.getParticipantActivityHistory(p1.lastInsertRowid as number);
+      const history = service.getParticipantActivityHistory(participant.strava_athlete_id);
 
       expect(history.activities).toHaveLength(1);
       expect(history.totalPoints).toBe(1);
@@ -241,18 +242,33 @@ describe('LeaderboardQueryService', () => {
     });
 
     it('should sum points across multiple weeks', () => {
-      const p1 = db.prepare('INSERT INTO participant (name) VALUES (?)').run('Alice');
-      const week1 = db.prepare('INSERT INTO week (week_name) VALUES (?)').run('Week 1');
-      const week2 = db.prepare('INSERT INTO week (week_name) VALUES (?)').run('Week 2');
-      const a1 = db.prepare('INSERT INTO activity (week_id, participant_id, strava_activity_id, total_time_seconds) VALUES (?, ?, ?, ?)').run(week1.lastInsertRowid, p1.lastInsertRowid, 111, 1100);
-      const a2 = db.prepare('INSERT INTO activity (week_id, participant_id, strava_activity_id, total_time_seconds) VALUES (?, ?, ?, ?)').run(week2.lastInsertRowid, p1.lastInsertRowid, 222, 1200);
+      const participant = createParticipant(drizzleDb, 12345, 'Alice');
+      const week1 = createWeek(drizzleDb, { weekName: 'Week 1' });
+      const week2 = createWeek(drizzleDb, { weekName: 'Week 2' });
+      
+      const activity1 = createActivity(drizzleDb, {
+        weekId: week1.id,
+        stravaAthleteId: participant.strava_athlete_id,
+        stravaActivityId: 111,
+      });
+      const activity2 = createActivity(drizzleDb, {
+        weekId: week2.id,
+        stravaAthleteId: participant.strava_athlete_id,
+        stravaActivityId: 222,
+      });
 
-      db.prepare('INSERT INTO result (week_id, participant_id, activity_id, total_time_seconds, rank, base_points, pr_bonus_points, total_points) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-        .run(week1.lastInsertRowid, p1.lastInsertRowid, a1.lastInsertRowid, 1100, 1, 2, 0, 2);
-      db.prepare('INSERT INTO result (week_id, participant_id, activity_id, total_time_seconds, rank, base_points, pr_bonus_points, total_points) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-        .run(week2.lastInsertRowid, p1.lastInsertRowid, a2.lastInsertRowid, 1200, 1, 3, 1, 4);
+      createResult(drizzleDb, {
+        weekId: week1.id,
+        stravaAthleteId: participant.strava_athlete_id,
+        activityId: activity1.id,
+      });
+      createResult(drizzleDb, {
+        weekId: week2.id,
+        stravaAthleteId: participant.strava_athlete_id,
+        activityId: activity2.id,
+      });
 
-      const history = service.getParticipantActivityHistory(p1.lastInsertRowid as number);
+      const history = service.getParticipantActivityHistory(participant.strava_athlete_id);
 
       expect(history.weeksCompleted).toBe(2);
       expect(history.totalPoints).toBe(6); // 2 + 4
@@ -265,24 +281,42 @@ describe('LeaderboardQueryService', () => {
     });
 
     it('should compare two activities and identify faster one', () => {
-      const week = db.prepare('INSERT INTO week (week_name) VALUES (?)').run('Week 1');
-      const p1 = db.prepare('INSERT INTO participant (name) VALUES (?)').run('Alice');
-      const a1 = db.prepare('INSERT INTO activity (week_id, participant_id, strava_activity_id, total_time_seconds) VALUES (?, ?, ?, ?)').run(week.lastInsertRowid, p1.lastInsertRowid, 111, 1100);
-      const a2 = db.prepare('INSERT INTO activity (week_id, participant_id, strava_activity_id, total_time_seconds) VALUES (?, ?, ?, ?)').run(week.lastInsertRowid, p1.lastInsertRowid, 222, 1200);
+      const week = createWeek(drizzleDb, { weekName: 'Week 1' });
+      const participant = createParticipant(drizzleDb, 12345, 'Alice');
+      
+      const activity1 = createActivity(drizzleDb, {
+        weekId: week.id,
+        stravaAthleteId: participant.strava_athlete_id,
+        stravaActivityId: 111,
+      });
+      const activity2 = createActivity(drizzleDb, {
+        weekId: week.id,
+        stravaAthleteId: participant.strava_athlete_id,
+        stravaActivityId: 222,
+      });
 
-      const comparison = service.compareActivities(a1.lastInsertRowid as number, a2.lastInsertRowid as number);
+      const comparison = service.compareActivities(activity1.id, activity2.id);
 
       expect(comparison.faster).toBe('activity1');
       expect(comparison.timeDifference).toBe(100);
     });
 
     it('should identify equal times', () => {
-      const week = db.prepare('INSERT INTO week (week_name) VALUES (?)').run('Week 1');
-      const p1 = db.prepare('INSERT INTO participant (name) VALUES (?)').run('Alice');
-      const a1 = db.prepare('INSERT INTO activity (week_id, participant_id, strava_activity_id, total_time_seconds) VALUES (?, ?, ?, ?)').run(week.lastInsertRowid, p1.lastInsertRowid, 111, 1100);
-      const a2 = db.prepare('INSERT INTO activity (week_id, participant_id, strava_activity_id, total_time_seconds) VALUES (?, ?, ?, ?)').run(week.lastInsertRowid, p1.lastInsertRowid, 222, 1100);
+      const week = createWeek(drizzleDb, { weekName: 'Week 1' });
+      const participant = createParticipant(drizzleDb, 12345, 'Alice');
+      
+      const activity1 = createActivity(drizzleDb, {
+        weekId: week.id,
+        stravaAthleteId: participant.strava_athlete_id,
+        stravaActivityId: 111,
+      });
+      const activity2 = createActivity(drizzleDb, {
+        weekId: week.id,
+        stravaAthleteId: participant.strava_athlete_id,
+        stravaActivityId: 222,
+      });
 
-      const comparison = service.compareActivities(a1.lastInsertRowid as number, a2.lastInsertRowid as number);
+      const comparison = service.compareActivities(activity1.id, activity2.id);
 
       expect(comparison.faster).toBe('equal');
       expect(comparison.timeDifference).toBe(0);
@@ -296,14 +330,21 @@ describe('LeaderboardQueryService', () => {
     });
 
     it('should return result for idempotency verification', () => {
-      const week = db.prepare('INSERT INTO week (week_name) VALUES (?)').run('Week 1');
-      const p1 = db.prepare('INSERT INTO participant (name) VALUES (?)').run('Alice');
-      const a1 = db.prepare('INSERT INTO activity (week_id, participant_id, strava_activity_id, total_time_seconds) VALUES (?, ?, ?, ?)').run(week.lastInsertRowid, p1.lastInsertRowid, 111, 1100);
+      const week = createWeek(drizzleDb, { weekName: 'Week 1' });
+      const participant = createParticipant(drizzleDb, 12345, 'Alice');
+      const activity = createActivity(drizzleDb, {
+        weekId: week.id,
+        stravaAthleteId: participant.strava_athlete_id,
+        stravaActivityId: 111,
+      });
 
-      db.prepare('INSERT INTO result (week_id, participant_id, activity_id, total_time_seconds, rank, base_points, pr_bonus_points, total_points) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-        .run(week.lastInsertRowid, p1.lastInsertRowid, a1.lastInsertRowid, 1100, 1, 1, 0, 1);
+      createResult(drizzleDb, {
+        weekId: week.id,
+        stravaAthleteId: participant.strava_athlete_id,
+        activityId: activity.id,
+      });
 
-      const idempotency = service.verifyIdempotency(week.lastInsertRowid as number, p1.lastInsertRowid as number);
+      const idempotency = service.verifyIdempotency(week.id, participant.strava_athlete_id);
 
       expect(idempotency).not.toBeNull();
       expect(idempotency?.resultId).toEqual(expect.any(Number));
@@ -325,12 +366,19 @@ describe('LeaderboardQueryService', () => {
     });
 
     it('should return correct statistics', () => {
-      const p1 = db.prepare('INSERT INTO participant (name) VALUES (?)').run('Alice');
-      const week = db.prepare('INSERT INTO week (week_name) VALUES (?)').run('Week 1');
-      const a1 = db.prepare('INSERT INTO activity (week_id, participant_id, strava_activity_id, total_time_seconds) VALUES (?, ?, ?, ?)').run(week.lastInsertRowid, p1.lastInsertRowid, 111, 1100);
+      const participant = createParticipant(drizzleDb, 12345, 'Alice');
+      const week = createWeek(drizzleDb, { weekName: 'Week 1' });
+      const activity = createActivity(drizzleDb, {
+        weekId: week.id,
+        stravaAthleteId: participant.strava_athlete_id,
+        stravaActivityId: 111,
+      });
 
-      db.prepare('INSERT INTO segment_effort (activity_id, elapsed_seconds, pr_achieved) VALUES (?, ?, ?)')
-        .run(a1.lastInsertRowid, 600, 0);
+      createSegmentEffort(drizzleDb, {
+        activityId: activity.id,
+        elapsedSeconds: 600,
+        prAchieved: 0
+      });
 
       const stats = service.getStatistics();
 

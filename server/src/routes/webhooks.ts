@@ -10,13 +10,13 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { Database } from 'better-sqlite3';
+import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { config } from '../config';
 import { WebhookEvent } from '../webhooks/types';
 import { WebhookLogger } from '../webhooks/logger';
 import { createWebhookProcessor } from '../webhooks/processor';
 
-export function createWebhookRouter(logger: WebhookLogger, db: Database): Router {
+export function createWebhookRouter(logger: WebhookLogger, db: BetterSQLite3Database): Router {
   const router = Router();
   const processWebhookEvent = createWebhookProcessor(db);
 

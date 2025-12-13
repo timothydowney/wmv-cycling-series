@@ -18,7 +18,9 @@
  * - Re-fetches activity from Strava on retry (not cached payload)
  */
 
-import { Database } from 'better-sqlite3';
+import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { eq, desc } from 'drizzle-orm';
+import { activity, result, segmentEffort, participantToken, participant, week, segment } from '../db/schema';
 import { WebhookEvent, ActivityWebhookEvent, AthleteWebhookEvent } from './types';
 import { WebhookLogger } from './logger';
 import { getWebhookConfig } from '../config';
@@ -26,7 +28,7 @@ import * as stravaClient from '../stravaClient';
 import { getValidAccessToken } from '../tokenManager';
 import { findBestQualifyingActivity } from '../activityProcessor';
 import { storeActivityAndEfforts } from '../activityStorage';
-import ActivityValidationService from '../services/ActivityValidationService';
+import ActivityValidationServiceDrizzle from '../services/ActivityValidationServiceDrizzle';
 import { Week } from '../db/schema'; // Import Drizzle Week type
 
 /**
@@ -42,32 +44,27 @@ export interface WebhookService {
 /**
  * Create default service implementation
  */
-function createDefaultService(db: Database): WebhookService {
+function createDefaultService(db: BetterSQLite3Database): WebhookService {
   return {
     deleteActivity(stravaActivityId: number) {
-      const activity = db
-        .prepare('SELECT id, week_id FROM activity WHERE strava_activity_id = ?')
-        .get(stravaActivityId) as { id: number; week_id: number } | undefined;
+      const activityRecord = db
+        .select({ id: activity.id, week_id: activity.week_id })
+        .from(activity)
+        .where(eq(activity.strava_activity_id, stravaActivityId))
+        .get();
 
-      if (!activity) {
+      if (!activityRecord) {
         return { deleted: false, changes: 0 };
       }
 
-      // Delete in correct order to respect foreign keys:
+      // Delete in correct order to respect foreign keys (though SQLite handles CASCADE usually, explicit is safer):
       // 1. result (has FK to activity)
       // 2. segment_effort (has FK to activity)
       // 3. activity (depends on above)
-      const deletedResults = db
-        .prepare('DELETE FROM result WHERE activity_id = ?')
-        .run(activity.id) as { changes: number };
-
-      const deletedEfforts = db
-        .prepare('DELETE FROM segment_effort WHERE activity_id = ?')
-        .run(activity.id) as { changes: number };
-
-      const deletedActivity = db
-        .prepare('DELETE FROM activity WHERE id = ?')
-        .run(activity.id) as { changes: number };
+      
+      const deletedResults = db.delete(result).where(eq(result.activity_id, activityRecord.id)).run();
+      const deletedEfforts = db.delete(segmentEffort).where(eq(segmentEffort.activity_id, activityRecord.id)).run();
+      const deletedActivity = db.delete(activity).where(eq(activity.id, activityRecord.id)).run();
 
       const totalChanges =
         deletedResults.changes + deletedEfforts.changes + deletedActivity.changes;
@@ -77,16 +74,19 @@ function createDefaultService(db: Database): WebhookService {
 
     deleteAthleteTokens(athleteId: number) {
       const deleted = db
-        .prepare('DELETE FROM participant_token WHERE strava_athlete_id = ?')
-        .run(athleteId) as { changes: number };
+        .delete(participantToken)
+        .where(eq(participantToken.strava_athlete_id, athleteId))
+        .run();
 
       return { deleted: deleted.changes > 0, changes: deleted.changes };
     },
 
     findParticipantByAthleteId(athleteId: number) {
       return db
-        .prepare('SELECT name FROM participant WHERE strava_athlete_id = ?')
-        .get(athleteId) as { name: string } | undefined;
+        .select({ name: participant.name })
+        .from(participant)
+        .where(eq(participant.strava_athlete_id, athleteId))
+        .get();
     }
   };
 }
@@ -96,9 +96,9 @@ function createDefaultService(db: Database): WebhookService {
  * Factory pattern: returns async processor function bound to specific db instance
  * Accepts optional service for testing/dependency injection
  */
-export function createWebhookProcessor(db: Database, service?: WebhookService) {
+export function createWebhookProcessor(db: BetterSQLite3Database, service?: WebhookService) {
   const svc = service || createDefaultService(db);
-  const validationService = new ActivityValidationService(db);
+  const validationService = new ActivityValidationServiceDrizzle(db);
 
   return async function processWebhookEvent(
     event: WebhookEvent,
@@ -180,11 +180,11 @@ export function createWebhookProcessor(db: Database, service?: WebhookService) {
 async function processActivityEvent(
   event: ActivityWebhookEvent,
   _logger: WebhookLogger,
-  db: Database,
-  validationService?: ActivityValidationService
+  db: BetterSQLite3Database,
+  validationService?: ActivityValidationServiceDrizzle
 ): Promise<void> {
   // Initialize validation service if not provided (for direct calls)
-  const validator = validationService || new ActivityValidationService(db);
+  const validator = validationService || new ActivityValidationServiceDrizzle(db);
   const { object_id: activityId, owner_id: athleteId } = event;
 
   console.log('[Webhook:Processor] Activity event', {
@@ -194,17 +194,19 @@ async function processActivityEvent(
   });
 
   // 1. Find participant and get their token
-  const participant = db
-    .prepare('SELECT strava_athlete_id, name FROM participant WHERE strava_athlete_id = ?')
-    .get(athleteId) as { strava_athlete_id: number; name: string } | undefined;
+  const participantRecord = db
+    .select({ strava_athlete_id: participant.strava_athlete_id, name: participant.name })
+    .from(participant)
+    .where(eq(participant.strava_athlete_id, athleteId))
+    .get();
 
-  if (!participant) {
+  if (!participantRecord) {
     console.log(`[Webhook:Processor] Participant ${athleteId} not found, skipping`);
     return;
   }
 
   console.log(
-    `[Webhook:Processor] Processing for ${participant.name} (athlete ID: ${athleteId})`
+    `[Webhook:Processor] Processing for ${participantRecord.name} (athlete ID: ${athleteId})`
   );
 
   // Get valid token (auto-refreshes if needed)
@@ -214,9 +216,9 @@ async function processActivityEvent(
   console.log(
     `[Webhook:Processor] Fetching activity details for ID: ${activityId}`
   );
-  const activity = await stravaClient.getActivity(activityId, accessToken);
+  const activityData = await stravaClient.getActivity(activityId, accessToken);
 
-  if (!activity.segment_efforts || activity.segment_efforts.length === 0) {
+  if (!activityData.segment_efforts || activityData.segment_efforts.length === 0) {
     console.log(
       `[Webhook:Processor] Activity ${activityId} has no segment efforts, skipping`
     );
@@ -224,7 +226,7 @@ async function processActivityEvent(
   }
 
   // 3. Find all active seasons that contain this activity's timestamp
-  const activityUnix = Math.floor(new Date(activity.start_date as string).getTime() / 1000);
+  const activityUnix = Math.floor(new Date(activityData.start_date as string).getTime() / 1000);
   const seasons = validator.getAllActiveSeasonsContainingTimestamp(activityUnix);
 
   if (seasons.length === 0) {
@@ -242,71 +244,74 @@ async function processActivityEvent(
   let totalMatchedWeeks = 0;
 
   // 4. Process activity for each matching season independently
-  for (const season of seasons) {
+  for (const seasonRecord of seasons) {
     console.log(
-      `[Webhook:Processor] Processing activity for season "${season.name}" (ID: ${season.id})`
+      `[Webhook:Processor] Processing activity for season "${seasonRecord.name}" (ID: ${seasonRecord.id})`
     );
 
     // Check if season is closed
-    const seasonStatus = validator.isSeasonClosed(season);
+    const seasonStatus = validator.isSeasonClosed(seasonRecord);
     if (seasonStatus.isClosed) {
       console.log(
-        `[Webhook:Processor] Season "${season.name}" is closed (ended ${new Date(season.end_at * 1000).toISOString()}), skipping`
+        `[Webhook:Processor] Season "${seasonRecord.name}" is closed (ended ${new Date(seasonRecord.end_at * 1000).toISOString()}), skipping`
       );
       continue; // Skip this season, try next one
     }
 
     // Find all weeks in this season that could match this activity
     const weeks = db
-      .prepare(
-        `
-        SELECT w.id, w.week_name, w.strava_segment_id, w.required_laps, w.start_at, w.end_at,
-               s.name as segment_name
-        FROM week w
-        JOIN segment s ON w.strava_segment_id = s.strava_segment_id
-        WHERE w.season_id = ?
-        ORDER BY w.start_at DESC
-      `
-      )
-      .all(season.id) as Array<any>;
+      .select({
+        id: week.id,
+        week_name: week.week_name,
+        strava_segment_id: week.strava_segment_id,
+        required_laps: week.required_laps,
+        start_at: week.start_at,
+        end_at: week.end_at,
+        segment_name: segment.name
+      })
+      .from(week)
+      .innerJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
+      .where(eq(week.season_id, seasonRecord.id))
+      .orderBy(desc(week.start_at))
+      .all();
 
     let processedWeeks = 0;
     let matchedWeeks = 0;
 
     // 5. For each week in this season, check if activity qualifies and is best
-    for (const week of weeks) {
+    for (const weekRecord of weeks) {
       // Check if activity is within week's time window
-      if (activityUnix < week.start_at || activityUnix > week.end_at) {
+      if (activityUnix < weekRecord.start_at || activityUnix > weekRecord.end_at) {
         continue; // Activity not in this week's time window
       }
 
       processedWeeks++;
       console.log(
-        `[Webhook:Processor] Checking week ${week.id} (${week.week_name}, segment: ${week.strava_segment_id})`
+        `[Webhook:Processor] Checking week ${weekRecord.id} (${weekRecord.week_name}, segment: ${weekRecord.strava_segment_id})`
       );
 
       try {
         // Reuse findBestQualifyingActivity from batch fetch
         // Pass the activity and week context
         const bestActivity = await findBestQualifyingActivity(
-          [activity] as any,
-          week.strava_segment_id,
-          week.required_laps,
+          [activityData] as any,
+          weekRecord.strava_segment_id,
+          weekRecord.required_laps,
           accessToken,
-          { start_at: week.start_at, end_at: week.end_at } as Pick<Week, 'start_at' | 'end_at'>
+          { start_at: weekRecord.start_at, end_at: weekRecord.end_at } as Pick<Week, 'start_at' | 'end_at'>
         );
 
         if (bestActivity) {
           matchedWeeks++;
           console.log(
-            `[Webhook:Processor] Activity ${activityId} qualifies for week ${week.id}`
+            `[Webhook:Processor] Activity ${activityId} qualifies for week ${weekRecord.id}`
           );
 
           // 6. Store activity and efforts (reuses batch fetch logic)
           storeActivityAndEfforts(
             db,
             athleteId,
-            week.id,
+            weekRecord.id,
             {
               id: bestActivity.id,
               start_date: bestActivity.start_date,
@@ -314,11 +319,11 @@ async function processActivityEvent(
               segmentEfforts: bestActivity.segmentEfforts as any,
               totalTime: bestActivity.totalTime
             },
-            week.strava_segment_id
+            weekRecord.strava_segment_id
           );
 
           console.log(
-            `[Webhook:Processor] ✓ Activity stored for week ${week.id}, time: ${Math.round(
+            `[Webhook:Processor] ✓ Activity stored for week ${weekRecord.id}, time: ${Math.round(
               bestActivity.totalTime / 60
             )} min`
           );
@@ -326,7 +331,7 @@ async function processActivityEvent(
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         console.warn(
-          `[Webhook:Processor] Failed to process week ${week.id}: ${message}`
+          `[Webhook:Processor] Failed to process week ${weekRecord.id}: ${message}`
         );
         // Continue to next week - don't fail entire event
       }
@@ -336,7 +341,7 @@ async function processActivityEvent(
     totalMatchedWeeks += matchedWeeks;
 
     console.log(
-      `[Webhook:Processor] Season "${season.name}": checked ${processedWeeks} weeks, matched ${matchedWeeks}`
+      `[Webhook:Processor] Season "${seasonRecord.name}": checked ${processedWeeks} weeks, matched ${matchedWeeks}`
     );
   }
 
@@ -404,9 +409,9 @@ async function processAthleteDisconnection(
     athleteId
   });
 
-  const participant = service.findParticipantByAthleteId(athleteId);
+  const participantRecord = service.findParticipantByAthleteId(athleteId);
 
-  if (!participant) {
+  if (!participantRecord) {
     console.log(
       `[Webhook:Processor] Participant ${athleteId} not found, nothing to disconnect`
     );
@@ -417,11 +422,11 @@ async function processAthleteDisconnection(
 
   if (result.deleted) {
     console.log(
-      `[Webhook:Processor] ✓ Disconnected ${participant.name} (athlete ID: ${athleteId}), deleted ${result.changes} token record(s)`
+      `[Webhook:Processor] ✓ Disconnected ${participantRecord.name} (athlete ID: ${athleteId}), deleted ${result.changes} token record(s)`
     );
   } else {
     console.log(
-      `[Webhook:Processor] No token record found for ${participant.name} (athlete ID: ${athleteId})`
+      `[Webhook:Processor] No token record found for ${participantRecord.name} (athlete ID: ${athleteId})`
     );
   }
 

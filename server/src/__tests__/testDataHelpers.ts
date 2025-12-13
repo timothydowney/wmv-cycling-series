@@ -43,8 +43,8 @@ interface CreateSegmentOptions {
 }
 
 interface CreateWeekOptions {
-  seasonId: number;
-  stravaSegmentId: number;
+  seasonId?: number;
+  stravaSegmentId?: number;
   weekName?: string;
   date?: string;
   requiredLaps?: number;
@@ -56,7 +56,7 @@ interface CreateActivityOptions {
   weekId: number;
   stravaAthleteId: number;
   stravaActivityId?: number; 
-  stravaSegmentId: number;
+  stravaSegmentId?: number; // Optional - only create segment effort if provided
   elapsedSeconds?: number;
   prAchieved?: boolean;
   activityStartTime?: string;
@@ -172,7 +172,7 @@ export function createSegment(db: TestDb, stravaSegmentId: number, name: string 
 /**
  * Create a test week
  */
-export function createWeek(db: TestDb, options: CreateWeekOptions): SelectWeek {
+export function createWeek(db: TestDb, options: CreateWeekOptions = {}): SelectWeek {
   const {
     seasonId,
     stravaSegmentId,
@@ -182,14 +182,27 @@ export function createWeek(db: TestDb, options: CreateWeekOptions): SelectWeek {
     endTime = '2025-06-01T22:00:00Z'
   } = options;
   
+  // Create default season and segment if not provided
+  let finalSeasonId = seasonId;
+  if (!finalSeasonId) {
+    const defaultSeason = createSeason(db, 'Default Test Season');
+    finalSeasonId = defaultSeason.id;
+  }
+  
+  let finalSegmentId = stravaSegmentId;
+  if (!finalSegmentId) {
+    const defaultSegment = createSegment(db, 12345678, 'Default Test Segment');
+    finalSegmentId = defaultSegment.strava_segment_id;
+  }
+  
   // Convert ISO 8601 times to Unix timestamps (UTC seconds)
   const startAtUnix = isoToUnix(startTime);
   const endAtUnix = isoToUnix(endTime);
   
   const newWeekData: InsertWeek = {
-    season_id: seasonId,
+    season_id: finalSeasonId,
     week_name: weekName,
-    strava_segment_id: stravaSegmentId,
+    strava_segment_id: finalSegmentId,
     required_laps: requiredLaps,
     start_at: startAtUnix || 0, // Ensure number
     end_at: endAtUnix || 0
@@ -200,9 +213,9 @@ export function createWeek(db: TestDb, options: CreateWeekOptions): SelectWeek {
 }
 
 /**
- * Create a test activity with segment efforts
+ * Create a test activity with optional segment efforts
  */
-export function createActivity(db: TestDb, options: CreateActivityOptions): SelectActivity & { segmentEffortId: number; totalTime: number } {
+export function createActivity(db: TestDb, options: CreateActivityOptions): SelectActivity & { segmentEffortId?: number; totalTime?: number } {
   const {
     weekId,
     stravaAthleteId,
@@ -229,37 +242,84 @@ export function createActivity(db: TestDb, options: CreateActivityOptions): Sele
   const newActivity = db.insert(activity).values(newActivityData).returning().get();
   console.log(`[TEST_HELPER] Created Activity: id=${newActivity.id}, weekId=${newActivity.week_id}, athleteId=${newActivity.strava_athlete_id}, stravaActivityId=${newActivity.strava_activity_id}`);
   
-  // Create segment effort
-  const newSegmentEffortData: InsertSegmentEffort = {
-    activity_id: newActivity.id,
-    strava_segment_id: stravaSegmentId,
-    effort_index: 0, // Assuming first effort by default
-    elapsed_seconds: elapsedSeconds,
-    start_at: effortStartAtUnix || 0, // Ensure number
-    pr_achieved: prAchieved ? 1 : 0,
-    strava_effort_id: String(Math.floor(Math.random() * 1000000000000000000))
-  };
-  const newSegmentEffort = db.insert(segmentEffort).values(newSegmentEffortData).returning().get();
-  console.log(`[TEST_HELPER] Created SegmentEffort: id=${newSegmentEffort.id}, activityId=${newSegmentEffort.activity_id}, segmentId=${newSegmentEffort.strava_segment_id}`);
+  // Create segment effort only if stravaSegmentId is provided
+  if (stravaSegmentId) {
+    const newSegmentEffortData: InsertSegmentEffort = {
+      activity_id: newActivity.id,
+      strava_segment_id: stravaSegmentId,
+      effort_index: 0, // Assuming first effort by default
+      elapsed_seconds: elapsedSeconds,
+      start_at: effortStartAtUnix || 0, // Ensure number
+      pr_achieved: prAchieved ? 1 : 0,
+      strava_effort_id: String(Math.floor(Math.random() * 1000000000000000000))
+    };
+    const newSegmentEffort = db.insert(segmentEffort).values(newSegmentEffortData).returning().get();
+    console.log(`[TEST_HELPER] Created SegmentEffort: id=${newSegmentEffort.id}, activityId=${newSegmentEffort.activity_id}, segmentId=${newSegmentEffort.strava_segment_id}`);
+    
+    return {
+      ...newActivity,
+      segmentEffortId: newSegmentEffort.id,
+      totalTime: elapsedSeconds
+    };
+  }
   
-  return {
-    ...newActivity,
-    segmentEffortId: newSegmentEffort.id,
-    totalTime: elapsedSeconds
+  return newActivity;
+}
+
+interface CreateSegmentEffortOptions {
+  activityId: number;
+  stravaSegmentId?: number;
+  effortIndex?: number;
+  elapsedSeconds?: number;
+  startAt?: string;
+  prAchieved?: number;
+  stravaEffortId?: string;
+}
+
+/**
+ * Create a standalone segment effort
+ * Useful for tests that need to add efforts to existing activities
+ */
+export function createSegmentEffort(db: TestDb, options: CreateSegmentEffortOptions): SelectSegmentEffort {
+  const {
+    activityId,
+    stravaSegmentId = 12345678,
+    effortIndex = 0,
+    elapsedSeconds = 600,
+    startAt = '2025-06-01T10:05:00Z',
+    prAchieved = 0,
+    stravaEffortId = String(Math.floor(Math.random() * 1000000000000000000))
+  } = options;
+
+  const effortStartAtUnix = isoToUnix(startAt);
+
+  const newSegmentEffortData: InsertSegmentEffort = {
+    activity_id: activityId,
+    strava_segment_id: stravaSegmentId,
+    effort_index: effortIndex,
+    elapsed_seconds: elapsedSeconds,
+    start_at: effortStartAtUnix || 0,
+    pr_achieved: prAchieved,
+    strava_effort_id: stravaEffortId
   };
+
+  const newSegmentEffort = db.insert(segmentEffort).values(newSegmentEffortData).returning().get();
+  console.log(`[TEST_HELPER] Created SegmentEffort: id=${newSegmentEffort.id}, activityId=${newSegmentEffort.activity_id}, segmentId=${newSegmentEffort.strava_segment_id}, elapsed=${newSegmentEffort.elapsed_seconds}s`);
+  
+  return newSegmentEffort;
 }
 
 /**
  * Create a test result record
  */
 export function createResult(db: TestDb, options: CreateResultOptions): SelectResult {
-  const { weekId, stravaAthleteId, activityId = null, totalTimeSeconds = 1000 } = options; // Removed rank, total_points, etc.
+  const { weekId, stravaAthleteId, activityId = null, totalTimeSeconds = 1000 } = options;
 
   const newResultData: InsertResult = {
     week_id: weekId,
     strava_athlete_id: stravaAthleteId,
     activity_id: activityId,
-    total_time_seconds: totalTimeSeconds,
+    total_time_seconds: totalTimeSeconds
   };
   const newResult = db.insert(result).values(newResultData).returning().get();
   console.log(`[TEST_HELPER] Created Result: id=${newResult.id}, weekId=${newResult.week_id}, athleteId=${newResult.strava_athlete_id}`);
@@ -271,7 +331,7 @@ interface FullUserWithActivityReturn {
   season: SelectSeason;
   segment: SelectSegment;
   week: SelectWeek;
-  activity: SelectActivity & { segmentEffortId: number; totalTime: number };
+  activity: SelectActivity & { segmentEffortId?: number; totalTime?: number };
   result: SelectResult;
 }
 
@@ -309,7 +369,7 @@ export function createFullUserWithActivity(db: TestDb, options: CreateFullUserOp
     weekId: newWeek.id,
     stravaAthleteId: newParticipant.strava_athlete_id,
     activityId: newActivity.id,
-    totalTimeSeconds: newActivity.totalTime,
+    totalTimeSeconds: newActivity.totalTime || 1000,  // Default to 1000 if no segment effort
   });
   
   return {
@@ -404,7 +464,8 @@ export function createWeekWithResults(db: TestDb, options: CreateWeekWithResults
       totalTimeSeconds: totalTime,
     });
     
-    activities.push(newActivity);
+    // Assert that the activity has the required fields since we provided stravaSegmentId
+    activities.push(newActivity as SelectActivity & { segmentEffortId: number; totalTime: number });
     results.push(newResult);
   });
   

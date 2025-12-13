@@ -66,9 +66,8 @@ class SegmentService {
         }
       };
       
-      // Pass the raw better-sqlite3 client to legacy token manager
-      const rawDb = (this.db as any).$client;
-      const accessToken = await getValidAccessToken(rawDb, stravaClient, tokenRecord.strava_athlete_id);
+      // Use canonical token manager with Drizzle DB
+      const accessToken = await getValidAccessToken(this.db, stravaClient, tokenRecord.strava_athlete_id);
 
       // Fetch segment metadata from Strava
       console.log(`[${context}] Fetching segment ${segmentId} from Strava API`);

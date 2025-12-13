@@ -185,8 +185,8 @@ const loginService = new LoginService(db, getAdminAthleteIds);
 
 // Initialize BatchFetchService with dependencies
 const batchFetchService = new BatchFetchService(
-  db,
-  (database: typeof db, athleteId: number) => getValidAccessToken(database, stravaClient, athleteId)
+  drizzleDb,
+  (database, athleteId) => getValidAccessToken(database, stravaClient, athleteId)
 );
 
 // Initialize WeekService with dependencies
@@ -232,7 +232,7 @@ const services = {
 // };
 
 // Initialize Webhook Logger
-const webhookLogger = new WebhookLogger(db);
+const webhookLogger = new WebhookLogger(drizzleDb);
 
 // ========================================
 // STATIC FILE SERVING (Frontend)
@@ -262,7 +262,7 @@ app.use(routes.public());
 app.use('/admin', createFetchRouter(db, drizzleDb));
 
 // Webhook routes
-app.use('/webhooks', createWebhookRouter(webhookLogger, db));
+app.use('/webhooks', createWebhookRouter(webhookLogger, drizzleDb));
 
 // SPA fallback: catch-all to serve index.html for client-side routing
 app.use(routes.fallback());

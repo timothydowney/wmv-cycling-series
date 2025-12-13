@@ -7,10 +7,12 @@
  * Caches results to avoid excessive API calls
  */
 
-import { Database } from 'better-sqlite3';
+import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import strava from 'strava-v3';
 import { getValidAccessToken } from '../tokenManager';
 import * as stravaClientLib from '../stravaClient';
+import { participantToken } from '../db/schema';
+import { desc } from 'drizzle-orm';
 
 // Simple in-memory cache to avoid fetching the same athlete multiple times
 // Cache expires after 1 hour
@@ -103,7 +105,7 @@ async function getAthleteProfilePicture(athleteId: number, accessToken: string):
  */
 async function getAthleteProfilePictures(
   athleteIds: number[], 
-  db: Database
+  db: BetterSQLite3Database
 ): Promise<Map<number, string | null>> {
   const results = new Map<number, string | null>();
   
@@ -146,9 +148,12 @@ async function getAthleteProfilePictures(
   if (athleteTokens.size === 0) {
     try {
       // Get any participant that has a token and refresh it
-      const anyParticipant = db.prepare(
-        'SELECT strava_athlete_id FROM participant_token ORDER BY updated_at DESC LIMIT 1'
-      ).get() as { strava_athlete_id: number } | undefined;
+      const anyParticipant = db
+        .select({ strava_athlete_id: participantToken.strava_athlete_id })
+        .from(participantToken)
+        .orderBy(desc(participantToken.updated_at))
+        .limit(1)
+        .get();
       
       if (anyParticipant) {
         const validToken = await getValidAccessToken(db, stravaClientLib, anyParticipant.strava_athlete_id);

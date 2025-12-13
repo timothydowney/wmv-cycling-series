@@ -3,7 +3,9 @@
  * Handles token storage, retrieval, decryption, and refresh
  */
 
-import { Database } from 'better-sqlite3';
+import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { participantToken } from './db/schema';
+import { eq } from 'drizzle-orm';
 import { decryptToken, encryptToken } from './encryption';
 
 /**
@@ -36,21 +38,32 @@ interface StravaClient {
 }
 
 /**
- * Get a valid access token for a participant, refreshing if needed
- * @param db - Better-sqlite3 database instance
+ * Get a valid access token for a participant, refreshing if needed (Drizzle)
+ * Canonical method name retained: getValidAccessToken
+ * @param db - Drizzle database instance
  * @param stravaClient - Strava API client
  * @param stravaAthleteId - The participant's Strava athlete ID
+ * @param forceRefresh - Whether to force a refresh even if valid
  * @returns Valid access token
  */
 async function getValidAccessToken(
-  db: Database,
+  db: BetterSQLite3Database | any,
   stravaClient: StravaClient,
   stravaAthleteId: number,
   forceRefresh: boolean = false
 ): Promise<string> {
-  const tokenRecord = db.prepare(`
-    SELECT * FROM participant_token WHERE strava_athlete_id = ?
-  `).get(stravaAthleteId) as TokenRecord | undefined;
+  let tokenRecord: TokenRecord | undefined;
+  if (typeof (db as any)?.select === 'function') {
+    tokenRecord = db
+      .select()
+      .from(participantToken)
+      .where(eq(participantToken.strava_athlete_id, stravaAthleteId))
+      .get();
+  } else if (typeof (db as any)?.prepare === 'function') {
+    tokenRecord = (db as any)
+      .prepare('SELECT * FROM participant_token WHERE strava_athlete_id = ?')
+      .get(stravaAthleteId) as TokenRecord | undefined;
+  }
 
   if (!tokenRecord) {
     throw new Error('Participant not connected to Strava');
@@ -82,19 +95,29 @@ async function getValidAccessToken(
 
       // Update database with NEW tokens (both access and refresh tokens change!)
       // Store encrypted
-      db.prepare(`
-        UPDATE participant_token 
-        SET access_token = ?,
-            refresh_token = ?,
-            expires_at = ?,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE strava_athlete_id = ?
-      `).run(
-        encryptToken(newTokenData.access_token),
-        encryptToken(newTokenData.refresh_token),
-        newTokenData.expires_at,
-        stravaAthleteId
-      );
+      if (typeof (db as any)?.update === 'function') {
+        db
+          .update(participantToken)
+          .set({
+            access_token: encryptToken(newTokenData.access_token),
+            refresh_token: encryptToken(newTokenData.refresh_token),
+            expires_at: newTokenData.expires_at,
+            updated_at: new Date().toISOString()
+          })
+          .where(eq(participantToken.strava_athlete_id, stravaAthleteId))
+          .run();
+      } else if (typeof (db as any)?.prepare === 'function') {
+        (db as any)
+          .prepare(
+            'UPDATE participant_token SET access_token = ?, refresh_token = ?, expires_at = ?, updated_at = CURRENT_TIMESTAMP WHERE strava_athlete_id = ?'
+          )
+          .run(
+            encryptToken(newTokenData.access_token),
+            encryptToken(newTokenData.refresh_token),
+            newTokenData.expires_at,
+            stravaAthleteId
+          );
+      }
 
       // Return the plaintext access token (kept in memory for use)
       return newTokenData.access_token;
@@ -117,5 +140,4 @@ async function getValidAccessToken(
     return tokenRecord.access_token;
   }
 }
-
 export { getValidAccessToken, type TokenRecord, type TokenData, type StravaClient };
