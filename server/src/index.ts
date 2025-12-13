@@ -15,9 +15,8 @@ import SqliteStore from 'better-sqlite3-session-store';
 import strava from 'strava-v3';
 import * as stravaClient from './stravaClient';
 import { getValidAccessToken } from './tokenManager';
-import { SCHEMA } from './schema';
-import { isoToUnix, unixToISO, nowISO } from './dateUtils';
-import { Season } from './db/schema'; // Import Season from Drizzle schema
+import { migrate } from 'drizzle-orm/better-sqlite3/migrator'; // Import Drizzle migrator
+import { season } from './db/schema'; // Import the Drizzle table object 'season'
 import LoginService from './services/LoginService';
 import BatchFetchService from './services/BatchFetchService';
 import WeekService from './services/WeekService';
@@ -29,7 +28,6 @@ import publicRouter from './routes/public';
 import fallbackRouter from './routes/fallback';
 import { createFetchRouter } from './routes/admin/fetch';
 import { createWebhookRouter } from './routes/webhooks';
-import { createWebhookAdminRoutes } from './routes/admin/webhooks';
 import { WebhookLogger } from './webhooks/logger';
 import { setupWebhookSubscription } from './webhooks/subscriptionManager';
 import { WebhookRenewalService } from './services/WebhookRenewalService';
@@ -139,11 +137,11 @@ if (isTestMode()) {
   }
 }
 
-// Initialize database schema
-console.log('[DB] Initializing database schema...');
+// Initialize database schema using Drizzle migrations
+console.log('[DB] Running Drizzle migrations...');
 try {
-  db.exec(SCHEMA);
-  console.log('[DB] ✓ Schema initialized successfully');
+  migrate(drizzleDb, { migrationsFolder: './drizzle' });
+  console.log('[DB] ✓ Drizzle migrations applied successfully');
   
   // Log table information
   const tables = db.prepare(`
@@ -166,7 +164,7 @@ try {
     }
   }
 } catch (err) {
-  console.log(`[DB] ✗ ERROR initializing schema: ${(err as Error).message}`);
+  console.log(`[DB] ✗ ERROR applying Drizzle migrations: ${(err as Error).message}`);
   throw err;
 }
 
@@ -262,7 +260,6 @@ app.use(routes.public());
 // app.use('/admin/participants', routes.participants(services, middleware));
 // app.use('/admin/segments', routes.segments(services, middleware));
 app.use('/admin', createFetchRouter(db, drizzleDb));
-app.use('/admin/webhooks', createWebhookAdminRoutes(db, stravaClient));
 
 // Webhook routes
 app.use('/webhooks', createWebhookRouter(webhookLogger, db));
@@ -277,18 +274,21 @@ export { app, db, checkAuthorization };
 // Only start server if not being imported for tests
 if (!isTestMode()) {
   // Seed season on startup if needed
+  // This seeding logic might also be better handled by Drizzle (seed scripts)
   const existingSeasons = db.prepare('SELECT COUNT(*) as count FROM season').get() as { count: number };
   if (existingSeasons.count === 0) {
     console.log('🌱 No seasons found. Creating Fall 2025 season...');
-    const fallStart = isoToUnix('2025-10-01T00:00:00Z');
-    const fallEnd = isoToUnix('2025-12-31T23:59:59Z');
-    db.prepare(`
-      INSERT INTO season (id, name, start_at, end_at, is_active)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(1, 'Fall 2025', fallStart, fallEnd, 1);
+    const fallStart = Math.floor(new Date('2025-10-01T00:00:00Z').getTime() / 1000);
+    const fallEnd = Math.floor(new Date('2025-12-31T23:59:59Z').getTime() / 1000);
+    // Use Drizzle for seeding
+    drizzleDb.insert(season).values({
+      name: 'Fall 2025',
+      start_at: fallStart,
+      end_at: fallEnd,
+      is_active: 1, // Assuming this column is still used by old logic somewhere
+    }).run();
     console.log('✅ Fall 2025 season created (Oct 1 - Dec 31)');
   }
-
   app.listen(PORT, '0.0.0.0', async () => {
     console.log(`WMV backend listening on port ${PORT}`);
     
@@ -300,7 +300,7 @@ if (!isTestMode()) {
     webhookRenewalService.start();
     
     // ===== TIMEZONE DIAGNOSTICS =====
-    const utcString = nowISO();
+    const utcString = new Date().toISOString(); // Using standard JS for now
     const now = new Date(utcString);
     const localString = now.toString();
     const tzOffsetMinutes = now.getTimezoneOffset();
@@ -314,13 +314,13 @@ if (!isTestMode()) {
     
     // Demonstrate timestamp conversions
     const exampleIso = '2025-10-28T12:00:00Z';
-    const exampleUnix = isoToUnix(exampleIso);
+    const exampleUnix = Math.floor(new Date(exampleIso).getTime() / 1000);
     console.log('[TIMEZONE DIAGNOSTIC] Example UTC conversion:');
     console.log(`  ISO string "${exampleIso}" → Unix timestamp: ${exampleUnix}`);
-    console.log(`  Back to ISO: ${unixToISO(exampleUnix)}`);
+    console.log(`  Back to ISO: ${new Date(exampleUnix * 1000).toISOString()}`);
     
     // Check database timezone context
-    const seasonCheck = db.prepare('SELECT * FROM season LIMIT 1').get() as Season | undefined;
+    const seasonCheck = drizzleDb.select().from(season).limit(1).get(); // Use Drizzle for check
     if (seasonCheck) {
       console.log('[TIMEZONE DIAGNOSTIC] Database context:');
       console.log(`  Active season: ${seasonCheck.name} (Unix: ${seasonCheck.start_at} to ${seasonCheck.end_at})`);

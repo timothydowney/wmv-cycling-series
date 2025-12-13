@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import './WebhookManagementPanel.css';
-import { api } from '../api';
+import { trpc } from '../utils/trpc'; // Import trpc
 
 import SubscriptionStatusCard from './WebhookComponents/SubscriptionStatusCard';
 import WebhookEventHistory from './WebhookComponents/WebhookEventHistory';
 import StorageStatusCard from './WebhookComponents/StorageStatusCard';
 
+// Interfaces for tRPC query results
 interface SubscriptionStatus {
   enabled: boolean;
   subscription_id: number | null;
@@ -17,80 +18,47 @@ interface SubscriptionStatus {
     successful_events: number;
     failed_events: number;
     pending_retries: number;
-    events_last_24h: number;
+    events_last24h: number; // Changed from events_last_24h to match tRPC output
     success_rate: number;
   };
 }
 
 interface StorageStatus {
   database_size_mb: number;
-  max_size_mb: number;
+  max_size_mb: number; // Changed from available_space_mb
   usage_percentage: number;
   auto_disable_threshold: number;
   should_auto_disable: boolean;
+  warning_message: string | null;
   events_count: number;
   events_per_day: number;
   estimated_weeks_remaining: number;
   last_calculated_at: string;
-  warning_message: string | null;
 }
 
 export const WebhookManagementPanel: React.FC = () => {
-  const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
-  const [storage, setStorage] = useState<StorageStatus | null>(null);
   const [activeTab, setActiveTab] = useState<'status' | 'events' | 'storage'>('status');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
+  // tRPC queries
+  const { data: subscription, isLoading: isLoadingSubscription, error: subscriptionError, refetch: refetchSubscription } =
+    trpc.webhookAdmin.getStatus.useQuery(undefined, {
+      refetchInterval: 30000, // Auto-refresh every 30 seconds
+    });
 
-  const fetchSubscriptionStatus = useCallback(async () => {
-    try {
-      const response = await api.getWebhookStatus();
-      setSubscription(response);
-      setError(null);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch subscription status';
-      setError(message);
-      console.error('Failed to fetch subscription status:', err);
-    }
-  }, []);
+  const { data: storage, isLoading: isLoadingStorage, error: storageError, refetch: refetchStorage } =
+    trpc.webhookAdmin.getStorageStatus.useQuery(undefined, {
+      refetchInterval: 30000, // Auto-refresh every 30 seconds
+    });
 
-  const fetchStorageStatus = useCallback(async () => {
-    try {
-      const response = await api.getWebhookStorageStatus();
-      setStorage(response);
-    } catch (err) {
-      console.error('Failed to fetch storage status:', err);
-    }
-  }, []);
-
-
+  const isLoading = isLoadingSubscription || isLoadingStorage;
+  const error = subscriptionError?.message || storageError?.message || null;
 
   const handleRefresh = useCallback(async () => {
-    await fetchSubscriptionStatus();
-    await fetchStorageStatus();
-  }, [fetchSubscriptionStatus, fetchStorageStatus]);
+    refetchSubscription();
+    refetchStorage();
+  }, [refetchSubscription, refetchStorage]);
 
-  useEffect(() => {
-    const initLoad = async () => {
-      setLoading(true);
-      try {
-        await handleRefresh();
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initLoad();
-  }, [handleRefresh]);
-
-  // Auto-refresh every 30 seconds
-  useEffect(() => {
-    const interval = setInterval(handleRefresh, 30000);
-    return () => clearInterval(interval);
-  }, [handleRefresh]);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="webhook-panel">
         <div className="loading">Loading webhook management panel...</div>
@@ -134,8 +102,8 @@ export const WebhookManagementPanel: React.FC = () => {
       <div className="webhook-content">
         {activeTab === 'status' && subscription && (
           <SubscriptionStatusCard
-            subscription={subscription}
-            onStatusUpdate={fetchSubscriptionStatus}
+            subscription={subscription as SubscriptionStatus} // Cast to correct type
+            onStatusUpdate={handleRefresh}
           />
         )}
 
@@ -144,7 +112,7 @@ export const WebhookManagementPanel: React.FC = () => {
         )}
 
         {activeTab === 'storage' && storage && (
-          <StorageStatusCard storage={storage} />
+          <StorageStatusCard storage={storage as StorageStatus} /> // Cast to correct type
         )}
       </div>
     </div>

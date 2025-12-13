@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { api } from '../../api';
+import React from 'react';
+import { trpc } from '../../utils/trpc'; // Import trpc
 import WebhookEventCard, { WebhookEvent } from './WebhookEventCard';
 import './WebhookAthleteEventCard.css';
 
@@ -14,36 +14,23 @@ interface WebhookAthleteEventCardProps {
 }
 
 const WebhookAthleteEventCard: React.FC<WebhookAthleteEventCardProps> = ({ event }) => {
-  const [enrichment, setEnrichment] = useState<EnrichedAthlete | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: enrichmentData, isLoading } = trpc.webhookAdmin.getEnrichedEventDetails.useQuery(
+    { id: event.id },
+    {
+      enabled: !!event.id, // Only run query if event.id exists
+      select: (data) => data.enrichment?.athlete, // Select only the athlete part
+    }
+  );
 
-  useEffect(() => {
-    const fetchEnrichment = async () => {
-      try {
-        setLoading(true);
-        const response = await api.getWebhookEventEnrichment(event.id);
-        if (response && response.athlete) {
-          setEnrichment(response.athlete);
-        } else {
-          setEnrichment(null);
-        }
-      } catch (err) {
-        setEnrichment(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchEnrichment();
-  }, [event.id]);
+  const enrichment: EnrichedAthlete | null = enrichmentData || null;
 
   const getHeaderTitle = (): React.ReactNode => {
-    if (loading) {
-      return <span className="header-fallback">Athlete {event.payload.object_id}</span>;
+    if (isLoading) {
+      return <span className="header-fallback">Athlete {event.payload.owner_id}</span>;
     }
 
     if (!enrichment?.name) {
-      return <span className="header-fallback">Athlete {event.payload.object_id}</span>;
+      return <span className="header-fallback">Athlete {event.payload.owner_id}</span>;
     }
 
     return (
@@ -59,7 +46,7 @@ const WebhookAthleteEventCard: React.FC<WebhookAthleteEventCardProps> = ({ event
   };
 
   const renderAthleteContent = () => {
-    if (loading) {
+    if (isLoading) {
       return (
         <div className="card-body">
           <div className="loading-spinner">Loading athlete details...</div>
@@ -75,7 +62,7 @@ const WebhookAthleteEventCard: React.FC<WebhookAthleteEventCardProps> = ({ event
           </div>
         ) : (
           <div className="error-message-inline">
-            Athlete {event.payload.object_id} was not found. It may not be accessible.
+            Athlete {event.payload.owner_id} was not found. It may not be accessible.
           </div>
         )}
       </div>

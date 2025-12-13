@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { api } from '../../api';
+import { trpc } from '../../utils/trpc'; // Import trpc
 import WebhookActivityEventCard from './WebhookActivityEventCard';
 import WebhookAthleteEventCard from './WebhookAthleteEventCard';
 import './WebhookEventHistory.css';
+import { keepPreviousData } from '@tanstack/react-query'; // Import keepPreviousData
+import { TRPCClientErrorLike } from '@trpc/client'; // Import TRPCClientErrorLike
+
 
 interface WebhookPayload {
   aspect_type: 'create' | 'update' | 'delete';
@@ -14,79 +17,52 @@ interface WebhookPayload {
   updates?: Record<string, unknown>;
 }
 
-interface WebhookEvent {
-  id: number;
-  created_at: string;
-  payload: WebhookPayload;
-  processed: boolean;
-  error_message: string | null;
-}
-
-interface WebhookEventsResponse {
-  events: WebhookEvent[];
-  total: number;
-  limit: number;
-  offset: number;
-}
-
 interface Props {
   // No props required for now
 }
 
 const WebhookEventHistory: React.FC<Props> = () => {
-  const [events, setEvents] = useState<WebhookEvent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [pagination, setPagination] = useState({ total: 0, limit: 50, offset: 0, has_more: false });
-  const [filters, setFilters] = useState({ status: 'all', since: 604800 });
+  const [pagination, setPagination] = useState({ limit: 50, offset: 0 });
+  const [filters, setFilters] = useState({ status: 'all', since: 604800 }); // Default to 7 days
   const [message, setMessage] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<Record<number, 'raw' | 'formatted'>>({})
+  const [viewMode, setViewMode] = useState<Record<number, 'raw' | 'formatted'>>({});
 
-  const fetchEvents = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response: WebhookEventsResponse = await api.getWebhookEvents(
-        pagination.limit,
-        pagination.offset,
-        filters.since
-      );
-      setEvents(response.events);
-      setPagination({
-        total: response.total,
-        limit: response.limit,
-        offset: response.offset,
-        has_more: response.offset + response.limit < response.total
-      });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to fetch events';
-      setError(msg);
-    } finally {
-      setLoading(false);
+  const { data, isLoading, error: queryError, refetch } = trpc.webhookAdmin.getEvents.useQuery(
+    {
+      limit: pagination.limit,
+      offset: pagination.offset,
+      since: filters.since,
+      status: filters.status as 'all' | 'success' | 'failed',
+    },
+    {
+      placeholderData: keepPreviousData, // Keep data while fetching new page/filters
+      // Rely on queryError for display, use local message for mutations
     }
-  }, [pagination.limit, pagination.offset, filters.since]);
+  );
 
-  const handleClearAll = useCallback(async () => {
-    if (!window.confirm(`Clear all ${pagination.total} webhook events? This cannot be undone.`)) {
+  const clearEventsMutation = trpc.webhookAdmin.clearEvents.useMutation({
+    onSuccess: () => {
+      setMessage('All events cleared successfully');
+      refetch();
+      setTimeout(() => setMessage(null), 3000);
+    },
+    onError: (err: TRPCClientErrorLike<any>) => { // Explicitly type err as TRPCClientErrorLike
+      setMessage(`Failed to clear events: ${err.message}`);
+    }
+  });
+
+  const handleClearAll = useCallback(() => {
+    if (!window.confirm(`Clear all ${data?.total || 0} webhook events? This cannot be undone.`)) {
       return;
     }
-    setLoading(true);
-    try {
-      await api.clearWebhookEvents();
-      setMessage('All events cleared successfully');
-      await fetchEvents();
-      setTimeout(() => setMessage(null), 3000);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to clear events';
-      setMessage(msg);
-    } finally {
-      setLoading(false);
-    }
-  }, [pagination.total, fetchEvents]);
+    clearEventsMutation.mutate({ confirm: 'yes' });
+  }, [data?.total, clearEventsMutation]);
 
+  // Refetch when filters or pagination change
   useEffect(() => {
-    fetchEvents();
-  }, [fetchEvents]);
+    refetch();
+  }, [pagination, filters, refetch]);
+
 
   const toggleViewMode = (eventId: number) => {
     setViewMode((prev) => ({
@@ -152,6 +128,12 @@ const WebhookEventHistory: React.FC<Props> = () => {
     );
   };
 
+  const currentError = queryError?.message; // Consolidate error messages
+
+  const events = data?.events || [];
+  const total = data?.total || 0;
+  const has_more = (data?.offset || 0) + (data?.limit || 0) < total;
+
   return (
     <div className="event-history">
       <div className="event-filters">
@@ -188,15 +170,15 @@ const WebhookEventHistory: React.FC<Props> = () => {
           </select>
         </div>
 
-        <button className="clear-btn" onClick={handleClearAll} disabled={loading || pagination.total === 0}>
+        <button className="clear-btn" onClick={handleClearAll} disabled={isLoading || clearEventsMutation.isPending || total === 0}>
           Clear All Events
         </button>
       </div>
 
-      {error && <div className="error-message">{error}</div>}
       {message && <div className="success-message">{message}</div>}
+      {currentError && <div className="error-message">{currentError}</div>}
 
-      {loading ? (
+      {isLoading ? (
         <div className="loading">Loading events...</div>
       ) : events.length === 0 ? (
         <div className="empty-state">
@@ -265,13 +247,13 @@ const WebhookEventHistory: React.FC<Props> = () => {
           <div className="pagination">
             <p>
               Showing {pagination.offset + 1} to{' '}
-              {Math.min(pagination.offset + pagination.limit, pagination.total)} of{' '}
-              {pagination.total} events
+              {Math.min(pagination.offset + pagination.limit, total)} of{' '}
+              {total} events
             </p>
             <div className="pagination-buttons">
               <button
                 onClick={() =>
-                  setPagination({ ...pagination, offset: Math.max(0, pagination.offset - pagination.limit) })
+                  setPagination((prev) => ({ ...prev, offset: Math.max(0, prev.offset - prev.limit) }))
                 }
                 disabled={pagination.offset === 0}
               >
@@ -279,9 +261,9 @@ const WebhookEventHistory: React.FC<Props> = () => {
               </button>
               <button
                 onClick={() =>
-                  setPagination({ ...pagination, offset: pagination.offset + pagination.limit })
+                  setPagination((prev) => ({ ...prev, offset: prev.offset + prev.limit }))
                 }
-                disabled={!pagination.has_more}
+                disabled={!has_more}
               >
                 Next
               </button>
@@ -294,3 +276,4 @@ const WebhookEventHistory: React.FC<Props> = () => {
 };
 
 export default WebhookEventHistory;
+

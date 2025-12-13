@@ -8,7 +8,8 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import Database from 'better-sqlite3';
 import ActivityValidationService from '../services/ActivityValidationService';
-import { SCHEMA } from '../schema';
+import { setupTestDb } from './setupTestDb'; // Import setupTestDb
+// import { SCHEMA } from '../schema'; // Removed
 
 describe('Webhook Processor with Multiple Season Support', () => {
   let db: Database.Database;
@@ -16,12 +17,10 @@ describe('Webhook Processor with Multiple Season Support', () => {
   const now = Math.floor(Date.now() / 1000);
 
   beforeEach(() => {
-    // Create in-memory test database
-    db = new Database(':memory:');
-    db.pragma('journal_mode = WAL');
-    db.pragma('foreign_keys = ON');
-    db.exec(SCHEMA);
-
+    // Create in-memory test database and run migrations
+    const { db: newDb } = setupTestDb({ seed: false });
+    db = newDb;
+    // validationService needs the raw db instance
     validationService = new ActivityValidationService(db);
   });
 

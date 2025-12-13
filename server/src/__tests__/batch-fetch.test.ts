@@ -38,7 +38,21 @@ jest.mock('strava-v3', () => ({
 // Mock stravaClient to control API responses in tests
 jest.mock('../stravaClient', () => ({
   listAthleteActivities: jest.fn(),
-  getActivity: jest.fn()
+  getActivity: jest.fn(),
+  getSegment: jest.fn().mockResolvedValue({
+    id: 12345678,
+    name: 'Test Segment',
+    distance: 2500,
+    average_grade: 8.5
+  }),
+  mapStravaSegmentToSegmentRow: jest.fn().mockImplementation((s) => ({
+    strava_segment_id: s.id,
+    name: s.name,
+    distance: s.distance,
+    average_grade: s.average_grade,
+    total_elevation_gain: s.total_elevation_gain || 0,
+    climb_category: s.climb_category || 0
+  }))
 }));
 
 describe('Batch Fetch - POST /admin/weeks/:id/fetch-results', () => {
@@ -137,7 +151,7 @@ describe('Batch Fetch - POST /admin/weeks/:id/fetch-results', () => {
       .set('Cookie', 'sid=admin-test');
 
     expect(response.status).toBe(200);
-    expect(response.text).toContain('connected');
+    expect(response.text).toContain('event: log');
   });
 
   test('should require endpoint to exist and be callable', async () => {
@@ -190,7 +204,7 @@ describe('Batch Fetch - POST /admin/weeks/:id/fetch-results', () => {
     expect(response.status).toBe(200);
     // SSE response - verify stream contains expected data
     // expect(response.text).toContain('participants_processed');
-    expect(response.text).toContain('connected');
+    expect(response.text).toContain('event: log');
   });
 
   test('should include summary of results in response', async () => {
@@ -351,15 +365,7 @@ describe('Batch Fetch - POST /admin/weeks/:id/fetch-results', () => {
       .post('/admin/weeks/999999/fetch-results')
       .set('Cookie', 'sid=admin-test');
 
-    // If the router catches errors and sends SSE error, status is 200.
-    // If it throws before SSE header, it might be 500.
-    // Let's accept 200 if it sends SSE error.
-    
-    // Ideally it should be 404 if not found validation is early.
-    // In the router code:
-    // try { ... fetchWeekResults ... } catch (error) { ... res.write error ... res.end() }
-    // So it will be 200 with error event.
-    expect(response.status).toBe(200);
-    expect(response.text).toContain('"type":"error"');
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: 'Week not found' });
   });
 });

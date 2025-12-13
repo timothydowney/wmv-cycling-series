@@ -11,10 +11,10 @@ describe('leaderboardRouter', () => {
   let caller: ReturnType<typeof appRouter.createCaller>;
 
   beforeAll(() => {
-    const testDb = setupTestDb();
-    db = testDb.db;
-    drizzleDb = testDb.drizzleDb;
-    seedData = testDb.seedData;
+    const { db: newDb, drizzleDb: newDrizzleDb, seedData: seededData } = setupTestDb({ seed: true }); // Explicitly seed data
+    db = newDb; // Assign to local db
+    drizzleDb = newDrizzleDb; // Assign to local drizzleDb
+    seedData = seededData!; // Assert it's defined since seed is true
     caller = appRouter.createCaller(createContext({ 
       dbOverride: db, 
       drizzleDbOverride: drizzleDb,
@@ -22,7 +22,6 @@ describe('leaderboardRouter', () => {
       res: {} as any
     }));
   });
-
   afterAll(() => {
     teardownTestDb(db);
   });

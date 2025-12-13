@@ -6,7 +6,8 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import Database from 'better-sqlite3';
 import ActivityValidationService from '../services/ActivityValidationService';
-import { SCHEMA } from '../schema';
+import { setupTestDb } from './setupTestDb'; // Import setupTestDb
+// import { SCHEMA } from '../schema'; // Removed
 
 describe('ActivityValidationService', () => {
   let db: Database.Database;
@@ -14,9 +15,10 @@ describe('ActivityValidationService', () => {
   const now = Math.floor(Date.now() / 1000);
 
   beforeEach(() => {
-    db = new Database(':memory:');
-    db.pragma('foreign_keys = ON');
-    db.exec(SCHEMA);
+    const { db: newDb } = setupTestDb({ seed: false }); // Use setupTestDb with no seed
+    db = newDb;
+    // db.pragma('foreign_keys = ON'); // Handled by Drizzle migrations if needed
+    // db.exec(SCHEMA); // Removed
     service = new ActivityValidationService(db);
 
     // Create test segments first (required for week foreign key)

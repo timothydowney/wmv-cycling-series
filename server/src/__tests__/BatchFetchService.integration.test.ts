@@ -5,10 +5,11 @@
  * Focuses on verifying that batch fetch respects season end dates.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach, beforeAll } from '@jest/globals';
 import Database from 'better-sqlite3';
 import BatchFetchService from '../services/BatchFetchService';
-import { SCHEMA } from '../schema';
+import { setupTestDb } from './setupTestDb'; // Import setupTestDb
+// import { SCHEMA } from '../schema'; // Removed
 
 describe('BatchFetchService with Season Validation', () => {
   let db: Database.Database;
@@ -16,15 +17,20 @@ describe('BatchFetchService with Season Validation', () => {
   const now = Math.floor(Date.now() / 1000);
 
   beforeEach(() => {
-    // Create in-memory test database
-    db = new Database(':memory:');
-    db.pragma('journal_mode = WAL');
-    db.pragma('foreign_keys = ON');
-    db.exec(SCHEMA);
+    // Create in-memory test database and run migrations
+    const { db: newDb } = setupTestDb({ seed: false });
+    db = newDb;
 
-    // Create service instance with mock token provider
+    // Create a common segment for all tests in this suite
+    db.prepare(
+      `INSERT INTO segment (strava_segment_id, name, distance, average_grade)
+       VALUES (?, ?, ?, ?)`
+    ).run(999999, 'Test Segment', 2500, 6.5);
+
+    // Create service instance with mock token provider (reset for each test)
     service = new BatchFetchService(db, async () => 'mock-token');
   });
+
 
   afterEach(() => {
     db.close();

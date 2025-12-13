@@ -36,11 +36,6 @@ export function createFetchRouter(sqliteDb: Database, drizzleDb: BetterSQLite3Da
       return;
     }
 
-    // Set headers for SSE
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-
     try {
       // Get week details first (now with proper drizzle database type)
       let week;
@@ -50,6 +45,11 @@ export function createFetchRouter(sqliteDb: Database, drizzleDb: BetterSQLite3Da
         res.status(404).json({ error: 'Week not found' });
         return;
       }
+
+      // Set headers for SSE
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
 
       // Helper to send SSE log event (matches FetchLogEntry interface)
       const sendLog = (
