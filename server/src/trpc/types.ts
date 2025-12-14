@@ -16,8 +16,11 @@ export interface LeaderboardEntryWithDetails {
   name: string;
   total_time_seconds: number;
   time_hhmmss: string; // This will need to be formatted in the frontend
-  points: number;
+  base_points: number; // NEW: Base points breakdown
+  participation_bonus: number; // NEW: Participation bonus breakdown
   pr_bonus_points: number;
+  multiplier: number; // NEW: Week multiplier
+  points: number;
   activity_url: string;
   activity_date: string;
   profile_picture_url?: string | null;

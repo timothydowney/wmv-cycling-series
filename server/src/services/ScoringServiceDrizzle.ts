@@ -1,4 +1,4 @@
-import { activity, participant, result, segmentEffort } from '../db/schema';
+import { activity, participant, result, segmentEffort, week } from '../db/schema';
 import { eq, max, sql } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
@@ -8,7 +8,9 @@ export interface ScoringResult {
   rank: number;
   totalTimeSeconds: number;
   basePoints: number;
+  participationBonus: number;
   prBonusPoints: number;
+  multiplier: number;
   totalPoints: number;
 }
 
@@ -19,11 +21,21 @@ export interface LeaderboardResult {
 
 /**
  * Calculate scoring for a week's leaderboard using Drizzle ORM
+ * Applies multiplier to all scoring components: (basePoints + participationBonus + prBonusPoints) * multiplier
  */
 export async function calculateWeekScoringDrizzle(
   drizzleDb: BetterSQLite3Database, // Accept drizzleDb as argument
   weekId: number
 ): Promise<LeaderboardResult> {
+  // Get week multiplier
+  const weekData = await drizzleDb
+    .select({ multiplier: week.multiplier })
+    .from(week)
+    .where(eq(week.id, weekId))
+    .get();
+
+  const multiplier = weekData?.multiplier ?? 1;
+
   // Get all results for the week, sorted by time
   const rawResults = await drizzleDb // Use injected drizzleDb
     .select({
@@ -50,9 +62,14 @@ export async function calculateWeekScoringDrizzle(
   const totalParticipants = rawResults.length;
   const scoredResults: ScoringResult[] = rawResults.map((res: typeof rawResults[0], index: number) => {
     const rank = index + 1;
-    const basePoints = totalParticipants - rank + 1;
+    // basePoints = number of participants beaten = (total - rank)
+    const basePoints = totalParticipants - rank;
+    const participationBonus = 1; // Always 1 point for participating
     const prBonusPoints = res.pr_achieved && Number(res.pr_achieved) > 0 ? 1 : 0;
-    const totalPoints = basePoints + prBonusPoints;
+    
+    // Apply multiplier to total scoring (basePoints + participationBonus + prBonusPoints) * multiplier
+    const subtotal = basePoints + participationBonus + prBonusPoints;
+    const totalPoints = subtotal * multiplier;
 
     return {
       participantId: res.strava_athlete_id,
@@ -60,7 +77,9 @@ export async function calculateWeekScoringDrizzle(
       rank,
       totalTimeSeconds: res.total_time_seconds,
       basePoints,
+      participationBonus,
       prBonusPoints,
+      multiplier,
       totalPoints,
     };
   });

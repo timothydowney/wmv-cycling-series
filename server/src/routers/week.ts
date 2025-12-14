@@ -37,6 +37,7 @@ export const weekRouter = router({
       required_laps: z.number(),
       start_at: z.number().optional(),
       end_at: z.number().optional(),
+      multiplier: z.number().int().min(1).default(1).optional(), // NEW: Scoring multiplier
       notes: z.string().optional()
     }))
     .mutation(async ({ ctx, input }) => {
@@ -57,6 +58,7 @@ export const weekRouter = router({
         end_time: z.string().optional(),
         start_at: z.number().optional(),
         end_at: z.number().optional(),
+        multiplier: z.number().int().min(1).optional(), // NEW: Scoring multiplier
         segment_name: z.string().optional(),
         notes: z.string().optional()
       })

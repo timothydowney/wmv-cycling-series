@@ -15,6 +15,13 @@
       "when": 1764703836072,
       "tag": "0001_lean_miek",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1764800000000,
+      "tag": "0002_add_week_multiplier",
+      "breakpoints": true
     }
   ]
 }
