@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Token Manager Tests
  * Tests for OAuth token lifecycle management
@@ -6,258 +5,266 @@
 
 import { getValidAccessToken } from '../tokenManager';
 import { encryptToken, decryptToken } from '../encryption';
+import { setupTestDb } from './setupTestDb';
+import { participantToken } from '../db/schema';
+import { eq } from 'drizzle-orm';
+import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
-// Mock dependencies
-jest.mock('../encryption');
+// Mock Strava client interface
+interface MockStravaClient {
+  refreshAccessToken(token: string): Promise<{ access_token: string; refresh_token: string; expires_at: number }>;
+}
 
 describe('Token Manager', () => {
-  let mockDb;
-  let mockStravaClient;
+  let drizzleDb: BetterSQLite3Database;
+  let mockStravaClient: MockStravaClient;
   const testAthleteId = 12345678;
 
   beforeEach(() => {
-    jest.clearAllMocks();
-
-    // Mock database
-    mockDb = {
-      prepare: jest.fn()
-    };
+    const { drizzleDb: testDb } = setupTestDb({ seed: false });
+    drizzleDb = testDb;
 
     // Mock Strava client
     mockStravaClient = {
       refreshAccessToken: jest.fn()
     };
-
-    // Reset encryption mocks
-    encryptToken.mockImplementation(token => `encrypted_${token}`);
-    decryptToken.mockImplementation(token => token.replace('encrypted_', ''));
   });
 
   describe('getValidAccessToken', () => {
     it('should return cached token when not expiring soon', async () => {
       const futureExpiry = Math.floor(Date.now() / 1000) + 7200; // 2 hours
-      const mockTokenRecord = {
+      const testAccessToken = 'test_access_token_123';
+      const testRefreshToken = 'test_refresh_token_456';
+
+      // Insert a token record
+      drizzleDb.insert(participantToken).values({
         strava_athlete_id: testAthleteId,
-        access_token: 'encrypted_valid_token',
-        refresh_token: 'encrypted_refresh_token',
-        expires_at: futureExpiry
-      };
+        access_token: encryptToken(testAccessToken),
+        refresh_token: encryptToken(testRefreshToken),
+        expires_at: futureExpiry,
+        scope: 'activity:read'
+      }).execute();
 
-      const mockStatement = {
-        get: jest.fn().mockReturnValue(mockTokenRecord)
-      };
-      mockDb.prepare.mockReturnValue(mockStatement);
-
-      const result = await getValidAccessToken(mockDb, mockStravaClient, testAthleteId);
-
-      expect(result).toBe('valid_token');
-      expect(mockDb.prepare).toHaveBeenCalledWith(
-        expect.stringContaining('SELECT * FROM participant_token')
+      const result = await getValidAccessToken(
+        drizzleDb,
+        mockStravaClient as MockStravaClient,
+        testAthleteId
       );
-      expect(decryptToken).toHaveBeenCalledWith('encrypted_valid_token');
+
+      expect(result).toBe(testAccessToken);
       expect(mockStravaClient.refreshAccessToken).not.toHaveBeenCalled();
     });
 
     it('should refresh token when expiring soon (within 1 hour)', async () => {
       const soonExpiry = Math.floor(Date.now() / 1000) + 1800; // 30 minutes
-      const mockTokenRecord = {
+      const oldAccessToken = 'old_access_token';
+      const oldRefreshToken = 'old_refresh_token';
+      const newAccessToken = 'new_access_token';
+      const newRefreshToken = 'new_refresh_token';
+      const newExpiry = Math.floor(Date.now() / 1000) + 21600; // 6 hours
+
+      // Insert old token
+      drizzleDb.insert(participantToken).values({
         strava_athlete_id: testAthleteId,
-        access_token: 'encrypted_old_token',
-        refresh_token: 'encrypted_old_refresh',
-        expires_at: soonExpiry
-      };
+        access_token: encryptToken(oldAccessToken),
+        refresh_token: encryptToken(oldRefreshToken),
+        expires_at: soonExpiry,
+        scope: 'activity:read'
+      }).execute();
 
-      const newTokenData = {
-        access_token: 'new_valid_token',
-        refresh_token: 'new_refresh_token',
-        expires_at: Math.floor(Date.now() / 1000) + 21600 // 6 hours
-      };
+      // Mock refresh response
+      (mockStravaClient.refreshAccessToken as jest.Mock).mockResolvedValue({
+        access_token: newAccessToken,
+        refresh_token: newRefreshToken,
+        expires_at: newExpiry
+      });
 
-      mockStravaClient.refreshAccessToken.mockResolvedValue(newTokenData);
-
-      const mockSelectStatement = {
-        get: jest.fn().mockReturnValue(mockTokenRecord)
-      };
-      const mockUpdateStatement = {
-        run: jest.fn()
-      };
-
-      mockDb.prepare
-        .mockReturnValueOnce(mockSelectStatement) // SELECT
-        .mockReturnValueOnce(mockUpdateStatement); // UPDATE
-
-      const result = await getValidAccessToken(mockDb, mockStravaClient, testAthleteId);
-
-      expect(result).toBe('new_valid_token');
-      expect(mockStravaClient.refreshAccessToken).toHaveBeenCalledWith('old_refresh');
-      expect(mockDb.prepare).toHaveBeenCalledWith(
-        expect.stringContaining('UPDATE participant_token')
+      const result = await getValidAccessToken(
+        drizzleDb,
+        mockStravaClient as MockStravaClient,
+        testAthleteId
       );
-      expect(encryptToken).toHaveBeenCalledWith('new_valid_token');
-      expect(encryptToken).toHaveBeenCalledWith('new_refresh_token');
+
+      expect(result).toBe(newAccessToken);
+      expect(mockStravaClient.refreshAccessToken).toHaveBeenCalledWith(oldRefreshToken);
+
+      // Verify token was updated in database
+      const updated = drizzleDb
+        .select()
+        .from(participantToken)
+        .where(eq(participantToken.strava_athlete_id, testAthleteId))
+        .get();
+
+      expect(updated).toBeDefined();
+      if (updated) {
+        expect(decryptToken(updated.access_token)).toBe(newAccessToken);
+        expect(updated.expires_at).toBe(newExpiry);
+      }
     });
 
     it('should handle decryption failure for plaintext tokens (migration case)', async () => {
       const futureExpiry = Math.floor(Date.now() / 1000) + 7200;
-      const mockTokenRecord = {
+      const plaintextToken = 'plaintext_token'; // Not encrypted
+
+      // Insert plaintext token (migration scenario)
+      drizzleDb.insert(participantToken).values({
         strava_athlete_id: testAthleteId,
-        access_token: 'plaintext_token', // Not encrypted
+        access_token: plaintextToken,
         refresh_token: 'plaintext_refresh',
-        expires_at: futureExpiry
-      };
+        expires_at: futureExpiry,
+        scope: 'activity:read'
+      }).execute();
 
-      const mockStatement = {
-        get: jest.fn().mockReturnValue(mockTokenRecord)
-      };
-      mockDb.prepare.mockReturnValue(mockStatement);
+      const result = await getValidAccessToken(
+        drizzleDb,
+        mockStravaClient as MockStravaClient,
+        testAthleteId
+      );
 
-      decryptToken.mockImplementationOnce(() => {
-        throw new Error('Not valid encrypted format');
-      });
-
-      const result = await getValidAccessToken(mockDb, mockStravaClient, testAthleteId);
-
-      expect(result).toBe('plaintext_token');
+      expect(result).toBe(plaintextToken);
       expect(mockStravaClient.refreshAccessToken).not.toHaveBeenCalled();
     });
 
     it('should throw error when participant not connected', async () => {
-      const mockStatement = {
-        get: jest.fn().mockReturnValue(null)
-      };
-      mockDb.prepare.mockReturnValue(mockStatement);
-
       await expect(
-        getValidAccessToken(mockDb, mockStravaClient, testAthleteId)
+        getValidAccessToken(
+          drizzleDb,
+          mockStravaClient as MockStravaClient,
+          testAthleteId
+        )
       ).rejects.toThrow('Participant not connected to Strava');
     });
 
     it('should throw error when token refresh fails', async () => {
       const soonExpiry = Math.floor(Date.now() / 1000) + 1800;
-      const mockTokenRecord = {
-        strava_athlete_id: testAthleteId,
-        access_token: 'encrypted_old_token',
-        refresh_token: 'encrypted_old_refresh',
-        expires_at: soonExpiry
-      };
+      const oldAccessToken = 'old_token';
+      const oldRefreshToken = 'old_refresh';
 
-      mockStravaClient.refreshAccessToken.mockRejectedValue(
+      drizzleDb.insert(participantToken).values({
+        strava_athlete_id: testAthleteId,
+        access_token: encryptToken(oldAccessToken),
+        refresh_token: encryptToken(oldRefreshToken),
+        expires_at: soonExpiry,
+        scope: 'activity:read'
+      }).execute();
+
+      (mockStravaClient.refreshAccessToken as jest.Mock).mockRejectedValue(
         new Error('Strava API error: Invalid refresh token')
       );
 
-      const mockStatement = {
-        get: jest.fn().mockReturnValue(mockTokenRecord)
-      };
-      mockDb.prepare.mockReturnValue(mockStatement);
-
       await expect(
-        getValidAccessToken(mockDb, mockStravaClient, testAthleteId)
+        getValidAccessToken(
+          drizzleDb,
+          mockStravaClient as MockStravaClient,
+          testAthleteId
+        )
       ).rejects.toThrow('Failed to refresh token');
     });
 
     it('should update database with new tokens after refresh', async () => {
       const soonExpiry = Math.floor(Date.now() / 1000) + 1800;
-      const mockTokenRecord = {
-        strava_athlete_id: testAthleteId,
-        access_token: 'encrypted_old_token',
-        refresh_token: 'encrypted_old_refresh',
-        expires_at: soonExpiry
-      };
-
+      const oldAccessToken = 'old_access';
+      const oldRefreshToken = 'old_refresh';
+      const newAccessToken = 'new_access';
+      const newRefreshToken = 'new_refresh';
       const newExpiry = Math.floor(Date.now() / 1000) + 21600;
-      const newTokenData = {
-        access_token: 'new_token',
-        refresh_token: 'new_refresh',
+
+      drizzleDb.insert(participantToken).values({
+        strava_athlete_id: testAthleteId,
+        access_token: encryptToken(oldAccessToken),
+        refresh_token: encryptToken(oldRefreshToken),
+        expires_at: soonExpiry,
+        scope: 'activity:read'
+      }).execute();
+
+      (mockStravaClient.refreshAccessToken as jest.Mock).mockResolvedValue({
+        access_token: newAccessToken,
+        refresh_token: newRefreshToken,
         expires_at: newExpiry
-      };
+      });
 
-      mockStravaClient.refreshAccessToken.mockResolvedValue(newTokenData);
-
-      const mockSelectStatement = {
-        get: jest.fn().mockReturnValue(mockTokenRecord)
-      };
-      const mockUpdateStatement = {
-        run: jest.fn()
-      };
-
-      mockDb.prepare
-        .mockReturnValueOnce(mockSelectStatement)
-        .mockReturnValueOnce(mockUpdateStatement);
-
-      await getValidAccessToken(mockDb, mockStravaClient, testAthleteId);
-
-      expect(mockUpdateStatement.run).toHaveBeenCalledWith(
-        'encrypted_new_token',
-        'encrypted_new_refresh',
-        newExpiry,
+      await getValidAccessToken(
+        drizzleDb,
+        mockStravaClient as MockStravaClient,
         testAthleteId
       );
+
+      const stored = drizzleDb
+        .select()
+        .from(participantToken)
+        .where(eq(participantToken.strava_athlete_id, testAthleteId))
+        .get();
+
+      expect(stored).toBeDefined();
+      if (!stored) throw new Error('Token not stored');
+
+      expect(decryptToken(stored.access_token)).toBe(newAccessToken);
+      expect(decryptToken(stored.refresh_token)).toBe(newRefreshToken);
+      expect(stored.expires_at).toBe(newExpiry);
     });
 
     it('should handle refresh token decryption failure (migration case)', async () => {
       const soonExpiry = Math.floor(Date.now() / 1000) + 1800;
-      const mockTokenRecord = {
+      const encryptedAccessToken = 'encrypted_access';
+      const plaintextRefreshToken = 'plaintext_refresh'; // Not encrypted
+      const newAccessToken = 'new_access';
+      const newRefreshToken = 'new_refresh';
+      const newExpiry = Math.floor(Date.now() / 1000) + 21600;
+
+      drizzleDb.insert(participantToken).values({
         strava_athlete_id: testAthleteId,
-        access_token: 'encrypted_valid_token',
-        refresh_token: 'plaintext_refresh', // Not encrypted
-        expires_at: soonExpiry
-      };
+        access_token: encryptedAccessToken,
+        refresh_token: plaintextRefreshToken,
+        expires_at: soonExpiry,
+        scope: 'activity:read'
+      }).execute();
 
-      const newTokenData = {
-        access_token: 'new_token',
-        refresh_token: 'new_refresh',
-        expires_at: Math.floor(Date.now() / 1000) + 21600
-      };
+      (mockStravaClient.refreshAccessToken as jest.Mock).mockResolvedValue({
+        access_token: newAccessToken,
+        refresh_token: newRefreshToken,
+        expires_at: newExpiry
+      });
 
-      mockStravaClient.refreshAccessToken.mockResolvedValue(newTokenData);
+      const result = await getValidAccessToken(
+        drizzleDb,
+        mockStravaClient as MockStravaClient,
+        testAthleteId
+      );
 
-      const mockSelectStatement = {
-        get: jest.fn().mockReturnValue(mockTokenRecord)
-      };
-      const mockUpdateStatement = {
-        run: jest.fn()
-      };
-
-      mockDb.prepare
-        .mockReturnValueOnce(mockSelectStatement)
-        .mockReturnValueOnce(mockUpdateStatement);
-
-      decryptToken
-        .mockImplementationOnce(() => {
-          throw new Error('Not encrypted');
-        });
-
-      const result = await getValidAccessToken(mockDb, mockStravaClient, testAthleteId);
-
-      expect(result).toBe('new_token');
-      // Should have called refreshAccessToken with plaintext token
-      expect(mockStravaClient.refreshAccessToken).toHaveBeenCalled();
+      expect(result).toBe(newAccessToken);
+      expect(mockStravaClient.refreshAccessToken).toHaveBeenCalledWith(plaintextRefreshToken);
     });
 
     it('should handle multiple sequential calls correctly', async () => {
       const futureExpiry = Math.floor(Date.now() / 1000) + 7200;
-      const mockTokenRecord = {
-        strava_athlete_id: testAthleteId,
-        access_token: 'encrypted_token_1',
-        refresh_token: 'encrypted_refresh',
-        expires_at: futureExpiry
-      };
+      const testAccessToken = 'test_token';
+      const testRefreshToken = 'test_refresh';
 
-      const mockStatement = {
-        get: jest.fn().mockReturnValue(mockTokenRecord)
-      };
-      mockDb.prepare.mockReturnValue(mockStatement);
+      drizzleDb.insert(participantToken).values({
+        strava_athlete_id: testAthleteId,
+        access_token: encryptToken(testAccessToken),
+        refresh_token: encryptToken(testRefreshToken),
+        expires_at: futureExpiry,
+        scope: 'activity:read'
+      }).execute();
 
       // First call
-      const result1 = await getValidAccessToken(mockDb, mockStravaClient, testAthleteId);
-      expect(result1).toBe('token_1');
+      const result1 = await getValidAccessToken(
+        drizzleDb,
+        mockStravaClient as MockStravaClient,
+        testAthleteId
+      );
+      expect(result1).toBe(testAccessToken);
 
       // Second call should work independently
-      decryptToken.mockImplementation(token => token.replace('encrypted_', ''));
-      const result2 = await getValidAccessToken(mockDb, mockStravaClient, testAthleteId);
-      expect(result2).toBe('token_1');
+      const result2 = await getValidAccessToken(
+        drizzleDb,
+        mockStravaClient as MockStravaClient,
+        testAthleteId
+      );
+      expect(result2).toBe(testAccessToken);
 
-      expect(mockDb.prepare).toHaveBeenCalledTimes(2);
+      expect(mockStravaClient.refreshAccessToken).not.toHaveBeenCalled();
     });
   });
 });

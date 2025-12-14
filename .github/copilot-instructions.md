@@ -1,6 +1,6 @@
 # GitHub Copilot Instructions - Strava NCC Scrape
 
-Western Mass Velo cycling competition tracker: React + TypeScript frontend with Node.js Express backend. **Feature-complete and production-ready on Railway.**
+Western Mass Velo cycling competition tracker: React + TypeScript frontend with Node.js Express + tRPC backend. **Feature-complete and production-ready on Railway. Migrated to tRPC + Drizzle ORM (December 2025).**
 
 ---
 
@@ -41,6 +41,9 @@ npm run lint:fix             # Auto-fix linting errors
    ```bash
    npm run dev:all
    ```
+   - Shows both frontend (Vite) and backend (Express + tRPC)
+   - Backend available at http://localhost:3001
+   - Frontend available at http://localhost:5173
 
 4. **TO START BACKGROUND:** Use this
    ```bash
@@ -113,6 +116,32 @@ npm run dev:cleanup          # Stop cleanly (always use this, never npm stop)
    - Default to `npm run dev:status` first
    - Then default to `npm run dev:cleanup`
    - Never guess with pkill/kill commands
+
+---
+
+## Tech Stack Details (Post-Refactor)
+
+### Frontend
+- **React 18** + TypeScript + Vite
+- **tRPC Client** for type-safe API calls (see `src/utils/trpc.ts`)
+- **TanStack React Query** (v5+) for data fetching and caching
+
+### Backend
+- **Express** server on Node.js 24.x
+- **tRPC** for type-safe RPC calls (routers in `server/src/trpc/`)
+- **Drizzle ORM** for database interactions (schema in `server/src/db/schema.ts`)
+- **Better SQLite3** driver (file-based SQLite database)
+- **TypeScript only** in `server/src/` (no JavaScript files)
+
+### Database
+- **SQLite** file-based database (`server/data/wmv.db`)
+- **Drizzle ORM** for migrations, queries, and type safety
+- Persisted on Railway as volume mount at `/data/wmv.db`
+
+### Testing
+- **Jest** + **ts-jest** for backend tests
+- In-memory SQLite database via `setupTestDb` pattern (no file-based test DBs)
+- Tests in `server/src/__tests__/`
 
 ---
 
@@ -236,16 +265,28 @@ npm run check  # Audits, typechecks, lints, builds, tests (everything)
 
 ## Implementation Standards
 
-**Backend:** All code is TypeScript (`.ts` files only in `server/src/`)
+### Backend
+- **All TypeScript** (`.ts` files only in `server/src/`)
+- **Drizzle ORM** for all database interactions (schema in `server/src/db/schema.ts`)
+- **Dependency Injection** for all services/routers (inject `drizzleDb` instance)
+- **tRPC routers** in `server/src/trpc/` define all procedures (queries and mutations)
+- **Services** in `server/src/services/` contain business logic
+- **Never use global imports** of `db` in services
+- **Never use raw SQL** unless absolutely necessary (use Drizzle ORM instead)
 
-**Frontend:** React 18 + TypeScript in `src/components/` and `src/utils/`
+### Frontend
+- **React 18** + TypeScript in `src/components/` and `src/utils/`
+- **tRPC Client** (configured in `src/utils/trpc.ts`) for all API calls
+- **Never use `src/api.ts`** for new features (legacy REST endpoint, being phased out)
+- Components use `trpc.<router>.<procedure>.useQuery()` and `.useMutation()`
 
-**API client:** `src/api.ts` handles all backend calls
-
-**Tests:** All endpoints and business logic must have tests (happy path + error cases). Aim for >85% coverage.
-- Run: `npm test` (Jest + ts-jest)
-- Watch mode: `cd server && npm run test:watch`
-- Test files: `server/src/__tests__/*.test.ts` (all TypeScript)
+### Testing
+- **Backend tests only** (Jest + ts-jest in `server/src/__tests__/`)
+- **In-memory SQLite** via `setupTestDb` pattern (not file-based)
+- **Dependency Injection** in tests: pass `drizzleDb` to services
+- All endpoints and business logic must have tests (happy path + error cases)
+- Aim for >85% coverage
+- Run: `npm test` | Watch: `cd server && npm run test:watch` | Coverage: `npm test -- --coverage`
 - **Critical:** Update tests WITH code changes, never after
 
 ---
@@ -255,90 +296,96 @@ npm run check  # Audits, typechecks, lints, builds, tests (everything)
 ### TypeScript Naming Conventions
 
 ```typescript
-// ✅ GOOD - Clear, descriptive names following conventions
-function getUserActivitiesForWeek(userId: number, weekId: number): Activity[] {
-  return db.prepare(
-    'SELECT * FROM activities WHERE user_id = ? AND week_id = ?'
-  ).all(userId, weekId);
-}
+// ✅ GOOD - Drizzle ORM with Dependency Injection
+import { eq } from 'drizzle-orm';
+import { activity, week } from '../db/schema';
 
 class ActivityService {
-  private db: Database;
-  private logger: Logger;
+  constructor(private db: BetterSQLite3Database) {}
+  
+  async getActivitiesForWeek(weekId: number) {
+    return this.db
+      .select()
+      .from(activity)
+      .where(eq(activity.week_id, weekId))
+      .all();
+  }
   
   async fetchActivitiesFromStrava(athleteId: number): Promise<void> {
-    // Implementation
+    // Implementation with injected db
   }
 }
 
 const MAX_RETRIES = 3;
 const API_TIMEOUT_MS = 5000;
 
-// ❌ BAD - Vague names, no clear intent
-function get(x, y) {
-  return db.prepare('SELECT * FROM activities WHERE user_id = ? AND week_id = ?').all(x, y);
+// ❌ BAD - Raw SQL or global imports
+import { db } from '../db'; // Don't use global imports in services
+function getActivities(weekId) {
+  return db.prepare('SELECT * FROM activity WHERE week_id = ?').all(weekId); // Avoid raw SQL
 }
-
-const max = 3;
-const timeout = 5000;
 ```
 
 **Rules:**
-- Functions/methods: `camelCase` (`getUserActivities`, `fetchSegmentEfforts`)
+- Functions/methods: `camelCase` (`getActivitiesForWeek`, `fetchSegmentEfforts`)
 - Classes: `PascalCase` (`ActivityService`, `TokenManager`)
-- Constants: `UPPER_SNAKE_CASE` (`MAX_RETRIES`, `API_KEY`)
-- Private members: Prefix with `_` or use `private` keyword (`_cache`, `private db`)
+- Constants: `UPPER_SNAKE_CASE` (`MAX_RETRIES`, `API_TIMEOUT_MS`)
+- Private members: use `private` keyword (`private db`, `private logger`)
+- **Drizzle:** Always inject `drizzleDb` into service constructors
 
-### React Component Patterns
+### React Component Patterns with tRPC
 
 ```typescript
-// ✅ GOOD - Typed props, clear component logic
+// ✅ GOOD - tRPC hooks with type safety
+import { trpc } from '../utils/trpc';
+
 interface WeeklyLeaderboardProps {
   weekId: number;
-  onRefresh?: () => Promise<void>;
 }
 
-export const WeeklyLeaderboard: React.FC<WeeklyLeaderboardProps> = ({ weekId, onRefresh }) => {
-  const [results, setResults] = useState<LeaderboardResult[]>([]);
-  const [loading, setLoading] = useState(false);
+export const WeeklyLeaderboard: React.FC<WeeklyLeaderboardProps> = ({ weekId }) => {
+  // tRPC hook auto-handles loading, error, and data states
+  const { data: leaderboard, isLoading, error } = trpc.leaderboard.getWeekLeaderboard.useQuery(
+    { weekId },
+    { enabled: weekId > 0 } // Only fetch when weekId is valid
+  );
 
-  const handleFetchResults = async () => {
-    setLoading(true);
-    try {
-      const data = await api.getWeekLeaderboard(weekId);
-      setResults(data);
-    } catch (error) {
-      console.error('Failed to fetch results:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  if (isLoading) return <div>Loading leaderboard...</div>;
+  if (error) return <div>Error: {error.message}</div>;
 
   return (
     <div className="weekly-leaderboard">
-      {/* JSX */}
+      {leaderboard?.leaderboard.map((entry) => (
+        <div key={entry.participant_id}>{entry.name}: {entry.total_points} pts</div>
+      ))}
     </div>
   );
 };
 
-// ❌ BAD - No prop typing, mixed concerns
-function Leaderboard(props) {
+// ❌ BAD - Manual API calls, no type safety
+function Leaderboard({ weekId }) {
   const [results, setResults] = useState();
+  const [loading, setLoading] = useState(false);
   
   useEffect(() => {
-    api.getWeekLeaderboard(props.weekId)
+    setLoading(true);
+    fetch(`/api/weeks/${weekId}/leaderboard`) // Manual fetch
+      .then(r => r.json())
       .then(setResults)
-      .catch(err => alert(err)); // Bad error handling
-  });
+      .catch(err => alert(err))
+      .finally(() => setLoading(false));
+  }, [weekId]);
   
+  if (loading) return <div>Loading...</div>;
   return <div>{results?.map(r => <div>{r.name}</div>)}</div>;
 }
 ```
 
 **Rules:**
-- Always type props with `interface` (never `any`)
-- Use `React.FC<Props>` for functional components
-- Handle errors explicitly (not with `alert()`)
+- **Always use tRPC hooks** for data fetching (provides type safety and auto-caching)
+- Type props with `interface` (never `any`)
+- Use `trpc.<router>.<procedure>.useQuery()` for queries and `.useMutation()` for mutations
+- React Query (TanStack Query) handles loading/error states automatically
 - Keep components focused on single responsibility
 
 ### Error Handling
@@ -379,7 +426,12 @@ try {
 
 ### ✅ **Always Do**
 - Write **TypeScript only** in backend (`server/src/` must be `.ts` files, no `.js`)
+- **Use Drizzle ORM** for all database queries (no raw SQL unless essential)
+- **Use Dependency Injection** for services/routers (inject `drizzleDb` in constructor)
+- **Use tRPC** for all new API procedures (in `server/src/trpc/`)
+- **Use tRPC hooks** in React components (`trpc.<router>.<procedure>.useQuery()`)
 - Write **unit tests for new features** (include both happy path and error cases)
+- **Use in-memory SQLite** via `setupTestDb` for tests (not file-based)
 - **Verify Node version** before starting dev (`node --version` must be 24.x)
 - **Check `git status` before committing** to verify you're only adding intended files
 - **Run linter before committing** (`npm run lint:all` must pass)
@@ -398,6 +450,9 @@ try {
 ### 🚫 **Never Do**
 - Commit secrets, API keys, or `.env` values to git
 - Use `start_date_local` from Strava (causes timezone bugs)
+- Use raw SQL in services/routers (use Drizzle ORM instead)
+- Import `db` globally in services (always inject via constructor)
+- Use file-based SQLite for tests (use `setupTestDb` pattern instead)
 - Create temporary files outside `.copilot-temp/` directory
 - Edit `node_modules/` or generated files
 - Use `git add .` (always use specific file paths)
@@ -410,10 +465,53 @@ try {
 
 ## Architecture (Essential Details)
 
+### System Design
 - **Frontend:** React 18 + TypeScript + Vite (`src/`)
-- **Backend:** Express + TypeScript + SQLite (`server/src/`)
-- **Auth:** Strava OAuth with AES-256-GCM token encryption
-- **Build:** TypeScript compiles to CommonJS for production
+  - tRPC Client for type-safe API calls
+  - TanStack React Query for data management
+  
+- **Backend:** Express + tRPC + TypeScript (`server/src/`)
+  - tRPC routers expose type-safe procedures
+  - Services contain business logic (injected with `drizzleDb`)
+  - Drizzle ORM for all database queries
+  - SQLite database via `better-sqlite3`
+
+- **Auth:** Strava OAuth 2.0 with AES-256-GCM token encryption
+  - Token encryption at rest in database
+  - Per-participant OAuth tokens (not shared)
+  - Auto-refresh tokens before expiration
+
+- **Build:** TypeScript compiles to CommonJS
+  - Frontend builds to `dist/` (Vite)
+  - Backend builds to `server/dist/` (tsc)
+  - Production runs from compiled JavaScript
+
+### Key Architectural Pattern: Dependency Injection
+All services and routers accept a `drizzleDb` instance in their constructor. This enables:
+- **Testability:** Pass in-memory DB for tests
+- **Consistency:** All code uses Drizzle ORM
+- **Type safety:** Full TypeScript inference
+
+**Example:**
+```typescript
+// Router receives drizzleDb via context
+export const leaderboardRouter = router({
+  getWeekLeaderboard: publicProcedure
+    .input(z.object({ weekId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const { drizzleDb } = ctx; // Injected
+      return await drizzleDb.select().from(result).all();
+    })
+});
+
+// Service receives drizzleDb in constructor
+class ActivityService {
+  constructor(private db: BetterSQLite3Database) {}
+  async getActivities() {
+    return this.db.select().from(activity).all();
+  }
+}
+```
 
 **See:** [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) for complete system design
 

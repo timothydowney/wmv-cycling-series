@@ -288,7 +288,7 @@ describe('StorageMonitor', () => {
 
       expect(result).toBe(true);
       expect(mockDb.prepare).toHaveBeenCalledWith(
-        expect.stringContaining('UPDATE webhook_subscription')
+        expect.stringContaining('DELETE FROM webhook_subscription')
       );
     });
 
@@ -328,15 +328,11 @@ describe('StorageMonitor', () => {
       await monitor.checkAndAutoDisable();
 
       expect(mockRun).toHaveBeenCalled();
-      // Find the UPDATE call among all prepare calls
-      const updateCall = mockDb.prepare.mock.calls.find(
-        (call: any[]) => call[0].includes('UPDATE webhook_subscription')
+      // Find the DELETE call among all prepare calls
+      const deleteCall = mockDb.prepare.mock.calls.find(
+        (call: any[]) => call[0].includes('DELETE FROM webhook_subscription')
       );
-      expect(updateCall).toBeDefined();
-      const updateQuery = updateCall![0];
-      expect(updateQuery).toContain('enabled = 0');
-      expect(updateQuery).toContain("status = 'inactive'");
-      expect(updateQuery).toContain('Storage threshold exceeded');
+      expect(deleteCall).toBeDefined();
     });
   });
 

@@ -47,13 +47,14 @@ const NavBar: React.FC<NavBarProps> = ({ onAdminPanelToggle, isAdminPanelOpen: _
       const data = await getAuthStatus();
       console.log('[NavBar] Auth status response:', data);
       
-      const isConnected = !!(data.authenticated && data.participant?.is_connected);
+      // User is connected if authenticated AND has participant data
+      const isConnected = !!(data.authenticated && data.participant);
       console.log('[NavBar] Setting isConnected to:', isConnected);
       setIsConnected(isConnected);
       setIsAdmin(data.is_admin || false);
       
       // Convert participant data to athlete format
-      if (data.participant && data.participant.is_connected) {
+      if (data.participant) {
         const nameParts = data.participant.name.split(' ');
         setAthleteInfo({
           id: data.participant.strava_athlete_id,

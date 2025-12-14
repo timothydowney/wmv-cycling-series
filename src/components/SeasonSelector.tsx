@@ -1,5 +1,5 @@
 import React from 'react';
-import { Season } from '../api';
+import { Season } from '../types';
 import './SeasonSelector.css';
 
 interface Props {

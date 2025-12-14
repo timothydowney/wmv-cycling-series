@@ -8,8 +8,9 @@
  * This allows batch fetch and webhooks to use identical validation rules.
  */
 
-import { Database } from 'better-sqlite3';
-import type { SeasonRow } from '../types/database';
+import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { and, desc, asc, lte, gte, eq } from 'drizzle-orm';
+import { Season, season as seasonTable, week as weekTable } from '../db/schema';
 import { isoToUnix } from '../dateUtils';
 
 /**
@@ -51,7 +52,7 @@ interface SeasonStatusResult {
 }
 
 class ActivityValidationService {
-  constructor(private db: Database) {}
+  constructor(private orm: BetterSQLite3Database) {}
 
   /**
    * Check if a season is currently closed (end_at has passed).
@@ -61,7 +62,7 @@ class ActivityValidationService {
    * @param season Season object with end_at timestamp
    * @returns { isClosed: boolean, reason?: string, end_at?: number }
    */
-  isSeasonClosed(season: SeasonRow): { isClosed: boolean; reason?: string; end_at?: number } {
+  isSeasonClosed(season: Season): { isClosed: boolean; reason?: string; end_at?: number } {
     const now = Math.floor(Date.now() / 1000); // Current Unix time
 
     if (season.end_at && now > season.end_at) {
@@ -88,7 +89,7 @@ class ActivityValidationService {
    * @param season Season object with start_at and end_at timestamps
    * @returns { isOpen: boolean, reason?: string, start_at?: number, end_at?: number }
    */
-  isSeasonOpen(season: SeasonRow): SeasonStatusResult {
+  isSeasonOpen(season: Season): SeasonStatusResult {
     const now = Math.floor(Date.now() / 1000);
 
     // Check if season has started
@@ -164,7 +165,7 @@ class ActivityValidationService {
    * @param season Season with start_at and end_at timestamps
    * @returns { valid: boolean, reason?: string }
    */
-  isActivityWithinSeasonRange(activity: ActivityWithTimestamp, season: SeasonRow): ValidationResult {
+  isActivityWithinSeasonRange(activity: ActivityWithTimestamp, season: Season): ValidationResult {
     const activityUnix = isoToUnix(activity.start_date);
 
     if (activityUnix === null) {
@@ -208,19 +209,16 @@ class ActivityValidationService {
    * @param unixTimestamp Activity timestamp in Unix seconds (UTC)
    * @returns Season object or null if no season contains timestamp
    */
-  getActiveSeason(unixTimestamp: number): SeasonRow | null {
-    const season = this.db
-      .prepare(
-        `
-        SELECT id, name, start_at, end_at, is_active, created_at FROM season
-        WHERE start_at <= ? AND (end_at IS NULL OR end_at >= ?)
-        ORDER BY start_at DESC, id DESC
-        LIMIT 1
-      `
-      )
-      .get(unixTimestamp, unixTimestamp) as SeasonRow | undefined;
+  getActiveSeason(unixTimestamp: number): Season | null {
+    const rows = this.orm
+      .select()
+      .from(seasonTable)
+      .where(and(lte(seasonTable.start_at, unixTimestamp), gte(seasonTable.end_at, unixTimestamp)))
+      .orderBy(desc(seasonTable.start_at), desc(seasonTable.id))
+      .limit(1)
+      .all();
 
-    return season || null;
+    return rows[0] ?? null;
   }
 
   /**
@@ -234,16 +232,13 @@ class ActivityValidationService {
    * @param unixTimestamp Activity timestamp in Unix seconds (UTC)
    * @returns Array of seasons that contain this timestamp, ordered by start_at DESC then id DESC
    */
-  getAllActiveSeasonsContainingTimestamp(unixTimestamp: number): SeasonRow[] {
-    const seasons = this.db
-      .prepare(
-        `
-        SELECT id, name, start_at, end_at, is_active, created_at FROM season
-        WHERE start_at <= ? AND (end_at IS NULL OR end_at >= ?)
-        ORDER BY start_at DESC, id DESC
-      `
-      )
-      .all(unixTimestamp, unixTimestamp) as SeasonRow[];
+  getAllActiveSeasonsContainingTimestamp(unixTimestamp: number): Season[] {
+    const seasons = this.orm
+      .select()
+      .from(seasonTable)
+      .where(and(lte(seasonTable.start_at, unixTimestamp), gte(seasonTable.end_at, unixTimestamp)))
+      .orderBy(desc(seasonTable.start_at), desc(seasonTable.id))
+      .all();
 
     return seasons;
   }
@@ -269,22 +264,14 @@ class ActivityValidationService {
     start_at: number;
     end_at: number;
   }> {
-    const weeks = this.db
-      .prepare(
-        `
-        SELECT id, week_name, start_at, end_at FROM week
-        WHERE season_id = ? AND start_at <= ? AND end_at >= ?
-        ORDER BY start_at ASC
-      `
-      )
-      .all(seasonId, activityUnix, activityUnix) as Array<{
-      id: number;
-      week_name: string;
-      start_at: number;
-      end_at: number;
-    }>;
+    const weeks = this.orm
+      .select({ id: weekTable.id, week_name: weekTable.week_name, start_at: weekTable.start_at, end_at: weekTable.end_at })
+      .from(weekTable)
+      .where(and(eq(weekTable.season_id, seasonId), lte(weekTable.start_at, activityUnix), gte(weekTable.end_at, activityUnix)))
+      .orderBy(asc(weekTable.start_at))
+      .all();
 
-    return weeks;
+    return weeks as Array<{ id: number; week_name: string; start_at: number; end_at: number }>;
   }
 
   /**

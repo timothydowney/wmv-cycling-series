@@ -1,44 +1,24 @@
-// @ts-nocheck
 /**
  * Webhook Logger Tests
  *
- * Tests the WebhookLogger class with real database operations.
+ * Tests the WebhookLogger class with Drizzle ORM.
  * Uses in-memory SQLite for fast, isolated tests.
  */
 
-import Database from 'better-sqlite3';
 import { WebhookLogger } from '../webhooks/logger';
+import { setupTestDb } from './setupTestDb';
+import { webhookEvent } from '../db/schema';
+import { eq } from 'drizzle-orm';
+import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
 describe('Webhook Logger', () => {
-  let db;
-  let logger;
-
-  beforeAll(() => {
-    // Create in-memory database for testing
-    db = new Database(':memory:');
-    
-    // Initialize schema (match actual schema from server/src/schema.ts)
-    db.exec(`
-      CREATE TABLE webhook_event (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        payload TEXT NOT NULL,
-        processed BOOLEAN DEFAULT 0,
-        error_message TEXT,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-  });
+  let drizzleDb: BetterSQLite3Database;
+  let logger: WebhookLogger;
 
   beforeEach(() => {
-    // Create fresh logger instance for each test
-    logger = new WebhookLogger(db);
-    
-    // Clear table
-    db.prepare('DELETE FROM webhook_event').run();
-  });
-
-  afterAll(() => {
-    db.close();
+    const { drizzleDb: testDb } = setupTestDb({ seed: false });
+    drizzleDb = testDb;
+    logger = new WebhookLogger(drizzleDb);
   });
 
   describe('logEvent', () => {
@@ -60,16 +40,21 @@ describe('Webhook Logger', () => {
       logger.logEvent(entry);
 
       // Assert
-      const record = db.prepare('SELECT * FROM webhook_event WHERE payload LIKE ?').get('%123456789%');
+      const record = drizzleDb
+        .select()
+        .from(webhookEvent)
+        .where(eq(webhookEvent.payload, JSON.stringify(payload)))
+        .get();
+
       expect(record).toBeDefined();
-      const parsedPayload = JSON.parse(record.payload);
+      const parsedPayload = JSON.parse(record!.payload);
       expect(parsedPayload.aspect_type).toBe('delete');
       expect(parsedPayload.object_type).toBe('activity');
-      expect(record.processed).toBe(0);
+      expect(record!.processed).toBe(0);
     });
 
     it('should always insert webhook events (always enabled)', () => {
-      // Arrange - webhook events are ALWAYS logged, no opt-out via env var
+      // Arrange
       const payload = {
         object_id: 987654321,
         aspect_type: 'create',
@@ -86,7 +71,12 @@ describe('Webhook Logger', () => {
       logger.logEvent(entry);
 
       // Assert
-      const record = db.prepare('SELECT * FROM webhook_event WHERE payload LIKE ?').get('%987654321%');
+      const record = drizzleDb
+        .select()
+        .from(webhookEvent)
+        .where(eq(webhookEvent.payload, JSON.stringify(payload)))
+        .get();
+
       expect(record).toBeDefined();
     });
 
@@ -108,23 +98,22 @@ describe('Webhook Logger', () => {
       logger.logEvent(entry);
 
       // Assert
-      const record = db.prepare('SELECT * FROM webhook_event WHERE payload LIKE ?').get('%555555555%');
+      const record = drizzleDb
+        .select()
+        .from(webhookEvent)
+        .where(eq(webhookEvent.payload, JSON.stringify(payload)))
+        .get();
+
       expect(record).toBeDefined();
-      expect(record.error_message).toBe('Failed to fetch activity');
+      expect(record!.error_message).toBe('Failed to fetch activity');
     });
 
     it('should handle database errors gracefully', () => {
-      // Arrange
-      process.env.WEBHOOK_PERSIST_EVENTS = 'true';
-      const badLogger = new WebhookLogger(null); // Invalid db
+      // Arrange - null db should be handled gracefully
+      const badLogger = new WebhookLogger(null as any);
       const entry = {
-        subscriptionId: 1,
-        aspectType: 'delete',
-        objectType: 'activity',
-        objectId: 111111111,
-        ownerId: 12345,
+        payload: { object_id: 111111111 },
         processed: false,
-        processedAt: null,
         errorMessage: null
       };
 
@@ -150,19 +139,27 @@ describe('Webhook Logger', () => {
       logger.logEvent(entry);
 
       // Verify initial state
-      let record = db.prepare('SELECT processed FROM webhook_event WHERE payload LIKE ?').get('%222222222%');
-      expect(record.processed).toBe(0);
+      let record = drizzleDb
+        .select()
+        .from(webhookEvent)
+        .where(eq(webhookEvent.payload, JSON.stringify(payload)))
+        .get();
+      expect(record!.processed).toBe(0);
 
       // Act
       logger.markProcessed(payload);
 
       // Assert
-      record = db.prepare('SELECT processed FROM webhook_event WHERE payload LIKE ?').get('%222222222%');
-      expect(record.processed).toBe(1);
+      record = drizzleDb
+        .select()
+        .from(webhookEvent)
+        .where(eq(webhookEvent.payload, JSON.stringify(payload)))
+        .get();
+      expect(record!.processed).toBe(1);
     });
 
     it('should update event status when called', () => {
-      // Arrange - webhook events are ALWAYS logged, always updateable
+      // Arrange
       const payload = {
         object_id: 333333333,
         aspect_type: 'delete',
@@ -170,22 +167,26 @@ describe('Webhook Logger', () => {
         owner_id: 12345
       };
 
-      // First log an event
       const entry = { payload, processed: false, errorMessage: null };
       logger.logEvent(entry);
 
       // Act
       logger.markProcessed(payload);
 
-      // Assert - should mark it as processed
-      const record = db.prepare('SELECT processed FROM webhook_event WHERE payload LIKE ?').get('%333333333%');
+      // Assert
+      const record = drizzleDb
+        .select()
+        .from(webhookEvent)
+        .where(eq(webhookEvent.payload, JSON.stringify(payload)))
+        .get();
+
       expect(record).toBeDefined();
-      expect(record.processed).toBe(1);
+      expect(record!.processed).toBe(1);
     });
 
     it('should handle database errors gracefully', () => {
       // Arrange
-      const badLogger = new WebhookLogger(null);
+      const badLogger = new WebhookLogger(null as any);
       const payload = { object_id: 111111111 };
 
       // Act & Assert - should not throw
@@ -214,9 +215,14 @@ describe('Webhook Logger', () => {
       logger.markFailed(payload, errorMsg);
 
       // Assert
-      const record = db.prepare('SELECT error_message FROM webhook_event WHERE payload LIKE ?').get('%555555556%');
+      const record = drizzleDb
+        .select()
+        .from(webhookEvent)
+        .where(eq(webhookEvent.payload, JSON.stringify(payload)))
+        .get();
+
       expect(record).toBeDefined();
-      expect(record.error_message).toBe(errorMsg);
+      expect(record!.error_message).toBe(errorMsg);
     });
 
     it('should update failed when called', () => {
@@ -228,22 +234,26 @@ describe('Webhook Logger', () => {
         owner_id: 12345
       };
 
-      // First log an event
       const entry = { payload, processed: false, errorMessage: null };
       logger.logEvent(entry);
 
       // Act
       logger.markFailed(payload, 'Some error');
 
-      // Assert - should mark it as failed
-      const record = db.prepare('SELECT error_message FROM webhook_event WHERE payload LIKE ?').get('%666666666%');
+      // Assert
+      const record = drizzleDb
+        .select()
+        .from(webhookEvent)
+        .where(eq(webhookEvent.payload, JSON.stringify(payload)))
+        .get();
+
       expect(record).toBeDefined();
-      expect(record.error_message).toBe('Some error');
+      expect(record!.error_message).toBe('Some error');
     });
 
     it('should handle database errors gracefully', () => {
       // Arrange
-      const badLogger = new WebhookLogger(null);
+      const badLogger = new WebhookLogger(null as any);
       const payload = { object_id: 444444444 };
 
       // Act & Assert - should not throw
@@ -266,26 +276,32 @@ describe('Webhook Logger', () => {
     });
 
     it('should calculate correct stats with mixed events', () => {
-      // Arrange
-      // Insert several events
+      // Arrange - Insert several events
       const now = new Date().toISOString();
-      db.prepare(`
-        INSERT INTO webhook_event 
-        (payload, processed, error_message, created_at)
-        VALUES (?, ?, ?, ?)
-      `).run(JSON.stringify({ object_id: 1, aspect_type: 'delete' }), 1, null, now); // processed
 
-      db.prepare(`
-        INSERT INTO webhook_event 
-        (payload, processed, error_message, created_at)
-        VALUES (?, ?, ?, ?)
-      `).run(JSON.stringify({ object_id: 2, aspect_type: 'delete' }), 0, 'Error: API timeout', now); // failed
+      // Processed event
+      drizzleDb.insert(webhookEvent).values({
+        payload: JSON.stringify({ object_id: 1, aspect_type: 'delete' }),
+        processed: 1,
+        error_message: null,
+        created_at: now
+      }).execute();
 
-      db.prepare(`
-        INSERT INTO webhook_event 
-        (payload, processed, error_message, created_at)
-        VALUES (?, ?, ?, ?)
-      `).run(JSON.stringify({ object_id: 3, aspect_type: 'create' }), 0, null, now); // pending
+      // Failed event
+      drizzleDb.insert(webhookEvent).values({
+        payload: JSON.stringify({ object_id: 2, aspect_type: 'delete' }),
+        processed: 0,
+        error_message: 'Error: API timeout',
+        created_at: now
+      }).execute();
+
+      // Pending event
+      drizzleDb.insert(webhookEvent).values({
+        payload: JSON.stringify({ object_id: 3, aspect_type: 'create' }),
+        processed: 0,
+        error_message: null,
+        created_at: now
+      }).execute();
 
       // Act
       const status = logger.getStatus();
@@ -299,7 +315,7 @@ describe('Webhook Logger', () => {
 
     it('should handle database errors gracefully', () => {
       // Arrange
-      const badLogger = new WebhookLogger(null);
+      const badLogger = new WebhookLogger(null as any);
 
       // Act
       const status = badLogger.getStatus();
@@ -316,18 +332,20 @@ describe('Webhook Logger', () => {
       const now = new Date().toISOString();
 
       // Event with error
-      db.prepare(`
-        INSERT INTO webhook_event 
-        (payload, processed, error_message, created_at)
-        VALUES (?, ?, ?, ?)
-      `).run(JSON.stringify({ object_id: 1, aspect_type: 'delete' }), 0, 'Error: timeout', now);
+      drizzleDb.insert(webhookEvent).values({
+        payload: JSON.stringify({ object_id: 1, aspect_type: 'delete' }),
+        processed: 0,
+        error_message: 'Error: timeout',
+        created_at: now
+      }).execute();
 
       // Event pending (no error)
-      db.prepare(`
-        INSERT INTO webhook_event 
-        (payload, processed, error_message, created_at)
-        VALUES (?, ?, ?, ?)
-      `).run(JSON.stringify({ object_id: 2, aspect_type: 'delete' }), 0, null, now);
+      drizzleDb.insert(webhookEvent).values({
+        payload: JSON.stringify({ object_id: 2, aspect_type: 'delete' }),
+        processed: 0,
+        error_message: null,
+        created_at: now
+      }).execute();
 
       // Act
       const status = logger.getStatus();

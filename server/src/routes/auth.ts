@@ -9,6 +9,7 @@
  */
 
 import { Router, Request, Response } from 'express';
+import type { Session } from 'express-session';
 import type LoginService from '../services/LoginService';
 import { config, getStravaConfig } from '../config';
 
@@ -65,8 +66,12 @@ export default (services: AuthServices): Router => {
         code
       );
 
-      // Attach to session (cast to any to avoid session typing issues)
-      const sess = req.session as any;
+      // Attach to session with typed fields
+      const sess = req.session as Session & {
+        stravaAthleteId?: number;
+        athleteName?: string;
+        isAdmin?: boolean;
+      };
       sess.stravaAthleteId = athleteId;
       sess.athleteName = athleteName;
       sess.isAdmin = isAdmin;
@@ -107,17 +112,22 @@ export default (services: AuthServices): Router => {
    * Check current authentication status
    */
   router.get('/status', (req: Request, res: Response): void => {
-    console.log(`[AUTH_STATUS] Checking status. Session ID: ${req.sessionID}`);
-    const sess = req.session as any;
-    console.log('[AUTH_STATUS] Session data:', {
-      stravaAthleteId: sess.stravaAthleteId,
-      athleteName: sess.athleteName
-    });
+    const sess = req.session as Session & {
+      stravaAthleteId?: number;
+      athleteName?: string;
+      isAdmin?: boolean;
+    };
 
     try {
+      console.log('[AUTH] /auth/status called');
+      console.log('[AUTH] Session ID:', req.sessionID);
+      console.log('[AUTH] Session object keys:', Object.keys(sess));
+      console.log('[AUTH] Full session object:', JSON.stringify(sess, null, 2).substring(0, 500));
       const athleteId = sess.stravaAthleteId;
+      console.log('[AUTH] athleteId from session:', athleteId, 'type:', typeof athleteId);
+      
       if (!athleteId) {
-        console.log('[AUTH_STATUS] No session found - not authenticated');
+        console.log('[AUTH] No athleteId in session, returning unauthenticated');
         res.json({
           authenticated: false,
           participant: null,
@@ -128,7 +138,6 @@ export default (services: AuthServices): Router => {
 
       // Use LoginService to get full auth status
       const status = loginService.getAuthStatus(athleteId);
-      console.log('[AUTH_STATUS] Auth status:', status);
       res.json(status);
     } catch (error) {
       console.error('Error getting auth status:', error);
@@ -141,7 +150,9 @@ export default (services: AuthServices): Router => {
    * Disconnect Strava account and destroy session
    */
   router.post('/disconnect', (req: Request, res: Response): void => {
-    const sess = req.session as any;
+    const sess = req.session as Session & {
+      stravaAthleteId?: number;
+    };
     const athleteId = sess.stravaAthleteId;
     if (!athleteId) {
       res.status(401).json({ error: 'Not authenticated' });

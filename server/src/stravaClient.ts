@@ -12,7 +12,7 @@
  */
 
 import strava from 'strava-v3';
-import type { SegmentRow } from './types/database';
+import { Segment } from './db/schema'; // Import Drizzle Segment type
 
 /**
  * OAuth token data returned by Strava
@@ -60,7 +60,7 @@ interface SegmentEffort {
 /**
  * Segment data from Strava API
  */
-interface Segment {
+interface StravaApiSegment {
   id: number;
   name: string;
   distance: number;
@@ -296,7 +296,7 @@ async function listAthleteActivities(
 async function getSegment(
   segmentId: number,
   accessToken: string
-): Promise<Segment> {
+): Promise<StravaApiSegment> {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const client = new (strava.client as any)(accessToken);
@@ -351,8 +351,8 @@ async function getSegment(
  * @returns Segment data in SegmentRow format (ready for database storage, minus created_at timestamp)
  */
 function mapStravaSegmentToSegmentRow(
-  stravaSegment: Segment
-): Omit<SegmentRow, 'created_at'> {
+  stravaSegment: StravaApiSegment
+): Omit<Segment, 'created_at'> {
   return {
     strava_segment_id: stravaSegment.id,
     name: stravaSegment.name,
@@ -377,6 +377,6 @@ export {
   type RefreshTokenResponse,
   type Activity,
   type SegmentEffort,
-  type Segment,
+  type StravaApiSegment,
   type ListActivitiesOptions
 };

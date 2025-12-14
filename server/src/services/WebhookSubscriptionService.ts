@@ -15,7 +15,9 @@
  * - Subscriptions expire after 24 hours, need renewal
  */
 
-import Database from 'better-sqlite3';
+import { eq } from 'drizzle-orm';
+import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { webhookSubscription } from '../db/schema';
 import { getStravaConfig, getWebhookConfig } from '../config';
 
 interface StravaSubscriptionPayload {
@@ -25,6 +27,8 @@ interface StravaSubscriptionPayload {
   callback_url: string;
   application_id: number;
 }
+
+type WebhookSubscriptionRow = typeof webhookSubscription.$inferSelect;
 
 export interface SubscriptionStatus {
   id: number | null;
@@ -57,11 +61,12 @@ function buildStravaFormData(clientId: string, clientSecret: string, ...pairs: [
  * Stores both the full payload (for reference) and the subscription_id (for direct access)
  */
 function updateSubscriptionInDb(
-  db: Database.Database,
+  db: BetterSQLite3Database,
   payload: StravaSubscriptionPayload,
   stravaSubscriptionId: number
 ): void {
   const payloadJson = JSON.stringify(payload);
+  const nowIso = new Date().toISOString();
   console.log('[WebhookSubscriptionService] updateSubscriptionInDb - Updating subscription:', {
     subscription_id: stravaSubscriptionId,
     payload_size_bytes: payloadJson.length,
@@ -70,17 +75,20 @@ function updateSubscriptionInDb(
     updated_at: payload.updated_at,
     callback_url: payload.callback_url
   });
-  
-  const result = db.prepare(`
-    UPDATE webhook_subscription
-    SET subscription_payload = ?,
-        subscription_id = ?,
-        last_refreshed_at = CURRENT_TIMESTAMP
-    WHERE id = 1
-  `).run(payloadJson, stravaSubscriptionId);
-  
+
+  const result = db
+    .update(webhookSubscription)
+    .set({
+      subscription_payload: payloadJson,
+      subscription_id: stravaSubscriptionId,
+      last_refreshed_at: nowIso
+    })
+    .where(eq(webhookSubscription.id, 1))
+    .run();
+
+  const info = result as unknown as { changes: number };
   console.log('[WebhookSubscriptionService] updateSubscriptionInDb - Database operation complete:', {
-    changes: (result as any).changes
+    changes: info.changes
   });
 }
 
@@ -92,12 +100,13 @@ function updateSubscriptionInDb(
  * Stores both the full payload (for reference) and the subscription_id (for direct access)
  */
 function insertSubscriptionInDb(
-  db: Database.Database,
+  db: BetterSQLite3Database,
   payload: StravaSubscriptionPayload,
   verifyToken: string,
   stravaSubscriptionId: number
 ): void {
   const payloadJson = JSON.stringify(payload);
+  const nowIso = new Date().toISOString();
   console.log('[WebhookSubscriptionService] insertSubscriptionInDb - Storing subscription:', {
     subscription_id: stravaSubscriptionId,
     payload_size_bytes: payloadJson.length,
@@ -106,20 +115,31 @@ function insertSubscriptionInDb(
     updated_at: payload.updated_at,
     callback_url: payload.callback_url
   });
-  
-  const result = db.prepare(`
-    INSERT INTO webhook_subscription (id, verify_token, subscription_payload, subscription_id, last_refreshed_at)
-    VALUES (1, ?, ?, ?, CURRENT_TIMESTAMP)
-    ON CONFLICT(id) DO UPDATE SET
-      verify_token = excluded.verify_token,
-      subscription_payload = excluded.subscription_payload,
-      subscription_id = excluded.subscription_id,
-      last_refreshed_at = CURRENT_TIMESTAMP
-  `).run(verifyToken, payloadJson, stravaSubscriptionId);
-  
+
+  const result = db
+    .insert(webhookSubscription)
+    .values({
+      id: 1,
+      verify_token: verifyToken,
+      subscription_payload: payloadJson,
+      subscription_id: stravaSubscriptionId,
+      last_refreshed_at: nowIso
+    })
+    .onConflictDoUpdate({
+      target: webhookSubscription.id,
+      set: {
+        verify_token: verifyToken,
+        subscription_payload: payloadJson,
+        subscription_id: stravaSubscriptionId,
+        last_refreshed_at: nowIso
+      }
+    })
+    .run();
+
+  const info = result as unknown as { changes: number; lastInsertRowid?: number };
   console.log('[WebhookSubscriptionService] insertSubscriptionInDb - Database operation complete:', {
-    changes: (result as any).changes,
-    lastInsertRowid: (result as any).lastInsertRowid
+    changes: info.changes,
+    lastInsertRowid: info.lastInsertRowid
   });
 }
 
@@ -128,17 +148,18 @@ function insertSubscriptionInDb(
  * 
  * ALWAYS deletes id = 1 (the only subscription)
  */
-function deleteSubscriptionFromDb(db: Database.Database): void {
-  const result = db.prepare('DELETE FROM webhook_subscription WHERE id = 1').run();
-  console.log('[WebhookSubscriptionService] Database delete result:', { 
-    changes: (result as any).changes 
+function deleteSubscriptionFromDb(db: BetterSQLite3Database): void {
+  const del = db.delete(webhookSubscription).where(eq(webhookSubscription.id, 1)).run();
+  const info = del as unknown as { changes: number };
+  console.log('[WebhookSubscriptionService] Database delete result:', {
+    changes: info.changes
   });
 }
 
 export class WebhookSubscriptionService {
-  private db: Database.Database;
+  private db: BetterSQLite3Database;
 
-  constructor(db: Database.Database) {
+  constructor(db: BetterSQLite3Database) {
     this.db = db;
   }
 
@@ -178,15 +199,15 @@ export class WebhookSubscriptionService {
         subscription = data[0] ?? null;
       } 
       // Handle direct object format (fallback, if Strava ever changes format)
-      else if ((data as any).id) {
+      else if ((data as unknown as { id?: number }).id) {
         subscription = data as StravaSubscriptionPayload;
       }
 
       console.log('[WebhookSubscriptionService] fetchExistingFromStrava - Parsed subscription:', {
         exists: !!subscription,
-        subscription_id: (subscription as any)?.id,
-        created_at: (subscription as any)?.created_at,
-        callback_url: (subscription as any)?.callback_url
+        subscription_id: subscription?.id ?? null,
+        created_at: subscription?.created_at ?? null,
+        callback_url: subscription?.callback_url ?? null
       });
 
       return subscription;
@@ -292,11 +313,11 @@ export class WebhookSubscriptionService {
    */
   getStatus(): SubscriptionStatus {
     try {
-      const row = this.db.prepare(`
-        SELECT id, verify_token, subscription_payload, subscription_id, last_refreshed_at
-        FROM webhook_subscription
-        LIMIT 1
-      `).get() as { id: number; verify_token: string; subscription_payload: string | null; subscription_id: number | null; last_refreshed_at: string | null } | undefined;
+      const row = this.db
+        .select()
+        .from(webhookSubscription)
+        .limit(1)
+        .get() as WebhookSubscriptionRow | undefined;
 
       console.log('[WebhookSubscriptionService] getStatus - Database query result:', {
         row_exists: !!row,
@@ -410,7 +431,11 @@ export class WebhookSubscriptionService {
       // (e.g., after a disable() call followed by enable() in the same renew() sequence)
       if (current.id && current.subscription_id) {
         // Double-check the DB actually has this record (not a stale in-memory state)
-        const dbRecord = this.db.prepare('SELECT id FROM webhook_subscription WHERE id = 1').get();
+        const dbRecord = this.db
+          .select({ id: webhookSubscription.id })
+          .from(webhookSubscription)
+          .where(eq(webhookSubscription.id, 1))
+          .get();
         if (dbRecord) {
           console.log('[WebhookSubscriptionService] ✓ Already enabled');
           return current;
@@ -543,9 +568,11 @@ export class WebhookSubscriptionService {
     }
 
     // For existing subscription, retrieve from database
-    const row = this.db.prepare(`
-      SELECT verify_token FROM webhook_subscription WHERE id = ?
-    `).get(status.id) as { verify_token: string } | undefined;
+    const row = this.db
+      .select({ verify_token: webhookSubscription.verify_token })
+      .from(webhookSubscription)
+      .where(eq(webhookSubscription.id, status.id))
+      .get();
 
     return row?.verify_token || null;
   }

@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import './WeekManager.css';
-import { getWeeks, Week, createWeek, updateWeek, deleteWeek, fetchWeekResults } from '../api';
+import { fetchWeekResults } from '../api';
+import { Week } from '../types';
 import { formatUnixDate, formatUnixTime } from '../utils/dateUtils';
 import SegmentInput from './SegmentInput';
 import SegmentMetadataDisplay from './SegmentMetadataDisplay';
 import { NotesEditor } from './NotesEditor';
 import { FetchProgressPanel, FetchLogEntry } from './FetchProgressPanel';
 import { PencilIcon, TrashIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { trpc } from '../utils/trpc';
 
 interface WeekFormData {
   week_name: string;
@@ -26,7 +28,36 @@ interface WeekManagerProps {
 }
 
 function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
-  const [weeks, setWeeks] = useState<Week[]>([]);
+  // tRPC hooks
+  const { data: weeksData = [], isLoading: _isLoadingWeeks, refetch: refetchWeeks } = trpc.week.getAll.useQuery(
+    { seasonId: seasonId! },
+    { 
+      enabled: !!seasonId,
+      refetchOnWindowFocus: false
+    }
+  );
+
+  // Cast the tRPC result to our frontend Week type if needed, or ensure types match
+  // Sorting: Weeks come from backend sorted by start_at desc?
+  // Frontend wants sorted by start_at asc (Week 1 at top)
+  const weeks = [...(weeksData as unknown as Week[])].sort((a, b) => a.start_at - b.start_at);
+
+  const createMutation = trpc.week.create.useMutation({
+    onSuccess: () => {
+      refetchWeeks();
+    }
+  });
+  const updateMutation = trpc.week.update.useMutation({
+    onSuccess: () => {
+      refetchWeeks();
+    }
+  });
+  const deleteMutation = trpc.week.delete.useMutation({
+    onSuccess: () => {
+      refetchWeeks();
+    }
+  });
+
   const [isCreating, setIsCreating] = useState(false);
   const [editingWeekId, setEditingWeekId] = useState<number | null>(null);
   const [formData, setFormData] = useState<WeekFormData>({
@@ -48,55 +79,21 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
   // Debug: log season changes
   useEffect(() => {
     console.log(`[WeekManager] seasonId prop changed to: ${seasonId}`);
-  }, [seasonId]);
-
-  useEffect(() => {
-    const loadWeeks = async () => {
-      if (!seasonId) {
-        console.log(`[WeekManager] Skipping load - seasonId is ${seasonId}`);
-        return;
-      }
-      console.log(`[WeekManager] Loading weeks for seasonId=${seasonId}`);
-      try {
-        const data = await getWeeks(seasonId);
-        console.log(`[WeekManager] API returned ${data.length} weeks:`, data);
-        // Sort weeks by start_at ascending (oldest first, so Week 1 appears at top)
-        const sortedWeeks = [...data].sort((a, b) => a.start_at - b.start_at);
-        setWeeks(sortedWeeks);
-        console.log(`[WeekManager] Loaded ${sortedWeeks.length} weeks for season ${seasonId}`, sortedWeeks);
-      } catch (err) {
-        console.error('[WeekManager] Failed to fetch weeks:', err);
-      }
-      
-      // Clear form when season changes
-      setEditingWeekId(null);
-      setIsCreating(false);
-      setFormData({
-        week_name: '',
-        segment_id: 0,
-        segment_name: '',
-        required_laps: 1,
-        notes: '',
-        start_time: '',
-        end_time: ''
-      });
-    };
-
-    loadWeeks();
-  }, [seasonId]);
-
-  // Refetch weeks (called after create/update/delete)
-  const refetchWeeks = async () => {
-    if (!seasonId) return;
-    try {
-      const data = await getWeeks(seasonId);
-      const sortedWeeks = [...data].sort((a, b) => a.start_at - b.start_at);
-      setWeeks(sortedWeeks);
-      console.log(`[WeekManager] Refetched ${sortedWeeks.length} weeks for season ${seasonId}`);
-    } catch (err) {
-      console.error('[WeekManager] Failed to refetch weeks:', err);
+    // Reset form when season changes
+    if (seasonId) {
+        setEditingWeekId(null);
+        setIsCreating(false);
+        setFormData({
+            week_name: '',
+            segment_id: 0,
+            segment_name: '',
+            required_laps: 1,
+            notes: '',
+            start_time: '',
+            end_time: ''
+        });
     }
-  };
+  }, [seasonId]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -112,6 +109,11 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!seasonId) {
+        setMessage({ type: 'error', text: 'No season selected' });
+        return;
+    }
+
     // Validate all required fields
     const errors: string[] = [];
     
@@ -143,24 +145,33 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
     // Use segment_name as default if week_name is not provided
     const week_name = formData.week_name?.trim() || formData.segment_name;
     
-    const submitData = {
-      week_name,
-      segment_id: formData.segment_id,
-      segment_name: formData.segment_name,
-      required_laps: formData.required_laps,
-      start_at: datetimeLocalToUnix(formData.start_time),
-      end_at: datetimeLocalToUnix(formData.end_time),
-      notes: formData.notes
-    };
-    
-    console.log('Submitting week form data:', submitData);
-    
     try {
-      const result = editingWeekId 
-        ? await updateWeek(editingWeekId, submitData)
-        : await createWeek(submitData);
-
-      console.log('Week saved successfully:', result);
+      if (editingWeekId) {
+        await updateMutation.mutateAsync({
+            id: editingWeekId,
+            data: {
+                week_name,
+                segment_id: formData.segment_id,
+                segment_name: formData.segment_name,
+                required_laps: formData.required_laps,
+                start_at: datetimeLocalToUnix(formData.start_time),
+                end_at: datetimeLocalToUnix(formData.end_time),
+                notes: formData.notes,
+                season_id: seasonId
+            }
+        });
+      } else {
+        await createMutation.mutateAsync({
+            week_name,
+            segment_id: formData.segment_id,
+            segment_name: formData.segment_name,
+            required_laps: formData.required_laps,
+            start_at: datetimeLocalToUnix(formData.start_time),
+            end_at: datetimeLocalToUnix(formData.end_time),
+            notes: formData.notes,
+            season_id: seasonId
+        });
+      }
       
       setMessage({ 
         type: 'success', 
@@ -179,9 +190,6 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
         end_time: '',
         notes: ''
       });
-      
-      // Refresh weeks list
-      await refetchWeeks();
       
       // Clear message after 3 seconds
       setTimeout(() => setMessage(null), 3000);
@@ -230,9 +238,8 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
     }
 
     try {
-      await deleteWeek(weekId);
+      await deleteMutation.mutateAsync(weekId);
       setMessage({ type: 'success', text: 'Week deleted successfully!' });
-      await refetchWeeks();
       setTimeout(() => setMessage(null), 3000);
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message });
@@ -352,9 +359,9 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
                       <div className="segment-name">{week.segment_name || 'Unknown Segment'}</div>
                       <SegmentMetadataDisplay
                         segment={{
-                          distance: week.segment_distance,
-                          total_elevation_gain: week.segment_total_elevation_gain,
-                          segment_average_grade: week.segment_average_grade
+                          distance: week.segment_distance || undefined,
+                          total_elevation_gain: week.segment_total_elevation_gain || undefined,
+                          segment_average_grade: week.segment_average_grade || undefined
                         }}
                       />
                     </div>

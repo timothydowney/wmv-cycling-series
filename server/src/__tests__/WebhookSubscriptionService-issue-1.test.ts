@@ -16,16 +16,19 @@
  */
 
 import Database from 'better-sqlite3';
+import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { WebhookSubscriptionService } from '../services/WebhookSubscriptionService';
 
 describe('WebhookSubscriptionService - Issue #1: Single Subscription Enforcement', () => {
   let db: Database.Database;
+  let orm: BetterSQLite3Database;
   let service: WebhookSubscriptionService;
 
   beforeAll(() => {
     // Create in-memory test database
     db = new Database(':memory:');
     db.pragma('foreign_keys = ON');
+    orm = drizzle(db);
     
     // Create required tables
     db.exec(`
@@ -44,7 +47,7 @@ describe('WebhookSubscriptionService - Issue #1: Single Subscription Enforcement
     db.prepare('DELETE FROM webhook_subscription').run();
     
     // Create fresh service instance
-    service = new WebhookSubscriptionService(db);
+    service = new WebhookSubscriptionService(orm);
     
     // Set up environment variables
     process.env.WEBHOOK_CALLBACK_URL = 'https://example.com/webhooks/strava';

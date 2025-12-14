@@ -3,7 +3,9 @@
  * Handles token storage, retrieval, decryption, and refresh
  */
 
-import { Database } from 'better-sqlite3';
+import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { participantToken } from './db/schema';
+import { eq } from 'drizzle-orm';
 import { decryptToken, encryptToken } from './encryption';
 
 /**
@@ -14,9 +16,9 @@ interface TokenRecord {
   access_token: string;
   refresh_token: string;
   expires_at: number;
-  scope?: string;
-  created_at: string;
-  updated_at: string;
+  scope?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 /**
@@ -36,20 +38,25 @@ interface StravaClient {
 }
 
 /**
- * Get a valid access token for a participant, refreshing if needed
- * @param db - Better-sqlite3 database instance
+ * Get a valid access token for a participant, refreshing if needed (Drizzle)
+ * Canonical method name retained: getValidAccessToken
+ * @param db - Drizzle database instance
  * @param stravaClient - Strava API client
  * @param stravaAthleteId - The participant's Strava athlete ID
+ * @param forceRefresh - Whether to force a refresh even if valid
  * @returns Valid access token
  */
 async function getValidAccessToken(
-  db: Database,
+  db: BetterSQLite3Database,
   stravaClient: StravaClient,
-  stravaAthleteId: number
+  stravaAthleteId: number,
+  forceRefresh: boolean = false
 ): Promise<string> {
-  const tokenRecord = db.prepare(`
-    SELECT * FROM participant_token WHERE strava_athlete_id = ?
-  `).get(stravaAthleteId) as TokenRecord | undefined;
+  const tokenRecord = db
+    .select()
+    .from(participantToken)
+    .where(eq(participantToken.strava_athlete_id, stravaAthleteId))
+    .get();
 
   if (!tokenRecord) {
     throw new Error('Participant not connected to Strava');
@@ -69,10 +76,10 @@ async function getValidAccessToken(
 
   const now = Math.floor(Date.now() / 1000); // Current Unix timestamp
 
-  // Token expires in less than 1 hour? Refresh it proactively
-  if (tokenRecord.expires_at < now + 3600) {
+  // Token expires in less than 1 hour? OR force refresh requested?
+  if (forceRefresh || tokenRecord.expires_at < now + 3600) {
     console.log(
-      `Token expiring soon for participant ${stravaAthleteId}, refreshing...`
+      `Token ${forceRefresh ? 'force refresh' : 'expiring soon'} for participant ${stravaAthleteId}, refreshing...`
     );
 
     try {
@@ -81,19 +88,16 @@ async function getValidAccessToken(
 
       // Update database with NEW tokens (both access and refresh tokens change!)
       // Store encrypted
-      db.prepare(`
-        UPDATE participant_token 
-        SET access_token = ?,
-            refresh_token = ?,
-            expires_at = ?,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE strava_athlete_id = ?
-      `).run(
-        encryptToken(newTokenData.access_token),
-        encryptToken(newTokenData.refresh_token),
-        newTokenData.expires_at,
-        stravaAthleteId
-      );
+      db
+        .update(participantToken)
+        .set({
+          access_token: encryptToken(newTokenData.access_token),
+          refresh_token: encryptToken(newTokenData.refresh_token),
+          expires_at: newTokenData.expires_at,
+          updated_at: new Date().toISOString()
+        })
+        .where(eq(participantToken.strava_athlete_id, stravaAthleteId))
+        .run();
 
       // Return the plaintext access token (kept in memory for use)
       return newTokenData.access_token;
@@ -116,5 +120,4 @@ async function getValidAccessToken(
     return tokenRecord.access_token;
   }
 }
-
 export { getValidAccessToken, type TokenRecord, type TokenData, type StravaClient };

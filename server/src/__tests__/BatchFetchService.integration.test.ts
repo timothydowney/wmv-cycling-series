@@ -5,26 +5,32 @@
  * Focuses on verifying that batch fetch respects season end dates.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach, beforeAll } from '@jest/globals';
 import Database from 'better-sqlite3';
+import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import BatchFetchService from '../services/BatchFetchService';
-import { SCHEMA } from '../schema';
+import { setupTestDb } from './setupTestDb';
+import { createSegment, createSeason, createWeek } from './testDataHelpers';
 
 describe('BatchFetchService with Season Validation', () => {
   let db: Database.Database;
+  let drizzleDb: BetterSQLite3Database;
   let service: BatchFetchService;
   const now = Math.floor(Date.now() / 1000);
 
   beforeEach(() => {
-    // Create in-memory test database
-    db = new Database(':memory:');
-    db.pragma('journal_mode = WAL');
-    db.pragma('foreign_keys = ON');
-    db.exec(SCHEMA);
+    // Create in-memory test database and run migrations
+    const testDb = setupTestDb({ seed: false });
+    db = testDb.db;
+    drizzleDb = testDb.drizzleDb;
 
-    // Create service instance with mock token provider
-    service = new BatchFetchService(db, async () => 'mock-token');
+    // Create a common segment for all tests in this suite
+    createSegment(drizzleDb, 999999, 'Test Segment', { distance: 2500, averageGrade: 6.5 });
+
+    // Create service instance with mock token provider (reset for each test)
+    service = new BatchFetchService(drizzleDb, async () => 'mock-token');
   });
+
 
   afterEach(() => {
     db.close();
@@ -33,36 +39,26 @@ describe('BatchFetchService with Season Validation', () => {
   describe('fetchWeekResults() with closed season', () => {
     it('should return error when trying to fetch for week in closed season', async () => {
       // Create a closed season (ended 1 day ago)
-      const closedSeasonId = db
-        .prepare(
-          `INSERT INTO season (name, start_at, end_at, is_active, created_at)
-           VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)`
-        )
-        .run('Closed Season', now - 86400 * 30, now - 86400) as any;
+      const closedSeason = createSeason(drizzleDb, 'Closed Season', true, {
+        startAt: now - 86400 * 30,
+        endAt: now - 86400
+      });
 
       // Create a segment
-      db.prepare(
-        `INSERT INTO segment (strava_segment_id, name, distance, average_grade)
-         VALUES (?, ?, ?, ?)`
-      ).run(12345, 'Test Segment', 2500, 6.5);
+      const segment = createSegment(drizzleDb, 12345, 'Test Segment', { distance: 2500, averageGrade: 6.5 });
 
       // Create a week in the closed season
-      const weekId = db
-        .prepare(
-          `INSERT INTO week (season_id, week_name, strava_segment_id, start_at, end_at, required_laps, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
-        )
-        .run(
-          closedSeasonId.lastInsertRowid,
-          'Closed Week',
-          12345,
-          now - 86400 * 20,
-          now - 86400 * 19,
-          1
-        ) as any;
+      const week = createWeek(drizzleDb, {
+        seasonId: closedSeason.id,
+        weekName: 'Closed Week',
+        stravaSegmentId: 12345,
+        startTime: new Date((now - 86400 * 20) * 1000).toISOString(),
+        endTime: new Date((now - 86400 * 19) * 1000).toISOString(),
+        requiredLaps: 1
+      });
 
       // Try to fetch results
-      const result = await service.fetchWeekResults(weekId.lastInsertRowid as number);
+      const result = await service.fetchWeekResults(week.id);
 
       // Should fail gracefully
       expect(result.message).toBe('Season has ended');
@@ -75,36 +71,26 @@ describe('BatchFetchService with Season Validation', () => {
 
     it('should successfully fetch when season is still active', async () => {
       // Create an active season (started 30 days ago, ends 30 days from now)
-      const activeSeasonId = db
-        .prepare(
-          `INSERT INTO season (name, start_at, end_at, is_active, created_at)
-           VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)`
-        )
-        .run('Active Season', now - 86400 * 30, now + 86400 * 30) as any;
+      const activeSeason = createSeason(drizzleDb, 'Active Season', true, {
+        startAt: now - 86400 * 30,
+        endAt: now + 86400 * 30
+      });
 
       // Create a segment
-      db.prepare(
-        `INSERT INTO segment (strava_segment_id, name, distance, average_grade)
-         VALUES (?, ?, ?, ?)`
-      ).run(12345, 'Test Segment', 2500, 6.5);
+      const segment = createSegment(drizzleDb, 12345, 'Test Segment', { distance: 2500, averageGrade: 6.5 });
 
       // Create a week in the active season (yesterday)
-      const weekId = db
-        .prepare(
-          `INSERT INTO week (season_id, week_name, strava_segment_id, start_at, end_at, required_laps, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
-        )
-        .run(
-          activeSeasonId.lastInsertRowid,
-          'Active Week',
-          12345,
-          now - 86400,
-          now - 86400 + 86400,
-          1
-        ) as any;
+      const week = createWeek(drizzleDb, {
+        seasonId: activeSeason.id,
+        weekName: 'Active Week',
+        stravaSegmentId: 12345,
+        startTime: new Date((now - 86400) * 1000).toISOString(),
+        endTime: new Date((now - 86400 + 86400) * 1000).toISOString(),
+        requiredLaps: 1
+      });
 
       // Try to fetch results
-      const result = await service.fetchWeekResults(weekId.lastInsertRowid as number);
+      const result = await service.fetchWeekResults(week.id);
 
       // Should NOT fail on season validation
       // (will fail later with "No participants connected", which is expected in this test)

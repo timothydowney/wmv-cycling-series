@@ -14,9 +14,9 @@ export interface WebhookPayload {
 
 export interface WebhookEvent {
   id: number;
-  created_at: string;
+  created_at: string | null;
   payload: WebhookPayload;
-  processed: boolean;
+  processed: number | null;
   error_message: string | null;
 }
 

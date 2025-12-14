@@ -5,10 +5,11 @@
  */
 
 import { Database } from 'better-sqlite3';
+import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { SegmentService } from '../services/SegmentService';
-import { createParticipant, createSegment, clearAllData } from './testDataHelpers';
-import path from 'path';
-import fs from 'fs';
+import { setupTestDb, teardownTestDb, createParticipant, createSegment, clearAllData } from './testDataHelpers';
+import { segment } from '../db/schema';
+import { eq, sql } from 'drizzle-orm';
 
 // Mock strava-v3 and stravaClient
 jest.mock('strava-v3', () => ({
@@ -54,33 +55,33 @@ jest.mock('../tokenManager', () => ({
   getValidAccessToken: jest.fn().mockResolvedValue('mock_access_token_123')
 }));
 
-const TEST_DB_PATH = path.join(__dirname, '..', '..', 'data', 'segment-service-test.db');
-process.env.DATABASE_PATH = TEST_DB_PATH;
-process.env.NODE_ENV = 'test';
-
-if (fs.existsSync(TEST_DB_PATH)) {
-  fs.unlinkSync(TEST_DB_PATH);
-}
-
-const { db: testDb } = require('../index');
-
 describe('SegmentService', () => {
   let db: Database;
+  let drizzleDb: BetterSQLite3Database;
   let service: SegmentService;
 
   const TEST_SEGMENT_ID = 12345678;
   const TEST_ATHLETE_ID = 999001;
 
+  beforeAll(() => {
+    const testDb = setupTestDb();
+    db = testDb.db;
+    drizzleDb = testDb.drizzleDb;
+  });
+
+  afterAll(() => {
+    teardownTestDb(db);
+  });
+
   beforeEach(() => {
-    clearAllData(testDb);
-    db = testDb;
-    service = new SegmentService(db);
+    clearAllData(drizzleDb);
+    service = new SegmentService(drizzleDb);
   });
 
   describe('fetchAndStoreSegmentMetadata()', () => {
     test('should fetch segment metadata from Strava and store in database', async () => {
       // Setup: Create participant with token
-      createParticipant(db, TEST_ATHLETE_ID, 'Test User', {
+      createParticipant(drizzleDb, TEST_ATHLETE_ID, 'Test User', {
         accessToken: 'token_123',
         refreshToken: 'refresh_123',
         expiresAt: Math.floor(Date.now() / 1000) + 3600
@@ -103,7 +104,7 @@ describe('SegmentService', () => {
       });
 
       // Assert: Data stored in database
-      const stored = db.prepare('SELECT * FROM segment WHERE strava_segment_id = ?').get(TEST_SEGMENT_ID);
+      const stored = await drizzleDb.select().from(segment).where(eq(segment.strava_segment_id, TEST_SEGMENT_ID)).get();
       expect(stored).toMatchObject({
         strava_segment_id: TEST_SEGMENT_ID,
         name: 'Test Segment Name',
@@ -125,13 +126,13 @@ describe('SegmentService', () => {
       expect(result?.total_elevation_gain).toBeNull();
 
       // Assert: Row exists in database
-      const stored = db.prepare('SELECT * FROM segment WHERE strava_segment_id = ?').get(TEST_SEGMENT_ID);
+      const stored = await drizzleDb.select().from(segment).where(eq(segment.strava_segment_id, TEST_SEGMENT_ID)).get();
       expect(stored).toBeDefined();
     });
 
     test('should handle API errors gracefully and create placeholder', async () => {
       // Setup
-      createParticipant(db, TEST_ATHLETE_ID, 'Test User', {
+      createParticipant(drizzleDb, TEST_ATHLETE_ID, 'Test User', {
         accessToken: 'token_123',
         refreshToken: 'refresh_123',
         expiresAt: Math.floor(Date.now() / 1000) + 3600
@@ -160,7 +161,7 @@ describe('SegmentService', () => {
 
     test('should send user-friendly messages via callback without technical context', async () => {
       // Setup
-      createParticipant(db, TEST_ATHLETE_ID, 'Test User', {
+      createParticipant(drizzleDb, TEST_ATHLETE_ID, 'Test User', {
         accessToken: 'token_123',
         refreshToken: 'refresh_123',
         expiresAt: Math.floor(Date.now() / 1000) + 3600
@@ -184,7 +185,7 @@ describe('SegmentService', () => {
 
     test('should send error messages via callback without technical context', async () => {
       // Setup
-      createParticipant(db, TEST_ATHLETE_ID, 'Test User', {
+      createParticipant(drizzleDb, TEST_ATHLETE_ID, 'Test User', {
         accessToken: 'token_123',
         refreshToken: 'refresh_123',
         expiresAt: Math.floor(Date.now() / 1000) + 3600
@@ -210,7 +211,7 @@ describe('SegmentService', () => {
 
     test('should be idempotent (INSERT OR REPLACE)', async () => {
       // Setup
-      createParticipant(db, TEST_ATHLETE_ID, 'Test User', {
+      createParticipant(drizzleDb, TEST_ATHLETE_ID, 'Test User', {
         accessToken: 'token_123',
         refreshToken: 'refresh_123',
         expiresAt: Math.floor(Date.now() / 1000) + 3600
@@ -218,22 +219,22 @@ describe('SegmentService', () => {
 
       // First fetch
       await service.fetchAndStoreSegmentMetadata(TEST_SEGMENT_ID, 'test-1');
-      let count = db.prepare('SELECT COUNT(*) as cnt FROM segment').get().cnt;
-      expect(count).toBe(1);
+      const countRes1 = await drizzleDb.select({ cnt: sql<number>`count(*)` }).from(segment).get();
+      expect(countRes1?.cnt).toBe(1);
 
       // Second fetch (should update, not insert)
       await service.fetchAndStoreSegmentMetadata(TEST_SEGMENT_ID, 'test-2');
-      count = db.prepare('SELECT COUNT(*) as cnt FROM segment').get().cnt;
-      expect(count).toBe(1); // Still 1, not 2
+      const countRes2 = await drizzleDb.select({ cnt: sql<number>`count(*)` }).from(segment).get();
+      expect(countRes2?.cnt).toBe(1);
 
       // Verify data was updated
-      const stored = db.prepare('SELECT * FROM segment WHERE strava_segment_id = ?').get(TEST_SEGMENT_ID);
-      expect(stored.name).toBe('Test Segment Name');
+      const stored = await drizzleDb.select().from(segment).where(eq(segment.strava_segment_id, TEST_SEGMENT_ID)).get();
+      expect(stored?.name).toBe('Test Segment Name');
     });
 
     test('should call token refresh with correct parameters', async () => {
       // Setup
-      createParticipant(db, TEST_ATHLETE_ID, 'Test User', {
+      createParticipant(drizzleDb, TEST_ATHLETE_ID, 'Test User', {
         accessToken: 'old_token',
         refreshToken: 'refresh_123',
         expiresAt: Math.floor(Date.now() / 1000) - 3600 // Expired
@@ -254,7 +255,7 @@ describe('SegmentService', () => {
 
     test('should handle different context strings for logging', async () => {
       // Setup
-      createParticipant(db, TEST_ATHLETE_ID, 'Test User', {
+      createParticipant(drizzleDb, TEST_ATHLETE_ID, 'Test User', {
         accessToken: 'token_123',
         refreshToken: 'refresh_123',
         expiresAt: Math.floor(Date.now() / 1000) + 3600
@@ -278,34 +279,34 @@ describe('SegmentService', () => {
   });
 
   describe('Utility Methods', () => {
-    test('segmentExists() returns true for existing segment', () => {
-      createSegment(db, TEST_SEGMENT_ID, 'Test Segment');
-      expect(service.segmentExists(TEST_SEGMENT_ID)).toBe(true);
+    test('segmentExists() returns true for existing segment', async () => {
+      createSegment(drizzleDb, TEST_SEGMENT_ID, 'Test Segment');
+      expect(await service.segmentExists(TEST_SEGMENT_ID)).toBe(true);
     });
 
-    test('segmentExists() returns false for non-existing segment', () => {
-      expect(service.segmentExists(99999999)).toBe(false);
+    test('segmentExists() returns false for non-existing segment', async () => {
+      expect(await service.segmentExists(99999999)).toBe(false);
     });
 
-    test('getAllSegments() returns empty array when no segments', () => {
-      const segments = service.getAllSegments();
+    test('getAllSegments() returns empty array when no segments', async () => {
+      const segments = await service.getAllSegments();
       expect(segments).toEqual([]);
     });
 
-    test('getAllSegments() returns all segments sorted by name', () => {
-      createSegment(db, 111, 'Zebra Climb');
-      createSegment(db, 222, 'Apple Ridge');
-      createSegment(db, 333, 'Mountain Peak');
+    test('getAllSegments() returns all segments sorted by name', async () => {
+      createSegment(drizzleDb, 111, 'Zebra Climb');
+      createSegment(drizzleDb, 222, 'Apple Ridge');
+      createSegment(drizzleDb, 333, 'Mountain Peak');
 
-      const segments = service.getAllSegments();
+      const segments = await service.getAllSegments();
       expect(segments).toHaveLength(3);
       expect(segments[0].name).toBe('Apple Ridge');
       expect(segments[1].name).toBe('Mountain Peak');
       expect(segments[2].name).toBe('Zebra Climb');
     });
 
-    test('getAllSegments() returns complete segment data', () => {
-      createSegment(db, TEST_SEGMENT_ID, 'Test Segment', {
+    test('getAllSegments() returns complete segment data', async () => {
+      createSegment(drizzleDb, TEST_SEGMENT_ID, 'Test Segment', {
         distance: 5000,
         averageGrade: 4.5,
         city: 'Boulder',
@@ -313,7 +314,7 @@ describe('SegmentService', () => {
         country: 'USA'
       });
 
-      const segments = service.getAllSegments();
+      const segments = await service.getAllSegments();
       expect(segments[0]).toMatchObject({
         strava_segment_id: TEST_SEGMENT_ID,
         name: 'Test Segment',
@@ -328,7 +329,7 @@ describe('SegmentService', () => {
 
   describe('Edge Cases', () => {
     test('should handle null/undefined values in segment data', async () => {
-      createParticipant(db, TEST_ATHLETE_ID, 'Test User', {
+      createParticipant(drizzleDb, TEST_ATHLETE_ID, 'Test User', {
         accessToken: 'token_123',
         refreshToken: 'refresh_123',
         expiresAt: Math.floor(Date.now() / 1000) + 3600
@@ -358,9 +359,9 @@ describe('SegmentService', () => {
 
     test('should handle existing placeholder when fetching fails', async () => {
       // Setup: Create placeholder first
-      createSegment(db, TEST_SEGMENT_ID, `Segment ${TEST_SEGMENT_ID}`);
+      createSegment(drizzleDb, TEST_SEGMENT_ID, `Segment ${TEST_SEGMENT_ID}`);
 
-      createParticipant(db, TEST_ATHLETE_ID, 'Test User', {
+      createParticipant(drizzleDb, TEST_ATHLETE_ID, 'Test User', {
         accessToken: 'token_123',
         refreshToken: 'refresh_123',
         expiresAt: Math.floor(Date.now() / 1000) + 3600
@@ -377,12 +378,12 @@ describe('SegmentService', () => {
       expect(result?.strava_segment_id).toBe(TEST_SEGMENT_ID);
 
       // Assert: Only 1 row in database (not duplicated)
-      const count = db.prepare('SELECT COUNT(*) as cnt FROM segment WHERE strava_segment_id = ?').get(TEST_SEGMENT_ID).cnt;
-      expect(count).toBe(1);
+      const countRes = await drizzleDb.select({ cnt: sql<number>`count(*)` }).from(segment).where(eq(segment.strava_segment_id, TEST_SEGMENT_ID)).get();
+      expect(countRes?.cnt).toBe(1);
     });
 
     test('should not callback when logCallback is undefined', async () => {
-      createParticipant(db, TEST_ATHLETE_ID, 'Test User', {
+      createParticipant(drizzleDb, TEST_ATHLETE_ID, 'Test User', {
         accessToken: 'token_123',
         refreshToken: 'refresh_123',
         expiresAt: Math.floor(Date.now() / 1000) + 3600

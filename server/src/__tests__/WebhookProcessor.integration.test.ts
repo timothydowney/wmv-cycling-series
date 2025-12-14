@@ -8,21 +8,22 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import Database from 'better-sqlite3';
 import ActivityValidationService from '../services/ActivityValidationService';
-import { SCHEMA } from '../schema';
+import { setupTestDb } from './setupTestDb'; // Import setupTestDb
+// import { SCHEMA } from '../schema'; // Removed
 
 describe('Webhook Processor with Multiple Season Support', () => {
   let db: Database.Database;
+  let orm: import('drizzle-orm/better-sqlite3').BetterSQLite3Database;
   let validationService: ActivityValidationService;
   const now = Math.floor(Date.now() / 1000);
 
   beforeEach(() => {
-    // Create in-memory test database
-    db = new Database(':memory:');
-    db.pragma('journal_mode = WAL');
-    db.pragma('foreign_keys = ON');
-    db.exec(SCHEMA);
-
-    validationService = new ActivityValidationService(db);
+    // Create in-memory test database and run migrations
+    const { db: newDb, orm: newOrm } = setupTestDb({ seed: false });
+    db = newDb;
+    orm = newOrm;
+    // validationService now uses Drizzle ORM
+    validationService = new ActivityValidationService(orm);
   });
 
   afterEach(() => {

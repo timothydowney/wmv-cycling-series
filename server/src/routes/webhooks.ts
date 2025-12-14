@@ -10,13 +10,13 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { Database } from 'better-sqlite3';
+import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { config } from '../config';
 import { WebhookEvent } from '../webhooks/types';
 import { WebhookLogger } from '../webhooks/logger';
 import { createWebhookProcessor } from '../webhooks/processor';
 
-export function createWebhookRouter(logger: WebhookLogger, db: Database): Router {
+export function createWebhookRouter(logger: WebhookLogger, db: BetterSQLite3Database): Router {
   const router = Router();
   const processWebhookEvent = createWebhookProcessor(db);
 
@@ -48,6 +48,25 @@ export function createWebhookRouter(logger: WebhookLogger, db: Database): Router
       mode,
       token: token ? token.slice(0, 8) + '...' : 'missing'
     });
+
+    // Verify required parameters
+    if (!challenge) {
+      console.warn('[Webhook] Missing challenge parameter');
+      res.status(400).json({ error: 'Missing hub.challenge' });
+      return;
+    }
+
+    if (!token) {
+      console.warn('[Webhook] Missing verify token');
+      res.status(400).json({ error: 'Missing hub.verify_token' });
+      return;
+    }
+
+    if (!mode) {
+      console.warn('[Webhook] Missing mode parameter');
+      res.status(400).json({ error: 'Missing hub.mode' });
+      return;
+    }
 
     // Verify token
     if (token !== config.webhookVerifyToken) {
@@ -108,7 +127,7 @@ export function createWebhookRouter(logger: WebhookLogger, db: Database): Router
     // MUST respond immediately with 200 (Strava requirement: 2 seconds)
     res.status(200).json({ received: true });
 
-    // Log event
+    // Log event (always, for audit trail)
     logger.logEvent({
       payload: event,
       processed: false,
@@ -117,19 +136,22 @@ export function createWebhookRouter(logger: WebhookLogger, db: Database): Router
 
     // Process async (don't await - processing happens in background)
     // This ensures we return 200 quickly to Strava
-    processWebhookEvent(event, logger).catch((err: any) => {
-      console.error('[Webhook] Processing error', {
-        objectId: event.object_id,
-        objectType: event.object_type,
-        error: err instanceof Error ? err.message : String(err)
-      });
+    // Only process if webhooks are enabled in configuration
+    if (config.webhookEnabled) {
+      processWebhookEvent(event, logger).catch((err: unknown) => {
+        console.error('[Webhook] Processing error', {
+          objectId: event.object_id,
+          objectType: event.object_type,
+          error: err instanceof Error ? err.message : String(err)
+        });
 
-      // Mark as failed in log
-      logger.markFailed(
-        event,
-        err instanceof Error ? err.message : String(err)
-      );
-    });
+        // Mark as failed in log
+        logger.markFailed(
+          event,
+          err instanceof Error ? err.message : String(err)
+        );
+      });
+    }
   });
 
   return router;

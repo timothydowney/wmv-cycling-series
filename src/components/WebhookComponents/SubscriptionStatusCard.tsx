@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { api } from '../../api';
+import { trpc } from '../../utils/trpc'; // Import trpc
 import './SubscriptionStatusCard.css';
 
 interface SubscriptionStatus {
@@ -13,7 +13,7 @@ interface SubscriptionStatus {
     successful_events: number;
     failed_events: number;
     pending_retries: number;
-    events_last_24h: number;
+    events_last24h: number; // Changed from events_last_24h to match tRPC output
     success_rate: number;
   };
 }
@@ -24,8 +24,43 @@ interface Props {
 }
 
 const SubscriptionStatusCard: React.FC<Props> = ({ subscription, onStatusUpdate }) => {
-  const [loading, setLoading] = useState(false);
+  // tRPC Mutations
+  const enableMutation = trpc.webhookAdmin.enable.useMutation({
+    onSuccess: () => {
+      setMessage('✓ Webhooks enabled');
+      onStatusUpdate();
+      setTimeout(() => setMessage(null), 3000);
+    },
+    onError: (err) => {
+      setMessage(`✕ ${err.message}`);
+    }
+  });
+
+  const disableMutation = trpc.webhookAdmin.disable.useMutation({
+    onSuccess: () => {
+      setMessage('✓ Webhooks disabled');
+      onStatusUpdate();
+      setTimeout(() => setMessage(null), 3000);
+    },
+    onError: (err) => {
+      setMessage(`✕ ${err.message}`);
+    }
+  });
+
+  const renewMutation = trpc.webhookAdmin.renew.useMutation({
+    onSuccess: () => {
+      setMessage('✓ Subscription renewed');
+      onStatusUpdate();
+      setTimeout(() => setMessage(null), 3000);
+    },
+    onError: (err) => {
+      setMessage(`✕ ${err.message}`);
+    }
+  });
+
   const [message, setMessage] = useState<string | null>(null);
+
+  const loading = enableMutation.isPending || disableMutation.isPending || renewMutation.isPending;
 
   const getStatusIcon = (): string => {
     if (!subscription.enabled) {
@@ -146,49 +181,16 @@ const SubscriptionStatusCard: React.FC<Props> = ({ subscription, onStatusUpdate 
     }
   };
 
-  const handleEnable = async () => {
-    setLoading(true);
-    try {
-      await api.enableWebhooks();
-      setMessage('✓ Webhooks enabled');
-      await onStatusUpdate();
-      setTimeout(() => setMessage(null), 3000);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to enable webhooks';
-      setMessage(`✕ ${msg}`);
-    } finally {
-      setLoading(false);
-    }
+  const handleEnable = () => {
+    enableMutation.mutate();
   };
 
-  const handleDisable = async () => {
-    setLoading(true);
-    try {
-      await api.disableWebhooks();
-      setMessage('✓ Webhooks disabled');
-      await onStatusUpdate();
-      setTimeout(() => setMessage(null), 3000);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to disable webhooks';
-      setMessage(`✕ ${msg}`);
-    } finally {
-      setLoading(false);
-    }
+  const handleDisable = () => {
+    disableMutation.mutate();
   };
 
-  const handleRenew = async () => {
-    setLoading(true);
-    try {
-      await api.renewWebhooks();
-      setMessage('✓ Subscription renewed');
-      await onStatusUpdate();
-      setTimeout(() => setMessage(null), 3000);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to renew subscription';
-      setMessage(`✕ ${msg}`);
-    } finally {
-      setLoading(false);
-    }
+  const handleRenew = () => {
+    renewMutation.mutate();
   };
 
   const statusIcon = getStatusIcon();

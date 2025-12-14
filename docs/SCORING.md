@@ -22,11 +22,18 @@ This series rewards participation and relative performance. Points are calculate
   - 3rd place beats 1 → 1 base point
   - 4th place beats 0 → 0 base points
 
-**Participation Bonus:** +1 point for competing
+**Participation Bonus:** +1 point for completing the event (awarded to every participant with a valid activity)
 
-**PR Bonus:** +1 point if you set a personal record (PR) on the segment in your best activity
+**PR Bonus:** +1 point if you achieved a personal record on any segment effort in your best activity
+- **Important:** Maximum 1 PR bonus point per week, even if multiple segment efforts are PRs
+- Example: If you complete 3 laps and improve on 2 of them, you still earn only 1 PR bonus point
 
 **Total Weekly Points = Base Points + Participation Bonus + PR Bonus**
+
+**Example Scenarios (4 participants):**
+- 1st place with PR: `(3 beaten) + 1 (participated) + 1 (PR) = 5 points`
+- 2nd place no PR: `(2 beaten) + 1 (participated) + 0 (no PR) = 3 points`
+- 4th place (slowest): `(0 beaten) + 1 (participated) + 0 (no PR) = 1 point`
 
 ## Key Architectural Detail
 
@@ -36,11 +43,12 @@ Example: If 1st place deletes mid-season, 2nd place automatically becomes 1st wi
 
 ## Edge Cases
 
-- Multiple activities on the same day: only the best single qualifying activity counts
-- Activities spanning midnight: must fall within the configured time window for the week
-- Insufficient laps: the activity does not qualify
-- Ties: participants with identical total times share the same rank; points are computed based on rank list position
-- User deletion: remaining participants' scores recalculate automatically
+- **Multiple activities on the same day:** Only the best single qualifying activity counts toward scoring
+- **Activities spanning midnight:** Must fall within the configured time window for the week
+- **Insufficient laps:** The activity does not qualify and participant gets 0 points (no participation bonus if invalid)
+- **Ties:** Participants with identical total times share the same rank; points are computed based on final rank position
+- **Multiple PRs in one activity:** If an activity has multiple laps that are PRs, only 1 PR bonus point (not per lap)
+- **User deletion:** Remaining participants' scores recalculate automatically (scores computed on-read, not stored)
 
 ## Season Leaderboard
 

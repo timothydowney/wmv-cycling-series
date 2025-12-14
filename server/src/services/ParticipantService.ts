@@ -3,25 +3,24 @@
  * Handles participant queries and connection status
  */
 
-import { Database } from 'better-sqlite3';
+import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { participant, participantToken } from '../db/schema';
+import { eq, asc, sql } from 'drizzle-orm';
+import { Participant } from '../db/schema'; // Import Drizzle Participant type
 import { getAthleteProfilePictures } from './StravaProfileService';
 
-interface Participant {
-  strava_athlete_id: number;
-  name: string;
-}
-
 class ParticipantService {
-  constructor(private db: Database) {}
+  constructor(private db: BetterSQLite3Database) {}
 
   /**
    * Get all participants
    */
   getAllParticipants(): Participant[] {
-    const participants = this.db
-      .prepare('SELECT strava_athlete_id, name FROM participant ORDER BY name ASC')
-      .all() as Participant[];
-    return participants;
+    return this.db
+      .select()
+      .from(participant)
+      .orderBy(asc(participant.name))
+      .all();
   }
 
   /**
@@ -31,17 +30,16 @@ class ParticipantService {
    */
   async getAllParticipantsWithStatus(): Promise<any[]> {
     const participants = this.db
-      .prepare(
-        `SELECT 
-          p.strava_athlete_id,
-          p.name,
-          CASE WHEN pt.strava_athlete_id IS NOT NULL THEN 1 ELSE 0 END as has_token,
-          pt.expires_at as token_expires_at
-        FROM participant p
-        LEFT JOIN participant_token pt ON p.strava_athlete_id = pt.strava_athlete_id
-        ORDER BY p.name ASC`
-      )
-      .all() as Array<{ strava_athlete_id: number; name: string; has_token: number; token_expires_at: number | null }>;
+      .select({
+        strava_athlete_id: participant.strava_athlete_id,
+        name: participant.name,
+        has_token: sql<number>`CASE WHEN ${participantToken.strava_athlete_id} IS NOT NULL THEN 1 ELSE 0 END`,
+        token_expires_at: participantToken.expires_at
+      })
+      .from(participant)
+      .leftJoin(participantToken, eq(participant.strava_athlete_id, participantToken.strava_athlete_id))
+      .orderBy(asc(participant.name))
+      .all();
 
     // Fetch profile pictures for all athletes
     const athleteIds = participants.map(p => p.strava_athlete_id);
@@ -62,10 +60,13 @@ class ParticipantService {
    * Get a participant by Strava athlete ID
    */
   getParticipantByStravaAthleteId(stravaAthleteId: number): Participant | null {
-    const participant = this.db
-      .prepare('SELECT strava_athlete_id, name FROM participant WHERE strava_athlete_id = ?')
-      .get(stravaAthleteId) as Participant | undefined;
-    return participant || null;
+    const result = this.db
+      .select()
+      .from(participant)
+      .where(eq(participant.strava_athlete_id, stravaAthleteId))
+      .get();
+      
+    return result || null;
   }
 }
 
