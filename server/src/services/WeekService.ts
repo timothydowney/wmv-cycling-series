@@ -266,9 +266,10 @@ class WeekService {
     required_laps: number;
     start_at?: number;
     end_at?: number;
+    multiplier?: number; // NEW: Scoring multiplier (default 1)
     notes?: string;
   }): Week {
-    const { season_id, week_name, segment_id, segment_name, required_laps, start_at, end_at, notes } =
+    const { season_id, week_name, segment_id, segment_name, required_laps, start_at, end_at, multiplier, notes } =
       data;
 
     console.log('WeekService.createWeek - Input data:', JSON.stringify(data, null, 2));
@@ -370,6 +371,7 @@ class WeekService {
           required_laps,
           start_at,
           end_at,
+          multiplier: multiplier || 1, // NEW: Default to 1 if not specified
           notes: notes || ''
         })
         .returning()
@@ -399,6 +401,7 @@ class WeekService {
       end_time?: string;
       start_at?: number;
       end_at?: number;
+      multiplier?: number; // NEW: Scoring multiplier
       segment_name?: string;
       notes?: string;
     }
@@ -413,6 +416,7 @@ class WeekService {
       end_time,
       start_at,
       end_at,
+      multiplier,
       segment_name,
       notes
     } = updates;
@@ -439,6 +443,7 @@ class WeekService {
       end_time !== undefined ||
       start_at !== undefined ||
       end_at !== undefined ||
+      multiplier !== undefined ||
       notes !== undefined;
     if (!hasUpdates) {
       throw new Error('No fields to update');
@@ -541,6 +546,13 @@ class WeekService {
 
     if (required_laps !== undefined) {
       updateData.required_laps = required_laps;
+    }
+
+    if (multiplier !== undefined) {
+      if (multiplier < 1) {
+        throw new Error('Multiplier must be >= 1');
+      }
+      updateData.multiplier = multiplier;
     }
 
     if (Object.keys(updateData).length === 0) {

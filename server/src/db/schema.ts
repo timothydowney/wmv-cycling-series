@@ -33,6 +33,7 @@ export const week = sqliteTable('week', {
   required_laps: integer('required_laps').default(1).notNull(),
   start_at: integer('start_at').notNull(),
   end_at: integer('end_at').notNull(),
+  multiplier: integer('multiplier').default(1).notNull(), // NEW: Scoring multiplier for week (default 1 = no change)
   created_at: text('created_at').default('sql`(CURRENT_TIMESTAMP)`'),
   notes: text().default(''),
 },

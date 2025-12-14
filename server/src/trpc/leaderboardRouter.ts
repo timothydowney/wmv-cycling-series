@@ -40,6 +40,7 @@ export const leaderboardRouter = router({
         start_at: week.start_at,
         end_at: week.end_at,
         notes: week.notes,
+        multiplier: week.multiplier,
       })
         .from(week)
         .where(eq(week.id, input.weekId))
@@ -94,9 +95,11 @@ export const leaderboardRouter = router({
 
       const leaderboardEntries: LeaderboardEntryWithDetails[] = await Promise.all(
         rawResults.map(async (rawResult, index) => {
-          // Calculate Rank and Points
+          // Calculate Rank and Points with multiplier applied
           const rank = index + 1;
-          const basePoints = totalParticipants - rank + 1;
+          // basePoints = number of participants beaten = (total - rank)
+          const basePoints = totalParticipants - rank;
+          const participationBonus = 1; // Always 1 point for participating
           
           let prBonusPoints = 0;
           let effortBreakdown: any[] = [];
@@ -128,7 +131,9 @@ export const leaderboardRouter = router({
             }));
           }
 
-          const totalPoints = basePoints + prBonusPoints;
+          // Apply multiplier: (basePoints + participationBonus + prBonusPoints) * multiplier
+          const subtotal = basePoints + participationBonus + prBonusPoints;
+          const totalPoints = subtotal * weekData.multiplier;
 
           return {
             rank: rank,
@@ -137,8 +142,11 @@ export const leaderboardRouter = router({
             profile_picture_url: profilePictures.get(rawResult.participant_id) || null,
             total_time_seconds: rawResult.total_time_seconds || 0,
             time_hhmmss: formatSecondsToHHMMSS(rawResult.total_time_seconds),
-            points: totalPoints,
+            base_points: basePoints,
+            participation_bonus: participationBonus,
             pr_bonus_points: prBonusPoints,
+            multiplier: weekData.multiplier,
+            points: totalPoints,
             activity_url: rawResult.strava_activity_id
               ? `https://www.strava.com/activities/${rawResult.strava_activity_id}`
               : '',
@@ -167,6 +175,7 @@ export const leaderboardRouter = router({
         required_laps: weekData.required_laps,
         start_at: weekData.start_at,
         end_at: weekData.end_at,
+        multiplier: weekData.multiplier,
         notes: weekData.notes || undefined, // Convert null to undefined
       };
 

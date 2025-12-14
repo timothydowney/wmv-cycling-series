@@ -28,12 +28,21 @@ This series rewards participation and relative performance. Points are calculate
 - **Important:** Maximum 1 PR bonus point per week, even if multiple segment efforts are PRs
 - Example: If you complete 3 laps and improve on 2 of them, you still earn only 1 PR bonus point
 
-**Total Weekly Points = Base Points + Participation Bonus + PR Bonus**
+**Weekly Multiplier:** Each week can have an optional multiplier (default: 1, range: 1-5 or any integer)
+- Multiplier is applied to the final point total
+- Example: A week with 2× multiplier doubles all points that week
 
-**Example Scenarios (4 participants):**
-- 1st place with PR: `(3 beaten) + 1 (participated) + 1 (PR) = 5 points`
-- 2nd place no PR: `(2 beaten) + 1 (participated) + 0 (no PR) = 3 points`
-- 4th place (slowest): `(0 beaten) + 1 (participated) + 0 (no PR) = 1 point`
+**Total Weekly Points = (Base Points + Participation Bonus + PR Bonus) × Weekly Multiplier**
+
+**Example Scenarios (4 participants, default 1× multiplier):**
+- 1st place with PR: `(3 beaten + 1 participated + 1 PR) × 1 = 5 points`
+- 2nd place no PR: `(2 beaten + 1 participated + 0 PR) × 1 = 3 points`
+- 4th place (slowest): `(0 beaten + 1 participated + 0 PR) × 1 = 1 point`
+
+**Example Scenarios (4 participants, 2× multiplier for special event):**
+- 1st place with PR: `(3 beaten + 1 participated + 1 PR) × 2 = 10 points`
+- 2nd place no PR: `(2 beaten + 1 participated + 0 PR) × 2 = 6 points`
+- 4th place (slowest): `(0 beaten + 1 participated + 0 PR) × 2 = 2 points`
 
 ## Key Architectural Detail
 
