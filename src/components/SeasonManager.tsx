@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import './SeasonManager.css';
-import { getSeasons, Season, createSeason, updateSeason, deleteSeason } from '../api';
+import { trpc } from '../utils/trpc';
+import type { Season } from 'server/src/db/schema';
 import { formatUnixDate, dateToUnixStart, dateToUnixEnd, unixToDateLocal } from '../utils/dateUtils';
 import { PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 
@@ -15,7 +16,30 @@ interface Props {
 }
 
 function SeasonManager({ onSeasonsChanged }: Props) {
-  const [seasons, setSeasons] = useState<Season[]>([]);
+  const utils = trpc.useUtils();
+  const { data: seasons = [] } = trpc.season.getAll.useQuery();
+
+  const createMutation = trpc.season.create.useMutation({
+    onSuccess: () => {
+      utils.season.getAll.invalidate();
+      if (onSeasonsChanged) onSeasonsChanged();
+    }
+  });
+
+  const updateMutation = trpc.season.update.useMutation({
+    onSuccess: () => {
+      utils.season.getAll.invalidate();
+      if (onSeasonsChanged) onSeasonsChanged();
+    }
+  });
+
+  const deleteMutation = trpc.season.delete.useMutation({
+    onSuccess: () => {
+      utils.season.getAll.invalidate();
+      if (onSeasonsChanged) onSeasonsChanged();
+    }
+  });
+
   const [isCreating, setIsCreating] = useState(false);
   const [editingSeasonId, setEditingSeasonId] = useState<number | null>(null);
   const [formData, setFormData] = useState<SeasonFormData>({
@@ -24,19 +48,6 @@ function SeasonManager({ onSeasonsChanged }: Props) {
     end_at: ''
   });
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-
-  useEffect(() => {
-    fetchSeasons();
-  }, []);
-
-  const fetchSeasons = async () => {
-    try {
-      const data = await getSeasons();
-      setSeasons(data);
-    } catch (err) {
-      console.error('Failed to fetch seasons:', err);
-    }
-  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -70,13 +81,16 @@ function SeasonManager({ onSeasonsChanged }: Props) {
         name: formData.name,
         start_at: startUnix,
         end_at: endUnix,
-        is_active: 0
+        is_active: false // Default to false, logic handled by backend/service if needed
       };
 
       if (editingSeasonId) {
-        await updateSeason(editingSeasonId, submitData);
+        await updateMutation.mutateAsync({
+          id: editingSeasonId,
+          data: submitData
+        });
       } else {
-        await createSeason(submitData);
+        await createMutation.mutateAsync(submitData);
       }
 
       setMessage({
@@ -92,14 +106,6 @@ function SeasonManager({ onSeasonsChanged }: Props) {
         start_at: '',
         end_at: ''
       });
-
-      // Refresh seasons list
-      await fetchSeasons();
-
-      // Notify parent component of changes
-      if (onSeasonsChanged) {
-        onSeasonsChanged();
-      }
 
       // Clear message after 3 seconds
       setTimeout(() => setMessage(null), 3000);
@@ -125,15 +131,9 @@ function SeasonManager({ onSeasonsChanged }: Props) {
     }
 
     try {
-      await deleteSeason(seasonId);
+      await deleteMutation.mutateAsync(seasonId);
 
       setMessage({ type: 'success', text: 'Season deleted successfully!' });
-      
-      // Refresh seasons list and notify parent
-      await fetchSeasons();
-      if (onSeasonsChanged) {
-        onSeasonsChanged();
-      }
       
       setTimeout(() => setMessage(null), 3000);
     } catch (err: any) {
@@ -176,14 +176,17 @@ function SeasonManager({ onSeasonsChanged }: Props) {
               </tr>
             </thead>
             <tbody>
-              {seasons.map(season => (
+              {seasons.map(season => {
+                const now = Math.floor(Date.now() / 1000);
+                const isWithinDates = season.start_at <= now && now <= season.end_at;
+                return (
                 <tr key={season.id}>
                   <td>{season.name}</td>
                   <td>{formatUnixDate(season.start_at)}</td>
                   <td>{formatUnixDate(season.end_at)}</td>
                   <td>
-                    <span className={`status-badge ${season.is_active ? 'active' : 'inactive'}`}>
-                      {season.is_active ? 'Active' : 'Inactive'}
+                    <span className={`status-badge ${isWithinDates ? 'active' : 'inactive'}`}>
+                      {isWithinDates ? 'Active' : 'Inactive'}
                     </span>
                   </td>
                   <td>
@@ -205,7 +208,8 @@ function SeasonManager({ onSeasonsChanged }: Props) {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}

@@ -3,8 +3,11 @@
  * Encapsulates all business logic for week management
  */
 
-import { Database } from 'better-sqlite3';
-import type { WeekResponse } from '../types/database';
+import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { week, segment, result, activity, participant, segmentEffort, season } from '../db/schema';
+import { eq, desc, sql, and, inArray } from 'drizzle-orm';
+import { Week } from '../db/schema'; // Import Drizzle Week type
+import { WeekWithDetails } from '../types/custom'; // Import the new custom type
 import {
   secondsToHHMMSS,
   isoToUnix,
@@ -16,137 +19,162 @@ import { getAthleteProfilePictures } from './StravaProfileService';
 // Notes field constraints
 const NOTES_MAX_LENGTH = 1000;
 
-interface Leaderboard {
-  rank: number;
-  participant_id: number;
-  name: string;
-  total_time_seconds: number;
-  time_hhmmss: string | null;
-  profile_picture_url?: string | null; // Strava athlete profile picture
-  effort_breakdown?: Array<{
-    lap: number;
-    time_seconds: number;
-    time_hhmmss: string | null;
-    is_pr: boolean;
-    strava_effort_id?: string;
-  }>;
-  points: number;
-  pr_bonus_points: number;
-  device_name?: string;
-  activity_url: string;
-  strava_effort_id?: string | null;
-}
-
-interface WeekLeaderboardResponse {
-  week: WeekResponse;
-  leaderboard: Leaderboard[];
-}
-
 class WeekService {
-  constructor(private db: Database) {}
+  constructor(private db: BetterSQLite3Database) {}
 
   /**
-   * Get all weeks for a season
+   * Get all weeks for a season - lightweight version for dropdowns (no participant count)
+   * Much faster: no JOINs to result table, no COUNT aggregation
+   * Used by: week selector dropdown on main page
    */
-  getAllWeeks(seasonId: number): WeekResponse[] {
+  async getAllWeeksSummary(seasonId: number): Promise<WeekWithDetails[]> {
     if (!seasonId) {
       throw new Error('season_id is required');
     }
 
-    const query = `
-      SELECT w.id, w.season_id, w.week_name, w.strava_segment_id, w.required_laps, 
-             w.start_at, w.end_at, w.notes, w.created_at,
-             s.name as segment_name, 
-             s.distance as segment_distance, 
-             s.total_elevation_gain as segment_total_elevation_gain,
-             s.average_grade as segment_average_grade,
-             s.climb_category as segment_climb_category,
-             s.city as segment_city,
-             s.state as segment_state,
-             s.country as segment_country,
-             COUNT(DISTINCT r.strava_athlete_id) as participants_count
-      FROM week w
-      LEFT JOIN segment s ON w.strava_segment_id = s.strava_segment_id
-      LEFT JOIN result r ON w.id = r.week_id
-      WHERE w.season_id = ?
-      GROUP BY w.id, w.season_id, w.week_name, w.strava_segment_id, w.required_laps, w.start_at, w.end_at, w.notes, w.created_at, s.name,
-               s.distance, s.total_elevation_gain, s.average_grade, s.climb_category, s.city, s.state, s.country
-      ORDER BY w.start_at DESC
-    `;
+    return this.db
+      .select({
+        id: week.id,
+        season_id: week.season_id,
+        week_name: week.week_name,
+        strava_segment_id: week.strava_segment_id,
+        required_laps: week.required_laps,
+        start_at: week.start_at,
+        end_at: week.end_at,
+        notes: week.notes,
+        created_at: week.created_at,
+        // Joined fields
+        segment_name: segment.name,
+        segment_distance: segment.distance,
+        segment_total_elevation_gain: segment.total_elevation_gain,
+        segment_average_grade: segment.average_grade,
+        segment_climb_category: segment.climb_category,
+        segment_city: segment.city,
+        segment_state: segment.state,
+        segment_country: segment.country,
+        participants_count: sql<number>`0`, // Placeholder - not used in dropdown
+      })
+      .from(week)
+      .leftJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
+      .where(eq(week.season_id, seasonId))
+      .orderBy(desc(week.start_at))
+      .all() as unknown as WeekWithDetails[];
+  }
 
-    return this.db.prepare(query).all(seasonId) as WeekResponse[];
+  /**
+   * Get all weeks for a season - full version with participant count
+   * Used by: admin schedule table (ScheduleTable.tsx) which displays participants_count
+   * NOTE: Database index on result(week_id, strava_athlete_id) improves performance
+   */
+  async getAllWeeks(seasonId: number): Promise<WeekWithDetails[]> { // Specify return type
+    if (!seasonId) {
+      throw new Error('season_id is required');
+    }
+
+    return this.db
+      .select({
+        id: week.id,
+        season_id: week.season_id,
+        week_name: week.week_name,
+        strava_segment_id: week.strava_segment_id,
+        required_laps: week.required_laps,
+        start_at: week.start_at,
+        end_at: week.end_at,
+        notes: week.notes,
+        created_at: week.created_at,
+        // Joined fields
+        segment_name: segment.name,
+        segment_distance: segment.distance,
+        segment_total_elevation_gain: segment.total_elevation_gain,
+        segment_average_grade: segment.average_grade,
+        segment_climb_category: segment.climb_category,
+        segment_city: segment.city,
+        segment_state: segment.state,
+        segment_country: segment.country,
+        participants_count: sql<number>`cast(count(distinct ${result.strava_athlete_id}) as integer)`, // Cast to integer
+      })
+      .from(week)
+      .leftJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
+      .leftJoin(result, eq(week.id, result.week_id))
+      .where(eq(week.season_id, seasonId))
+      .groupBy(week.id, segment.strava_segment_id) // Group by segment.strava_segment_id
+      .orderBy(desc(week.start_at))
+      .all() as unknown as WeekWithDetails[];
   }
 
   /**
    * Get a single week by ID
    */
-  getWeekById(weekId: number): WeekResponse {
-    const week = this.db
-      .prepare(
-        `SELECT w.id, w.season_id, w.week_name, w.strava_segment_id, w.required_laps, 
-                w.start_at, w.end_at, w.notes, w.created_at,
-                s.name as segment_name,
-                s.distance as segment_distance, 
-                s.total_elevation_gain as segment_total_elevation_gain,
-                s.average_grade as segment_average_grade,
-                s.climb_category as segment_climb_category,
-                s.city as segment_city,
-                s.state as segment_state,
-                s.country as segment_country,
-                COUNT(DISTINCT r.strava_athlete_id) as participants_count
-         FROM week w
-         LEFT JOIN segment s ON w.strava_segment_id = s.strava_segment_id
-         LEFT JOIN result r ON w.id = r.week_id
-         WHERE w.id = ?
-         GROUP BY w.id, w.season_id, w.week_name, w.strava_segment_id, w.required_laps, w.start_at, w.end_at, w.notes, w.created_at, s.name,
-                  s.distance, s.total_elevation_gain, s.average_grade, s.climb_category, s.city, s.state, s.country`
-      )
-      .get(weekId) as WeekResponse | undefined;
+  async getWeekById(weekId: number): Promise<WeekWithDetails> { // Specify return type
+    const foundWeek = this.db
+      .select({
+        id: week.id,
+        season_id: week.season_id,
+        week_name: week.week_name,
+        strava_segment_id: week.strava_segment_id,
+        required_laps: week.required_laps,
+        start_at: week.start_at,
+        end_at: week.end_at,
+        notes: week.notes,
+        created_at: week.created_at,
+        // Joined fields
+        segment_name: segment.name,
+        segment_distance: segment.distance,
+        segment_total_elevation_gain: segment.total_elevation_gain,
+        segment_average_grade: segment.average_grade,
+        segment_climb_category: segment.climb_category,
+        segment_city: segment.city,
+        segment_state: segment.state,
+        segment_country: segment.country,
+        participants_count: sql<number>`cast(count(distinct ${result.strava_athlete_id}) as integer)`, // Cast to integer
+      })
+      .from(week)
+      .leftJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
+      .leftJoin(result, eq(week.id, result.week_id))
+      .where(eq(week.id, weekId))
+      .groupBy(week.id, segment.strava_segment_id) // Group by segment.strava_segment_id
+      .get() as unknown as WeekWithDetails;
 
-    if (!week) {
+    if (!foundWeek) {
       throw new Error('Week not found');
     }
 
-    return week;
+    // Ensure return value is a promise since function is async-compatible (even if better-sqlite3 is sync)
+    return Promise.resolve(foundWeek);
   }
 
   /**
    * Get leaderboard for a week (compute scores on-read for deletion safety)
    * Now async to fetch profile pictures from Strava
    */
-  async getWeekLeaderboard(weekId: number): Promise<WeekLeaderboardResponse> {
-    const week = this.getWeekById(weekId);
+  async getWeekLeaderboard(weekId: number): Promise<{ week: any; leaderboard: any[] }> {
+    const weekData = await this.getWeekById(weekId); // Await the promise
 
     // IMPORTANT: Compute leaderboard scores on read, not from stored database records
     // This ensures scores are always correct even if users delete their data
 
     // Get activities with their segment efforts (sorted by total time)
     const activitiesWithTotals = this.db
-      .prepare(
-        `SELECT 
-          a.id as activity_id,
-          a.strava_athlete_id as participant_id,
-          a.strava_activity_id,
-          a.device_name,
-          p.name,
-          SUM(se.elapsed_seconds) as total_time_seconds,
-          MAX(se.pr_achieved) as achieved_pr
-        FROM activity a
-        JOIN segment_effort se ON a.id = se.activity_id
-        JOIN participant p ON a.strava_athlete_id = p.strava_athlete_id
-        WHERE a.week_id = ? AND a.validation_status = 'valid' AND se.strava_segment_id = ?
-        GROUP BY a.id, a.strava_athlete_id, a.strava_activity_id, a.device_name, p.name
-        ORDER BY total_time_seconds ASC`
-      )
-      .all(weekId, week.strava_segment_id) as Array<{
-      activity_id: number;
-      participant_id: number;
-      strava_activity_id: number;
-      device_name: string | null;
-      name: string;
-      total_time_seconds: number;
-      achieved_pr: number;
-    }>;
+      .select({
+        activity_id: activity.id,
+        participant_id: activity.strava_athlete_id,
+        strava_activity_id: activity.strava_activity_id,
+        device_name: activity.device_name,
+        name: participant.name,
+        total_time_seconds: sql<number>`sum(${segmentEffort.elapsed_seconds})`,
+        achieved_pr: sql<number>`max(${segmentEffort.pr_achieved})`
+      })
+      .from(activity)
+      .innerJoin(segmentEffort, eq(activity.id, segmentEffort.activity_id))
+      .innerJoin(participant, eq(activity.strava_athlete_id, participant.strava_athlete_id))
+      .where(and(
+        eq(activity.week_id, weekId),
+        eq(activity.validation_status, 'valid'),
+        eq(segmentEffort.strava_segment_id, weekData.strava_segment_id)
+      ))
+      .groupBy(activity.id)
+      .orderBy(sql`sum(${segmentEffort.elapsed_seconds}) asc`)
+      .all();
 
     // Fetch profile pictures for all athletes in this leaderboard
     const athleteIds = activitiesWithTotals.map(a => a.participant_id);
@@ -154,30 +182,31 @@ class WeekService {
 
     // Compute leaderboard scores from activities (always correct)
     const totalParticipants = activitiesWithTotals.length;
-    const leaderboard: Leaderboard[] = activitiesWithTotals.map((activity, index) => {
+    const leaderboard: any[] = activitiesWithTotals.map((act, index) => {
       const rank = index + 1;
       const basePoints = totalParticipants - rank + 1;
-      const prBonus = activity.achieved_pr ? 1 : 0;
+      const prBonus = act.achieved_pr ? 1 : 0;
       const totalPoints = basePoints + prBonus;
 
       // Fetch individual segment efforts for this activity
       const efforts = this.db
-        .prepare(
-          `SELECT elapsed_seconds, effort_index, pr_achieved, strava_effort_id
-           FROM segment_effort
-           WHERE activity_id = ? AND strava_segment_id = ?
-           ORDER BY effort_index ASC`
-        )
-        .all(activity.activity_id, week.strava_segment_id) as Array<{
-        elapsed_seconds: number;
-        effort_index: number;
-        pr_achieved: number;
-        strava_effort_id: string;
-      }>;
+        .select({
+          elapsed_seconds: segmentEffort.elapsed_seconds,
+          effort_index: segmentEffort.effort_index,
+          pr_achieved: segmentEffort.pr_achieved,
+          strava_effort_id: segmentEffort.strava_effort_id
+        })
+        .from(segmentEffort)
+        .where(and(
+          eq(segmentEffort.activity_id, act.activity_id),
+          eq(segmentEffort.strava_segment_id, weekData.strava_segment_id)
+        ))
+        .orderBy(segmentEffort.effort_index)
+        .all();
 
       // Build effort breakdown (only if more than 1 effort required)
-      let effortBreakdown: Leaderboard['effort_breakdown'] = undefined;
-      if (week.required_laps > 1) {
+      let effortBreakdown: any[] | undefined = undefined;
+      if (weekData.required_laps > 1) {
         effortBreakdown = efforts.map((e) => ({
           lap: e.effort_index + 1,
           time_seconds: e.elapsed_seconds,
@@ -189,58 +218,41 @@ class WeekService {
 
       return {
         rank: rank,
-        participant_id: activity.participant_id,
-        name: activity.name,
-        total_time_seconds: activity.total_time_seconds,
-        time_hhmmss: secondsToHHMMSS(activity.total_time_seconds),
-        profile_picture_url: profilePictures.get(activity.participant_id) || null,
+        participant_id: act.participant_id,
+        name: act.name,
+        total_time_seconds: act.total_time_seconds,
+        time_hhmmss: secondsToHHMMSS(act.total_time_seconds),
+        profile_picture_url: profilePictures.get(act.participant_id) || null,
         effort_breakdown: effortBreakdown,
         points: totalPoints,
         pr_bonus_points: prBonus,
-        device_name: activity.device_name || undefined,
-        activity_url: `https://www.strava.com/activities/${activity.strava_activity_id}/`,
+        device_name: act.device_name || undefined,
+        activity_url: `https://www.strava.com/activities/${act.strava_activity_id}/`,
         strava_effort_id: efforts.length > 0 ? efforts[0].strava_effort_id : null
       };
     });
 
-    return { week, leaderboard };
+    return { week: weekData, leaderboard };
   }
 
   /**
    * Get activities for a week
    */
-  getWeekActivities(weekId: number): Array<{
-    id: number;
-    participant_id: number;
-    participant_name: string;
-    strava_activity_id: number;
-    validation_status: string;
-    validation_message?: string;
-  }> {
-    const activities = this.db
-      .prepare(
-        `SELECT 
-          a.id,
-          a.strava_athlete_id as participant_id,
-          p.name as participant_name,
-          a.strava_activity_id,
-          a.validation_status,
-          a.validation_message
-        FROM activity a
-        JOIN participant p ON a.strava_athlete_id = p.strava_athlete_id
-        WHERE a.week_id = ?
-        ORDER BY a.strava_athlete_id`
-      )
-      .all(weekId) as Array<{
-      id: number;
-      participant_id: number;
-      participant_name: string;
-      strava_activity_id: number;
-      validation_status: string;
-      validation_message?: string;
-    }>;
-
-    return activities;
+  getWeekActivities(weekId: number) {
+    return this.db
+      .select({
+        id: activity.id,
+        participant_id: activity.strava_athlete_id,
+        participant_name: participant.name,
+        strava_activity_id: activity.strava_activity_id,
+        validation_status: activity.validation_status,
+        validation_message: activity.validation_message
+      })
+      .from(activity)
+      .innerJoin(participant, eq(activity.strava_athlete_id, participant.strava_athlete_id))
+      .where(eq(activity.week_id, weekId))
+      .orderBy(activity.strava_athlete_id)
+      .all();
   }
 
   /**
@@ -255,7 +267,7 @@ class WeekService {
     start_at?: number;
     end_at?: number;
     notes?: string;
-  }): WeekResponse {
+  }): Week {
     const { season_id, week_name, segment_id, segment_name, required_laps, start_at, end_at, notes } =
       data;
 
@@ -264,8 +276,12 @@ class WeekService {
     let finalSeasonId = season_id;
     if (!finalSeasonId) {
       const activeSeason = this.db
-        .prepare('SELECT id FROM season WHERE is_active = 1 LIMIT 1')
-        .get() as { id: number } | undefined;
+        .select()
+        .from(season)
+        .where(eq(season.is_active, 1))
+        .limit(1)
+        .get();
+      
       if (!activeSeason) {
         console.error('No active season found');
         throw new Error(
@@ -295,10 +311,13 @@ class WeekService {
     }
 
     // Validate season exists
-    const season = this.db
-      .prepare('SELECT id FROM season WHERE id = ?')
-      .get(finalSeasonId) as { id: number } | undefined;
-    if (!season) {
+    const seasonExists = this.db
+      .select({ id: season.id })
+      .from(season)
+      .where(eq(season.id, finalSeasonId))
+      .get();
+      
+    if (!seasonExists) {
       console.error('Invalid season_id:', finalSeasonId);
       throw new Error('Invalid season_id');
     }
@@ -306,14 +325,21 @@ class WeekService {
     // Ensure segment exists
     if (segment_id) {
       const existingSegment = this.db
-        .prepare('SELECT strava_segment_id FROM segment WHERE strava_segment_id = ?')
-        .get(segment_id) as { strava_segment_id: number } | undefined;
+        .select({ strava_segment_id: segment.strava_segment_id })
+        .from(segment)
+        .where(eq(segment.strava_segment_id, segment_id))
+        .get();
+        
       if (!existingSegment) {
         const segmentNameToUse = segment_name || `Segment ${segment_id}`;
         console.log('Creating new segment:', segment_id, segmentNameToUse);
         this.db
-          .prepare('INSERT INTO segment (strava_segment_id, name) VALUES (?, ?)')
-          .run(segment_id, segmentNameToUse);
+          .insert(segment)
+          .values({
+            strava_segment_id: segment_id,
+            name: segmentNameToUse
+          })
+          .run();
       }
     } else {
       throw new Error('segment_id is required');
@@ -336,32 +362,22 @@ class WeekService {
       });
 
       const result = this.db
-        .prepare(
-          `INSERT INTO week (season_id, week_name, strava_segment_id, required_laps, start_at, end_at, notes)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`
-        )
-        .run(finalSeasonId, week_name, segment_id, required_laps, start_at, end_at, notes || '');
+        .insert(week)
+        .values({
+          season_id: finalSeasonId,
+          week_name,
+          strava_segment_id: segment_id,
+          required_laps,
+          start_at,
+          end_at,
+          notes: notes || ''
+        })
+        .returning()
+        .get();
 
-      const newWeek = this.db
-        .prepare(
-          `SELECT w.id, w.season_id, w.week_name, w.strava_segment_id, w.required_laps, 
-                  w.start_at, w.end_at, w.notes, w.created_at,
-                  s.name as segment_name,
-                  s.distance as segment_distance,
-                  s.total_elevation_gain as segment_total_elevation_gain,
-                  s.average_grade as segment_average_grade,
-                  s.climb_category as segment_climb_category,
-                  s.city as segment_city,
-                  s.state as segment_state,
-                  s.country as segment_country
-           FROM week w
-           LEFT JOIN segment s ON w.strava_segment_id = s.strava_segment_id
-           WHERE w.id = ?`
-        )
-        .get((result as any).lastInsertRowid) as WeekResponse;
-
-      console.log('Week created successfully:', newWeek);
-      return newWeek;
+      // We need to return the joined structure, so we fetch it back
+      // Note: Drizzle's returning() only gives the inserted row
+      return result;
     } catch (error) {
       console.error('Failed to create week:', error);
       throw error;
@@ -386,7 +402,7 @@ class WeekService {
       segment_name?: string;
       notes?: string;
     }
-  ): WeekResponse {
+  ): Week {
     const {
       season_id,
       week_name,
@@ -403,8 +419,11 @@ class WeekService {
 
     // Check if week exists
     const existingWeek = this.db
-      .prepare('SELECT id FROM week WHERE id = ?')
-      .get(weekId) as { id: number } | undefined;
+      .select({ id: week.id })
+      .from(week)
+      .where(eq(week.id, weekId))
+      .get();
+      
     if (!existingWeek) {
       throw new Error('Week not found');
     }
@@ -425,139 +444,116 @@ class WeekService {
       throw new Error('No fields to update');
     }
 
-    // Build dynamic update query
-    const updateClauses: string[] = [];
-    const values: any[] = [];
+    // Build update object
+    const updateData: any = {};
 
     if (season_id !== undefined) {
-      const season = this.db
-        .prepare('SELECT id FROM season WHERE id = ?')
-        .get(season_id) as { id: number } | undefined;
-      if (!season) {
+      const seasonExists = this.db
+        .select({ id: season.id })
+        .from(season)
+        .where(eq(season.id, season_id))
+        .get();
+        
+      if (!seasonExists) {
         throw new Error('Invalid season_id');
       }
-      updateClauses.push('season_id = ?');
-      values.push(season_id);
+      updateData.season_id = season_id;
     }
 
     if (week_name !== undefined) {
-      updateClauses.push('week_name = ?');
-      values.push(week_name);
+      updateData.week_name = week_name;
     }
 
-    // Handle timestamp updates (support both old and new parameter names)
+    // Handle timestamp updates
     if (start_at !== undefined) {
       const unixSeconds = typeof start_at === 'string' ? isoToUnix(start_at) : start_at;
-      updateClauses.push('start_at = ?');
-      values.push(unixSeconds);
+      updateData.start_at = unixSeconds;
     } else if (start_time !== undefined) {
       const normalized = normalizeTimeWithZ(start_time);
       const unixSeconds = isoToUnix(normalized);
-      updateClauses.push('start_at = ?');
-      values.push(unixSeconds);
+      updateData.start_at = unixSeconds;
     } else if (date !== undefined && updates.start_time === undefined && updates.start_at === undefined) {
       const window = defaultDayTimeWindow(date);
       if (window) {
-        const startAtUnix = isoToUnix(window.start);
-        updateClauses.push('start_at = ?');
-        values.push(startAtUnix);
+        updateData.start_at = isoToUnix(window.start);
       }
     }
 
     if (end_at !== undefined) {
       const unixSeconds = typeof end_at === 'string' ? isoToUnix(end_at) : end_at;
-      updateClauses.push('end_at = ?');
-      values.push(unixSeconds);
+      updateData.end_at = unixSeconds;
     } else if (end_time !== undefined) {
       const normalized = normalizeTimeWithZ(end_time);
       const unixSeconds = isoToUnix(normalized);
-      updateClauses.push('end_at = ?');
-      values.push(unixSeconds);
+      updateData.end_at = unixSeconds;
     } else if (date !== undefined && updates.end_time === undefined && updates.end_at === undefined) {
       const window = defaultDayTimeWindow(date);
       if (window) {
-        const endAtUnix = isoToUnix(window.end);
-        updateClauses.push('end_at = ?');
-        values.push(endAtUnix);
+        updateData.end_at = isoToUnix(window.end);
       }
     }
 
     if (notes !== undefined) {
-      // Validate notes length
       if (notes && notes.length > NOTES_MAX_LENGTH) {
         throw new Error(`Notes cannot exceed ${NOTES_MAX_LENGTH} characters (provided: ${notes.length})`);
       }
-      updateClauses.push('notes = ?');
-      values.push(notes || '');
+      updateData.notes = notes || '';
     }
 
     if (segment_id !== undefined) {
       if (segment_name !== undefined) {
         // segment_id with segment_name: Upsert the segment
         const existingSegment = this.db
-          .prepare('SELECT strava_segment_id FROM segment WHERE strava_segment_id = ?')
-          .get(segment_id) as { strava_segment_id: number } | undefined;
+          .select({ strava_segment_id: segment.strava_segment_id })
+          .from(segment)
+          .where(eq(segment.strava_segment_id, segment_id))
+          .get();
+          
         if (existingSegment) {
-          // Update existing segment name
           this.db
-            .prepare('UPDATE segment SET name = ? WHERE strava_segment_id = ?')
-            .run(segment_name, segment_id);
+            .update(segment)
+            .set({ name: segment_name })
+            .where(eq(segment.strava_segment_id, segment_id))
+            .run();
         } else {
-          // Insert new segment
           this.db
-            .prepare('INSERT INTO segment (strava_segment_id, name) VALUES (?, ?)')
-            .run(segment_id, segment_name);
+            .insert(segment)
+            .values({ strava_segment_id: segment_id, name: segment_name })
+            .run();
         }
-
-        // Update week to point to this Strava segment ID
-        updateClauses.push('strava_segment_id = ?');
-        values.push(segment_id);
+        updateData.strava_segment_id = segment_id;
       } else {
         // segment_id without segment_name: Must exist in database
         const existingSegment = this.db
-          .prepare('SELECT strava_segment_id FROM segment WHERE strava_segment_id = ?')
-          .get(segment_id) as { strava_segment_id: number } | undefined;
+          .select({ strava_segment_id: segment.strava_segment_id })
+          .from(segment)
+          .where(eq(segment.strava_segment_id, segment_id))
+          .get();
+          
         if (!existingSegment) {
           throw new Error(
             'Invalid segment_id. Segment does not exist. Provide segment_name to create it, or use an existing segment.'
           );
         }
-        updateClauses.push('strava_segment_id = ?');
-        values.push(segment_id);
+        updateData.strava_segment_id = segment_id;
       }
     }
 
     if (required_laps !== undefined) {
-      updateClauses.push('required_laps = ?');
-      values.push(required_laps);
+      updateData.required_laps = required_laps;
     }
 
-    if (updateClauses.length === 0) {
+    if (Object.keys(updateData).length === 0) {
       throw new Error('No fields to update');
     }
 
-    values.push(weekId);
-
     try {
-      this.db.prepare(`UPDATE week SET ${updateClauses.join(', ')} WHERE id = ?`).run(...values);
-
       const updatedWeek = this.db
-        .prepare(
-          `SELECT w.id, w.season_id, w.week_name, w.strava_segment_id, w.required_laps, 
-                  w.start_at, w.end_at, w.notes, w.created_at,
-                  s.name as segment_name,
-                  s.distance as segment_distance,
-                  s.total_elevation_gain as segment_total_elevation_gain,
-                  s.average_grade as segment_average_grade,
-                  s.climb_category as segment_climb_category,
-                  s.city as segment_city,
-                  s.state as segment_state,
-                  s.country as segment_country
-           FROM week w
-           LEFT JOIN segment s ON w.strava_segment_id = s.strava_segment_id
-           WHERE w.id = ?`
-        )
-        .get(weekId) as WeekResponse;
+        .update(week)
+        .set(updateData)
+        .where(eq(week.id, weekId))
+        .returning()
+        .get();
 
       return updatedWeek;
     } catch (error) {
@@ -572,37 +568,40 @@ class WeekService {
   deleteWeek(weekId: number): { message: string; weekId: number } {
     // Check if week exists
     const existingWeek = this.db
-      .prepare('SELECT id FROM week WHERE id = ?')
-      .get(weekId) as { id: number } | undefined;
+      .select({ id: week.id })
+      .from(week)
+      .where(eq(week.id, weekId))
+      .get();
+      
     if (!existingWeek) {
       throw new Error('Week not found');
     }
 
     try {
-      this.db.transaction(() => {
+      this.db.transaction((tx) => {
         // Get all activities for this week
-        const activities = this.db
-          .prepare('SELECT id FROM activity WHERE week_id = ?')
-          .all(weekId) as Array<{ id: number }>;
+        const activities = tx
+          .select({ id: activity.id })
+          .from(activity)
+          .where(eq(activity.week_id, weekId))
+          .all();
+          
         const activityIds = activities.map((a) => a.id);
 
         // Delete segment efforts for these activities
         if (activityIds.length > 0) {
-          const placeholders = activityIds.map(() => '?').join(',');
-          this.db
-            .prepare(`DELETE FROM segment_effort WHERE activity_id IN (${placeholders})`)
-            .run(...activityIds);
+          tx.delete(segmentEffort).where(inArray(segmentEffort.activity_id, activityIds)).run();
         }
 
         // Delete results for this week
-        this.db.prepare('DELETE FROM result WHERE week_id = ?').run(weekId);
+        tx.delete(result).where(eq(result.week_id, weekId)).run();
 
         // Delete activities for this week
-        this.db.prepare('DELETE FROM activity WHERE week_id = ?').run(weekId);
+        tx.delete(activity).where(eq(activity.week_id, weekId)).run();
 
         // Delete the week itself
-        this.db.prepare('DELETE FROM week WHERE id = ?').run(weekId);
-      })();
+        tx.delete(week).where(eq(week.id, weekId)).run();
+      });
 
       return { message: 'Week deleted successfully', weekId };
     } catch (error) {

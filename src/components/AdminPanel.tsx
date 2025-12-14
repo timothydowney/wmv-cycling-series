@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import './AdminPanel.css';
 import WeekManager from './WeekManager';
-import { getAuthStatus, Season } from '../api';
+import { getAuthStatus } from '../api';
+import { Season } from '../types';
 import SeasonSelector from './SeasonSelector';
 
 interface AdminPanelProps {

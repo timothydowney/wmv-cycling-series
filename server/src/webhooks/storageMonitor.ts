@@ -18,6 +18,9 @@
 
 import { Database } from 'better-sqlite3';
 import fs from 'fs';
+import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { gt, lt, sql } from 'drizzle-orm';
+import { webhookEvent, webhookSubscription } from '../db/schema';
 import { getMaxDatabaseSize } from '../config';
 
 export interface StorageStatus {
@@ -35,12 +38,12 @@ export interface StorageStatus {
 }
 
 export class StorageMonitor {
-  private db: Database;
+  private db: BetterSQLite3Database | Database;
   private dbPath: string;
   private maxSizeMb: number;
   private autoDisableThreshold = 95; // Disable webhooks at 95% of max
 
-  constructor(db: Database, dbPath: string) {
+  constructor(db: BetterSQLite3Database | Database, dbPath: string) {
     this.db = db;
     this.dbPath = dbPath;
     // Read MAX_DATABASE_SIZE from env, default to 256MB
@@ -57,6 +60,10 @@ export class StorageMonitor {
     return maxSize;
   }
 
+  private getDrizzle(): BetterSQLite3Database | null {
+    return typeof (this.db as any)?.select === 'function' ? (this.db as BetterSQLite3Database) : null;
+  }
+
   /**
    * Get current storage status against configured MAX_DATABASE_SIZE
    */
@@ -70,18 +77,35 @@ export class StorageMonitor {
       const usagePercent = (dbSizeMb / this.maxSizeMb) * 100;
 
       // Get event metrics
-      const eventsCount = this.db
-        .prepare('SELECT COUNT(*) as count FROM webhook_event')
-        .get() as { count: number };
+      const drizzle = this.getDrizzle();
+      let eventsCount: { count: number } | undefined;
+      if (drizzle) {
+        eventsCount = drizzle
+          .select({ count: sql<number>`count(*)` })
+          .from(webhookEvent)
+          .get() as { count: number } | undefined;
+      } else {
+        eventsCount = (this.db as Database)
+          .prepare('SELECT COUNT(*) as count FROM webhook_event')
+          .get() as { count: number } | undefined;
+      }
 
       // Events per day (last 7 days)
-      const eventsLast7Days = this.db
-        .prepare(
-          "SELECT COUNT(*) as count FROM webhook_event WHERE created_at > datetime('now', '-7 days')"
-        )
-        .get() as { count: number };
+      let eventsLast7Days: { count: number } | undefined;
+      if (drizzle) {
+        eventsLast7Days = drizzle
+          .select({ count: sql<number>`count(*)` })
+          .from(webhookEvent)
+          .where(gt(webhookEvent.created_at, sql`datetime('now', '-7 days')`))
+          .get() as { count: number } | undefined;
+      } else {
+        eventsLast7Days = (this.db as Database)
+          .prepare("SELECT COUNT(*) as count FROM webhook_event WHERE created_at > datetime('now', '-7 days')")
+          .get() as { count: number } | undefined;
+      }
 
-      const eventsPerDay = eventsLast7Days.count > 0 ? Math.ceil(eventsLast7Days.count / 7) : 0;
+      const eventsLast7DaysCount = eventsLast7Days?.count ?? 0;
+      const eventsPerDay = eventsLast7DaysCount > 0 ? Math.ceil(eventsLast7DaysCount / 7) : 0;
 
       // Estimate weeks remaining at current rate
       let estimatedWeeksRemaining = 0;
@@ -108,7 +132,7 @@ export class StorageMonitor {
         usage_percentage: parseFloat(usagePercent.toFixed(1)),
         auto_disable_threshold: this.autoDisableThreshold,
         should_auto_disable: shouldAutoDisable,
-        events_count: eventsCount.count,
+        events_count: eventsCount?.count ?? 0,
         events_per_day: eventsPerDay,
         estimated_weeks_remaining: estimatedWeeksRemaining,
         last_calculated_at: new Date().toISOString(),
@@ -133,14 +157,17 @@ export class StorageMonitor {
           `[StorageMonitor] Storage at ${status.usage_percentage}% - AUTO-DISABLING WEBHOOKS`
         );
 
-        // Disable webhooks
-        this.db.prepare(
-          `UPDATE webhook_subscription 
-           SET enabled = 0, 
-               status = 'inactive',
-               status_message = 'Auto-disabled: Storage threshold exceeded',
-               updated_at = CURRENT_TIMESTAMP`
-        ).run();
+        const drizzle = this.getDrizzle();
+
+        if (drizzle) {
+          // Presence of a row == enabled; deleting disables
+          drizzle.delete(webhookSubscription).run();
+        } else {
+          // Legacy raw path (tests)
+          (this.db as Database)
+            .prepare('DELETE FROM webhook_subscription')
+            .run();
+        }
 
         return true;
       }
@@ -158,17 +185,29 @@ export class StorageMonitor {
    */
   clearOldEvents(minDaysOld: number = 30): number {
     try {
-      const result = this.db
-        .prepare(
-          `DELETE FROM webhook_event 
-           WHERE created_at < datetime('now', ? || ' days')`
-        )
-        .run(`-${minDaysOld}`) as { changes: number };
+      const drizzle = this.getDrizzle();
+      let changes = 0;
+
+      if (drizzle) {
+        const result = drizzle
+          .delete(webhookEvent)
+          .where(lt(webhookEvent.created_at, sql`datetime('now', ${`-${minDaysOld} days`})`))
+          .run();
+        changes = (result as any).changes ?? 0;
+      } else {
+        const result = (this.db as Database)
+          .prepare(
+            `DELETE FROM webhook_event 
+             WHERE created_at < datetime('now', ? || ' days')`
+          )
+          .run(`-${minDaysOld}`) as { changes: number };
+        changes = result.changes;
+      }
 
       console.log(
-        `[StorageMonitor] Cleared ${result.changes} events older than ${minDaysOld} days`
+        `[StorageMonitor] Cleared ${changes} events older than ${minDaysOld} days`
       );
-      return result.changes;
+      return changes;
     } catch (error) {
       console.error('[StorageMonitor] Failed to clear old events:', error);
       throw error;
@@ -179,11 +218,18 @@ export class StorageMonitor {
    * Get estimated storage growth rate (bytes per day)
    */
   getGrowthRate(): number {
-    const lastWeekSize = this.db
-      .prepare("SELECT COUNT(*) as count FROM webhook_event WHERE created_at > datetime('now', '-7 days')")
-      .get() as { count: number };
+    const drizzle = this.getDrizzle();
+    const lastWeekSize = drizzle
+      ? (drizzle
+        .select({ count: sql<number>`count(*)` })
+        .from(webhookEvent)
+        .where(gt(webhookEvent.created_at, sql`datetime('now', '-7 days')`))
+        .get() as { count: number } | undefined)
+      : ((this.db as Database)
+        .prepare("SELECT COUNT(*) as count FROM webhook_event WHERE created_at > datetime('now', '-7 days')")
+        .get() as { count: number });
 
     // Estimate ~1KB per event
-    return (lastWeekSize.count / 7) * 1000;
+    return ((lastWeekSize?.count ?? 0) / 7) * 1000;
   }
 }

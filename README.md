@@ -45,13 +45,14 @@ npm run build           # Build for production
 - ✅ Strava OAuth (participants connect once, activities fetched automatically)
 - ✅ OAuth token encryption (AES-256-GCM at rest in database)
 - ✅ SQLite database with test data
-- ✅ 105+ backend tests (including encryption security tests)
+- ✅ 450+ backend tests (including encryption security tests)
 - ✅ Complete documentation (including security audit and encryption guide)
 
 ## Architecture
 
-- **Frontend:** React 18 + TypeScript (Vite)
-- **Backend:** Node.js 24.x + Express + SQLite
+- **Frontend:** React 18 + TypeScript (Vite) + tRPC Client
+- **Backend:** Node.js 24.x + Express + tRPC Server + SQLite
+- **Database:** SQLite via Drizzle ORM
 - **Auth:** Strava OAuth (per-participant tokens)
 - **Deployment:** Railway.app (recommended)
 

@@ -4,18 +4,19 @@ import { config, logConfigOnStartup, logEnvironmentVariables, isTestMode } from 
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
-import fs from 'fs';
 
-import Database from 'better-sqlite3';
+import { db, drizzleDb } from './db';
+import * as trpcExpress from '@trpc/server/adapters/express';
+import { createContext } from './trpc/context';
+import { appRouter } from './routers';
+
 import session from 'express-session';
 import SqliteStore from 'better-sqlite3-session-store';
 import strava from 'strava-v3';
 import * as stravaClient from './stravaClient';
 import { getValidAccessToken } from './tokenManager';
-import { SCHEMA } from './schema';
-import { isoToUnix, unixToISO, nowISO } from './dateUtils';
-import { SeasonRow } from './types/database';
-import runMigrations from './migrations';
+import { migrate } from 'drizzle-orm/better-sqlite3/migrator'; // Import Drizzle migrator
+import { season } from './db/schema'; // Import the Drizzle table object 'season'
 import LoginService from './services/LoginService';
 import BatchFetchService from './services/BatchFetchService';
 import WeekService from './services/WeekService';
@@ -24,13 +25,9 @@ import ParticipantService from './services/ParticipantService';
 import { AuthorizationService } from './services/AuthorizationService';
 import authRouter from './routes/auth';
 import publicRouter from './routes/public';
-import seasonsRouter from './routes/seasons';
-import weeksRouter from './routes/weeks';
-import participantsRouter from './routes/participants';
-import segmentsRouter from './routes/segments';
 import fallbackRouter from './routes/fallback';
+import { createFetchRouter } from './routes/admin/fetch';
 import { createWebhookRouter } from './routes/webhooks';
-import { createWebhookAdminRoutes } from './routes/admin/webhooks';
 import { WebhookLogger } from './webhooks/logger';
 import { setupWebhookSubscription } from './webhooks/subscriptionManager';
 import { WebhookRenewalService } from './services/WebhookRenewalService';
@@ -39,15 +36,12 @@ import { WebhookRenewalService } from './services/WebhookRenewalService';
 const routes = {
   auth: authRouter,
   public: publicRouter,
-  seasons: seasonsRouter,
-  weeks: weeksRouter,
-  participants: participantsRouter,
-  segments: segmentsRouter,
   fallback: fallbackRouter
 };
 
 // Log configuration on startup
 logConfigOnStartup();
+
 
 // Configure strava-v3 with credentials from config (skip if not set for tests)
 if (config.stravaClientId && config.stravaClientSecret) {
@@ -61,97 +55,40 @@ if (config.stravaClientId && config.stravaClientSecret) {
 const PORT = config.port;
 
 // Database path from config (persistent /data volume in production, local dev folder otherwise)
-// In development: ./server/data/wmv.db (local)
-// In production (Railway): /data/wmv.db (persistent volume mounted in railway.toml)
-const DB_PATH = config.databasePath;
-
-// Check if database file exists and gather stats
-const dbDir = path.dirname(DB_PATH);
-const dbAbsolutePath = path.resolve(DB_PATH);
-
-try {
-  const stats = fs.statSync(dbAbsolutePath);
-  console.log('[DB] ✓ Database file EXISTS');
-  console.log(`[DB]   Size: ${stats.size} bytes`);
-  console.log(`[DB]   Last modified: ${stats.mtime.toISOString()}`);
-  console.log(`[DB]   Created: ${stats.birthtime.toISOString()}`);
-  console.log(`[DB]   Is file: ${stats.isFile()}`);
-} catch (err: any) {
-  if (err.code === 'ENOENT') {
-    console.log('[DB] ✗ Database file DOES NOT EXIST - will be created on first connection');
-  } else {
-    console.log(`[DB] ✗ ERROR checking database file: ${err.message}`);
-  }
-}
-
-// Check if directory exists and is writable
-try {
-  const dirStats = fs.statSync(dbDir);
-  console.log(`[DB] ✓ Database directory EXISTS: ${dbDir}`);
-  console.log(`[DB]   Is directory: ${dirStats.isDirectory()}`);
-  
-  // Check write permissions by attempting to access parent directory
-  try {
-    fs.accessSync(dbDir, fs.constants.W_OK);
-    console.log('[DB]   Directory is WRITABLE');
-  } catch (err) {
-    console.log(`[DB]   WARNING: Directory may NOT be writable: ${(err as Error).message}`);
-  }
-} catch (err: any) {
-  if (err.code === 'ENOENT') {
-    console.log(`[DB] ✗ Database directory DOES NOT EXIST: ${dbDir}`);
-    console.log('[DB]   Attempting to create directory...');
-    try {
-      fs.mkdirSync(dbDir, { recursive: true });
-      console.log(`[DB] ✓ Successfully created directory: ${dbDir}`);
-    } catch (createErr) {
-      console.log(`[DB] ✗ FAILED to create directory: ${(createErr as Error).message}`);
-    }
-  } else {
-    console.log(`[DB] ✗ ERROR checking directory: ${err.message}`);
-  }
-}
+// (Handled in db.ts)
 
 console.log('==========================================');
 
 const app = express();
 
 // CRITICAL: Trust reverse proxy (Railway uses nginx proxy)
-// This is REQUIRED for secure cookies to work behind a proxy
 app.set('trust proxy', 1);
 
 // Enable CORS for frontend - use frontend URL from config
 app.use(cors({ 
   origin: config.frontendUrl,
-  credentials: true // Important: allow cookies to be sent
+  credentials: true 
 }));
 app.use(express.json());
 
 // Session configuration for OAuth
-// Based on express-session best practices and Passport.js patterns
 const sessionStoreConfig = {
   name: 'wmv.sid',
   secret: config.sessionSecret,
   resave: false,
-  saveUninitialized: true, // Ensure new sessions get a cookie
-  rolling: true, // CRITICAL: Force session cookie to be set on EVERY response (including redirects)
-  proxy: true, // CRITICAL: Trust reverse proxy (Railway) for X-Forwarded-Proto header
+  saveUninitialized: true,
+  rolling: true,
+  proxy: true,
   cookie: {
-    secure: !config.isDevelopment, // HTTPS only in production
+    secure: !config.isDevelopment,
     httpOnly: true,
-    sameSite: 'lax' as const, // 'lax' allows cookies on safe redirects from Strava OAuth
-    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-    path: '/' // Explicit path
+    sameSite: 'lax' as const,
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+    path: '/'
   }
 };
 
-// Initialize DB first (needed for session store)
-// Database path uses persistent /data volume on Railway, local dev folder otherwise
-console.log('[DB] Connecting to database...');
-const db: any = new Database(DB_PATH);
-console.log('[DB] ✓ Database connection opened successfully');
-
-// Verify database is readable by attempting a simple query
+// Verify database is readable
 try {
   const userVersion = db.prepare('PRAGMA user_version').get();
   console.log(`[DB] ✓ Database is readable - PRAGMA user_version: ${JSON.stringify(userVersion)}`);
@@ -160,7 +97,6 @@ try {
 }
 
 // Only use persistent session store in non-test environments
-// In test mode, use default MemoryStore to avoid open database handles
 if (!isTestMode()) {
   console.log('[SESSION] Setting up SQLite session store using main database');
   const SqliteSessionStore = SqliteStore(session);
@@ -168,7 +104,7 @@ if (!isTestMode()) {
     client: db,
     expired: {
       clear: true,
-      intervalMs: 900000 // Clear expired sessions every 15 minutes
+      intervalMs: 900000
     }
   });
 } else {
@@ -177,9 +113,15 @@ if (!isTestMode()) {
 
 app.use(session(sessionStoreConfig as any));
 
-// Test mode: Load session injection middleware from separate test file
-// SECURITY: This file only exists in source code, not in production builds
-// It will only load if running in test mode
+app.use(
+  '/trpc',
+  trpcExpress.createExpressMiddleware({
+    router: appRouter,
+    createContext,
+  })
+);
+
+// Test mode: Load session injection middleware
 if (isTestMode()) {
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -189,24 +131,17 @@ if (isTestMode()) {
       registerTestMiddleware(app);
     }
   } catch (err: any) {
-    // In production, this file won't exist - that's expected and correct
-    // Only throw if it's a different kind of error
     if (err.code !== 'MODULE_NOT_FOUND') {
       throw err;
     }
   }
 }
 
-// Initialize database schema (single source of truth from schema.js)
-console.log('[DB] Initializing database schema...');
+// Initialize database schema using Drizzle migrations
+console.log('[DB] Running Drizzle migrations...');
 try {
-  db.exec(SCHEMA);
-  console.log('[DB] ✓ Schema initialized successfully');
-  
-  // Run any pending migrations
-  console.log('[DB] Running migrations...');
-  runMigrations(db);
-  console.log('[DB] ✓ Migrations completed');
+  migrate(drizzleDb, { migrationsFolder: './drizzle' });
+  console.log('[DB] ✓ Drizzle migrations applied successfully');
   
   // Log table information
   const tables = db.prepare(`
@@ -229,7 +164,7 @@ try {
     }
   }
 } catch (err) {
-  console.log(`[DB] ✗ ERROR initializing schema: ${(err as Error).message}`);
+  console.log(`[DB] ✗ ERROR applying Drizzle migrations: ${(err as Error).message}`);
   throw err;
 }
 
@@ -238,7 +173,7 @@ try {
 // ========================================
 
 // Helper: Get admin athlete IDs from config
-function getAdminAthleteIds(): number[] {
+export function getAdminAthleteIds(): number[] {
   return config.adminAthleteIds;
 }
 
@@ -246,28 +181,28 @@ function getAdminAthleteIds(): number[] {
 const authorizationService = new AuthorizationService(getAdminAthleteIds);
 
 // Initialize LoginService with dependencies
-const loginService = new LoginService(db, getAdminAthleteIds);
+const loginService = new LoginService(drizzleDb, getAdminAthleteIds);
 
 // Initialize BatchFetchService with dependencies
 const batchFetchService = new BatchFetchService(
-  db,
-  (database: typeof db, athleteId: number) => getValidAccessToken(database, stravaClient, athleteId)
+  drizzleDb,
+  (database, athleteId) => getValidAccessToken(database, stravaClient, athleteId)
 );
 
 // Initialize WeekService with dependencies
-const weekService = new WeekService(db);
+const weekService = new WeekService(drizzleDb);
 
 // Initialize SeasonService with dependencies
-const seasonService = new SeasonService(db);
+const seasonService = new SeasonService(drizzleDb);
 
 // Initialize ParticipantService with dependencies
-const participantService = new ParticipantService(db);
+const participantService = new ParticipantService(drizzleDb);
 
 // =========================================
 // AUTHORIZATION HELPERS
 
 // Create requireAdmin middleware from AuthorizationService
-const requireAdmin = authorizationService.createRequireAdminMiddleware();
+// const requireAdmin = authorizationService.createRequireAdminMiddleware();
 
 // Export checkAuthorization for testing
 const checkAuthorization = (req: any, adminRequired = false) => {
@@ -289,15 +224,15 @@ const services = {
 };
 
 // Middleware object for route handlers
-const middleware: any = {
-  requireAdmin,
-  db,
-  getValidAccessToken: (athleteId: number) => getValidAccessToken(db, stravaClient, athleteId),
-  stravaClient
-};
+// const _middleware: any = {
+//   requireAdmin,
+//   db,
+//   getValidAccessToken: (athleteId: number) => getValidAccessToken(db, stravaClient, athleteId),
+//   stravaClient
+// };
 
-// Initialize Webhook Logger (used for optional webhook event logging)
-const webhookLogger = new WebhookLogger(db);
+// Initialize Webhook Logger
+const webhookLogger = new WebhookLogger(drizzleDb);
 
 // ========================================
 // STATIC FILE SERVING (Frontend)
@@ -313,25 +248,21 @@ app.use(express.static(path.join(__dirname, '../../dist')));
 app.use('/auth', routes.auth(services));
 
 // Public routes (no authentication required)
-app.use(routes.public());  // /health, /participants, /segments
+app.use(routes.public());
 
 // Public leaderboard routes (authenticated but not admin-only)
-// These allow users to view weeks, seasons, and leaderboards
-app.use('/weeks', routes.weeks(services, middleware, db));
-app.use('/seasons', routes.seasons(services, middleware));
+// app.use('/weeks', routes.weeks(services, middleware, db));
+// app.use('/seasons', routes.seasons(services, middleware));
 
 // Admin management routes (admin-only)
-// These allow admins to create, update, delete weeks and seasons
-app.use('/admin/weeks', routes.weeks(services, middleware, db));
-app.use('/admin/seasons', routes.seasons(services, middleware));
-app.use('/admin/participants', routes.participants(services, middleware));
-app.use('/admin/segments', routes.segments(services, middleware));
-app.use('/admin/webhooks', createWebhookAdminRoutes(db, stravaClient));
+// app.use('/admin/weeks', routes.weeks(services, middleware, db));
+// app.use('/admin/seasons', routes.seasons(services, middleware));
+// app.use('/admin/participants', routes.participants(services, middleware));
+// app.use('/admin/segments', routes.segments(services, middleware));
+app.use('/admin', createFetchRouter(db, drizzleDb));
 
-// Webhook routes (for real-time Strava activity updates)
-// GET /webhooks/strava - subscription validation
-// POST /webhooks/strava - event receipt (guarded by feature flag)
-app.use('/webhooks', createWebhookRouter(webhookLogger, db));
+// Webhook routes
+app.use('/webhooks', createWebhookRouter(webhookLogger, drizzleDb));
 
 // SPA fallback: catch-all to serve index.html for client-side routing
 app.use(routes.fallback());
@@ -341,22 +272,23 @@ app.use(routes.fallback());
 export { app, db, checkAuthorization };
 
 // Only start server if not being imported for tests
-// Skip startup in test mode
 if (!isTestMode()) {
   // Seed season on startup if needed
+  // This seeding logic might also be better handled by Drizzle (seed scripts)
   const existingSeasons = db.prepare('SELECT COUNT(*) as count FROM season').get() as { count: number };
   if (existingSeasons.count === 0) {
     console.log('🌱 No seasons found. Creating Fall 2025 season...');
-    // Fall 2025: Oct 1 - Dec 31 (Unix timestamps in UTC)
-    const fallStart = isoToUnix('2025-10-01T00:00:00Z');
-    const fallEnd = isoToUnix('2025-12-31T23:59:59Z');
-    db.prepare(`
-      INSERT INTO season (id, name, start_at, end_at, is_active)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(1, 'Fall 2025', fallStart, fallEnd, 1);
+    const fallStart = Math.floor(new Date('2025-10-01T00:00:00Z').getTime() / 1000);
+    const fallEnd = Math.floor(new Date('2025-12-31T23:59:59Z').getTime() / 1000);
+    // Use Drizzle for seeding
+    drizzleDb.insert(season).values({
+      name: 'Fall 2025',
+      start_at: fallStart,
+      end_at: fallEnd,
+      is_active: 1, // Assuming this column is still used by old logic somewhere
+    }).run();
     console.log('✅ Fall 2025 season created (Oct 1 - Dec 31)');
   }
-
   app.listen(PORT, '0.0.0.0', async () => {
     console.log(`WMV backend listening on port ${PORT}`);
     
@@ -364,12 +296,11 @@ if (!isTestMode()) {
     await setupWebhookSubscription();
     
     // Start automatic webhook subscription renewal service
-    // Strava subscriptions expire after 24 hours and must be renewed
-    const webhookRenewalService = new WebhookRenewalService(db);
+    const webhookRenewalService = new WebhookRenewalService(drizzleDb);
     webhookRenewalService.start();
     
     // ===== TIMEZONE DIAGNOSTICS =====
-    const utcString = nowISO();
+    const utcString = new Date().toISOString(); // Using standard JS for now
     const now = new Date(utcString);
     const localString = now.toString();
     const tzOffsetMinutes = now.getTimezoneOffset();
@@ -383,13 +314,13 @@ if (!isTestMode()) {
     
     // Demonstrate timestamp conversions
     const exampleIso = '2025-10-28T12:00:00Z';
-    const exampleUnix = isoToUnix(exampleIso);
+    const exampleUnix = Math.floor(new Date(exampleIso).getTime() / 1000);
     console.log('[TIMEZONE DIAGNOSTIC] Example UTC conversion:');
     console.log(`  ISO string "${exampleIso}" → Unix timestamp: ${exampleUnix}`);
-    console.log(`  Back to ISO: ${unixToISO(exampleUnix)}`);
+    console.log(`  Back to ISO: ${new Date(exampleUnix * 1000).toISOString()}`);
     
     // Check database timezone context
-    const seasonCheck = db.prepare('SELECT * FROM season LIMIT 1').get() as SeasonRow | undefined;
+    const seasonCheck = drizzleDb.select().from(season).limit(1).get(); // Use Drizzle for check
     if (seasonCheck) {
       console.log('[TIMEZONE DIAGNOSTIC] Database context:');
       console.log(`  Active season: ${seasonCheck.name} (Unix: ${seasonCheck.start_at} to ${seasonCheck.end_at})`);

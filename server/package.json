@@ -18,7 +18,8 @@
     "audit": "npm audit",
     "seed": "node scripts/seed.js",
     "export:season": "node scripts/export-season-data.js",
-    "import:season": "node scripts/import-season-data.js"
+    "import:season": "node scripts/import-season-data.js",
+    "db:migrate": "drizzle-kit migrate"
   },
   "engines": {
     "node": ">=24 <25"
@@ -28,6 +29,7 @@
     "better-sqlite3-session-store": "^0.1.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.44.7",
     "express": "^4.19.2",
     "express-session": "^1.18.2",
     "strava-v3": "^2.2.1"
@@ -42,6 +44,7 @@
     "@types/supertest": "^6.0.3",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
+    "drizzle-kit": "^0.31.7",
     "eslint": "^8.45.0",
     "jest": "^30.2.0",
     "nodemon": "^3.1.10",

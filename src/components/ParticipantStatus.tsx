@@ -1,24 +1,20 @@
 import { useState, useEffect } from 'react';
 import './ParticipantStatus.css';
-import { getAdminParticipants, getAuthStatus } from '../api';
+import { getAuthStatus } from '../api';
+import { trpc } from '../utils/trpc';
 import StravaAthleteBadge from './StravaAthleteBadge';
-
-interface Participant {
-  id: number;
-  name: string;
-  strava_athlete_id: number;
-  is_connected: number;
-  has_token: boolean;
-  token_expires_at?: string;
-  profile_picture_url?: string | null;
-}
 
 function ParticipantStatus() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
-  const [participants, setParticipants] = useState<Participant[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  
+  const { data: participants = [], isLoading: loading, error: loadError } = trpc.participant.getAll.useQuery(
+    undefined,
+    { 
+      enabled: isAdmin,
+      refetchOnWindowFocus: false 
+    }
+  );
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -35,26 +31,6 @@ function ParticipantStatus() {
 
     checkAdmin();
   }, []);
-
-  useEffect(() => {
-    if (!checkingAuth && isAdmin) {
-      fetchParticipants();
-    } else if (!checkingAuth) {
-      setLoading(false);
-    }
-  }, [checkingAuth, isAdmin]);
-
-  const fetchParticipants = async () => {
-    try {
-      setLoading(true);
-      const data = await getAdminParticipants();
-      setParticipants(data);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (checkingAuth) {
     return <div className="participant-status">Loading...</div>;
@@ -75,11 +51,11 @@ function ParticipantStatus() {
     return <div className="participant-status">Loading participants...</div>;
   }
 
-  if (error) {
-    return <div className="participant-status error">{error}</div>;
+  if (loadError) {
+    return <div className="participant-status error">{loadError.message}</div>;
   }
 
-  const connectedCount = participants.filter(p => p.has_token).length;
+  const connectedCount = participants.filter((p: any) => p.has_token).length;
   const totalCount = participants.length;
 
   return (
@@ -101,7 +77,7 @@ function ParticipantStatus() {
           </tr>
         </thead>
         <tbody>
-          {participants.map(participant => (
+          {participants.map((participant: any) => (
             <tr key={participant.id} className={participant.has_token ? 'connected' : 'disconnected'}>
               <td>
                 <StravaAthleteBadge

@@ -1,31 +1,111 @@
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-nocheck
-/**
- * Test Data Management Helpers
- * 
- * Provides reusable functions to create common test data structures.
- * Eliminates repetitive INSERT statements and makes tests easier to maintain.
- */
-
+import { BetterSQLite3Database as DrizzleBetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { isoToUnix } from '../dateUtils';
+import { season, activity, participant, participantToken, result, segment, segmentEffort, week, deletionRequest } from '../db/schema';
+import { eq } from 'drizzle-orm';
+import { InferInsertModel, InferSelectModel } from 'drizzle-orm';
+
+// Type definitions for Drizzle models
+export type InsertParticipant = InferInsertModel<typeof participant>;
+export type SelectParticipant = InferSelectModel<typeof participant>;
+export type InsertSeason = InferInsertModel<typeof season>;       // Exported
+export type SelectSeason = InferSelectModel<typeof season>;
+export type InsertSegment = InferInsertModel<typeof segment>;     // Exported
+export type SelectSegment = InferSelectModel<typeof segment>;
+export type InsertWeek = InferInsertModel<typeof week>;           // Exported
+export type SelectWeek = InferSelectModel<typeof week>;
+export type InsertActivity = InferInsertModel<typeof activity>;   // Exported
+export type SelectActivity = InferSelectModel<typeof activity>;
+export type InsertResult = InferInsertModel<typeof result>;       // Exported
+export type SelectResult = InferSelectModel<typeof result>;
+export type InsertSegmentEffort = InferInsertModel<typeof segmentEffort>;
+export type SelectSegmentEffort = InferSelectModel<typeof segmentEffort>;
+export type InsertParticipantToken = InferInsertModel<typeof participantToken>;
+
+// Type for the database instance passed to helper functions - using Drizzle instance now
+type TestDb = DrizzleBetterSQLite3Database;
+
+interface TokenOptions {
+  accessToken?: string;
+  refreshToken?: string;
+  expiresAt?: number;
+}
+
+interface CreateSeasonOptions {
+  startAt?: number;
+  endAt?: number;
+}
+
+interface CreateSegmentOptions {
+  distance?: number | null;
+  averageGrade?: number | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+}
+
+interface CreateWeekOptions {
+  seasonId?: number;
+  stravaSegmentId?: number;
+  weekName?: string;
+  date?: string;
+  requiredLaps?: number;
+  startTime?: string;
+  endTime?: string;
+}
+
+interface CreateActivityOptions {
+  weekId: number;
+  stravaAthleteId: number;
+  stravaActivityId?: number; 
+  stravaSegmentId?: number; // Optional - only create segment effort if provided
+  elapsedSeconds?: number;
+  prAchieved?: boolean;
+  activityStartTime?: string;
+  effortStartTime?: string;
+}
+
+interface CreateResultOptions {
+  weekId: number;
+  stravaAthleteId: number;
+  activityId?: number | null;
+  totalTimeSeconds?: number;
+}
+
+interface CreateFullUserOptions {
+  stravaAthleteId: number;
+  name?: string;
+  seasonName?: string;
+  weekName?: string;
+  stravaSegmentId?: number;
+  stravaActivityId?: number;
+}
+
+interface CreateWeekWithResultsOptions {
+  seasonId: number;
+  stravaSegmentId: number;
+  weekName?: string;
+  participantIds?: number[];
+  times?: number[];
+}
 
 /**
  * Create a test participant with optional token
- * @param {Database} db - better-sqlite3 database instance
- * @param {number} stravaAthleteId - Strava athlete ID (required)
- * @param {string} name - Participant name (optional, defaults to generated)
- * @param {boolean|object} withToken - If true, creates default token. If object, uses custom token values { accessToken, refreshToken, expiresAt }
- * @returns {object} { participantId, stravaAthleteId, name }
  */
-function createParticipant(db, stravaAthleteId, name = null, withToken = false) {
+export function createParticipant(db: TestDb, stravaAthleteId: number, name: string | null = null, withToken: boolean | TokenOptions = false): SelectParticipant {
   const participantName = name || `Test User ${stravaAthleteId}`;
   
-  db.prepare('INSERT INTO participant (name, strava_athlete_id) VALUES (?, ?)')
-    .run(participantName, stravaAthleteId);
-  
+  const newParticipant: InsertParticipant = {
+    strava_athlete_id: stravaAthleteId,
+    name: participantName,
+  };
+
+  const insertedParticipant = db.insert(participant).values(newParticipant).returning().get();
+  console.log(`[TEST_HELPER] Created Participant: id=${insertedParticipant.strava_athlete_id}, name=${insertedParticipant.name}`);
+
   if (withToken) {
-    // Support both boolean and object for withToken
-    let accessToken, refreshToken, expiresAt;
+    let accessToken: string;
+    let refreshToken: string;
+    let expiresAt: number;
     
     if (typeof withToken === 'object') {
       accessToken = withToken.accessToken || `token_${stravaAthleteId}`;
@@ -34,114 +114,124 @@ function createParticipant(db, stravaAthleteId, name = null, withToken = false) 
     } else {
       accessToken = `token_${stravaAthleteId}`;
       refreshToken = `refresh_${stravaAthleteId}`;
-      expiresAt = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
+      expiresAt = Math.floor(Date.now() / 1000) + 3600; // Default value
     }
     
-    db.prepare('INSERT INTO participant_token (strava_athlete_id, access_token, refresh_token, expires_at) VALUES (?, ?, ?, ?)')
-      .run(stravaAthleteId, accessToken, refreshToken, expiresAt);
+    const newParticipantToken: InsertParticipantToken = {
+      strava_athlete_id: stravaAthleteId,
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      expires_at: expiresAt
+    };
+    db.insert(participantToken).values(newParticipantToken).run();
+    console.log(`[TEST_HELPER] Created Token for Participant ${stravaAthleteId}`);
   }
   
-  return { stravaAthleteId, name: participantName };
+  return insertedParticipant;
 }
 
 /**
  * Create a test season
- * @param {Database} db - better-sqlite3 database instance
- * @param {string} name - Season name (optional, defaults to 'Test Season')
- * @param {boolean} isActive - Whether season is active (default: true)
- * @param {object} options - Additional options { seasonId, startAt, endAt }
- * @returns {object} { seasonId, name }
  */
-function createSeason(db, name = 'Test Season', isActive = true, options = {}) {
+export function createSeason(db: TestDb, name: string = 'Test Season', isActive: boolean = true, options: CreateSeasonOptions = {}): SelectSeason {
   const startAt = options.startAt || isoToUnix('2025-01-01T00:00:00Z');
   const endAt = options.endAt || isoToUnix('2025-12-31T23:59:59Z');
   
-  let result;
-  if (options.seasonId) {
-    result = db.prepare('INSERT INTO season (id, name, start_at, end_at, is_active) VALUES (?, ?, ?, ?, ?)')
-      .run(options.seasonId, name, startAt, endAt, isActive ? 1 : 0);
-    return { seasonId: options.seasonId, name };
-  } else {
-    result = db.prepare('INSERT INTO season (name, start_at, end_at, is_active) VALUES (?, ?, ?, ?)')
-      .run(name, startAt, endAt, isActive ? 1 : 0);
-    return { seasonId: result.lastInsertRowid, name };
-  }
+  // Do not provide 'id' for autoIncrement primary key
+  const newSeasonData: InsertSeason = {
+    name: name,
+    start_at: startAt || 0, // Ensure number
+    end_at: endAt || 0,     // Ensure number
+    is_active: isActive ? 1 : 0
+  };
+  
+  const newSeason = db.insert(season).values(newSeasonData).returning().get();
+  console.log(`[TEST_HELPER] Created Season: id=${newSeason.id}, name=${newSeason.name}`);
+  return newSeason;
 }
 
 /**
  * Create a test segment
- * @param {Database} db - better-sqlite3 database instance
- * @param {number} stravaSegmentId - Strava segment ID (required)
- * @param {string} name - Segment name (optional)
- * @param {object} options - Additional options { distance, averageGrade, city, state, country }
- * @returns {object} { stravaSegmentId, name }
  */
-function createSegment(db, stravaSegmentId, name = null, options = {}) {
+export function createSegment(db: TestDb, stravaSegmentId: number, name: string | null = null, options: CreateSegmentOptions = {}): SelectSegment {
   const segmentName = name || `Segment ${stravaSegmentId}`;
   
-  db.prepare('INSERT INTO segment (strava_segment_id, name, distance, average_grade, city, state, country) VALUES (?, ?, ?, ?, ?, ?, ?)')
-    .run(stravaSegmentId, segmentName, options.distance || null, options.averageGrade || null, options.city || null, options.state || null, options.country || null);
-  
-  return { stravaSegmentId, name: segmentName };
+  const newSegmentData: InsertSegment = {
+    strava_segment_id: stravaSegmentId,
+    name: segmentName,
+    distance: options.distance,
+    average_grade: options.averageGrade,
+    city: options.city,
+    state: options.state,
+    country: options.country
+  };
+  const newSegment = db.insert(segment).values(newSegmentData).returning().get();
+  console.log(`[TEST_HELPER] Created Segment: id=${newSegment.strava_segment_id}, name=${newSegment.name}`);
+  return newSegment;
 }
 
 /**
  * Create a test week
- * @param {Database} db - better-sqlite3 database instance
- * @param {object} options - Configuration
- *   - seasonId (required)
- *   - stravaSegmentId (required)
- *   - weekName (optional, default: 'Test Week')
- *   - date (optional, default: '2025-06-01')
- *   - requiredLaps (optional, default: 1)
- *   - startTime (optional, default: '2025-06-01T00:00:00Z')
- *   - endTime (optional, default: '2025-06-01T22:00:00Z')
- * @returns {object} { weekId, weekName, date, stravaSegmentId }
  */
-function createWeek(db, options = {}) {
+export function createWeek(db: TestDb, options: CreateWeekOptions = {}): SelectWeek {
   const {
     seasonId,
     stravaSegmentId,
     weekName = 'Test Week',
-    date = '2025-06-01',
     requiredLaps = 1,
     startTime = '2025-06-01T00:00:00Z',
     endTime = '2025-06-01T22:00:00Z'
   } = options;
   
-  if (!seasonId || !stravaSegmentId) {
-    throw new Error('createWeek requires seasonId and stravaSegmentId');
+  // Create default season and segment if not provided
+  let finalSeasonId = seasonId;
+  if (!finalSeasonId) {
+    const defaultSeason = createSeason(db, 'Default Test Season');
+    finalSeasonId = defaultSeason.id;
+  }
+  
+  let finalSegmentId = stravaSegmentId;
+  if (!finalSegmentId) {
+    // Try to reuse existing default segment to avoid UNIQUE constraint violations
+    const existingDefault = db
+      .select()
+      .from(segment)
+      .where(eq(segment.strava_segment_id, 12345678))
+      .get();
+
+    if (existingDefault) {
+      finalSegmentId = 12345678;
+    } else {
+      const defaultSegment = createSegment(db, 12345678, 'Default Test Segment');
+      finalSegmentId = defaultSegment.strava_segment_id;
+    }
   }
   
   // Convert ISO 8601 times to Unix timestamps (UTC seconds)
   const startAtUnix = isoToUnix(startTime);
   const endAtUnix = isoToUnix(endTime);
   
-  const result = db.prepare(`
-    INSERT INTO week (season_id, week_name, strava_segment_id, required_laps, start_at, end_at)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(seasonId, weekName, stravaSegmentId, requiredLaps, startAtUnix, endAtUnix);
-  
-  return { weekId: result.lastInsertRowid, weekName, date, stravaSegmentId };
+  const newWeekData: InsertWeek = {
+    season_id: finalSeasonId,
+    week_name: weekName,
+    strava_segment_id: finalSegmentId,
+    required_laps: requiredLaps,
+    start_at: startAtUnix || 0, // Ensure number
+    end_at: endAtUnix || 0
+  };
+  const newWeek = db.insert(week).values(newWeekData).returning().get();
+  console.log(`[TEST_HELPER] Created Week: id=${newWeek.id}, name=${newWeek.week_name}, seasonId=${newWeek.season_id}, segmentId=${newWeek.strava_segment_id}`);
+  return newWeek;
 }
 
 /**
- * Create a test activity with segment efforts
- * @param {Database} db - better-sqlite3 database instance
- * @param {object} options - Configuration
- *   - weekId (required)
- *   - stravaAthleteId (required)
- *   - stravaActivityId (required)
- *   - stravaSegmentId (required - for segment_effort)
- *   - elapsedSeconds (optional, default: 1000)
- *   - prAchieved (optional, default: false)
- * @returns {object} { activityId, segmentEffortId, totalTime }
+ * Create a test activity with optional segment efforts
  */
-function createActivity(db, options = {}) {
+export function createActivity(db: TestDb, options: CreateActivityOptions): SelectActivity & { segmentEffortId?: number; totalTime?: number } {
   const {
     weekId,
     stravaAthleteId,
-    stravaActivityId,
+    stravaActivityId = Math.floor(Math.random() * 1000000000), // Generate a random number
     stravaSegmentId,
     elapsedSeconds = 1000,
     prAchieved = false,
@@ -149,174 +239,202 @@ function createActivity(db, options = {}) {
     effortStartTime = '2025-06-01T10:05:00Z'
   } = options;
   
-  if (!weekId || !stravaAthleteId || !stravaActivityId || !stravaSegmentId) {
-    throw new Error('createActivity requires weekId, stravaAthleteId, stravaActivityId, and stravaSegmentId');
-  }
-  
   // Convert ISO 8601 times to Unix timestamps
   const activityStartAtUnix = isoToUnix(activityStartTime);
   const effortStartAtUnix = isoToUnix(effortStartTime);
   
   // Create activity
-  const activityResult = db.prepare(`
-    INSERT INTO activity (week_id, strava_athlete_id, strava_activity_id, start_at, validation_status)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(weekId, stravaAthleteId, stravaActivityId, activityStartAtUnix, 'valid');
-  
-  const activityId = activityResult.lastInsertRowid;
-  
-  // Create segment effort
-  const effortResult = db.prepare(`
-    INSERT INTO segment_effort (activity_id, strava_segment_id, effort_index, elapsed_seconds, start_at, pr_achieved, strava_effort_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(activityId, stravaSegmentId, 1, elapsedSeconds, effortStartAtUnix, prAchieved ? 1 : 0, String(Math.floor(Math.random() * 1000000000000000000)));
-  
-  return {
-    activityId,
-    segmentEffortId: effortResult.lastInsertRowid,
-    totalTime: elapsedSeconds
+  const newActivityData: InsertActivity = {
+    week_id: weekId,
+    strava_athlete_id: stravaAthleteId,
+    strava_activity_id: stravaActivityId,
+    start_at: activityStartAtUnix || 0, // Ensure number
+    validation_status: 'valid'
   };
+  const newActivity = db.insert(activity).values(newActivityData).returning().get();
+  console.log(`[TEST_HELPER] Created Activity: id=${newActivity.id}, weekId=${newActivity.week_id}, athleteId=${newActivity.strava_athlete_id}, stravaActivityId=${newActivity.strava_activity_id}`);
+  
+  // Create segment effort only if stravaSegmentId is provided
+  if (stravaSegmentId) {
+    const newSegmentEffortData: InsertSegmentEffort = {
+      activity_id: newActivity.id,
+      strava_segment_id: stravaSegmentId,
+      effort_index: 0, // Assuming first effort by default
+      elapsed_seconds: elapsedSeconds,
+      start_at: effortStartAtUnix || 0, // Ensure number
+      pr_achieved: prAchieved ? 1 : 0,
+      strava_effort_id: String(Math.floor(Math.random() * 1000000000000000000))
+    };
+    const newSegmentEffort = db.insert(segmentEffort).values(newSegmentEffortData).returning().get();
+    console.log(`[TEST_HELPER] Created SegmentEffort: id=${newSegmentEffort.id}, activityId=${newSegmentEffort.activity_id}, segmentId=${newSegmentEffort.strava_segment_id}`);
+    
+    return {
+      ...newActivity,
+      segmentEffortId: newSegmentEffort.id,
+      totalTime: elapsedSeconds
+    };
+  }
+  
+  return newActivity;
+}
+
+interface CreateSegmentEffortOptions {
+  activityId: number;
+  stravaSegmentId?: number;
+  effortIndex?: number;
+  elapsedSeconds?: number;
+  startAt?: string;
+  prAchieved?: number;
+  stravaEffortId?: string;
+}
+
+/**
+ * Create a standalone segment effort
+ * Useful for tests that need to add efforts to existing activities
+ */
+export function createSegmentEffort(db: TestDb, options: CreateSegmentEffortOptions): SelectSegmentEffort {
+  const {
+    activityId,
+    stravaSegmentId = 12345678,
+    effortIndex = 0,
+    elapsedSeconds = 600,
+    startAt = '2025-06-01T10:05:00Z',
+    prAchieved = 0,
+    stravaEffortId = String(Math.floor(Math.random() * 1000000000000000000))
+  } = options;
+
+  const effortStartAtUnix = isoToUnix(startAt);
+
+  const newSegmentEffortData: InsertSegmentEffort = {
+    activity_id: activityId,
+    strava_segment_id: stravaSegmentId,
+    effort_index: effortIndex,
+    elapsed_seconds: elapsedSeconds,
+    start_at: effortStartAtUnix || 0,
+    pr_achieved: prAchieved,
+    strava_effort_id: stravaEffortId
+  };
+
+  const newSegmentEffort = db.insert(segmentEffort).values(newSegmentEffortData).returning().get();
+  console.log(`[TEST_HELPER] Created SegmentEffort: id=${newSegmentEffort.id}, activityId=${newSegmentEffort.activity_id}, segmentId=${newSegmentEffort.strava_segment_id}, elapsed=${newSegmentEffort.elapsed_seconds}s`);
+  
+  return newSegmentEffort;
 }
 
 /**
  * Create a test result record
- * @param {Database} db - better-sqlite3 database instance
- * @param {object} options - Configuration
- *   - weekId (required)
- *   - stravaAthleteId (required)
- *   - activityId (optional)
- *   - totalTimeSeconds (optional, default: 1000)
- * @returns {object} { resultId }
  */
-function createResult(db, options = {}) {
-  const {
-    weekId,
-    stravaAthleteId,
-    activityId = null,
-    totalTimeSeconds = 1000
-  } = options;
-  
-  if (!weekId || !stravaAthleteId) {
-    throw new Error('createResult requires weekId and stravaAthleteId');
-  }
-  
-  const result = db.prepare(`
-    INSERT INTO result (week_id, strava_athlete_id, activity_id, total_time_seconds)
-    VALUES (?, ?, ?, ?)
-  `).run(weekId, stravaAthleteId, activityId, totalTimeSeconds);
-  
-  return { resultId: result.lastInsertRowid };
+export function createResult(db: TestDb, options: CreateResultOptions): SelectResult {
+  const { weekId, stravaAthleteId, activityId = null, totalTimeSeconds = 1000 } = options;
+
+  const newResultData: InsertResult = {
+    week_id: weekId,
+    strava_athlete_id: stravaAthleteId,
+    activity_id: activityId,
+    total_time_seconds: totalTimeSeconds
+  };
+  const newResult = db.insert(result).values(newResultData).returning().get();
+  console.log(`[TEST_HELPER] Created Result: id=${newResult.id}, weekId=${newResult.week_id}, athleteId=${newResult.strava_athlete_id}`);
+  return newResult;
+}
+
+interface FullUserWithActivityReturn {
+  participant: SelectParticipant;
+  season: SelectSeason;
+  segment: SelectSegment;
+  week: SelectWeek;
+  activity: SelectActivity & { segmentEffortId?: number; totalTime?: number };
+  result: SelectResult;
 }
 
 /**
  * Create a complete test user with all related data
  * Convenience function for common test scenario
- * @param {Database} db - better-sqlite3 database instance
- * @param {object} options - Configuration
- *   - stravaAthleteId (required)
- *   - name (optional, defaults to generated)
- *   - seasonName (optional)
- *   - weekName (optional)
- *   - stravaSegmentId (required for activity)
- *   - stravaActivityId (optional, default: auto-generated)
- * @returns {object} { participant, season, segment, week, activity, result }
  */
-function createFullUserWithActivity(db, options = {}) {
+export function createFullUserWithActivity(db: TestDb, options: CreateFullUserOptions): FullUserWithActivityReturn {
   const {
     stravaAthleteId,
     name = `Test User ${stravaAthleteId}`,
     seasonName = 'Test Season',
     weekName = 'Test Week',
     stravaSegmentId = 99999,
-    stravaActivityId = null
+    stravaActivityId
   } = options;
   
-  if (!stravaAthleteId) {
-    throw new Error('createFullUserWithActivity requires stravaAthleteId');
-  }
-  
-  // Create all related records in order
-  const participant = createParticipant(db, stravaAthleteId, name, true);
-  const season = createSeason(db, seasonName, true);
-  const segment = createSegment(db, stravaSegmentId);
-  const week = createWeek(db, {
-    seasonId: season.seasonId,
-    stravaSegmentId,
+  const newParticipant = createParticipant(db, stravaAthleteId, name, true);
+  const newSeason = createSeason(db, seasonName, true);
+  const newSegment = createSegment(db, stravaSegmentId);
+  const newWeek = createWeek(db, {
+    seasonId: newSeason.id,
+    stravaSegmentId: newSegment.strava_segment_id,
     weekName
   });
   
-  const activity = createActivity(db, {
-    weekId: week.weekId,
-    stravaAthleteId,
-    stravaActivityId: stravaActivityId || `${stravaAthleteId}-activity-1`,
-    stravaSegmentId
+  const newActivity = createActivity(db, {
+    weekId: newWeek.id,
+    stravaAthleteId: newParticipant.strava_athlete_id,
+    stravaActivityId: stravaActivityId || Math.floor(Math.random() * 1000000000),
+    stravaSegmentId: newSegment.strava_segment_id
   });
   
-  const result = createResult(db, {
-    weekId: week.weekId,
-    stravaAthleteId,
-    activityId: activity.activityId
+  const newResult = createResult(db, {
+    weekId: newWeek.id,
+    stravaAthleteId: newParticipant.strava_athlete_id,
+    activityId: newActivity.id,
+    totalTimeSeconds: newActivity.totalTime || 1000,  // Default to 1000 if no segment effort
   });
   
   return {
-    participant,
-    season,
-    segment,
-    week,
-    activity,
-    result
+    participant: newParticipant,
+    season: newSeason,
+    segment: newSegment,
+    week: newWeek,
+    activity: newActivity,
+    result: newResult
   };
 }
 
 /**
  * Clear all test data (truncate all tables)
  * Useful for test cleanup
- * @param {Database} db - better-sqlite3 database instance
  */
-function clearAllData(db) {
-  db.exec(`
-    DELETE FROM deletion_request;
-    DELETE FROM segment_effort;
-    DELETE FROM result;
-    DELETE FROM activity;
-    DELETE FROM participant_token;
-    DELETE FROM participant;
-    DELETE FROM week;
-    DELETE FROM segment;
-    DELETE FROM season;
-  `);
+export function clearAllData(db: TestDb) {
+  // Use Drizzle to delete from tables
+  db.delete(deletionRequest).run();
+  db.delete(segmentEffort).run();
+  db.delete(result).run();
+  db.delete(activity).run();
+  db.delete(participantToken).run();
+  db.delete(participant).run();
+  db.delete(week).run();
+  db.delete(segment).run();
+  db.delete(season).run();
 }
 
 /**
  * Create multiple participants at once
- * @param {Database} db - better-sqlite3 database instance
- * @param {number} count - Number of participants to create
- * @param {boolean} withTokens - If true, also create tokens (default: false)
- * @returns {array} Array of { stravaAthleteId, name } objects
  */
-function createMultipleParticipants(db, count, withTokens = false) {
-  const participants = [];
+export function createMultipleParticipants(db: TestDb, count: number, withTokens: boolean = false): SelectParticipant[] {
+  const participantsList: SelectParticipant[] = [];
   for (let i = 1; i <= count; i++) {
     const athleteId = 1000000 + i;
-    const participant = createParticipant(db, athleteId, `Test Participant ${i}`, withTokens);
-    participants.push(participant);
+    const newParticipant = createParticipant(db, athleteId, `Test Participant ${i}`, withTokens);
+    participantsList.push(newParticipant);
   }
-  return participants;
+  return participantsList;
+}
+
+interface WeekWithResultsReturn {
+  week: SelectWeek;
+  activities: (SelectActivity & { segmentEffortId: number; totalTime: number })[];
+  results: SelectResult[];
 }
 
 /**
  * Create a week with multiple activities and results
  * Convenience function for testing leaderboards
- * @param {Database} db - better-sqlite3 database instance
- * @param {object} options - Configuration
- *   - seasonId (required)
- *   - stravaSegmentId (required)
- *   - weekName (optional)
- *   - participantIds (optional, array of athlete IDs)
- *   - times (optional, array of times for ranking)
- * @returns {object} { weekId, activities, results }
  */
-function createWeekWithResults(db, options = {}) {
+export function createWeekWithResults(db: TestDb, options: CreateWeekWithResultsOptions): WeekWithResultsReturn {
   const {
     seasonId,
     stravaSegmentId,
@@ -325,113 +443,55 @@ function createWeekWithResults(db, options = {}) {
     times = []
   } = options;
   
-  if (!seasonId || !stravaSegmentId) {
-    throw new Error('createWeekWithResults requires seasonId and stravaSegmentId');
-  }
-  
-  // Create the week
-  const week = createWeek(db, {
+  const newWeek = createWeek(db, {
     seasonId,
     stravaSegmentId,
     weekName
   });
   
-  const activities = [];
-  const results = [];
+  const activities: (SelectActivity & { segmentEffortId: number; totalTime: number })[] = [];
+  const results: SelectResult[] = [];
   
-  // Create activity and result for each participant
   participantIds.forEach((athleteId, index) => {
     const totalTime = times[index] || (1000 * (index + 1)); // Default: 1000, 2000, 3000...
     
-    const activity = createActivity(db, {
-      weekId: week.weekId,
+    const newActivity = createActivity(db, {
+      weekId: newWeek.id,
       stravaAthleteId: athleteId,
-      stravaActivityId: `${athleteId}-week-${week.weekId}`,
+      stravaActivityId: Math.floor(Math.random() * 1000000000),
       stravaSegmentId,
       elapsedSeconds: totalTime,
       prAchieved: index === 0 // First person gets PR
     });
     
-    // Calculate rank based on time (lower time = better rank)
-    const sortedIndex = times
-      .slice(0, index + 1)
-      .sort()
-      .indexOf(totalTime);
-    const rank = sortedIndex + 1;
-    
-    const result = createResult(db, {
-      weekId: week.weekId,
+    // Determine rank for createResult - not passed to result.values, but needed for test
+    // const currentTimes = times.slice(0, index + 1);
+    // const sortedCurrentTimes = [...currentTimes].sort((a, b) => a - b);
+    // const rank = sortedCurrentTimes.indexOf(totalTime) + 1; // Unused
+
+    const newResult = createResult(db, {
+      weekId: newWeek.id,
       stravaAthleteId: athleteId,
-      activityId: activity.activityId,
+      activityId: newActivity.id,
       totalTimeSeconds: totalTime,
-      rank
     });
     
-    activities.push(activity);
-    results.push(result);
+    // Assert that the activity has the required fields since we provided stravaSegmentId
+    activities.push(newActivity as SelectActivity & { segmentEffortId: number; totalTime: number });
+    results.push(newResult);
   });
   
-  return { weekId: week.weekId, activities, results };
+  return { week: newWeek, activities, results };
 }
 
 /**
  * Mock the checkAuthorization function for testing
- * 
- * Usage in your test file BEFORE requiring the app:
- * 
- * jest.mock('../index.js', () => {
- *   const actual = jest.requireActual('../index.js');
- *   return {
- *     ...actual,
- *     checkAuthorization: jest.fn((req, adminRequired) => {
- *       // Mock implementation for testing
- *       const athleteId = req._testAthleteId;
- *       
- *       if (!athleteId) {
- *         return { authorized: false, statusCode: 401, message: 'Not authenticated' };
- *       }
- *       
- *       if (adminRequired) {
- *         const adminIds = (process.env.ADMIN_ATHLETE_IDS || '').split(',').map(Number);
- *         if (!adminIds.includes(athleteId)) {
- *           return { authorized: false, statusCode: 403, message: 'Forbidden' };
- *         }
- *       }
- *       
- *       return { authorized: true, statusCode: 200 };
- *     })
- *   };
- * });
- * 
- * Then in your test:
- * const { checkAuthorization } = require('../index.js');
- * 
- * const mockAuthRequest = (athleteId) => ({
- *   _testAthleteId: athleteId,
- *   session: { stravaAthleteId: athleteId }
- * });
- * 
- * // Test admin authorization
- * process.env.ADMIN_ATHLETE_IDS = '999001';
- * expect(checkAuthorization(mockAuthRequest(999001), true).authorized).toBe(true);
- * expect(checkAuthorization(mockAuthRequest(999002), true).statusCode).toBe(403);
  */
 
 /**
  * Create a mock request object for testing authorization
- * 
- * Usage:
- * const adminReq = createMockAuthRequest(999001, true);  // admin user
- * const userReq = createMockAuthRequest(999002, false);   // regular user
- * 
- * const { checkAuthorization } = require('../index.js');
- * const result = checkAuthorization(adminReq, true);  // true = admin required
- * 
- * @param {number} athleteId - Strava athlete ID
- * @param {boolean} isAdmin - Whether this athlete should be an admin
- * @returns {object} Mock request object
  */
-function createMockAuthRequest(athleteId, isAdmin = false) {
+export function createMockAuthRequest(athleteId: number, isAdmin: boolean = false) {
   return {
     _testAthleteId: athleteId,
     session: {
@@ -443,29 +503,13 @@ function createMockAuthRequest(athleteId, isAdmin = false) {
 
 /**
  * Helper to make a request with a specific athlete ID in the session
- * Usage in test files:
- * 
- * // Admin request (will use auto-injected admin session)
- * const adminRes = await request(app).post('/admin/weeks').send(data);
- * 
- * // Non-admin request (overrides session)
- * const nonAdminRes = await makeRequestAsUser(request, app, {
- *   method: 'post',
- *   path: '/admin/weeks',
- *   athleteId: 999999,  // Non-admin athlete ID
- *   data: { ... }
- * });
- * 
- * @param {object} requestModule - supertest request module
- * @param {object} app - Express app
- * @param {object} options - Configuration
- *   - method (required): 'get', 'post', 'put', 'delete', etc.
- *   - path (required): The endpoint path
- *   - athleteId (optional): Override the athlete ID in session
- *   - data (optional): Request body for POST/PUT
- * @returns {Promise<object>} Response object
  */
-async function makeRequestAsUser(requestModule, app, options) {
+export async function makeRequestAsUser(requestModule: any, app: any, options: {
+  method: string;
+  path: string;
+  athleteId?: number;
+  data?: any;
+}) {
   const { method = 'get', path, athleteId, data } = options;
   
   const req = requestModule(app)[method](path);
@@ -482,17 +526,46 @@ async function makeRequestAsUser(requestModule, app, options) {
   return req;
 }
 
-module.exports = {
-  createParticipant,
-  createMultipleParticipants,
-  createSeason,
-  createSegment,
-  createWeek,
-  createWeekWithResults,
-  createActivity,
-  createResult,
-  createFullUserWithActivity,
-  clearAllData,
-  createMockAuthRequest,
-  makeRequestAsUser
-};
+/**
+ * Helper: Create activity WITH result entry
+ * Automatically calculates and stores results for leaderboard queries
+ */
+export function createActivityWithResult(
+  db: TestDb,
+  options: {
+    weekId: number;
+    stravaAthleteId: number;
+    stravaActivityId: number;
+    elapsedSeconds?: number;
+    prAchieved?: boolean;
+  }
+): { activity: SelectActivity; result: SelectResult } {
+  const { weekId, stravaAthleteId, stravaActivityId, elapsedSeconds = 600, prAchieved = false } = options;
+
+  const activity = createActivity(db, {
+    weekId,
+    stravaAthleteId,
+    stravaActivityId,
+  });
+
+  const resultData = createResult(db, {
+    weekId,
+    stravaAthleteId,
+    activityId: activity.id,
+    totalTimeSeconds: elapsedSeconds,
+  });
+
+  // Create segment effort
+  createSegmentEffort(db, {
+    activityId: activity.id,
+    elapsedSeconds,
+    prAchieved: prAchieved ? 1 : 0,
+  });
+
+  return { activity, result: resultData };
+}
+
+// Re-export setupTestDb and teardownTestDb for convenience in test files
+import { setupTestDb, teardownTestDb, SeedData } from './setupTestDb';
+export { setupTestDb, teardownTestDb };
+export type { SeedData };

@@ -1,12 +1,7 @@
 import { useState, useEffect } from 'react';
 import './SegmentInput.css';
-import { getAdminSegments, validateSegment as validateSegmentApi } from '../api';
-
-interface Segment {
-  id: number;
-  strava_segment_id: number;
-  name: string;
-}
+import { trpc } from '../utils/trpc';
+import { AdminSegment } from '../types'; // Using shared type for better consistency
 
 interface SegmentInputProps {
   value: { id: number; name: string };
@@ -18,22 +13,15 @@ function SegmentInput({ value, onChange }: SegmentInputProps) {
   const [nameInput, setNameInput] = useState('');
   const [validationState, setValidationState] = useState<'idle' | 'validating' | 'valid' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
-  const [knownSegments, setKnownSegments] = useState<Segment[]>([]);
-  const [filteredSegments, setFilteredSegments] = useState<Segment[]>([]);
+  const [filteredSegments, setFilteredSegments] = useState<AdminSegment[]>([]);
   const [showNameDropdown, setShowNameDropdown] = useState(false);
 
-  // Fetch known segments on mount
-  useEffect(() => {
-    const fetchSegments = async () => {
-      try {
-        const segments = await getAdminSegments();
-        setKnownSegments(segments);
-      } catch (error) {
-        console.error('Failed to fetch known segments:', error);
-      }
-    };
-    fetchSegments();
-  }, []);
+  const utils = trpc.useUtils();
+  
+  // Fetch known segments
+  const { data: knownSegments = [] } = trpc.segment.getAll.useQuery(undefined, {
+    refetchOnWindowFocus: false
+  });
 
   // Update internal state when value prop changes
   useEffect(() => {
@@ -48,10 +36,6 @@ function SegmentInput({ value, onChange }: SegmentInputProps) {
 
   /**
    * Parse Strava segment URL or ID
-   * Accepts:
-   * - https://www.strava.com/segments/12744502
-   * - https://www.strava.com/segments/12744502?filter=overall
-   * - 12744502
    */
   const parseSegmentInput = (input: string): number | null => {
     const trimmed = input.trim();
@@ -75,7 +59,8 @@ function SegmentInput({ value, onChange }: SegmentInputProps) {
     setErrorMessage('');
     
     try {
-      const segmentData = await validateSegmentApi(segmentId);
+      const segmentData = await utils.client.segment.validate.query(segmentId);
+      if (!segmentData) throw new Error('Segment not found');
       setValidationState('valid');
       onChange(segmentId, segmentData.name);
     } catch (error: any) {
@@ -120,7 +105,7 @@ function SegmentInput({ value, onChange }: SegmentInputProps) {
     setShowNameDropdown(filtered.length > 0);
   };
 
-  const handleNameSegmentSelect = (segment: Segment) => {
+  const handleNameSegmentSelect = (segment: AdminSegment) => {
     setUrlInput(segment.strava_segment_id.toString());
     setNameInput(segment.name);
     setValidationState('valid');
@@ -172,7 +157,7 @@ function SegmentInput({ value, onChange }: SegmentInputProps) {
               <div className="name-autocomplete-dropdown">
                 {filteredSegments.map((segment) => (
                   <button
-                    key={segment.id}
+                    key={segment.strava_segment_id} // using strava_segment_id as key
                     type="button"
                     className="segment-option"
                     onMouseDown={(e) => {

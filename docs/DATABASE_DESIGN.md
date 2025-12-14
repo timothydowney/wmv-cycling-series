@@ -93,12 +93,12 @@ CREATE TABLE segment_efforts (
   effort_index INTEGER NOT NULL,  -- 1st lap, 2nd lap, etc.
   elapsed_seconds INTEGER NOT NULL,
   start_time TEXT,  -- ISO 8601 timestamp
-  pr_achieved BOOLEAN DEFAULT 0,  -- 1 if this effort was a PR, 0 otherwise
+  pr_achieved BOOLEAN DEFAULT 0,  -- 1 if this effort was a PR (pr_rank === 1), 0 otherwise
   FOREIGN KEY(activity_id) REFERENCES activities(id),
   FOREIGN KEY(segment_id) REFERENCES segments(id)
 );
 ```
-**PR Detection:** The `pr_achieved` flag is set from Strava API's segment effort response (checks if `pr_rank` is present).
+**PR Detection:** The `pr_achieved` flag is set from Strava API's segment effort response when `pr_rank === 1` (indicates athlete's absolute fastest ever on this segment).
 
 #### `results` (UPDATED)
 Stores calculated competition results for each participant per week.
@@ -122,15 +122,17 @@ CREATE TABLE results (
 ```
 **Points Calculation:**
 - `base_points = (total_participants - rank) + 1`
-  - This awards 1 point for each participant you beat, PLUS 1 point for competing
   - Example with 4 participants:
-    - 1st place: (4 - 1) + 1 = 4 points (beat 3 people + competed)
-    - 2nd place: (4 - 2) + 1 = 3 points (beat 2 people + competed)
-    - 3rd place: (4 - 3) + 1 = 2 points (beat 1 person + competed)
-    - 4th place: (4 - 4) + 1 = 1 point (beat 0 people + competed)
-  - Someone who doesn't compete gets 0 points
-- `pr_bonus_points = 1 if any segment effort has pr_achieved = 1, else 0`
+    - 1st place: (4 - 1) + 1 = 4 points
+    - 2nd place: (4 - 2) + 1 = 3 points
+    - 3rd place: (4 - 3) + 1 = 2 points
+    - 4th place: (4 - 4) + 1 = 1 point
+  - Participants with no valid activity get 0 points
+- `pr_bonus_points = 1 if ANY segment effort has pr_achieved = 1, else 0`
+  - Maximum 1 PR bonus per week, even if multiple segment efforts are PRs
 - `points = base_points + pr_bonus_points`
+
+**Note:** The formula `(total - rank) + 1` incorporates both the "beat participants" count AND the participation bonus of 1 point.
 
 ## Data Flow
 

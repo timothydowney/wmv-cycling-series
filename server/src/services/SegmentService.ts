@@ -4,17 +4,19 @@
  * DRY consolidation of segment metadata operations used across routes
  */
 
-import { Database } from 'better-sqlite3';
+import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { getSegment, mapStravaSegmentToSegmentRow } from '../stravaClient';
 import { getValidAccessToken } from '../tokenManager';
-import type { SegmentRow } from '../types/database';
+import { Segment } from '../db/schema'; // Import Drizzle Segment type
+import { segment, participantToken } from '../db/schema';
+import { eq, asc } from 'drizzle-orm';
 
 interface LogCallback {
   (level: string, message: string): void;
 }
 
 class SegmentService {
-  constructor(private db: Database) {}
+  constructor(private db: BetterSQLite3Database) {}
 
   /**
    * Fetch segment metadata from Strava API and store in database
@@ -24,15 +26,31 @@ class SegmentService {
   async fetchAndStoreSegmentMetadata(
     segmentId: number,
     context: string, // e.g., "week-create", "fetch-results", "validation"
-    logCallback?: LogCallback
-  ): Promise<SegmentRow | null> {
+    logCallback?: LogCallback,
+    preferredAthleteId?: number // Optional: Try this athlete first
+  ): Promise<Segment | null> {
     const log = logCallback ? (level: string, msg: string) => logCallback(level, msg) : () => {};
 
     try {
-      // Get an access token from any connected participant
-      const tokenRecord = this.db
-        .prepare('SELECT strava_athlete_id FROM participant_token LIMIT 1')
-        .get() as { strava_athlete_id: number } | undefined;
+      let tokenRecord;
+
+      // Try preferred athlete first
+      if (preferredAthleteId) {
+        tokenRecord = this.db
+          .select({ strava_athlete_id: participantToken.strava_athlete_id })
+          .from(participantToken)
+          .where(eq(participantToken.strava_athlete_id, preferredAthleteId))
+          .get();
+      }
+
+      // Fallback to any connected participant if preferred not found
+      if (!tokenRecord) {
+        tokenRecord = this.db
+          .select({ strava_athlete_id: participantToken.strava_athlete_id })
+          .from(participantToken)
+          .limit(1)
+          .get();
+      }
 
       if (!tokenRecord) {
         console.log(`[${context}] No connected participants, creating placeholder segment`);
@@ -47,6 +65,8 @@ class SegmentService {
           return strava.oauth.refreshToken(rt);
         }
       };
+      
+      // Use canonical token manager with Drizzle DB
       const accessToken = await getValidAccessToken(this.db, stravaClient, tokenRecord.strava_athlete_id);
 
       // Fetch segment metadata from Strava
@@ -86,34 +106,53 @@ class SegmentService {
    */
   private storeSegmentMetadata(segmentId: number, data: any): void {
     this.db
-      .prepare(
-        `INSERT OR REPLACE INTO segment 
-        (strava_segment_id, name, distance, total_elevation_gain, average_grade, climb_category, city, state, country)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run(
-        segmentId,
-        data.name,
-        data.distance,
-        data.total_elevation_gain,
-        data.average_grade,
-        data.climb_category,
-        data.city,
-        data.state,
-        data.country
-      );
+      .insert(segment)
+      .values({
+        strava_segment_id: segmentId,
+        name: data.name,
+        distance: data.distance,
+        total_elevation_gain: data.total_elevation_gain,
+        average_grade: data.average_grade,
+        climb_category: data.climb_category,
+        city: data.city,
+        state: data.state,
+        country: data.country
+      })
+      .onConflictDoUpdate({
+        target: segment.strava_segment_id,
+        set: {
+          name: data.name,
+          distance: data.distance,
+          total_elevation_gain: data.total_elevation_gain,
+          average_grade: data.average_grade,
+          climb_category: data.climb_category,
+          city: data.city,
+          state: data.state,
+          country: data.country
+        }
+      })
+      .run();
   }
 
   /**
    * Ensure segment exists in database as placeholder (name only)
    * Used when metadata fetch fails but FK constraint requires the row
    */
-  private createPlaceholderSegment(segmentId: number): SegmentRow | null {
-    const existing = this.db.prepare('SELECT 1 FROM segment WHERE strava_segment_id = ?').get(segmentId);
+  private createPlaceholderSegment(segmentId: number): Segment | null {
+    const existing = this.db
+      .select({ strava_segment_id: segment.strava_segment_id })
+      .from(segment)
+      .where(eq(segment.strava_segment_id, segmentId))
+      .get();
+      
     if (!existing) {
       this.db
-        .prepare('INSERT INTO segment (strava_segment_id, name) VALUES (?, ?)')
-        .run(segmentId, `Segment ${segmentId}`);
+        .insert(segment)
+        .values({
+          strava_segment_id: segmentId,
+          name: `Segment ${segmentId}`
+        })
+        .run();
     }
     return this.getStoredSegment(segmentId);
   }
@@ -121,26 +160,56 @@ class SegmentService {
   /**
    * Retrieve stored segment from database
    */
-  private getStoredSegment(segmentId: number): SegmentRow | null {
-    return (
-      this.db.prepare('SELECT * FROM segment WHERE strava_segment_id = ?').get(segmentId) as SegmentRow | null
-    );
+  private getStoredSegment(segmentId: number): Segment | null {
+    const result = this.db
+      .select()
+      .from(segment)
+      .where(eq(segment.strava_segment_id, segmentId))
+      .get();
+      
+    return result || null;
   }
 
   /**
    * Check if segment exists in database
    */
   segmentExists(segmentId: number): boolean {
-    return !!this.db.prepare('SELECT 1 FROM segment WHERE strava_segment_id = ?').get(segmentId);
+    const result = this.db
+      .select({ strava_segment_id: segment.strava_segment_id })
+      .from(segment)
+      .where(eq(segment.strava_segment_id, segmentId))
+      .get();
+      
+    return !!result;
+  }
+
+  /**
+   * Create or update a segment manually
+   */
+  createSegment(data: {
+    strava_segment_id: number;
+    name: string;
+    distance?: number;
+    total_elevation_gain?: number;
+    average_grade?: number;
+    climb_category?: number | null;
+    city?: string;
+    state?: string;
+    country?: string;
+  }): Segment {
+    this.storeSegmentMetadata(data.strava_segment_id, data);
+    const stored = this.getStoredSegment(data.strava_segment_id);
+    if (!stored) throw new Error('Failed to create segment');
+    return stored;
   }
 
   /**
    * Get all segments
    */
-  getAllSegments(): SegmentRow[] {
-    return this.db.prepare('SELECT * FROM segment ORDER BY name ASC').all() as SegmentRow[];
+  getAllSegments(): Segment[] {
+    return this.db.select().from(segment).orderBy(asc(segment.name)).all();
   }
 }
 
-export { SegmentService, LogCallback };
-export type { SegmentRow } from '../types/database';
+export { SegmentService };
+export type { LogCallback };

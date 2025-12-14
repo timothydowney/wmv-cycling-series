@@ -4,69 +4,60 @@
  */
 
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import Database from 'better-sqlite3';
 import ActivityValidationService from '../services/ActivityValidationService';
-import { SCHEMA } from '../schema';
+import { setupTestDb } from './setupTestDb'; // Import setupTestDb
+import { createSeason, createSegment, createWeek } from './testDataHelpers';
+import { eq } from 'drizzle-orm';
+import { season as seasonTable } from '../db/schema';
+// import { SCHEMA } from '../schema'; // Removed
 
 describe('ActivityValidationService', () => {
-  let db: Database.Database;
+  let orm: import('drizzle-orm/better-sqlite3').BetterSQLite3Database;
   let service: ActivityValidationService;
   const now = Math.floor(Date.now() / 1000);
 
   beforeEach(() => {
-    db = new Database(':memory:');
-    db.pragma('foreign_keys = ON');
-    db.exec(SCHEMA);
-    service = new ActivityValidationService(db);
+    const { orm: newOrm } = setupTestDb({ seed: false }); // Use setupTestDb with no seed
+    orm = newOrm;
+    // db.pragma('foreign_keys = ON'); // Handled by Drizzle migrations if needed
+    // db.exec(SCHEMA); // Removed
+    service = new ActivityValidationService(orm);
 
     // Create test segments first (required for week foreign key)
-    db.prepare(
-      `INSERT INTO segment (strava_segment_id, name)
-       VALUES (?, ?)`
-    ).run(1, 'Test Segment 1');
-
-    db.prepare(
-      `INSERT INTO segment (strava_segment_id, name)
-       VALUES (?, ?)`
-    ).run(2, 'Test Segment 2');
-
-    db.prepare(
-      `INSERT INTO segment (strava_segment_id, name)
-       VALUES (?, ?)`
-    ).run(3, 'Test Segment 3');
+    createSegment(orm, 1, 'Test Segment 1');
+    createSegment(orm, 2, 'Test Segment 2');
+    createSegment(orm, 3, 'Test Segment 3');
 
     // Create test seasons
+    // Seasons
     // Season 1: Currently active (started in past, ends in future)
-    db.prepare(
-      `INSERT INTO season (name, start_at, end_at, is_active, created_at)
-       VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)`
-    ).run('Active Season', now - 86400 * 30, now + 86400 * 30); // 30 days ago to 30 days from now
-
+    createSeason(orm, 'Active Season', true, { startAt: now - 86400 * 30, endAt: now + 86400 * 30 });
     // Season 2: Closed (ended in past)
-    db.prepare(
-      `INSERT INTO season (name, start_at, end_at, is_active, created_at)
-       VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP)`
-    ).run('Closed Season', now - 86400 * 60, now - 86400 * 30); // Ended 30 days ago
-
+    createSeason(orm, 'Closed Season', false, { startAt: now - 86400 * 60, endAt: now - 86400 * 30 });
     // Season 3: Not started yet
-    db.prepare(
-      `INSERT INTO season (name, start_at, end_at, is_active, created_at)
-       VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP)`
-    ).run('Future Season', now + 86400 * 30, now + 86400 * 60); // Starts in 30 days
+    createSeason(orm, 'Future Season', false, { startAt: now + 86400 * 30, endAt: now + 86400 * 60 });
   });
 
   describe('isSeasonClosed()', () => {
     it('returns false when season end_at is in future', () => {
-      const season = db.prepare('SELECT * FROM season WHERE name = ?').get('Active Season') as any;
-      const result = service.isSeasonClosed(season);
+      const seasonRow = orm
+        .select()
+        .from(seasonTable)
+        .where(eq(seasonTable.name, 'Active Season'))
+        .all()[0] as any;
+      const result = service.isSeasonClosed(seasonRow);
 
       expect(result.isClosed).toBe(false);
       expect(result.reason).toBeUndefined();
     });
 
     it('returns true when season end_at is in past', () => {
-      const season = db.prepare('SELECT * FROM season WHERE name = ?').get('Closed Season') as any;
-      const result = service.isSeasonClosed(season);
+      const seasonRow = orm
+        .select()
+        .from(seasonTable)
+        .where(eq(seasonTable.name, 'Closed Season'))
+        .all()[0] as any;
+      const result = service.isSeasonClosed(seasonRow);
 
       expect(result.isClosed).toBe(true);
       expect(result.reason).toContain('Season ended at');
@@ -92,8 +83,12 @@ describe('ActivityValidationService', () => {
 
   describe('isSeasonOpen()', () => {
     it('returns isOpen=true when season is currently active', () => {
-      const season = db.prepare('SELECT * FROM season WHERE name = ?').get('Active Season') as any;
-      const result = service.isSeasonOpen(season);
+      const seasonRow = orm
+        .select()
+        .from(seasonTable)
+        .where(eq(seasonTable.name, 'Active Season'))
+        .all()[0] as any;
+      const result = service.isSeasonOpen(seasonRow);
 
       expect(result.isOpen).toBe(true);
       expect(result.isClosed).toBe(false);
@@ -101,8 +96,12 @@ describe('ActivityValidationService', () => {
     });
 
     it('returns isOpen=false when season has not started', () => {
-      const season = db.prepare('SELECT * FROM season WHERE name = ?').get('Future Season') as any;
-      const result = service.isSeasonOpen(season);
+      const seasonRow = orm
+        .select()
+        .from(seasonTable)
+        .where(eq(seasonTable.name, 'Future Season'))
+        .all()[0] as any;
+      const result = service.isSeasonOpen(seasonRow);
 
       expect(result.isOpen).toBe(false);
       expect(result.isClosed).toBe(false);
@@ -110,8 +109,12 @@ describe('ActivityValidationService', () => {
     });
 
     it('returns isOpen=false, isClosed=true when season has ended', () => {
-      const season = db.prepare('SELECT * FROM season WHERE name = ?').get('Closed Season') as any;
-      const result = service.isSeasonOpen(season);
+      const seasonRow = orm
+        .select()
+        .from(seasonTable)
+        .where(eq(seasonTable.name, 'Closed Season'))
+        .all()[0] as any;
+      const result = service.isSeasonOpen(seasonRow);
 
       expect(result.isOpen).toBe(false);
       expect(result.isClosed).toBe(true);
@@ -119,8 +122,12 @@ describe('ActivityValidationService', () => {
     });
 
     it('returns start_at and end_at in result', () => {
-      const season = db.prepare('SELECT * FROM season WHERE name = ?').get('Active Season') as any;
-      const result = service.isSeasonOpen(season);
+      const seasonRow = orm
+        .select()
+        .from(seasonTable)
+        .where(eq(seasonTable.name, 'Active Season'))
+        .all()[0] as any;
+      const result = service.isSeasonOpen(seasonRow);
 
       expect(result.start_at).toBeCloseTo(now - 86400 * 30, -1);
       expect(result.end_at).toBeCloseTo(now + 86400 * 30, -1);
@@ -197,39 +204,51 @@ describe('ActivityValidationService', () => {
 
   describe('isActivityWithinSeasonRange()', () => {
     it('returns valid=true when activity is within season range', () => {
-      const season = db.prepare('SELECT * FROM season WHERE name = ?').get('Active Season') as any;
+      const seasonRow = orm
+        .select()
+        .from(seasonTable)
+        .where(eq(seasonTable.name, 'Active Season'))
+        .all()[0] as any;
       const activity = {
         id: 123,
         start_date: new Date(now * 1000).toISOString()
       };
 
-      const result = service.isActivityWithinSeasonRange(activity, season);
+      const result = service.isActivityWithinSeasonRange(activity, seasonRow);
 
       expect(result.valid).toBe(true);
       expect(result.reason).toBeUndefined();
     });
 
     it('returns valid=false when activity is before season starts', () => {
-      const season = db.prepare('SELECT * FROM season WHERE name = ?').get('Active Season') as any;
+      const seasonRow = orm
+        .select()
+        .from(seasonTable)
+        .where(eq(seasonTable.name, 'Active Season'))
+        .all()[0] as any;
       const activity = {
         id: 123,
-        start_date: new Date((season.start_at - 86400) * 1000).toISOString() // 1 day before season starts
+        start_date: new Date((seasonRow.start_at - 86400) * 1000).toISOString() // 1 day before season starts
       };
 
-      const result = service.isActivityWithinSeasonRange(activity, season);
+      const result = service.isActivityWithinSeasonRange(activity, seasonRow);
 
       expect(result.valid).toBe(false);
       expect(result.reason).toContain('before season starts');
     });
 
     it('returns valid=false when activity is after season ends', () => {
-      const season = db.prepare('SELECT * FROM season WHERE name = ?').get('Active Season') as any;
+      const seasonRow = orm
+        .select()
+        .from(seasonTable)
+        .where(eq(seasonTable.name, 'Active Season'))
+        .all()[0] as any;
       const activity = {
         id: 123,
-        start_date: new Date((season.end_at + 86400) * 1000).toISOString() // 1 day after season ends
+        start_date: new Date((seasonRow.end_at + 86400) * 1000).toISOString() // 1 day after season ends
       };
 
-      const result = service.isActivityWithinSeasonRange(activity, season);
+      const result = service.isActivityWithinSeasonRange(activity, seasonRow);
 
       expect(result.valid).toBe(false);
       expect(result.reason).toContain('after season ended');
@@ -237,12 +256,13 @@ describe('ActivityValidationService', () => {
 
     it('returns valid=true when season has no end_at', () => {
       // Note: end_at NOT NULL in schema, so use far future instead
-      db.prepare(
-        `INSERT INTO season (name, start_at, end_at, is_active, created_at)
-         VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)`
-      ).run('No End Season', now - 86400, now + 86400 * 365); // 1 year in future
+      createSeason(orm, 'No End Season', true, { startAt: now - 86400, endAt: now + 86400 * 365 });
 
-      const noEndSeason = db.prepare('SELECT * FROM season WHERE name = ?').get('No End Season') as any;
+      const noEndSeason = orm
+        .select()
+        .from(seasonTable)
+        .where(eq(seasonTable.name, 'No End Season'))
+        .all()[0] as any;
       const activity = {
         id: 123,
         start_date: new Date((now + 86400 * 100) * 1000).toISOString() // 100 days from now (within season)
@@ -278,15 +298,8 @@ describe('ActivityValidationService', () => {
       const season2Start = now - 86400 * 30; // 30 days ago (more recent start)
       const season2End = now + 86400 * 90; // 90 days from now
 
-      db.prepare(
-        `INSERT INTO season (name, start_at, end_at, is_active, created_at)
-         VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)`
-      ).run('Overlapping Season Older', season1Start, season1End);
-
-      db.prepare(
-        `INSERT INTO season (name, start_at, end_at, is_active, created_at)
-         VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)`
-      ).run('Overlapping Season Newer', season2Start, season2End);
+      createSeason(orm, 'Overlapping Season Older', true, { startAt: season1Start, endAt: season1End });
+      createSeason(orm, 'Overlapping Season Newer', true, { startAt: season2Start, endAt: season2End });
 
       const season = service.getActiveSeason(now);
 
@@ -296,7 +309,11 @@ describe('ActivityValidationService', () => {
     });
 
     it('returns season at exact boundaries', () => {
-      const season1 = db.prepare('SELECT * FROM season WHERE name = ?').get('Active Season') as any;
+      const season1 = orm
+        .select()
+        .from(seasonTable)
+        .where(eq(seasonTable.name, 'Active Season'))
+        .all()[0] as any;
 
       // Query well before future season starts (to avoid overlap)
       // Active Season: (now - 86400*30) to (now + 86400*30)
@@ -321,10 +338,7 @@ describe('ActivityValidationService', () => {
       const overlapStart = now - 86400 * 10; // 10 days ago
       const overlapEnd = now + 86400 * 10; // 10 days from now
 
-      db.prepare(
-        `INSERT INTO season (name, start_at, end_at, is_active, created_at)
-         VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)`
-      ).run('Overlap Season', overlapStart, overlapEnd);
+      createSeason(orm, 'Overlap Season', true, { startAt: overlapStart, endAt: overlapEnd });
 
       // Query at "now" should return both Active Season and Overlap Season
       const seasons = service.getAllActiveSeasonsContainingTimestamp(now);
@@ -359,15 +373,8 @@ describe('ActivityValidationService', () => {
       const lateStart = now - 86400 * 5; // 5 days ago
       const lateEnd = now + 86400 * 25; // 25 days from now
 
-      db.prepare(
-        `INSERT INTO season (name, start_at, end_at, is_active, created_at)
-         VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)`
-      ).run('Early Start Season', earlyStart, earlyEnd);
-
-      db.prepare(
-        `INSERT INTO season (name, start_at, end_at, is_active, created_at)
-         VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)`
-      ).run('Late Start Season', lateStart, lateEnd);
+      createSeason(orm, 'Early Start Season', true, { startAt: earlyStart, endAt: earlyEnd });
+      createSeason(orm, 'Late Start Season', true, { startAt: lateStart, endAt: lateEnd });
 
       // Query for "now"
       const seasons = service.getAllActiveSeasonsContainingTimestamp(now);
@@ -385,27 +392,28 @@ describe('ActivityValidationService', () => {
   describe('getWeeksForActivityInSeason()', () => {
     beforeEach(() => {
       // Get the "Active Season" ID to use as foreign key
-      const result = db.prepare('SELECT id FROM season WHERE name = ?').get('Active Season') as any;
-      const seasonId = result.id;
+      const active = orm
+        .select({ id: seasonTable.id })
+        .from(seasonTable)
+        .where(eq(seasonTable.name, 'Active Season'))
+        .all()[0] as { id: number };
+      const seasonId = active.id;
 
       // Create test weeks
       const weekStart = now - 3600;
       const weekEnd = now + 3600;
-
-      db.prepare(
-        `INSERT INTO week (season_id, week_name, strava_segment_id, start_at, end_at, required_laps, created_at)
-         VALUES (?, ?, 1, ?, ?, 1, CURRENT_TIMESTAMP)`
-      ).run(seasonId, 'Week 1', weekStart, weekEnd);
-
-      db.prepare(
-        `INSERT INTO week (season_id, week_name, strava_segment_id, start_at, end_at, required_laps, created_at)
-         VALUES (?, ?, 2, ?, ?, 1, CURRENT_TIMESTAMP)`
-      ).run(seasonId, 'Week 2', now + 86400, now + 86400 + 3600);
+      const toIso = (s: number) => new Date(s * 1000).toISOString();
+      createWeek(orm, { seasonId, weekName: 'Week 1', stravaSegmentId: 1, startTime: toIso(weekStart), endTime: toIso(weekEnd), requiredLaps: 1 });
+      createWeek(orm, { seasonId, weekName: 'Week 2', stravaSegmentId: 2, startTime: toIso(now + 86400), endTime: toIso(now + 86400 + 3600), requiredLaps: 1 });
     });
 
     it('returns weeks containing activity timestamp', () => {
-      const result = db.prepare('SELECT id FROM season WHERE name = ?').get('Active Season') as any;
-      const seasonId = result.id;
+      const active = orm
+        .select({ id: seasonTable.id })
+        .from(seasonTable)
+        .where(eq(seasonTable.name, 'Active Season'))
+        .all()[0] as { id: number };
+      const seasonId = active.id;
 
       const weeks = service.getWeeksForActivityInSeason(seasonId, now);
 
@@ -414,8 +422,12 @@ describe('ActivityValidationService', () => {
     });
 
     it('returns empty array when no weeks contain timestamp', () => {
-      const result = db.prepare('SELECT id FROM season WHERE name = ?').get('Active Season') as any;
-      const seasonId = result.id;
+      const active = orm
+        .select({ id: seasonTable.id })
+        .from(seasonTable)
+        .where(eq(seasonTable.name, 'Active Season'))
+        .all()[0] as { id: number };
+      const seasonId = active.id;
       const futureTimestamp = now + 86400 * 100; // Way in future
 
       const weeks = service.getWeeksForActivityInSeason(seasonId, futureTimestamp);
@@ -424,15 +436,17 @@ describe('ActivityValidationService', () => {
     });
 
     it('returns weeks in order by start_at', () => {
-      const result = db.prepare('SELECT id FROM season WHERE name = ?').get('Active Season') as any;
-      const seasonId = result.id;
+      const active = orm
+        .select({ id: seasonTable.id })
+        .from(seasonTable)
+        .where(eq(seasonTable.name, 'Active Season'))
+        .all()[0] as { id: number };
+      const seasonId = active.id;
       const midpoint = now + 86400 + 1800; // Between week 1 and week 2
 
       // Create overlapping week
-      db.prepare(
-        `INSERT INTO week (season_id, week_name, strava_segment_id, start_at, end_at, required_laps, created_at)
-         VALUES (?, ?, 3, ?, ?, 1, CURRENT_TIMESTAMP)`
-      ).run(seasonId, 'Week Overlap', now + 86400, now + 86400 + 7200);
+      const toIso2 = (s: number) => new Date(s * 1000).toISOString();
+      createWeek(orm, { seasonId, weekName: 'Week Overlap', stravaSegmentId: 3, startTime: toIso2(now + 86400), endTime: toIso2(now + 86400 + 7200), requiredLaps: 1 });
 
       const weeks = service.getWeeksForActivityInSeason(seasonId, midpoint);
 

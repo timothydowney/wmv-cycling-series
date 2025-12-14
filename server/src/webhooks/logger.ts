@@ -6,43 +6,31 @@
  * Can be enabled/disabled via WEBHOOK_PERSIST_EVENTS env var.
  */
 
-import Database from 'better-sqlite3';
-
-interface WebhookStatsRow {
-  total: number;
-  successful: number;
-  failed: number;
-  last_event: string | null;
-}
+import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { eq, and, desc, sql } from 'drizzle-orm';
+import { webhookEvent } from '../db/schema';
 
 export interface WebhookEventLogEntry {
-  payload: any;
+  payload: unknown;
   processed?: boolean;
   errorMessage?: string | null;
 }
 
 export class WebhookLogger {
-  private db: Database.Database;
-
-  constructor(db: Database.Database) {
-    this.db = db;
-  }
+  constructor(private db: BetterSQLite3Database) {}
 
   /**
    * Log a webhook event to database
    */
   logEvent(entry: WebhookEventLogEntry): void {
     try {
-      this.db.prepare(`
-        INSERT INTO webhook_event (
-          payload, processed, error_message, created_at
-        )
-        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-      `).run(
-        JSON.stringify(entry.payload),
-        entry.processed ? 1 : 0,
-        entry.errorMessage || null
-      );
+      const processedValue = entry.processed ? 1 : 0;
+      this.db.insert(webhookEvent).values({
+        payload: JSON.stringify(entry.payload),
+        processed: processedValue,
+        error_message: entry.errorMessage || null,
+        created_at: new Date().toISOString()
+      }).execute();
     } catch (error) {
       console.error('[Webhook Logger] Failed to log event', {
         error: error instanceof Error ? error.message : String(error)
@@ -54,15 +42,24 @@ export class WebhookLogger {
   /**
    * Mark event as processed by payload ID
    */
-  markProcessed(payload: any): void {
+  markProcessed(payload: unknown): void {
     try {
-      this.db.prepare(`
-        UPDATE webhook_event
-        SET processed = 1
-        WHERE payload = ? AND processed = 0
-        ORDER BY created_at DESC
-        LIMIT 1
-      `).run(JSON.stringify(payload));
+      const payloadStr = JSON.stringify(payload);
+      const record = this.db
+        .select({ id: webhookEvent.id })
+        .from(webhookEvent)
+        .where(and(eq(webhookEvent.payload, payloadStr), eq(webhookEvent.processed, 0)))
+        .orderBy(desc(webhookEvent.created_at))
+        .limit(1)
+        .get();
+
+      if (record) {
+        this.db
+          .update(webhookEvent)
+          .set({ processed: 1 })
+          .where(eq(webhookEvent.id, record.id))
+          .execute();
+      }
     } catch (error) {
       console.error('[Webhook Logger] Failed to mark processed', {
         error: error instanceof Error ? error.message : String(error)
@@ -73,15 +70,24 @@ export class WebhookLogger {
   /**
    * Mark event as failed
    */
-  markFailed(payload: any, errorMessage: string): void {
+  markFailed(payload: unknown, errorMessage: string): void {
     try {
-      this.db.prepare(`
-        UPDATE webhook_event
-        SET error_message = ?
-        WHERE payload = ? AND processed = 0
-        ORDER BY created_at DESC
-        LIMIT 1
-      `).run(errorMessage, JSON.stringify(payload));
+      const payloadStr = JSON.stringify(payload);
+      const record = this.db
+        .select({ id: webhookEvent.id })
+        .from(webhookEvent)
+        .where(and(eq(webhookEvent.payload, payloadStr), eq(webhookEvent.processed, 0)))
+        .orderBy(desc(webhookEvent.created_at))
+        .limit(1)
+        .get();
+
+      if (record) {
+        this.db
+          .update(webhookEvent)
+          .set({ error_message: errorMessage })
+          .where(eq(webhookEvent.id, record.id))
+          .execute();
+      }
     } catch (error) {
       console.error('[Webhook Logger] Failed to mark error', {
         error: error instanceof Error ? error.message : String(error)
@@ -99,14 +105,15 @@ export class WebhookLogger {
     lastEventTime: string | null;
     } {
     try {
-      const stats = this.db.prepare(`
-        SELECT
-          COUNT(*) as total,
-          SUM(CASE WHEN processed = 1 THEN 1 ELSE 0 END) as successful,
-          SUM(CASE WHEN error_message IS NOT NULL THEN 1 ELSE 0 END) as failed,
-          MAX(created_at) as last_event
-        FROM webhook_event
-      `).get() as WebhookStatsRow | undefined;
+      const stats = this.db
+        .select({
+          total: sql<number>`COUNT(*)`,
+          successful: sql<number>`SUM(CASE WHEN ${webhookEvent.processed} = 1 THEN 1 ELSE 0 END)`,
+          failed: sql<number>`SUM(CASE WHEN ${webhookEvent.error_message} IS NOT NULL THEN 1 ELSE 0 END)`,
+          last_event: sql<string>`MAX(${webhookEvent.created_at})`
+        })
+        .from(webhookEvent)
+        .get();
 
       return {
         totalEvents: stats?.total || 0,

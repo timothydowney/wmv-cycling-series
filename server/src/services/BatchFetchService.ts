@@ -3,12 +3,14 @@
  * Handles batch fetching of activities for a week
  */
 
-import { Database } from 'better-sqlite3';
+import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { eq, isNotNull } from 'drizzle-orm';
+import { week, season, segment, participant, participantToken } from '../db/schema';
 import * as stravaClient from '../stravaClient';
 import { findBestQualifyingActivity } from '../activityProcessor';
 import { storeActivityAndEfforts } from '../activityStorage';
 import { LogLevel, LoggerCallback, StructuredLogger } from '../types/Logger';
-import ActivityValidationService from './ActivityValidationService';
+import ActivityValidationServiceDrizzle from './ActivityValidationServiceDrizzle';
 
 interface FetchResult {
   participant_id: number;
@@ -30,16 +32,17 @@ interface FetchWeekResultsResponse {
 }
 
 class BatchFetchService {
-  private validationService: ActivityValidationService;
+  private validationService: ActivityValidationServiceDrizzle;
 
   constructor(
-    private db: Database,
+    private db: BetterSQLite3Database,
     private getValidAccessToken: (
-      db: Database,
-      athleteId: number
+      db: BetterSQLite3Database,
+      athleteId: number,
+      forceRefresh?: boolean
     ) => Promise<string>
   ) {
-    this.validationService = new ActivityValidationService(db);
+    this.validationService = new ActivityValidationServiceDrizzle(db);
   }
 
   /**
@@ -50,43 +53,53 @@ class BatchFetchService {
     const logger = new StructuredLogger('BatchFetch', onLog);
 
     // ===== FETCH WEEK DETAILS =====
-    const week = this.db.prepare(
-      `SELECT 
-        w.id, w.week_name, w.season_id, w.strava_segment_id, w.required_laps, w.start_at, w.end_at,
-        s.name as segment_name,
-        season.id as season_id, season.start_at as season_start_at, season.end_at as season_end_at, 
-        season.is_active, season.created_at as season_created_at
-      FROM week w
-      LEFT JOIN segment s ON w.strava_segment_id = s.strava_segment_id
-      LEFT JOIN season ON w.season_id = season.id
-      WHERE w.id = ?`
-    ).get(weekId) as any;
+    const weekData = this.db
+      .select({
+        id: week.id,
+        week_name: week.week_name,
+        season_id: week.season_id,
+        strava_segment_id: week.strava_segment_id,
+        required_laps: week.required_laps,
+        start_at: week.start_at,
+        end_at: week.end_at,
+        segment_name: segment.name,
+        season_id_alias: season.id,
+        season_start_at: season.start_at,
+        season_end_at: season.end_at,
+        season_is_active: season.is_active,
+        season_created_at: season.created_at
+      })
+      .from(week)
+      .leftJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
+      .leftJoin(season, eq(week.season_id, season.id))
+      .where(eq(week.id, weekId))
+      .get();
 
-    if (!week) {
+    if (!weekData) {
       logger.error(`Week ${weekId} not found`);
       throw new Error(`Week ${weekId} not found`);
     }
 
     // ===== SEASON VALIDATION =====
     // Check if the season this week belongs to is still active
-    if (week.season_id) {
-      const season = {
-        id: week.season_id,
+    if (weekData.season_id) {
+      const seasonObj = {
+        id: weekData.season_id,
         name: '', // Not used for validation
-        start_at: week.season_start_at,
-        end_at: week.season_end_at,
-        is_active: week.is_active,
-        created_at: week.season_created_at
+        start_at: weekData.season_start_at!,
+        end_at: weekData.season_end_at!,
+        is_active: weekData.season_is_active,
+        created_at: weekData.season_created_at
       };
 
-      const seasonStatus = this.validationService.isSeasonClosed(season);
+      const seasonStatus = this.validationService.isSeasonClosed(seasonObj);
       if (seasonStatus.isClosed) {
         logger.error('Season has ended - cannot fetch results');
         logger.error(`Season ended: ${seasonStatus.reason}`);
         return {
           message: 'Season has ended',
           week_id: weekId,
-          week_name: week.week_name,
+          week_name: weekData.week_name,
           participants_processed: 0,
           results_found: 0,
           summary: [
@@ -102,30 +115,32 @@ class BatchFetchService {
     }
 
     // ===== WEEK TIME CONTEXT =====
-    logger.section(`Starting fetch for ${week.week_name}`);
-    logger.info(`Looking for: ${week.segment_name}`);
-    logger.info(`Need: ${week.required_laps} ${week.required_laps === 1 ? 'lap' : 'laps'}`);
+    logger.section(`Starting fetch for ${weekData.week_name}`);
+    logger.info(`Looking for: ${weekData.segment_name}`);
+    logger.info(`Need: ${weekData.required_laps} ${weekData.required_laps === 1 ? 'lap' : 'laps'}`);
 
     // Use Unix times directly (no conversion needed)
-    const startUnix = week.start_at;
-    const endUnix = week.end_at;
+    const startUnix = weekData.start_at;
+    const endUnix = weekData.end_at;
 
     // Get all connected participants (those with valid tokens)
     const participants = this.db
-      .prepare(
-        `SELECT p.strava_athlete_id, p.name, pt.access_token
-         FROM participant p
-         JOIN participant_token pt ON p.strava_athlete_id = pt.strava_athlete_id
-         WHERE pt.access_token IS NOT NULL`
-      )
-      .all() as Array<{ strava_athlete_id: number; name: string; access_token: string }>;
+      .select({
+        strava_athlete_id: participant.strava_athlete_id,
+        name: participant.name,
+        access_token: participantToken.access_token
+      })
+      .from(participant)
+      .innerJoin(participantToken, eq(participant.strava_athlete_id, participantToken.strava_athlete_id))
+      .where(isNotNull(participantToken.access_token))
+      .all();
 
     if (participants.length === 0) {
       logger.info('No participants connected');
       return {
         message: 'No participants connected',
         week_id: weekId,
-        week_name: week.week_name,
+        week_name: weekData.week_name,
         participants_processed: 0,
         results_found: 0,
         summary: []
@@ -144,7 +159,7 @@ class BatchFetchService {
       return {
         message: 'Event date is in the future',
         week_id: weekId,
-        week_name: week.week_name,
+        week_name: weekData.week_name,
         participants_processed: 0,
         results_found: 0,
         summary: [
@@ -159,41 +174,69 @@ class BatchFetchService {
     }
 
     // Process each participant
-    for (const participant of participants) {
+    for (const p of participants) {
       try {
-        logger.section(`Checking ${participant.name}...`);
+        logger.section(`Checking ${p.name}...`);
 
         // Get valid token (auto-refreshes if needed)
-        const accessToken = await this.getValidAccessToken(this.db, participant.strava_athlete_id);
+        let accessToken = await this.getValidAccessToken(this.db, p.strava_athlete_id);
 
         // Fetch activities using Unix timestamps (already UTC)
-        const activities = await stravaClient.listAthleteActivities(accessToken, startUnix, endUnix, {
-          includeAllEfforts: true
-        });
+        let activities;
+        try {
+          activities = await stravaClient.listAthleteActivities(accessToken, startUnix, endUnix, {
+            includeAllEfforts: true
+          });
+        } catch (error: any) {
+          // Check for 401 Unauthorized
+          if (error.statusCode === 401 || (error.message && error.message.includes('Authorization Error'))) {
+            logger.info(`Got 401 for ${p.name}, attempting force refresh...`);
+            try {
+              // Force refresh
+              accessToken = await this.getValidAccessToken(this.db, p.strava_athlete_id, true);
+              // Retry once
+              activities = await stravaClient.listAthleteActivities(accessToken, startUnix, endUnix, {
+                includeAllEfforts: true
+              });
+            } catch (retryError: any) {
+              // If retry fails, log and SKIP this user
+              logger.error(`Failed to refresh/retry for ${p.name}: ${retryError.message}`);
+              results.push({
+                participant_id: p.strava_athlete_id,
+                participant_name: p.name,
+                activity_found: false,
+                reason: `Authorization failed (401): ${retryError.message}`
+              });
+              continue; // Skip to next participant
+            }
+          } else {
+            throw error; // Re-throw other errors
+          }
+        }
 
         if (activities.length === 0) {
-          logger.info('No activities found on that day', participant.name);
+          logger.info('No activities found on that day', p.name);
         } else {
-          logger.info(`Found ${activities.length} ${activities.length === 1 ? 'activity' : 'activities'} on that day`, participant.name);
+          logger.info(`Found ${activities.length} ${activities.length === 1 ? 'activity' : 'activities'} on that day`, p.name);
         }
 
         // Find best qualifying activity
         const bestActivity = await findBestQualifyingActivity(
           activities as any,
-          week.strava_segment_id,
-          week.required_laps,
+          weekData.strava_segment_id,
+          weekData.required_laps,
           accessToken,
-          week,
-          (level, message, participant, effortLinks) => {
+          weekData,
+          (level, message, participantName, effortLinks) => {
             switch (level) {
             case LogLevel.Info:
-              logger.info(message, participant, effortLinks);
+              logger.info(message, participantName, effortLinks);
               break;
             case LogLevel.Success:
-              logger.success(message, participant, effortLinks);
+              logger.success(message, participantName, effortLinks);
               break;
             case LogLevel.Error:
-              logger.error(message, participant, effortLinks);
+              logger.error(message, participantName, effortLinks);
               break;
             case LogLevel.Section:
               logger.section(message);
@@ -223,13 +266,13 @@ class BatchFetchService {
           
           logger.success(
             `✓ Matched! ${timeStr}${lapInfo}${prIndicator}`,
-            participant.name
+            p.name
           );
 
-          // Store activity and efforts
+          // Store activity and efforts using Drizzle
           storeActivityAndEfforts(
             this.db,
-            participant.strava_athlete_id,
+            p.strava_athlete_id,
             weekId,
             {
               id: bestActivity.id,
@@ -238,22 +281,22 @@ class BatchFetchService {
               segmentEfforts: bestActivity.segmentEfforts as any,
               totalTime: bestActivity.totalTime
             },
-            week.strava_segment_id
+            weekData.strava_segment_id
           );
 
           results.push({
-            participant_id: participant.strava_athlete_id,
-            participant_name: participant.name,
+            participant_id: p.strava_athlete_id,
+            participant_name: p.name,
             activity_found: true,
             activity_id: bestActivity.id,
             total_time: bestActivity.totalTime,
             segment_efforts: bestActivity.segmentEfforts.length
           });
         } else {
-          logger.info(`✗ No qualifying activities found for ${participant.name}`);
+          logger.info(`✗ No qualifying activities found for ${p.name}`);
           results.push({
-            participant_id: participant.strava_athlete_id,
-            participant_name: participant.name,
+            participant_id: p.strava_athlete_id,
+            participant_name: p.name,
             activity_found: false,
             reason: 'No qualifying activities on event day'
           });
@@ -261,14 +304,14 @@ class BatchFetchService {
       } catch (error) {
         // Better error logging for diagnostics
         const errorMsg = error instanceof Error ? error.message : String(error);
-        logger.error(`Error processing ${participant.name}: ${errorMsg}`);
+        logger.error(`Error processing ${p.name}: ${errorMsg}`);
         if (error instanceof Error && error.stack) {
           logger.error(`Stack trace: ${error.stack}`);
         }
 
         results.push({
-          participant_id: participant.strava_athlete_id,
-          participant_name: participant.name,
+          participant_id: p.strava_athlete_id,
+          participant_name: p.name,
           activity_found: false,
           reason: errorMsg
         });
@@ -287,7 +330,7 @@ class BatchFetchService {
     return {
       message: 'Results fetched successfully',
       week_id: weekId,
-      week_name: week.week_name,
+      week_name: weekData.week_name,
       participants_processed: participants.length,
       results_found: results.filter((r) => r.activity_found).length,
       summary: results

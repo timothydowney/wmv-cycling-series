@@ -32,8 +32,10 @@
  *            API returns numbers, frontend formats with browser timezone
  */
 
-import { Database } from 'better-sqlite3';
 import { isoToUnix } from './dateUtils';
+import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { activity, segmentEffort, result } from './db/schema';
+import { eq, and } from 'drizzle-orm';
 
 /**
  * Segment effort data from activity
@@ -58,107 +60,107 @@ interface ActivityToStore {
 }
 
 /**
- * Store activity and segment efforts in database (replaces existing if present)
+ * Store activity and segment efforts in database using Drizzle (replaces existing if present)
  * Atomically deletes ALL existing results/activities/efforts for this week+participant and inserts fresh data
  * 
- * ⚠️ CRITICAL: A refresh should completely replace all old data with fresh Strava data
- * We delete at the week+participant level (not just activity level) to ensure:
- * - No orphaned segment_effort records persist from old activities
- * - PR bonus flags are recalculated fresh from current Strava data
- * - Race conditions don't leave stale data in the database
- * 
- * @param db - Better-sqlite3 database instance
+ * @param db - Drizzle database instance
  * @param stravaAthleteId - Strava athlete ID
  * @param weekId - Week ID
  * @param activityData - Activity data with segmentEfforts
  * @param stravaSegmentId - Strava segment ID
  */
 function storeActivityAndEfforts(
-  db: Database,
+  db: BetterSQLite3Database,
   stravaAthleteId: number,
   weekId: number,
   activityData: ActivityToStore,
   stravaSegmentId: number
 ): void {
-  // CRITICAL: Delete ALL old data for this week+participant (full cascade)
-  // This ensures refresh completely replaces old data with fresh Strava data
-  
-  // Step 1: Find all activities for this week+participant
-  const existingActivities = db
-    .prepare(`
-    SELECT id FROM activity WHERE week_id = ? AND strava_athlete_id = ?
-  `)
-    .all(weekId, stravaAthleteId) as Array<{ id: number }>;
+  // Use a transaction to ensure atomicity
+  db.transaction((tx) => {
+    // CRITICAL: Delete ALL old data for this week+participant (full cascade)
+    // This ensures refresh completely replaces old data with fresh Strava data
+    
+    // Step 1: Find all activities for this week+participant
+    const existingActivities = tx
+      .select({ id: activity.id })
+      .from(activity)
+      .where(and(eq(activity.week_id, weekId), eq(activity.strava_athlete_id, stravaAthleteId)))
+      .all();
 
-  // Step 2: Delete segment efforts for all old activities
-  for (const activity of existingActivities) {
-    db.prepare('DELETE FROM segment_effort WHERE activity_id = ?').run(activity.id);
-  }
+    // Step 2: Delete segment efforts for all old activities
+    for (const act of existingActivities) {
+      tx.delete(segmentEffort).where(eq(segmentEffort.activity_id, act.id)).run();
+    }
 
-  // Step 3: Delete results for this week+participant
-  db.prepare('DELETE FROM result WHERE week_id = ? AND strava_athlete_id = ?')
-    .run(weekId, stravaAthleteId);
+    // Step 3: Delete results for this week+participant
+    tx.delete(result)
+      .where(and(eq(result.week_id, weekId), eq(result.strava_athlete_id, stravaAthleteId)))
+      .run();
 
-  // Step 4: Delete all old activities for this week+participant
-  db.prepare('DELETE FROM activity WHERE week_id = ? AND strava_athlete_id = ?')
-    .run(weekId, stravaAthleteId);
+    // Step 4: Delete all old activities for this week+participant
+    tx.delete(activity)
+      .where(and(eq(activity.week_id, weekId), eq(activity.strava_athlete_id, stravaAthleteId)))
+      .run();
 
-  // Convert activity start_date to Unix timestamp
-  // NOTE: Use start_date (UTC with Z suffix), NOT start_date_local (athlete's local timezone)
-  // Strava API: start_date="2018-02-16T14:52:54Z" (UTC), start_date_local="2018-02-16T06:52:54" (local)
-  const activityStartUnix = isoToUnix(activityData.start_date);
+    // Convert activity start_date to Unix timestamp
+    const activityStartUnix = isoToUnix(activityData.start_date);
 
-  // Store new activity with start_at (Unix seconds UTC)
-  const activityResult = db
-    .prepare(`
-    INSERT INTO activity (week_id, strava_athlete_id, strava_activity_id, start_at, device_name, validation_status)
-    VALUES (?, ?, ?, ?, ?, 'valid')
-  `)
-    .run(
-      weekId,
-      stravaAthleteId,
-      activityData.id,
-      activityStartUnix,
-      activityData.device_name || null
-    );
+    // Store new activity
+    const activityResult = tx
+      .insert(activity)
+      .values({
+        week_id: weekId,
+        strava_athlete_id: stravaAthleteId,
+        strava_activity_id: activityData.id,
+        start_at: activityStartUnix || 0, // Fallback to 0 if null, though validation should catch this
+        device_name: activityData.device_name || null,
+        validation_status: 'valid'
+      })
+      .returning({ id: activity.id })
+      .get();
 
-  const activityDbId = (activityResult as { lastInsertRowid: number }).lastInsertRowid;
+    if (!activityResult) throw new Error('Failed to insert activity');
+    const activityDbId = activityResult.id;
 
-  // Store segment efforts
-  console.log(
-    `Storing ${activityData.segmentEfforts.length} segment efforts for activity ${activityDbId}`
-  );
-  for (let i = 0; i < activityData.segmentEfforts.length; i++) {
-    const effort = activityData.segmentEfforts[i];
-
-    // Convert effort start_date to Unix timestamp
-    // NOTE: Use start_date (UTC), NOT start_date_local (athlete's local timezone)
-    const effortStartUnix = isoToUnix(effort.start_date);
-    // PR bonus only for pr_rank === 1 (athlete's absolute fastest ever)
-    const prAchieved = effort.pr_rank === 1 ? 1 : 0;
-
+    // Store segment efforts
     console.log(
-      `  Effort ${i}: strava_segment_id=${stravaSegmentId}, elapsed_time=${effort.elapsed_time}, strava_effort_id=${effort.id}${prAchieved ? ' ⭐ PR' : ''}`
+      `Storing ${activityData.segmentEfforts.length} segment efforts for activity ${activityDbId}`
     );
-    db.prepare(`
-        INSERT INTO segment_effort (activity_id, strava_segment_id, strava_effort_id, effort_index, elapsed_seconds, start_at, pr_achieved)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(
-      activityDbId,
-      stravaSegmentId,
-      String(effort.id),
-      i,
-      effort.elapsed_time,
-      effortStartUnix,
-      prAchieved
-    );
-  }
+    
+    for (let i = 0; i < activityData.segmentEfforts.length; i++) {
+      const effort = activityData.segmentEfforts[i];
+      const effortStartUnix = isoToUnix(effort.start_date);
+      const prAchieved = effort.pr_rank === 1 ? 1 : 0;
 
-  // Store result
-  db.prepare(`
-    INSERT OR REPLACE INTO result (week_id, strava_athlete_id, activity_id, total_time_seconds)
-    VALUES (?, ?, ?, ?)
-  `).run(weekId, stravaAthleteId, activityDbId, activityData.totalTime);
+      console.log(
+        `  Effort ${i}: strava_segment_id=${stravaSegmentId}, elapsed_time=${effort.elapsed_time}, strava_effort_id=${effort.id}${prAchieved ? ' ⭐ PR' : ''}`
+      );
+      
+      tx.insert(segmentEffort).values({
+        activity_id: activityDbId,
+        strava_segment_id: stravaSegmentId,
+        strava_effort_id: String(effort.id),
+        effort_index: i,
+        elapsed_seconds: effort.elapsed_time,
+        start_at: effortStartUnix || 0,
+        pr_achieved: prAchieved
+      }).run();
+    }
+
+    // Store result
+    // SQLite doesn't support INSERT OR REPLACE directly via Drizzle's standard API easily for complex cases without onConflictDoUpdate
+    // But since we deleted everything above, a simple INSERT is correct and safe here.
+    tx.insert(result)
+      .values({
+        week_id: weekId,
+        strava_athlete_id: stravaAthleteId,
+        activity_id: activityDbId,
+        total_time_seconds: activityData.totalTime
+      })
+      .run();
+  });
 }
 
 export { storeActivityAndEfforts, type ActivityToStore, type SegmentEffortData };
+

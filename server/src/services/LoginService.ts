@@ -3,26 +3,27 @@
  * Handles OAuth authentication flow, session management, and token storage
  */
 
-import { Database } from 'better-sqlite3';
+import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { eq } from 'drizzle-orm';
+import { participant, participantToken } from '../db/schema';
 import { encryptToken, decryptToken } from '../encryption';
 import * as stravaClient from '../stravaClient';
 
-interface Participant {
-  id: number;
-  name: string;
+interface ParticipantData {
   strava_athlete_id: number;
-  is_connected: number;
+  name: string;
+  is_connected: boolean;
 }
 
 interface AuthStatus {
   authenticated: boolean;
-  participant: Participant | null;
+  participant: ParticipantData | null;
   is_admin: boolean;
 }
 
 class LoginService {
   constructor(
-    private db: Database,
+    private drizzleDb: BetterSQLite3Database,
     private getAdminAthleteIds: () => number[]
   ) {}
 
@@ -43,39 +44,53 @@ class LoginService {
     const athleteId = athlete.id as number;
     const athleteName = `${athlete.firstname} ${athlete.lastname}`;
 
-    // Find or create participant
-    const participant = this.db
-      .prepare('SELECT strava_athlete_id FROM participant WHERE strava_athlete_id = ?')
-      .get(athleteId) as { strava_athlete_id: number } | undefined;
+    // Find or create participant using Drizzle
+    const existingParticipant = this.drizzleDb
+      .select({ strava_athlete_id: participant.strava_athlete_id })
+      .from(participant)
+      .where(eq(participant.strava_athlete_id, athleteId))
+      .get();
 
-    if (!participant) {
+    console.log(`[LOGIN] Looking for participant ${athleteId}: found =`, !!existingParticipant);
+
+    if (!existingParticipant) {
       // Create new participant
-      this.db
-        .prepare('INSERT INTO participant (strava_athlete_id, name) VALUES (?, ?)')
-        .run(athleteId, athleteName);
+      console.log(`[LOGIN] Creating new participant ${athleteId}: ${athleteName}`);
+      this.drizzleDb.insert(participant).values({
+        strava_athlete_id: athleteId,
+        name: athleteName
+      }).run();
     } else {
       // Update name if changed
-      this.db
-        .prepare('UPDATE participant SET name = ? WHERE strava_athlete_id = ?')
-        .run(athleteName, athleteId);
+      console.log(`[LOGIN] Updating existing participant ${athleteId}: ${athleteName}`);
+      this.drizzleDb
+        .update(participant)
+        .set({ name: athleteName })
+        .where(eq(participant.strava_athlete_id, athleteId))
+        .run();
     }
 
     // Store encrypted tokens for this participant
     const encryptedAccessToken = encryptToken(tokenData.access_token);
     const encryptedRefreshToken = encryptToken(tokenData.refresh_token);
 
-    this.db
-      .prepare(
-        `INSERT OR REPLACE INTO participant_token 
-         (strava_athlete_id, access_token, refresh_token, expires_at)
-         VALUES (?, ?, ?, ?)`
-      )
-      .run(
-        athleteId,
-        encryptedAccessToken,
-        encryptedRefreshToken,
-        tokenData.expires_at
-      );
+    this.drizzleDb
+      .insert(participantToken)
+      .values({
+        strava_athlete_id: athleteId,
+        access_token: encryptedAccessToken,
+        refresh_token: encryptedRefreshToken,
+        expires_at: tokenData.expires_at
+      })
+      .onConflictDoUpdate({
+        target: participantToken.strava_athlete_id,
+        set: {
+          access_token: encryptedAccessToken,
+          refresh_token: encryptedRefreshToken,
+          expires_at: tokenData.expires_at
+        }
+      })
+      .run();
 
     const adminIds = this.getAdminAthleteIds();
     const isAdmin = adminIds.includes(athleteId);
@@ -100,11 +115,16 @@ class LoginService {
       };
     }
 
-    const participant = this.db
-      .prepare('SELECT name FROM participant WHERE strava_athlete_id = ?')
-      .get(athleteId) as { name: string } | undefined;
+    const participantData = this.drizzleDb
+      .select({ name: participant.name, strava_athlete_id: participant.strava_athlete_id })
+      .from(participant)
+      .where(eq(participant.strava_athlete_id, athleteId))
+      .get();
 
-    if (!participant) {
+    console.log(`[LOGIN] getAuthStatus for athlete ${athleteId}: participant data =`, participantData);
+
+    if (!participantData) {
+      console.log(`[LOGIN] Participant not found for athlete ${athleteId}`);
       return { 
         authenticated: false,
         participant: null,
@@ -112,19 +132,22 @@ class LoginService {
       };
     }
 
+    // Check if participant has valid tokens
+    const tokenCheck = this.drizzleDb
+      .select({ strava_athlete_id: participantToken.strava_athlete_id })
+      .from(participantToken)
+      .where(eq(participantToken.strava_athlete_id, athleteId))
+      .get();
+
     const adminIds = this.getAdminAthleteIds();
     const isAdmin = adminIds.includes(athleteId);
-    
-    // Debug logging
-    console.log(`[LoginService:getAuthStatus] DEBUG: athleteId=${athleteId}, adminIds=[${adminIds.join(',')}], isAdmin=${isAdmin}`);
 
     return {
       authenticated: true,
       participant: {
-        id: athleteId,
-        name: participant.name,
-        strava_athlete_id: athleteId,
-        is_connected: 1
+        name: participantData.name,
+        strava_athlete_id: participantData.strava_athlete_id,
+        is_connected: !!tokenCheck
       },
       is_admin: isAdmin
     };
@@ -135,8 +158,11 @@ class LoginService {
    * Deletes tokens and invalidates session
    */
   disconnectStrava(athleteId: number): { message: string } {
-    // Delete tokens for this athlete
-    this.db.prepare('DELETE FROM participant_token WHERE strava_athlete_id = ?').run(athleteId);
+    // Delete tokens for this athlete using Drizzle
+    this.drizzleDb
+      .delete(participantToken)
+      .where(eq(participantToken.strava_athlete_id, athleteId))
+      .run();
 
     // Note: Session deletion is handled by route handler (session.destroy)
 
@@ -148,14 +174,17 @@ class LoginService {
    * Used before making Strava API calls
    */
   async getValidAccessToken(
-    db: Database,
     athleteId: number
   ): Promise<string> {
-    const tokenRecord = db
-      .prepare('SELECT access_token, refresh_token, expires_at FROM participant_token WHERE strava_athlete_id = ?')
-      .get(athleteId) as
-      | { access_token: string; refresh_token: string; expires_at: number }
-      | undefined;
+    const tokenRecord = this.drizzleDb
+      .select({
+        access_token: participantToken.access_token,
+        refresh_token: participantToken.refresh_token,
+        expires_at: participantToken.expires_at
+      })
+      .from(participantToken)
+      .where(eq(participantToken.strava_athlete_id, athleteId))
+      .get();
 
     if (!tokenRecord) {
       throw new Error('Participant not connected to Strava');
@@ -177,12 +206,16 @@ class LoginService {
       const encryptedAccessToken = encryptToken(newTokenData.access_token);
       const encryptedRefreshToken = encryptToken(newTokenData.refresh_token);
 
-      // Update database
-      db.prepare(
-        `UPDATE participant_token 
-         SET access_token = ?, refresh_token = ?, expires_at = ?
-         WHERE strava_athlete_id = ?`
-      ).run(encryptedAccessToken, encryptedRefreshToken, newTokenData.expires_at, athleteId);
+      // Update database using Drizzle
+      this.drizzleDb
+        .update(participantToken)
+        .set({
+          access_token: encryptedAccessToken,
+          refresh_token: encryptedRefreshToken,
+          expires_at: newTokenData.expires_at
+        })
+        .where(eq(participantToken.strava_athlete_id, athleteId))
+        .run();
 
       return newTokenData.access_token;
     }

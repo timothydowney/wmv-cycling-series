@@ -11,7 +11,7 @@ export interface WebhookEvent {
   object_type: 'activity' | 'athlete';
   owner_id: number;
   subscription_id: number;
-  updates?: Record<string, any>;
+  updates?: Record<string, unknown>;
 }
 
 export interface ActivityWebhookEvent extends WebhookEvent {
@@ -22,7 +22,7 @@ export interface AthleteWebhookEvent extends WebhookEvent {
   object_type: 'athlete';
   updates?: {
     authorized?: boolean;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 

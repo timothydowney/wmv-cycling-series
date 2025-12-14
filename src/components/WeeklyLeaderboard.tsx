@@ -1,5 +1,5 @@
 import React from 'react';
-import { Week, LeaderboardEntry } from '../api';
+import { Week, LeaderboardEntry } from '../types';
 import { formatLapCount } from '../utils/lapFormatter';
 import { formatUnixDate } from '../utils/dateUtils';
 import { useCurrentUser } from '../hooks/useCurrentUser';

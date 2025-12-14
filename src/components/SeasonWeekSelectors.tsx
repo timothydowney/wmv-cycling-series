@@ -1,5 +1,5 @@
 import React from 'react';
-import { Season, Week } from '../api';
+import { Season, Week } from '../types';
 import SeasonSelector from './SeasonSelector';
 import WeekSelector from './WeekSelector';
 import './SeasonWeekSelectors.css';

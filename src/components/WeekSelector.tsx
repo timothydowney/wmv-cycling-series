@@ -1,5 +1,5 @@
 import React from 'react';
-import { Week } from '../api';
+import { Week } from '../types';
 import { formatUnixDateShort } from '../utils/dateUtils';
 import './WeekSelector.css';
 

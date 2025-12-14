@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { api } from '../../api';
+import React from 'react';
+import { trpc } from '../../utils/trpc'; // Import trpc
 import WebhookEventCard, { WebhookEvent } from './WebhookEventCard';
 import './WebhookActivityEventCard.css';
 
@@ -43,35 +43,23 @@ interface Props {
 }
 
 const WebhookActivityEventCard: React.FC<Props> = ({ event }) => {
-  const [enrichment, setEnrichment] = useState<EnrichedActivity | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchEnrichment = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await api.getWebhookEventEnrichment(event.id);
-        setEnrichment(response.enrichment);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Failed to load enrichment';
-        setError(msg);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (event.payload.object_type === 'activity') {
-      fetchEnrichment();
+  const { data: enrichmentData, isLoading, error: queryError } = trpc.webhookAdmin.getEnrichedEventDetails.useQuery(
+    { id: event.id },
+    {
+      enabled: !!event.id && event.payload.object_type === 'activity', // Only run query if event.id exists and is an activity
+      select: (data) => data.enrichment,
     }
-  }, [event.id, event.payload.object_type]);
+  );
+
+  const enrichment: EnrichedActivity | null = enrichmentData || null;
+  const error = queryError?.message || null;
+
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'qualified':
         return '#27ae60';
-      case 'no_matching_weeks':
+      case 'no_match': // Changed from no_matching_weeks for brevity
       case 'no_segments':
       case 'insufficient_laps':
         return '#f39c12';
@@ -83,7 +71,7 @@ const WebhookActivityEventCard: React.FC<Props> = ({ event }) => {
   };
 
   const getHeaderTitle = (): React.ReactNode => {
-    if (loading) {
+    if (isLoading) {
       return <span className="header-fallback">Activity {event.payload.object_id}</span>;
     }
 
@@ -107,7 +95,7 @@ const WebhookActivityEventCard: React.FC<Props> = ({ event }) => {
   };
 
   const renderActivityContent = () => {
-    if (loading) {
+    if (isLoading) {
       return (
         <div className="card-body">
           <div className="loading-spinner">Loading enriched details...</div>
