@@ -69,7 +69,7 @@ interface Config {
 
 function getConfig(): Config {
   const nodeEnv = process.env.NODE_ENV || 'development';
-  const isDevelopment = nodeEnv === 'development';
+  const isDevelopment = nodeEnv !== 'production';
 
   // Parse admin athlete IDs
   const adminAthleteIds: number[] = [];
@@ -131,9 +131,9 @@ function getConfig(): Config {
     // Session
     sessionSecret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
     // Encryption
-    // Use test key in development/test, require explicit env var in production
+    // Use default key in development/test, require explicit env var in production
     tokenEncryptionKey: process.env.TOKEN_ENCRYPTION_KEY || 
-      (isDevelopment ? '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' : undefined),
+      ((nodeEnv === 'development' || nodeEnv === 'test') ? '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' : undefined),
     // Webhooks
     webhookEnabled: process.env.WEBHOOK_ENABLED === 'true',
     webhookVerifyToken: process.env.WEBHOOK_VERIFY_TOKEN,
