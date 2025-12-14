@@ -60,6 +60,9 @@ COPY --from=builder --chown=nodejs:nodejs /app/server/dist ./server/dist
 COPY --from=builder --chown=nodejs:nodejs /app/server/node_modules ./server/node_modules
 COPY --from=builder --chown=nodejs:nodejs /app/server/package*.json ./server/
 
+## Copy Drizzle migrations (required for database schema initialization at runtime)
+COPY --from=builder --chown=nodejs:nodejs /app/server/drizzle ./server/drizzle
+
 ## Copy built frontend assets
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 

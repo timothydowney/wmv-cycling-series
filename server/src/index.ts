@@ -140,7 +140,11 @@ if (isTestMode()) {
 // Initialize database schema using Drizzle migrations
 console.log('[DB] Running Drizzle migrations...');
 try {
-  migrate(drizzleDb, { migrationsFolder: './drizzle' });
+  // Resolve migrations folder based on the compiled JS location
+  // In dev: server/dist/index.js -> migrations at server/drizzle
+  // In docker: /app/server/dist/index.js -> migrations at /app/server/drizzle
+  const migrationsFolder = path.resolve(__dirname, '../drizzle');
+  migrate(drizzleDb, { migrationsFolder });
   console.log('[DB] ✓ Drizzle migrations applied successfully');
   
   // Log table information
