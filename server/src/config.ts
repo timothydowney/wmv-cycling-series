@@ -131,7 +131,9 @@ function getConfig(): Config {
     // Session
     sessionSecret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
     // Encryption
-    tokenEncryptionKey: process.env.TOKEN_ENCRYPTION_KEY,
+    // Use test key in development/test, require explicit env var in production
+    tokenEncryptionKey: process.env.TOKEN_ENCRYPTION_KEY || 
+      (isDevelopment ? '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' : undefined),
     // Webhooks
     webhookEnabled: process.env.WEBHOOK_ENABLED === 'true',
     webhookVerifyToken: process.env.WEBHOOK_VERIFY_TOKEN,
