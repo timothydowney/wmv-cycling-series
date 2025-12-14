@@ -5,14 +5,14 @@ import SeasonService from '../services/SeasonService';
 
 export const seasonRouter = router({
   getAll: publicProcedure.query(({ ctx }) => {
-    const seasonService = new SeasonService(ctx.drizzleDb);
+    const seasonService = new SeasonService(ctx.orm);
     return seasonService.getAllSeasons();
   }),
 
   getById: publicProcedure
     .input(z.number())
     .query(({ ctx, input }) => {
-      const seasonService = new SeasonService(ctx.drizzleDb);
+      const seasonService = new SeasonService(ctx.orm);
       try {
         return seasonService.getSeasonById(input);
       } catch (error: any) {
@@ -31,7 +31,7 @@ export const seasonRouter = router({
       is_active: z.boolean().optional(),
     }))
     .mutation(({ ctx, input }) => {
-      const seasonService = new SeasonService(ctx.drizzleDb);
+      const seasonService = new SeasonService(ctx.orm);
       return seasonService.createSeason(input);
     }),
 
@@ -46,14 +46,14 @@ export const seasonRouter = router({
       }),
     }))
     .mutation(({ ctx, input }) => {
-      const seasonService = new SeasonService(ctx.drizzleDb);
+      const seasonService = new SeasonService(ctx.orm);
       return seasonService.updateSeason(input.id, input.data);
     }),
 
   delete: adminProcedure
     .input(z.number())
     .mutation(({ ctx, input }) => {
-      const seasonService = new SeasonService(ctx.drizzleDb);
+      const seasonService = new SeasonService(ctx.orm);
       try {
         return seasonService.deleteSeason(input);
       } catch (error: any) {

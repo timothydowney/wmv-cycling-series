@@ -13,7 +13,7 @@ jest.mock('../stravaClient', () => ({
 
 describe('BatchFetchService Retry Logic', () => {
   let db: Database;
-  let drizzleDb: BetterSQLite3Database;
+  let orm: BetterSQLite3Database;
   let service: BatchFetchService;
   let mockGetToken: jest.Mock;
   let weekId: number;
@@ -21,12 +21,12 @@ describe('BatchFetchService Retry Logic', () => {
   beforeEach(() => {
     const testDb = setupTestDb();
     db = testDb.db;
-    drizzleDb = testDb.drizzleDb;
+    orm = testDb.orm;
 
     // Setup seed data
-    const season = createSeason(drizzleDb, 'Season 1', true);
-    const segment = createSegment(drizzleDb, 12345, 'Seg 1');
-    const week = createWeek(drizzleDb, { 
+    const season = createSeason(orm, 'Season 1', true);
+    const segment = createSegment(orm, 12345, 'Seg 1');
+    const week = createWeek(orm, { 
       seasonId: season.id, 
       stravaSegmentId: 12345, 
       weekName: 'Week 1',
@@ -36,12 +36,12 @@ describe('BatchFetchService Retry Logic', () => {
     weekId = week.id;
 
     // Create a participant with a "valid" token entry in DB (value doesn't matter as we mock the getter)
-    createParticipant(drizzleDb, 111, 'User 1', { accessToken: 'token_1', refreshToken: 'refresh_1' });
+    createParticipant(orm, 111, 'User 1', { accessToken: 'token_1', refreshToken: 'refresh_1' });
 
     // Mock getValidAccessToken
     mockGetToken = jest.fn();
     
-    service = new BatchFetchService(drizzleDb, mockGetToken as any);
+    service = new BatchFetchService(orm, mockGetToken as any);
   });
 
   afterEach(() => {

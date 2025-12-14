@@ -43,7 +43,7 @@ class ParticipantService {
 
     // Fetch profile pictures for all athletes
     const athleteIds = participants.map(p => p.strava_athlete_id);
-    const profilePictures = await getAthleteProfilePictures(athleteIds, (this.db as any).$client);
+    const profilePictures = await getAthleteProfilePictures(athleteIds, this.db);
 
     return participants.map((p, index) => ({
       id: index + 1, // Generate an id for React keys

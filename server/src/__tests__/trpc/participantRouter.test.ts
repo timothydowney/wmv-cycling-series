@@ -6,13 +6,13 @@ import { setupTestDb, teardownTestDb, clearAllData, createParticipant } from '..
 
 describe('participantRouter', () => {
   let db: Database;
-  let drizzleDb: BetterSQLite3Database;
+  let orm: BetterSQLite3Database;
   let caller: ReturnType<typeof appRouter.createCaller>;
 
   beforeAll(() => {
     const testDb = setupTestDb();
     db = testDb.db;
-    drizzleDb = testDb.drizzleDb;
+    orm = testDb.orm;
   });
 
   afterAll(() => {
@@ -32,12 +32,12 @@ describe('participantRouter', () => {
       req,
       res: {} as any,
       dbOverride: db,
-      drizzleDbOverride: drizzleDb
+      ormOverride: orm
     }));
   };
 
   beforeEach(() => {
-    clearAllData(drizzleDb);
+    clearAllData(orm);
   });
 
   describe('getAll', () => {
@@ -49,8 +49,8 @@ describe('participantRouter', () => {
 
     it('should return all participants', async () => {
       const caller = getCaller(false);
-      createParticipant(drizzleDb, 1, 'Alice');
-      createParticipant(drizzleDb, 2, 'Bob');
+      createParticipant(orm, 1, 'Alice');
+      createParticipant(orm, 2, 'Bob');
 
       const result = await caller.participant.getAll();
       expect(result).toHaveLength(2);
@@ -66,7 +66,7 @@ describe('participantRouter', () => {
   describe('getById', () => {
     it('should return a participant by ID', async () => {
       const caller = getCaller(false);
-      createParticipant(drizzleDb, 1, 'Charlie');
+      createParticipant(orm, 1, 'Charlie');
 
       const result = await caller.participant.getById(1);
       expect(result).toBeDefined();

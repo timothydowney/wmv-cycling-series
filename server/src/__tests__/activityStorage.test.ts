@@ -12,7 +12,7 @@ import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
 describe('Activity Storage', () => {
   let db: Database.Database;
-  let drizzleDb: BetterSQLite3Database;
+  let orm: BetterSQLite3Database;
   let testAthleteId: number;
   let testWeekId: number;
   let testSegmentId: number;
@@ -20,16 +20,16 @@ describe('Activity Storage', () => {
   beforeEach(() => {
     const setup = setupTestDb({ seed: false });
     db = setup.db;
-    drizzleDb = setup.drizzleDb;
+    orm = setup.orm;
 
     // Create test data
     testAthleteId = 12345678;
     testSegmentId = 98765432;
     
-    createParticipant(drizzleDb, testAthleteId, 'Test User');
-    const season = createSeason(drizzleDb, 'Test Season');
-    const segment = createSegment(drizzleDb, testSegmentId, 'Test Segment');
-    const week = createWeek(drizzleDb, {
+    createParticipant(orm, testAthleteId, 'Test User');
+    const season = createSeason(orm, 'Test Season');
+    const segment = createSegment(orm, testSegmentId, 'Test Segment');
+    const week = createWeek(orm, {
       seasonId: season.id,
       stravaSegmentId: segment.strava_segment_id,
       weekName: 'Test Week'
@@ -63,17 +63,17 @@ describe('Activity Storage', () => {
         totalTime: 1430
       };
 
-      storeActivityAndEfforts(drizzleDb, testAthleteId, testWeekId, activityData, testSegmentId);
+      storeActivityAndEfforts(orm, testAthleteId, testWeekId, activityData, testSegmentId);
 
       // Verify activity was inserted
-      const activities = drizzleDb.select().from(activity).all();
+      const activities = orm.select().from(activity).all();
       expect(activities).toHaveLength(1);
       expect(activities[0].strava_activity_id).toBe(9876543210);
       expect(activities[0].week_id).toBe(testWeekId);
       expect(activities[0].strava_athlete_id).toBe(testAthleteId);
 
       // Verify segment efforts were inserted
-      const efforts = drizzleDb.select().from(segmentEffort).all();
+      const efforts = orm.select().from(segmentEffort).all();
       expect(efforts).toHaveLength(2);
       expect(efforts[0].elapsed_seconds).toBe(720);
       expect(efforts[0].pr_achieved).toBe(0);
@@ -81,7 +81,7 @@ describe('Activity Storage', () => {
       expect(efforts[1].pr_achieved).toBe(1);
 
       // Verify result was stored
-      const results = drizzleDb.select().from(result).all();
+      const results = orm.select().from(result).all();
       expect(results).toHaveLength(1);
       expect(results[0].total_time_seconds).toBe(1430);
     });
@@ -103,12 +103,12 @@ describe('Activity Storage', () => {
         totalTime: 720
       };
 
-      storeActivityAndEfforts(drizzleDb, testAthleteId, testWeekId, firstActivity, testSegmentId);
+      storeActivityAndEfforts(orm, testAthleteId, testWeekId, firstActivity, testSegmentId);
 
       // Verify initial state
-      expect(drizzleDb.select().from(activity).all()).toHaveLength(1);
-      expect(drizzleDb.select().from(segmentEffort).all()).toHaveLength(1);
-      expect(drizzleDb.select().from(result).all()).toHaveLength(1);
+      expect(orm.select().from(activity).all()).toHaveLength(1);
+      expect(orm.select().from(segmentEffort).all()).toHaveLength(1);
+      expect(orm.select().from(result).all()).toHaveLength(1);
 
       // Now store a different activity (should replace the old one)
       const secondActivity: ActivityToStore = {
@@ -124,18 +124,18 @@ describe('Activity Storage', () => {
         totalTime: 650
       };
 
-      storeActivityAndEfforts(drizzleDb, testAthleteId, testWeekId, secondActivity, testSegmentId);
+      storeActivityAndEfforts(orm, testAthleteId, testWeekId, secondActivity, testSegmentId);
 
       // Verify old data was replaced
-      const activities = drizzleDb.select().from(activity).all();
+      const activities = orm.select().from(activity).all();
       expect(activities).toHaveLength(1);
       expect(activities[0].strava_activity_id).toBe(9876543211);
 
-      const efforts = drizzleDb.select().from(segmentEffort).all();
+      const efforts = orm.select().from(segmentEffort).all();
       expect(efforts).toHaveLength(1);
       expect(efforts[0].strava_effort_id).toBe('3333333333');
 
-      const results = drizzleDb.select().from(result).all();
+      const results = orm.select().from(result).all();
       expect(results).toHaveLength(1);
       expect(results[0].total_time_seconds).toBe(650);
     });
@@ -155,9 +155,9 @@ describe('Activity Storage', () => {
         totalTime: 680
       };
 
-      storeActivityAndEfforts(drizzleDb, testAthleteId, testWeekId, activityData, testSegmentId);
+      storeActivityAndEfforts(orm, testAthleteId, testWeekId, activityData, testSegmentId);
 
-      const activities = drizzleDb.select().from(activity).all();
+      const activities = orm.select().from(activity).all();
       expect(activities).toHaveLength(1);
       expect(activities[0].device_name).toBeNull();
     });
@@ -189,9 +189,9 @@ describe('Activity Storage', () => {
         totalTime: 1785
       };
 
-      storeActivityAndEfforts(drizzleDb, testAthleteId, testWeekId, activityData, testSegmentId);
+      storeActivityAndEfforts(orm, testAthleteId, testWeekId, activityData, testSegmentId);
 
-      const efforts = drizzleDb.select().from(segmentEffort).all();
+      const efforts = orm.select().from(segmentEffort).all();
       expect(efforts).toHaveLength(3);
       expect(efforts[0].effort_index).toBe(0);
       expect(efforts[0].elapsed_seconds).toBe(600);
@@ -230,9 +230,9 @@ describe('Activity Storage', () => {
         totalTime: 2115
       };
 
-      storeActivityAndEfforts(drizzleDb, testAthleteId, testWeekId, activityData, testSegmentId);
+      storeActivityAndEfforts(orm, testAthleteId, testWeekId, activityData, testSegmentId);
 
-      const efforts = drizzleDb.select().from(segmentEffort).all();
+      const efforts = orm.select().from(segmentEffort).all();
       expect(efforts[0].pr_achieved).toBe(1); // pr_rank = 1 → truthy
       expect(efforts[1].pr_achieved).toBe(0); // pr_rank = null → falsy
       expect(efforts[2].pr_achieved).toBe(0); // pr_rank = 0 → falsy
@@ -253,9 +253,9 @@ describe('Activity Storage', () => {
         totalTime: 1420
       };
 
-      storeActivityAndEfforts(drizzleDb, testAthleteId, testWeekId, activityData, testSegmentId);
+      storeActivityAndEfforts(orm, testAthleteId, testWeekId, activityData, testSegmentId);
 
-      const results = drizzleDb.select().from(result).all();
+      const results = orm.select().from(result).all();
       expect(results).toHaveLength(1);
       expect(results[0].total_time_seconds).toBe(1420);
       expect(results[0].week_id).toBe(testWeekId);
@@ -282,7 +282,7 @@ describe('Activity Storage', () => {
 
       // Expect the operation to fail
       expect(() => {
-        storeActivityAndEfforts(drizzleDb, testAthleteId, testWeekId, activityData, testSegmentId);
+        storeActivityAndEfforts(orm, testAthleteId, testWeekId, activityData, testSegmentId);
       }).toThrow();
     });
   });

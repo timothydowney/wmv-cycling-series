@@ -4,7 +4,7 @@ import { SegmentService } from '../services/SegmentService';
 
 export const segmentRouter = router({
   getAll: publicProcedure.query(async ({ ctx }) => {
-    const segmentService = new SegmentService(ctx.drizzleDb);
+    const segmentService = new SegmentService(ctx.orm);
     return segmentService.getAllSegments();
   }),
 
@@ -19,14 +19,14 @@ export const segmentRouter = router({
       country: z.string().optional()
     }))
     .mutation(async ({ ctx, input }) => {
-      const segmentService = new SegmentService(ctx.drizzleDb);
+      const segmentService = new SegmentService(ctx.orm);
       return segmentService.createSegment(input);
     }),
 
   validate: adminProcedure
     .input(z.number())
     .query(async ({ ctx, input }) => {
-      const segmentService = new SegmentService(ctx.drizzleDb);
+      const segmentService = new SegmentService(ctx.orm);
       return segmentService.fetchAndStoreSegmentMetadata(input, 'trpc-validate', undefined, ctx.userId);
     }),
 });

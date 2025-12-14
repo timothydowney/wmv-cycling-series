@@ -6,7 +6,7 @@ export const weekRouter = router({
   getAll: publicProcedure
     .input(z.object({ seasonId: z.number(), includeParticipantCount: z.boolean().optional().default(false) }))
     .query(async ({ ctx, input }) => {
-      const weekService = new WeekService(ctx.drizzleDb);
+      const weekService = new WeekService(ctx.orm);
       // Use full version with participant count if requested, otherwise lightweight summary for speed
       if (input.includeParticipantCount) {
         return weekService.getAllWeeks(input.seasonId);
@@ -17,14 +17,14 @@ export const weekRouter = router({
   getById: publicProcedure
     .input(z.number())
     .query(async ({ ctx, input }) => {
-      const weekService = new WeekService(ctx.drizzleDb);
+      const weekService = new WeekService(ctx.orm);
       return weekService.getWeekById(input);
     }),
 
   getLeaderboard: publicProcedure
     .input(z.number())
     .query(async ({ ctx, input }) => {
-      const weekService = new WeekService(ctx.drizzleDb);
+      const weekService = new WeekService(ctx.orm);
       return weekService.getWeekLeaderboard(input);
     }),
 
@@ -40,7 +40,7 @@ export const weekRouter = router({
       notes: z.string().optional()
     }))
     .mutation(async ({ ctx, input }) => {
-      const weekService = new WeekService(ctx.drizzleDb);
+      const weekService = new WeekService(ctx.orm);
       return weekService.createWeek(input);
     }),
 
@@ -62,14 +62,14 @@ export const weekRouter = router({
       })
     }))
     .mutation(async ({ ctx, input }) => {
-      const weekService = new WeekService(ctx.drizzleDb);
+      const weekService = new WeekService(ctx.orm);
       return weekService.updateWeek(input.id, input.data);
     }),
 
   delete: adminProcedure
     .input(z.number())
     .mutation(async ({ ctx, input }) => {
-      const weekService = new WeekService(ctx.drizzleDb);
+      const weekService = new WeekService(ctx.orm);
       return weekService.deleteWeek(input);
     })
 });

@@ -181,7 +181,7 @@ export function getAdminAthleteIds(): number[] {
 const authorizationService = new AuthorizationService(getAdminAthleteIds);
 
 // Initialize LoginService with dependencies
-const loginService = new LoginService(db, getAdminAthleteIds);
+const loginService = new LoginService(drizzleDb, getAdminAthleteIds);
 
 // Initialize BatchFetchService with dependencies
 const batchFetchService = new BatchFetchService(
@@ -296,7 +296,7 @@ if (!isTestMode()) {
     await setupWebhookSubscription();
     
     // Start automatic webhook subscription renewal service
-    const webhookRenewalService = new WebhookRenewalService(db);
+    const webhookRenewalService = new WebhookRenewalService(drizzleDb);
     webhookRenewalService.start();
     
     // ===== TIMEZONE DIAGNOSTICS =====

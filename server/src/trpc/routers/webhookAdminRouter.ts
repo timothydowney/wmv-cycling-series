@@ -6,44 +6,31 @@ import { config } from '../../config'; // For databasePath
 import * as stravaClientModule from '../../stravaClient'; // Import entire module as namespace
 import { getValidAccessToken } from '../../tokenManager';
 import { TRPCError } from '@trpc/server';
+import { and, desc, eq, gt, sql } from 'drizzle-orm';
+import { webhookEvent, participant, activity, week, season, segmentEffort } from '../../db/schema';
 
 export const webhookAdminRouter = router({
   getStatus: adminProcedure
     .query(async ({ ctx }) => {
-      // Use ctx.db for raw sqlite access, as WebhookSubscriptionService expects it
-      const { db } = ctx;
-      const subscriptionService = new WebhookSubscriptionService(db);
+      const { orm } = ctx;
+      const subscriptionService = new WebhookSubscriptionService(orm);
       
       const subscriptionStatus = subscriptionService.getStatus();
 
-      // Get event metrics
-      const totalEvents = db
-        .prepare('SELECT COUNT(*) as count FROM webhook_event')
-        .get() as { count: number };
+      const countAll = (cond?: ReturnType<typeof and> | ReturnType<typeof eq> | ReturnType<typeof gt>) => {
+        const baseQuery = orm.select({ count: sql<number>`count(*)` }).from(webhookEvent);
+        const row = cond ? baseQuery.where(cond).get() : baseQuery.get();
+        return row?.count ?? 0;
+      };
 
-      const successfulEvents = db
-        .prepare('SELECT COUNT(*) as count FROM webhook_event WHERE processed = 1')
-        .get() as { count: number };
-
-      const failedEvents = db
-        .prepare('SELECT COUNT(*) as count FROM webhook_event WHERE processed = 0 AND error_message IS NOT NULL')
-        .get() as { count: number };
-
-      // NOTE: Original code had pending_retries query identical to failedEvents. Keeping for now.
-      const pendingRetries = db
-        .prepare(
-          'SELECT COUNT(*) as count FROM webhook_event WHERE processed = 0 AND error_message IS NOT NULL'
-        )
-        .get() as { count: number };
-
-      const eventsLast24h = db
-        .prepare(
-          "SELECT COUNT(*) as count FROM webhook_event WHERE created_at > datetime('now', '-1 day')"
-        )
-        .get() as { count: number };
+      const totalEvents = countAll();
+      const successfulEvents = countAll(eq(webhookEvent.processed, 1));
+      const failedEvents = countAll(and(eq(webhookEvent.processed, 0), sql`${webhookEvent.error_message} IS NOT NULL`));
+      const pendingRetries = failedEvents; // same filter as failedEvents
+      const eventsLast24h = countAll(gt(webhookEvent.created_at, sql`datetime('now', '-1 day')`));
 
       const successRate =
-        totalEvents.count > 0 ? ((successfulEvents.count / totalEvents.count) * 100).toFixed(1) : '0.0';
+        totalEvents > 0 ? ((successfulEvents / totalEvents) * 100).toFixed(1) : '0.0';
 
       const responsePayload = {
         enabled: subscriptionStatus.id !== null,
@@ -52,12 +39,12 @@ export const webhookAdminRouter = router({
         expires_at: subscriptionStatus.expires_at,
         last_refreshed_at: subscriptionStatus.last_refreshed_at,
         metrics: {
-          total_events: totalEvents.count,
-          successful_events: successfulEvents.count,
-          failed_events: failedEvents.count,
-          pending_retries: pendingRetries.count,
-          events_last24h: eventsLast24h.count,
-          success_rate: parseFloat(successRate as string)
+          total_events: totalEvents,
+          successful_events: successfulEvents,
+          failed_events: failedEvents,
+          pending_retries: pendingRetries,
+          events_last24h: eventsLast24h,
+          success_rate: parseFloat(successRate)
         }
       };
 
@@ -66,9 +53,9 @@ export const webhookAdminRouter = router({
 
   getStorageStatus: adminProcedure
     .query(async ({ ctx }) => {
-      const { db } = ctx;
+      const { orm } = ctx;
       const dbPath = config.databasePath;
-      const monitor = new StorageMonitor(db, dbPath);
+      const monitor = new StorageMonitor(orm, dbPath);
       const status = monitor.getStatus();
 
       return status;
@@ -83,50 +70,54 @@ export const webhookAdminRouter = router({
       confirm: z.string().optional() // For the DELETE all events
     }))
     .query(async ({ ctx, input }) => {
-      const { db } = ctx;
+      const { orm } = ctx;
       const { limit: rawLimit, offset: rawOffset, since, status } = input;
 
       // Validate and constrain limit and offset
       const limit = Math.min(Math.max(rawLimit, 1), 500);
       const offset = Math.max(rawOffset, 0);
 
-      // Build query based on status filter
-      let whereClause = "WHERE created_at > datetime(?, 'unixepoch')";
-      const params: any[] = [since];
+      const sinceExpr = sql`datetime(${since}, 'unixepoch')`;
+      const conditions: Array<ReturnType<typeof gt> | ReturnType<typeof eq>> = [gt(webhookEvent.created_at, sinceExpr)];
 
       if (status === 'success') {
-        whereClause += ' AND processed = 1';
+        conditions.push(eq(webhookEvent.processed, 1));
       } else if (status === 'failed') {
-        whereClause += ' AND processed = 0';
+        conditions.push(eq(webhookEvent.processed, 0));
       }
 
-      // Get total count
-      const countResult = db
-        .prepare(`SELECT COUNT(*) as count FROM webhook_event ${whereClause}`)
-        .get(...params) as { count: number };
+      const whereClause = conditions.length === 1 ? conditions[0] : and(...conditions);
 
-      // Get paginated events
-      const events = db
-        .prepare(
-          `
-          SELECT id, payload, processed, error_message, created_at
-          FROM webhook_event
-          ${whereClause}
-          ORDER BY created_at DESC
-          LIMIT ? OFFSET ?
-        `
-        )
-        .all(...params, limit, offset) as any[];
+      const countRow = orm
+        .select({ count: sql<number>`count(*)` })
+        .from(webhookEvent)
+        .where(whereClause)
+        .get();
+
+      const events = orm
+        .select({
+          id: webhookEvent.id,
+          payload: webhookEvent.payload,
+          processed: webhookEvent.processed,
+          error_message: webhookEvent.error_message,
+          created_at: webhookEvent.created_at
+        })
+        .from(webhookEvent)
+        .where(whereClause)
+        .orderBy(desc(webhookEvent.created_at))
+        .limit(limit)
+        .offset(offset)
+        .all();
 
       // Parse payload JSON for each event
-      const parsedEvents = events.map((event: any) => ({
+      const parsedEvents = events.map((event) => ({
         ...event,
         payload: event.payload ? JSON.parse(event.payload) : null
       }));
 
       return {
         events: parsedEvents,
-        total: countResult.count,
+        total: countRow?.count ?? 0,
         limit,
         offset
       };
@@ -134,8 +125,8 @@ export const webhookAdminRouter = router({
 
   enable: adminProcedure
     .mutation(async ({ ctx }) => {
-      const { db } = ctx;
-      const subscriptionService = new WebhookSubscriptionService(db);
+      const { orm } = ctx;
+      const subscriptionService = new WebhookSubscriptionService(orm);
       const result = await subscriptionService.enable();
 
       return {
@@ -148,8 +139,8 @@ export const webhookAdminRouter = router({
 
   disable: adminProcedure
     .mutation(async ({ ctx }) => {
-      const { db } = ctx;
-      const subscriptionService = new WebhookSubscriptionService(db);
+      const { orm } = ctx;
+      const subscriptionService = new WebhookSubscriptionService(orm);
       const result = await subscriptionService.disable();
 
       return {
@@ -160,8 +151,8 @@ export const webhookAdminRouter = router({
 
   renew: adminProcedure
     .mutation(async ({ ctx }) => {
-      const { db } = ctx;
-      const subscriptionService = new WebhookSubscriptionService(db);
+      const { orm } = ctx;
+      const subscriptionService = new WebhookSubscriptionService(orm);
       const result = await subscriptionService.renew();
 
       return {
@@ -176,13 +167,15 @@ export const webhookAdminRouter = router({
   retryEvent: adminProcedure
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {
-      const { db } = ctx;
+      const { orm } = ctx;
       const { id: eventId } = input;
 
       // Get the event
-      const event = db
-        .prepare('SELECT * FROM webhook_event WHERE id = ?')
-        .get(eventId) as any;
+      const event = orm
+        .select()
+        .from(webhookEvent)
+        .where(eq(webhookEvent.id, eventId))
+        .get();
 
       if (!event) {
         throw new TRPCError({
@@ -192,11 +185,11 @@ export const webhookAdminRouter = router({
       }
 
       // Reset error to allow retry
-      db.prepare(
-        `UPDATE webhook_event
-         SET processed = 0, error_message = NULL
-         WHERE id = ?`
-      ).run(eventId);
+      await orm
+        .update(webhookEvent)
+        .set({ processed: 0, error_message: null })
+        .where(eq(webhookEvent.id, eventId))
+        .run();
 
       console.log(
         `[Admin:Webhooks] Event ${eventId} marked for retry`
@@ -212,13 +205,21 @@ export const webhookAdminRouter = router({
   getEnrichedEventDetails: adminProcedure
     .input(z.object({ id: z.number().int().positive() }))
     .query(async ({ ctx, input }) => {
-      const { db } = ctx;
+      const { orm } = ctx;
       const { id: eventId } = input;
 
       // Get the raw event
-      const event = db
-        .prepare('SELECT id, payload, processed, error_message, created_at FROM webhook_event WHERE id = ?')
-        .get(eventId) as any;
+      const event = orm
+        .select({
+          id: webhookEvent.id,
+          payload: webhookEvent.payload,
+          processed: webhookEvent.processed,
+          error_message: webhookEvent.error_message,
+          created_at: webhookEvent.created_at
+        })
+        .from(webhookEvent)
+        .where(eq(webhookEvent.id, eventId))
+        .get();
 
       if (!event) {
         throw new TRPCError({
@@ -244,15 +245,17 @@ export const webhookAdminRouter = router({
         const activityId = payload.object_id;
 
         // Get participant from our database
-        const participant = db
-          .prepare('SELECT strava_athlete_id, name FROM participant WHERE strava_athlete_id = ?')
-          .get(athleteId) as { strava_athlete_id: number; name: string } | undefined;
+        const participantRecord = orm
+          .select({ strava_athlete_id: participant.strava_athlete_id, name: participant.name })
+          .from(participant)
+          .where(eq(participant.strava_athlete_id, athleteId))
+          .get();
 
         // Initialize enrichment object
         const enrichment: any = {
           athlete: {
             athlete_id: athleteId,
-            name: participant?.name || `Unknown (${athleteId})`
+            name: participantRecord?.name || `Unknown (${athleteId})`
           },
           strava_data: null,
           matching_seasons: [],
@@ -266,9 +269,9 @@ export const webhookAdminRouter = router({
 
         // Try to fetch activity details from Strava
         try {
-          if (participant) {
+          if (participantRecord) {
             console.log(`[Admin:Webhooks] Fetching Strava activity details for activity ${activityId}`);
-            const token = await getValidAccessToken(db, stravaClientModule, participant.strava_athlete_id); // Pass stravaClientModule
+            const token = await getValidAccessToken(ctx.orm, stravaClientModule, participantRecord.strava_athlete_id); // Pass drizzleDb via ctx.orm
             const activity = await stravaClientModule.getActivity(activityId, token); // Use stravaClientModule.getActivity
             enrichment.strava_data = {
               activity_id: activity.id,
@@ -318,22 +321,27 @@ export const webhookAdminRouter = router({
 
         // Activity was processed successfully - query what was stored
         // Get all activities and results stored for this activity from the webhook
-        const storedActivities = db
-          .prepare(
-            `SELECT a.id, a.strava_activity_id, a.week_id,
-                    w.week_name, w.season_id,
-                    s.name as season_name,
-                    COUNT(se.id) as segment_effort_count,
-                    COALESCE(SUM(se.elapsed_seconds), 0) as total_time_seconds
-             FROM activity a
-             JOIN week w ON a.week_id = w.id
-             JOIN season s ON w.season_id = s.id
-             LEFT JOIN segment_effort se ON a.id = se.activity_id
-             WHERE a.strava_activity_id = ?
-             GROUP BY w.id, s.id
-             ORDER BY s.id, w.id`
-          )
-          .all(activityId) as Array<any>;
+        const storedActivities = orm
+          .select({
+            activity_id: activity.id,
+            strava_activity_id: activity.strava_activity_id,
+            week_id: week.id,
+            week_name: week.week_name,
+            season_id: season.id,
+            season_name: season.name,
+            segment_effort_count: sql<number>`COUNT(${segmentEffort.id})`,
+            total_time_seconds: sql<number>`COALESCE(SUM(${segmentEffort.elapsed_seconds}), 0)`,
+            rank: sql<number | null>`NULL`,
+            points: sql<number | null>`NULL`
+          })
+          .from(activity)
+          .innerJoin(week, eq(activity.week_id, week.id))
+          .innerJoin(season, eq(week.season_id, season.id))
+          .leftJoin(segmentEffort, eq(activity.id, segmentEffort.activity_id))
+          .where(eq(activity.strava_activity_id, activityId))
+          .groupBy(week.id, season.id)
+          .orderBy(season.id, week.id)
+          .all();
 
         if (storedActivities.length === 0) {
           // Webhook was processed but didn't result in any stored activities
@@ -363,7 +371,7 @@ export const webhookAdminRouter = router({
             week_id: activity.week_id,
             week_name: activity.week_name,
             segment_effort_count: activity.segment_effort_count || 0,
-            total_time_seconds: activity.result_time || activity.total_time_seconds,
+            total_time_seconds: activity.total_time_seconds,
             rank: activity.rank,
             points: activity.points
           });
@@ -386,15 +394,16 @@ export const webhookAdminRouter = router({
   clearEvents: adminProcedure
     .input(z.object({ confirm: z.literal('yes') })) // Require explicit confirmation
     .mutation(async ({ ctx }) => {
-      const { db } = ctx;
+      const { orm } = ctx;
 
-      const result = db.prepare('DELETE FROM webhook_event').run() as { changes: number };
+      const result = await orm.delete(webhookEvent).run();
+      const deleted = (result as unknown as { changes?: number }).changes ?? 0;
 
-      console.log(`[Admin:Webhooks] Cleared ${result.changes} webhook events`);
+      console.log(`[Admin:Webhooks] Cleared ${deleted} webhook events`);
 
       return {
-        deleted: result.changes,
-        message: `Deleted ${result.changes} webhook event(s)`
+        deleted,
+        message: `Deleted ${deleted} webhook event(s)`
       };
     }),
 });

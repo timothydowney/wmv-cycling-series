@@ -29,7 +29,7 @@ export const leaderboardRouter = router({
   getWeekLeaderboard: publicProcedure
     .input(z.object({ weekId: z.number() }))
     .query(async ({ ctx, input }) => {
-      const { drizzleDb } = ctx; // Use injected drizzleDb
+      const { orm: drizzleDb } = ctx; // Prefer canonical `orm` alias (same instance)
 
       const weekData = await drizzleDb.select({
         id: week.id,
@@ -89,7 +89,7 @@ export const leaderboardRouter = router({
       
       const profilePictures = await getAthleteProfilePictures(
         participantIds,
-        (drizzleDb as any).$client
+        drizzleDb
       );
 
       const leaderboardEntries: LeaderboardEntryWithDetails[] = await Promise.all(
@@ -178,7 +178,7 @@ export const leaderboardRouter = router({
   getSeasonLeaderboard: publicProcedure
     .input(z.object({ seasonId: z.number() }))
     .query(async ({ ctx, input }) => {
-      const { drizzleDb } = ctx; // Use injected drizzleDb
+      const { orm: drizzleDb } = ctx; // Prefer canonical `orm` alias (same instance)
 
       // Get all weeks in this season
       const weeks = await drizzleDb
@@ -233,7 +233,7 @@ export const leaderboardRouter = router({
       const participantIds = leaderboardResults.map(r => r.participantId);
       const profilePictures = await getAthleteProfilePictures(
         participantIds,
-        (drizzleDb as any).$client
+        drizzleDb
       );
 
       return leaderboardResults.map((res, index) => ({

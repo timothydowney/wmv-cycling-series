@@ -218,7 +218,7 @@ const WebhookEventHistory: React.FC<Props> = () => {
                       <span className="status-icon">{event.processed ? '✓' : '✕'}</span>
                       <span className="status-text">{event.processed ? 'Processed' : 'Failed'}</span>
                     </div>
-                    <div className="event-time">{new Date(event.created_at).toLocaleString()}</div>
+                    <div className="event-time">{event.created_at ? new Date(event.created_at).toLocaleString() : 'Unknown'}</div>
                     <button className="view-toggle-btn" onClick={() => toggleViewMode(event.id)}>
                       {isRawMode ? 'Formatted' : 'Raw JSON'}
                     </button>

@@ -178,7 +178,7 @@ class WeekService {
 
     // Fetch profile pictures for all athletes in this leaderboard
     const athleteIds = activitiesWithTotals.map(a => a.participant_id);
-    const profilePictures = await getAthleteProfilePictures(athleteIds, (this.db as any).$client);
+    const profilePictures = await getAthleteProfilePictures(athleteIds, this.db);
 
     // Compute leaderboard scores from activities (always correct)
     const totalParticipants = activitiesWithTotals.length;

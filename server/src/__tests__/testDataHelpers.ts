@@ -1,6 +1,7 @@
 import { BetterSQLite3Database as DrizzleBetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { isoToUnix } from '../dateUtils';
 import { season, activity, participant, participantToken, result, segment, segmentEffort, week, deletionRequest } from '../db/schema';
+import { eq } from 'drizzle-orm';
 import { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 
 // Type definitions for Drizzle models
@@ -191,8 +192,19 @@ export function createWeek(db: TestDb, options: CreateWeekOptions = {}): SelectW
   
   let finalSegmentId = stravaSegmentId;
   if (!finalSegmentId) {
-    const defaultSegment = createSegment(db, 12345678, 'Default Test Segment');
-    finalSegmentId = defaultSegment.strava_segment_id;
+    // Try to reuse existing default segment to avoid UNIQUE constraint violations
+    const existingDefault = db
+      .select()
+      .from(segment)
+      .where(eq(segment.strava_segment_id, 12345678))
+      .get();
+
+    if (existingDefault) {
+      finalSegmentId = 12345678;
+    } else {
+      const defaultSegment = createSegment(db, 12345678, 'Default Test Segment');
+      finalSegmentId = defaultSegment.strava_segment_id;
+    }
   }
   
   // Convert ISO 8601 times to Unix timestamps (UTC seconds)

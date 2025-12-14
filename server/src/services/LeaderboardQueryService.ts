@@ -3,14 +3,11 @@
  *
  * Provides query methods for leaderboard data without side effects.
  * Used in tests to verify database state and scoring correctness.
- *
- * Also useful as a foundation for future API endpoints:
- * - GET /api/test/week/:id/leaderboard
- * - GET /api/test/season/:id/leaderboard
- * - GET /api/test/scoring-details/:weekId/:participantId
+ * Diagnostics/test helper implemented with Drizzle (BetterSQLite3 driver).
  */
-
-import { Database } from 'better-sqlite3';
+import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { and, desc, eq, sql } from 'drizzle-orm';
+import { activity, participant, result, segmentEffort, week, webhookEvent } from '../db/schema';
 
 export interface ActivitySummary {
   activityId: number;
@@ -62,59 +59,103 @@ export interface ParticipantActivityHistory {
  * Service for querying leaderboard and activity data
  */
 export class LeaderboardQueryService {
-  constructor(private db: Database) {}
+  constructor(private db: BetterSQLite3Database) {}
+
+  private getPrCount(activityId: number): number {
+    const row = this.db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(segmentEffort)
+      .where(and(eq(segmentEffort.activity_id, activityId), eq(segmentEffort.pr_achieved, 1)))
+      .get();
+    return row?.count ?? 0;
+  }
+
+  private getSegmentEffortSum(activityId: number): number | null {
+    const row = this.db
+      .select({ total: sql<number | null>`SUM(${segmentEffort.elapsed_seconds})` })
+      .from(segmentEffort)
+      .where(eq(segmentEffort.activity_id, activityId))
+      .get();
+    return row?.total ?? null;
+  }
+
+  private getResultTotalTimeByActivity(activityId: number): number | null {
+    const row = this.db
+      .select({ total: result.total_time_seconds })
+      .from(result)
+      .where(eq(result.activity_id, activityId))
+      .limit(1)
+      .get();
+    return row?.total ?? null;
+  }
+
+  private getWeekResultTimes(weekId: number): number[] {
+    return this.db
+      .select({ total: result.total_time_seconds })
+      .from(result)
+      .where(eq(result.week_id, weekId))
+      .orderBy(result.total_time_seconds)
+      .all()
+      .map((r) => r.total);
+  }
 
   /**
    * Get complete leaderboard for a week with scoring details
    */
   getWeekLeaderboard(weekId: number): WeekLeaderboard {
-    const week = this.db
-      .prepare('SELECT id, week_name FROM week WHERE id = ?')
-      .get(weekId) as { id: number; week_name: string } | undefined;
+    const weekRow = this.db
+      .select({ id: week.id, week_name: week.week_name })
+      .from(week)
+      .where(eq(week.id, weekId))
+      .get();
 
-    if (!week) {
+    if (!weekRow) {
       throw new Error(`Week ${weekId} not found`);
     }
 
-    const results = this.db
-      .prepare(
-        `
-      SELECT 
-        r.id,
-        r.week_id,
-        r.participant_id,
-        p.name as participant_name,
-        r.total_time_seconds,
-        r.rank,
-        r.base_points,
-        r.pr_bonus_points,
-        r.total_points
-      FROM result r
-      JOIN participant p ON r.participant_id = p.id
-      WHERE r.week_id = ?
-      ORDER BY r.rank ASC
-      `
-      )
-      .all(weekId) as Array<{
-      id: number;
-      week_id: number;
-      participant_id: number;
-      participant_name: string;
-      total_time_seconds: number;
-      rank: number;
-      base_points: number;
-      pr_bonus_points: number;
-      total_points: number;
-    }>;
+    const baseRows = this.db
+      .select({
+        id: result.id,
+        week_id: result.week_id,
+        participant_id: result.strava_athlete_id,
+        activity_id: result.activity_id,
+        participant_name: participant.name,
+        total_time_seconds: result.total_time_seconds,
+        pr_count: sql<number>`(SELECT COUNT(*) FROM segment_effort WHERE segment_effort.activity_id = ${result.activity_id} AND segment_effort.pr_achieved = 1)`
+      })
+      .from(result)
+      .leftJoin(participant, eq(participant.strava_athlete_id, result.strava_athlete_id))
+      .where(eq(result.week_id, weekId))
+      .orderBy(result.total_time_seconds, participant.name)
+      .all();
+
+    const n = baseRows.length;
+    const results = baseRows.map((r, idx) => {
+      const rank = idx + 1;
+      const basePoints = (n - rank) + 1;
+      const prBonus = (r.pr_count && r.pr_count > 0) ? 1 : 0;
+      const totalPoints = basePoints + prBonus;
+      return {
+        id: r.id,
+        week_id: r.week_id,
+        participant_id: r.participant_id,
+        participant_name: r.participant_name,
+        total_time_seconds: r.total_time_seconds,
+        rank,
+        base_points: basePoints,
+        pr_bonus_points: prBonus,
+        total_points: totalPoints
+      };
+    });
 
     return {
       weekId,
-      weekName: week.week_name,
+      weekName: weekRow.week_name,
       results: results.map((r) => ({
         resultId: r.id,
         weekId: r.week_id,
         participantId: r.participant_id,
-        participantName: r.participant_name,
+        participantName: r.participant_name ?? 'Unknown',
         totalTimeSeconds: r.total_time_seconds,
         rank: r.rank,
         basePoints: r.base_points,
@@ -128,52 +169,68 @@ export class LeaderboardQueryService {
    * Get all activities for a week
    */
   getWeekActivities(weekId: number): ActivitySummary[] {
-    return this.db
-      .prepare(
-        `
-      SELECT 
-        a.id as activityId,
-        a.strava_activity_id,
-        a.week_id,
-        a.participant_id,
-        p.name as participant_name,
-        (SELECT SUM(se.elapsed_seconds) FROM segment_effort se WHERE se.activity_id = a.id) as totalTimeSeconds,
-        (SELECT COUNT(*) FROM segment_effort se WHERE se.activity_id = a.id) as segmentEffortCount,
-        (SELECT COUNT(*) FROM segment_effort se WHERE se.activity_id = a.id AND se.pr_achieved = 1) as prCount
-      FROM activity a
-      JOIN participant p ON a.participant_id = p.id
-      WHERE a.week_id = ?
-      ORDER BY totalTimeSeconds ASC
-      `
-      )
-      .all(weekId) as ActivitySummary[];
+    const results = this.db
+      .select({
+        activityId: activity.id,
+        stravaActivityId: activity.strava_activity_id,
+        weekId: activity.week_id,
+        participantId: activity.strava_athlete_id,
+        participantName: participant.name,
+        totalTimeSeconds: sql<number>`(SELECT SUM(elapsed_seconds) FROM segment_effort WHERE segment_effort.activity_id = ${activity.id})`,
+        segmentEffortCount: sql<number>`(SELECT COUNT(*) FROM segment_effort WHERE segment_effort.activity_id = ${activity.id})`,
+        prCount: sql<number>`(SELECT COUNT(*) FROM segment_effort WHERE segment_effort.activity_id = ${activity.id} AND segment_effort.pr_achieved = 1)`
+      })
+      .from(activity)
+      .leftJoin(participant, eq(participant.strava_athlete_id, activity.strava_athlete_id))
+      .where(eq(activity.week_id, weekId))
+      .orderBy(activity.id)
+      .all();
+
+    return results.map((r) => ({
+      activityId: r.activityId,
+      stravaActivityId: r.stravaActivityId,
+      weekId: r.weekId ?? 0,
+      participantId: r.participantId,
+      participantName: r.participantName ?? 'Unknown',
+      totalTimeSeconds: r.totalTimeSeconds,
+      segmentEffortCount: r.segmentEffortCount,
+      prCount: r.prCount
+    }));
   }
 
   /**
    * Get activity details for verification
    */
   getActivityDetails(activityId: number): {
-    activity: any;
-    segmentEfforts: any[];
-    result: any;
+    activity: typeof activity.$inferSelect;
+    segmentEfforts: Array<typeof segmentEffort.$inferSelect>;
+    result: typeof result.$inferSelect | null;
   } | null {
-    const activity = this.db
-      .prepare('SELECT * FROM activity WHERE id = ?')
-      .get(activityId);
+    const activityRow = this.db
+      .select()
+      .from(activity)
+      .where(eq(activity.id, activityId))
+      .get();
 
-    if (!activity) {
+    if (!activityRow) {
       return null;
     }
 
     const segmentEfforts = this.db
-      .prepare('SELECT * FROM segment_effort WHERE activity_id = ? ORDER BY effort_index ASC')
-      .all(activityId);
+      .select()
+      .from(segmentEffort)
+      .where(eq(segmentEffort.activity_id, activityId))
+      .orderBy(segmentEffort.effort_index)
+      .all();
 
-    const result = this.db
-      .prepare('SELECT * FROM result WHERE activity_id = ?')
-      .get(activityId);
+    const resultRow = this.db
+      .select()
+      .from(result)
+      .where(eq(result.activity_id, activityId))
+      .limit(1)
+      .get();
 
-    return { activity, segmentEfforts, result };
+    return { activity: activityRow, segmentEfforts, result: resultRow ?? null };
   }
 
   /**
@@ -182,60 +239,75 @@ export class LeaderboardQueryService {
   getParticipantActivityHistory(
     participantId: number
   ): ParticipantActivityHistory {
-    const participant = this.db
-      .prepare('SELECT id, name FROM participant WHERE id = ?')
-      .get(participantId) as { id: number; name: string } | undefined;
+    const participantRow = this.db
+      .select({ id: participant.strava_athlete_id, name: participant.name })
+      .from(participant)
+      .where(eq(participant.strava_athlete_id, participantId))
+      .get();
 
-    if (!participant) {
+    if (!participantRow) {
       throw new Error(`Participant ${participantId} not found`);
     }
 
-    const activities = this.db
-      .prepare(
-        `
-      SELECT 
-        w.id as weekId,
-        w.week_name as weekName,
-        a.id as activityId,
-        a.strava_activity_id,
-        (SELECT SUM(se.elapsed_seconds) FROM segment_effort se WHERE se.activity_id = a.id) as totalTimeSeconds,
-        (SELECT COUNT(*) FROM segment_effort se WHERE se.activity_id = a.id) as segmentEfforts,
-        (SELECT COUNT(*) FROM segment_effort se WHERE se.activity_id = a.id AND se.pr_achieved = 1) as prCount,
-        r.total_points as points
-      FROM activity a
-      JOIN week w ON a.week_id = w.id
-      LEFT JOIN result r ON a.id = r.activity_id
-      WHERE a.participant_id = ?
-      ORDER BY w.id DESC
-      `
-      )
-      .all(participantId) as Array<{
-      weekId: number;
-      weekName: string;
-      activityId: number;
-      strava_activity_id: number;
-      totalTimeSeconds: number;
-      segmentEfforts: number;
-      prCount: number;
-      points: number;
-    }>;
+    const activitiesBase = this.db
+      .select({
+        weekId: week.id,
+        weekName: week.week_name,
+        activityId: activity.id,
+        stravaActivityId: activity.strava_activity_id,
+        totalTimeSeconds: sql<number | null>`(SELECT SUM(elapsed_seconds) FROM segment_effort WHERE segment_effort.activity_id = ${activity.id})`,
+        segmentEfforts: sql<number | null>`(SELECT COUNT(*) FROM segment_effort WHERE segment_effort.activity_id = ${activity.id})`,
+        prCount: sql<number | null>`(SELECT COUNT(*) FROM segment_effort WHERE segment_effort.activity_id = ${activity.id} AND segment_effort.pr_achieved = 1)`
+      })
+      .from(activity)
+      .leftJoin(week, eq(activity.week_id, week.id))
+      .where(eq(activity.strava_athlete_id, participantId))
+      .orderBy(desc(week.id))
+      .all();
+
+    // Compute points per week: base points (beats + 1) + PR bonus
+    const computePointsForWeek = (weekId: number | null, activityId: number, totalTimeSeconds: number | null): number => {
+      if (!weekId) return 0;
+      // If no segment efforts, fallback to result.total_time_seconds for this activity
+      const effectiveTime = (totalTimeSeconds === null || totalTimeSeconds === 0)
+        ? this.getResultTotalTimeByActivity(activityId) ?? 0
+        : totalTimeSeconds;
+
+      const rows = this.getWeekResultTimes(weekId);
+      if (!rows || rows.length === 0) return 0;
+      const n = rows.length;
+      const rankIdx = rows.findIndex(r => r === effectiveTime);
+      const rank = (rankIdx >= 0 ? rankIdx + 1 : n);
+      const basePoints = (n - rank) + 1;
+      const prCount = this.getPrCount(activityId);
+      const prBonus = prCount > 0 ? 1 : 0;
+      return basePoints + prBonus;
+    };
+
+    const activities = activitiesBase.map((a) => {
+      const totalTime = (a.totalTimeSeconds === null || a.totalTimeSeconds === 0)
+        ? this.getResultTotalTimeByActivity(a.activityId) ?? 0
+        : a.totalTimeSeconds;
+      const points = computePointsForWeek(a.weekId, a.activityId, totalTime);
+      return {
+        weekId: a.weekId ?? 0,
+        weekName: a.weekName ?? 'Unknown',
+        activityId: a.activityId,
+        stravaActivityId: a.stravaActivityId,
+        totalTimeSeconds: totalTime,
+        segmentEfforts: a.segmentEfforts ?? 0,
+        prCount: a.prCount ?? 0,
+        points
+      };
+    });
 
     const totalPoints = activities.reduce((sum, a) => sum + (a.points || 0), 0);
     const weeksCompleted = activities.length;
 
     return {
       participantId,
-      participantName: participant.name,
-      activities: activities.map((a) => ({
-        weekId: a.weekId,
-        weekName: a.weekName,
-        activityId: a.activityId,
-        stravaActivityId: a.strava_activity_id,
-        totalTimeSeconds: a.totalTimeSeconds || 0,
-        segmentEfforts: a.segmentEfforts || 0,
-        prCount: a.prCount || 0,
-        points: a.points || 0
-      })),
+      participantName: participantRow.name,
+      activities,
       totalPoints,
       weeksCompleted
     };
@@ -248,8 +320,8 @@ export class LeaderboardQueryService {
     activityId1: number,
     activityId2: number
   ): {
-    activity1: any;
-    activity2: any;
+    activity1: typeof activity.$inferSelect;
+    activity2: typeof activity.$inferSelect;
     faster: 'activity1' | 'activity2' | 'equal';
     timeDifference: number;
   } {
@@ -260,14 +332,22 @@ export class LeaderboardQueryService {
       throw new Error('One or both activities not found');
     }
 
-    const time1 = details1.activity.total_time_seconds;
-    const time2 = details2.activity.total_time_seconds;
-    const diff = Math.abs(time1 - time2);
+    const sumEfforts = (activityId: number) => {
+      return this.getSegmentEffortSum(activityId);
+    };
+
+    const timeFromResult = (activityId: number) => {
+      return this.getResultTotalTimeByActivity(activityId);
+    };
+
+    const t1 = sumEfforts(details1.activity.id) ?? timeFromResult(details1.activity.id) ?? 0;
+    const t2 = sumEfforts(details2.activity.id) ?? timeFromResult(details2.activity.id) ?? 0;
+    const diff = Math.abs(t1 - t2);
 
     return {
       activity1: details1.activity,
       activity2: details2.activity,
-      faster: time1 < time2 ? 'activity1' : time1 > time2 ? 'activity2' : 'equal',
+      faster: t1 < t2 ? 'activity1' : t1 > t2 ? 'activity2' : 'equal',
       timeDifference: diff
     };
   }
@@ -284,26 +364,36 @@ export class LeaderboardQueryService {
     totalPoints: number;
     prBonusPoints: number;
   } | null {
-    const result = this.db
-      .prepare(
-        'SELECT id, total_time_seconds, total_points, pr_bonus_points FROM result WHERE week_id = ? AND participant_id = ?'
-      )
-      .get(weekId, participantId) as {
-      id: number;
-      total_time_seconds: number;
-      total_points: number;
-      pr_bonus_points: number;
-    } | undefined;
+    const resRow = this.db
+      .select({
+        id: result.id,
+        activity_id: result.activity_id,
+        total_time_seconds: result.total_time_seconds
+      })
+      .from(result)
+      .where(and(eq(result.week_id, weekId), eq(result.strava_athlete_id, participantId)))
+      .limit(1)
+      .get();
 
-    if (!result) {
+    if (!resRow) {
       return null;
     }
 
+    // Compute points for the participant's result
+    const rows = this.getWeekResultTimes(weekId);
+    const n = rows.length;
+    const rank = rows.findIndex((t) => t === resRow.total_time_seconds) + 1 || n;
+    const basePoints = (n - rank) + 1;
+    const prCount = resRow.activity_id
+      ? this.getPrCount(resRow.activity_id)
+      : 0;
+    const prBonus = prCount > 0 ? 1 : 0;
+
     return {
-      resultId: result.id,
-      totalTimeSeconds: result.total_time_seconds,
-      totalPoints: result.total_points,
-      prBonusPoints: result.pr_bonus_points
+      resultId: resRow.id,
+      totalTimeSeconds: resRow.total_time_seconds,
+      totalPoints: basePoints + prBonus,
+      prBonusPoints: prBonus
     };
   }
 
@@ -318,25 +408,16 @@ export class LeaderboardQueryService {
     segmentEffortCount: number;
     webhookEventCount: number;
     } {
+    const countOf = <T>(table: T) =>
+      this.db.select({ count: sql<number>`COUNT(*)` }).from(table as unknown as any).get()?.count ?? 0;
+
     return {
-      participantCount: (
-        this.db.prepare('SELECT COUNT(*) as count FROM participant').get() as { count: number }
-      ).count,
-      weekCount: (
-        this.db.prepare('SELECT COUNT(*) as count FROM week').get() as { count: number }
-      ).count,
-      activityCount: (
-        this.db.prepare('SELECT COUNT(*) as count FROM activity').get() as { count: number }
-      ).count,
-      resultCount: (
-        this.db.prepare('SELECT COUNT(*) as count FROM result').get() as { count: number }
-      ).count,
-      segmentEffortCount: (
-        this.db.prepare('SELECT COUNT(*) as count FROM segment_effort').get() as { count: number }
-      ).count,
-      webhookEventCount: (
-        this.db.prepare('SELECT COUNT(*) as count FROM webhook_event').get() as { count: number }
-      ).count
+      participantCount: countOf(participant),
+      weekCount: countOf(week),
+      activityCount: countOf(activity),
+      resultCount: countOf(result),
+      segmentEffortCount: countOf(segmentEffort),
+      webhookEventCount: countOf(webhookEvent)
     };
   }
 }

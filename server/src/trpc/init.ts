@@ -32,4 +32,4 @@ const isAdmin = middleware(async ({ ctx, next }) => {
   });
 });
 
-export const adminProcedure = publicProcedure.use(isAdmin);
+export const adminProcedure = publicProcedure.use(isAdmin as any);

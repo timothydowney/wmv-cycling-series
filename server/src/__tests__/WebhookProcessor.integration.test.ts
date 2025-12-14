@@ -13,15 +13,17 @@ import { setupTestDb } from './setupTestDb'; // Import setupTestDb
 
 describe('Webhook Processor with Multiple Season Support', () => {
   let db: Database.Database;
+  let orm: import('drizzle-orm/better-sqlite3').BetterSQLite3Database;
   let validationService: ActivityValidationService;
   const now = Math.floor(Date.now() / 1000);
 
   beforeEach(() => {
     // Create in-memory test database and run migrations
-    const { db: newDb } = setupTestDb({ seed: false });
+    const { db: newDb, orm: newOrm } = setupTestDb({ seed: false });
     db = newDb;
-    // validationService needs the raw db instance
-    validationService = new ActivityValidationService(db);
+    orm = newOrm;
+    // validationService now uses Drizzle ORM
+    validationService = new ActivityValidationService(orm);
   });
 
   afterEach(() => {

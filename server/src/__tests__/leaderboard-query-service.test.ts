@@ -18,7 +18,7 @@ describe('LeaderboardQueryService', () => {
     const setup = setupTestDb({ seed: false });
     db = setup.db;
     drizzleDb = setup.drizzleDb;
-    service = new LeaderboardQueryService(db);
+    service = new LeaderboardQueryService(drizzleDb);
   });
 
   afterEach(() => {
@@ -58,7 +58,7 @@ describe('LeaderboardQueryService', () => {
       const leaderboard = service.getWeekLeaderboard(week.id);
 
       expect(leaderboard.results).toHaveLength(1);
-      expect(leaderboard.results[0]).toEqual({
+      expect(leaderboard.results[0]).toMatchObject({
         resultId: expect.any(Number),
         weekId: week.id,
         participantId: participant.strava_athlete_id,
@@ -174,7 +174,7 @@ describe('LeaderboardQueryService', () => {
       expect(details).not.toBeNull();
       expect(details?.activity.strava_activity_id).toBe(111);
       expect(details?.segmentEfforts).toHaveLength(0);
-      expect(details?.result).toBeUndefined();
+      expect(details?.result).toBeNull();
     });
 
     it('should return segment efforts with activity', () => {
@@ -242,33 +242,55 @@ describe('LeaderboardQueryService', () => {
     });
 
     it('should sum points across multiple weeks', () => {
-      const participant = createParticipant(drizzleDb, 12345, 'Alice');
+      const alice = createParticipant(drizzleDb, 12345, 'Alice');
       const week1 = createWeek(drizzleDb, { weekName: 'Week 1' });
       const week2 = createWeek(drizzleDb, { weekName: 'Week 2' });
-      
-      const activity1 = createActivity(drizzleDb, {
+
+      // Week 1: 2 participants, Alice fastest → 2 points
+      const act1Alice = createActivity(drizzleDb, {
         weekId: week1.id,
-        stravaAthleteId: participant.strava_athlete_id,
+        stravaAthleteId: alice.strava_athlete_id,
         stravaActivityId: 111,
       });
-      const activity2 = createActivity(drizzleDb, {
-        weekId: week2.id,
-        stravaAthleteId: participant.strava_athlete_id,
+      const bob = createParticipant(drizzleDb, 67890, 'Bob');
+      const act1Bob = createActivity(drizzleDb, {
+        weekId: week1.id,
+        stravaAthleteId: bob.strava_athlete_id,
         stravaActivityId: 222,
       });
 
       createResult(drizzleDb, {
         weekId: week1.id,
-        stravaAthleteId: participant.strava_athlete_id,
-        activityId: activity1.id,
+        stravaAthleteId: alice.strava_athlete_id,
+        activityId: act1Alice.id,
+        totalTimeSeconds: 1000,
       });
       createResult(drizzleDb, {
-        weekId: week2.id,
-        stravaAthleteId: participant.strava_athlete_id,
-        activityId: activity2.id,
+        weekId: week1.id,
+        stravaAthleteId: bob.strava_athlete_id,
+        activityId: act1Bob.id,
+        totalTimeSeconds: 1200,
       });
 
-      const history = service.getParticipantActivityHistory(participant.strava_athlete_id);
+      // Week 2: 4 participants, Alice fastest → 4 points
+      const act2Alice = createActivity(drizzleDb, {
+        weekId: week2.id,
+        stravaAthleteId: alice.strava_athlete_id,
+        stravaActivityId: 333,
+      });
+      const p2 = createParticipant(drizzleDb, 22222, 'P2');
+      const p3 = createParticipant(drizzleDb, 33333, 'P3');
+      const p4 = createParticipant(drizzleDb, 44444, 'P4');
+      const act2P2 = createActivity(drizzleDb, { weekId: week2.id, stravaAthleteId: p2.strava_athlete_id, stravaActivityId: 444 });
+      const act2P3 = createActivity(drizzleDb, { weekId: week2.id, stravaAthleteId: p3.strava_athlete_id, stravaActivityId: 555 });
+      const act2P4 = createActivity(drizzleDb, { weekId: week2.id, stravaAthleteId: p4.strava_athlete_id, stravaActivityId: 666 });
+
+      createResult(drizzleDb, { weekId: week2.id, stravaAthleteId: alice.strava_athlete_id, activityId: act2Alice.id, totalTimeSeconds: 900 });
+      createResult(drizzleDb, { weekId: week2.id, stravaAthleteId: p2.strava_athlete_id, activityId: act2P2.id, totalTimeSeconds: 1000 });
+      createResult(drizzleDb, { weekId: week2.id, stravaAthleteId: p3.strava_athlete_id, activityId: act2P3.id, totalTimeSeconds: 1100 });
+      createResult(drizzleDb, { weekId: week2.id, stravaAthleteId: p4.strava_athlete_id, activityId: act2P4.id, totalTimeSeconds: 1200 });
+
+      const history = service.getParticipantActivityHistory(alice.strava_athlete_id);
 
       expect(history.weeksCompleted).toBe(2);
       expect(history.totalPoints).toBe(6); // 2 + 4
@@ -295,6 +317,10 @@ describe('LeaderboardQueryService', () => {
         stravaActivityId: 222,
       });
 
+      // Add segment efforts to produce different totals
+      createSegmentEffort(drizzleDb, { activityId: activity1.id, elapsedSeconds: 1000 });
+      createSegmentEffort(drizzleDb, { activityId: activity2.id, elapsedSeconds: 1100 });
+
       const comparison = service.compareActivities(activity1.id, activity2.id);
 
       expect(comparison.faster).toBe('activity1');
@@ -315,6 +341,10 @@ describe('LeaderboardQueryService', () => {
         stravaAthleteId: participant.strava_athlete_id,
         stravaActivityId: 222,
       });
+
+      // Equal segment efforts
+      createSegmentEffort(drizzleDb, { activityId: activity1.id, elapsedSeconds: 1000 });
+      createSegmentEffort(drizzleDb, { activityId: activity2.id, elapsedSeconds: 1000 });
 
       const comparison = service.compareActivities(activity1.id, activity2.id);
 
@@ -342,6 +372,7 @@ describe('LeaderboardQueryService', () => {
         weekId: week.id,
         stravaAthleteId: participant.strava_athlete_id,
         activityId: activity.id,
+        totalTimeSeconds: 1100,
       });
 
       const idempotency = service.verifyIdempotency(week.id, participant.strava_athlete_id);
