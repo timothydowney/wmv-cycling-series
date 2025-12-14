@@ -526,6 +526,45 @@ export async function makeRequestAsUser(requestModule: any, app: any, options: {
   return req;
 }
 
+/**
+ * Helper: Create activity WITH result entry
+ * Automatically calculates and stores results for leaderboard queries
+ */
+export function createActivityWithResult(
+  db: TestDb,
+  options: {
+    weekId: number;
+    stravaAthleteId: number;
+    stravaActivityId: number;
+    elapsedSeconds?: number;
+    prAchieved?: boolean;
+  }
+): { activity: SelectActivity; result: SelectResult } {
+  const { weekId, stravaAthleteId, stravaActivityId, elapsedSeconds = 600, prAchieved = false } = options;
+
+  const activity = createActivity(db, {
+    weekId,
+    stravaAthleteId,
+    stravaActivityId,
+  });
+
+  const resultData = createResult(db, {
+    weekId,
+    stravaAthleteId,
+    activityId: activity.id,
+    totalTimeSeconds: elapsedSeconds,
+  });
+
+  // Create segment effort
+  createSegmentEffort(db, {
+    activityId: activity.id,
+    elapsedSeconds,
+    prAchieved: prAchieved ? 1 : 0,
+  });
+
+  return { activity, result: resultData };
+}
+
 // Re-export setupTestDb and teardownTestDb for convenience in test files
 import { setupTestDb, teardownTestDb, SeedData } from './setupTestDb';
 export { setupTestDb, teardownTestDb };

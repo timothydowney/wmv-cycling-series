@@ -24,9 +24,10 @@ export class WebhookLogger {
    */
   logEvent(entry: WebhookEventLogEntry): void {
     try {
+      const processedValue = entry.processed ? 1 : 0;
       this.db.insert(webhookEvent).values({
         payload: JSON.stringify(entry.payload),
-        processed: entry.processed ? 1 : 0,
+        processed: processedValue,
         error_message: entry.errorMessage || null,
         created_at: new Date().toISOString()
       }).execute();
