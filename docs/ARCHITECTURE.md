@@ -41,13 +41,26 @@ Express app on http://localhost:3001
 - `server/data/wmv.db` - SQLite database
 - `server/scripts/` - Database seed/import/export helpers
 
-**Routes:**
-- **tRPC:** `/trpc/*` (All new features and data fetching)
-- **Auth:** `/auth/strava`, `/auth/strava/callback`, `/auth/status`, `/POST auth/disconnect`
-- **Admin:** `/admin/weeks/*` (Batch fetch triggers)
-- **Webhooks:** `/webhooks/*` (Strava event handling)
+**API Endpoints (tRPC):**
+- **tRPC routers** (`server/src/trpc/routers/`):
+  - `leaderboardRouter` - Week and season leaderboard queries
+  - `weekRouter` - Week CRUD operations (create, read, update, delete)
+  - `segmentRouter` - Segment management (list, create, validate)
+  - `participantRouter` - Participant information and connection status
+  - `seasonRouter` - Season management
+- **REST endpoints** (legacy, being phased out):
+  - `/auth/strava`, `/auth/strava/callback`, `/auth/status`, `/POST auth/disconnect`
+  - `/admin/weeks/:id/fetch-results` - Batch fetch activities
+  - `/webhooks/*` - Strava webhook events
 
-See `docs/API.md` for reference (REST API).
+**tRPC Usage:**
+All tRPC procedures use **Dependency Injection** pattern - services receive `drizzleDb` instance in constructor. This enables:
+- Type-safe queries with automatic inference
+- Easy testing with in-memory databases
+- Consistent error handling across routers
+- Centralized database access control
+
+See `docs/API.md` for complete endpoint reference.
 
 ### Database
 
@@ -293,16 +306,21 @@ For complete details: See `ADMIN_GUIDE.md`
 
 ## Scoring System
 
-**Points = Base Points + PR Bonus**
+**Points = Base Points + Participation Bonus + PR Bonus**
 
-**Base Points:** Number of participants you beat + 1 (for competing)
+**Base Points:** Number of participants you beat
 - Example with 4 finishers:
   - 1st place beats 3 → 3 base points
   - 2nd place beats 2 → 2 base points
   - 3rd place beats 1 → 1 base point
   - 4th place beats 0 → 0 base points
 
-**PR Bonus:** +1 if you set a personal record on any segment effort
+**Participation Bonus:** +1 point for every competitor (always awarded with a valid activity)
+
+**PR Bonus:** +1 point if you achieved a personal record on any segment effort
+- **Maximum 1 PR bonus per week**, even if multiple segment efforts are PRs
+
+**Implementation Detail:** Scores are **computed fresh on every leaderboard request**, not stored in the database. This ensures scores remain accurate even when participants delete their data.
 
 **Season Points:** Sum of all weekly points
 
