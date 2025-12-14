@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { Week, LeaderboardEntry } from '../types';
 import { formatLapCount } from '../utils/lapFormatter';
 import { formatUnixDate } from '../utils/dateUtils';
@@ -15,6 +15,8 @@ interface Props {
 
 const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard, weekNumber }) => {
   const userAthleteId = useCurrentUser();
+  const [expandedPointsId, setExpandedPointsId] = useState<number | null>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
 
   // Always render the component - show a generic title if no week selected
   const formattedDate = week ? formatUnixDate(week.start_at) : null;
@@ -100,12 +102,12 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard, weekNumber }) =
                                     effort.time_hhmmss
                                   )}
                                 </span>
-                                {effort.is_pr && <span style={{ marginLeft: '8px', color: '#ff6b35' }}>⭐</span>}
+                                {effort.is_pr && <span style={{ marginLeft: '8px', color: '#ff6b35' }}>🏆</span>}
                               </div>
                             ))}
                             <div style={{ borderTop: '1px solid #ccc', paddingTop: '4px', color: 'var(--wmv-purple)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <span>Total: {entry.time_hhmmss}</span>
-                              {hasPR && <span style={{ marginLeft: '8px', color: '#ffd700' }}>⭐</span>}
+                              {hasPR && <span style={{ marginLeft: '8px', color: '#ffd700' }}>🏆</span>}
                             </div>
                           </div>
                         ) : (
@@ -123,14 +125,49 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard, weekNumber }) =
                             ) : (
                               entry.time_hhmmss
                             )}
-                            {hasPR && <span style={{ color: '#ffd700' }}>⭐</span>}
+                            {hasPR && <span style={{ color: '#ffd700' }}>🏆</span>}
                           </div>
                         )}
                       </>
                     );
                   })()}
                 </td>
-                <td>{entry.points}{entry.pr_bonus_points > 0 ? ` + ${entry.pr_bonus_points}` : ''}</td>
+                <td>
+                  <div className="points-with-info">
+                    {(() => {
+                      const multiplier = week?.multiplier || 1;
+                      const baseTotal = entry.points / multiplier;
+                      const beaten = baseTotal - 1 - entry.pr_bonus_points; // base = beaten + 1 (participation) + pr
+                      const participation = 1;
+                      const prBonus = entry.pr_bonus_points;
+                      
+                      // Build calculation string
+                      let calculation = `${beaten} beaten + ${participation} participation`;
+                      if (prBonus > 0) calculation += ` + ${prBonus} PR`;
+                      calculation += ` = ${baseTotal}`;
+                      if (multiplier > 1) calculation += ` × ${multiplier} = ${entry.points}`;
+                      
+                      return (
+                        <>
+                          <span>{entry.points}</span>
+                          <button
+                            className="points-info-btn"
+                            onClick={() => setExpandedPointsId(expandedPointsId === entry.participant_id ? null : entry.participant_id)}
+                            title="Show points breakdown"
+                            aria-label="Show points breakdown"
+                          >
+                            ⓘ
+                          </button>
+                          {expandedPointsId === entry.participant_id && (
+                            <div className="points-breakdown-popup" ref={popupRef}>
+                              {calculation}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </td>
                 <td>{entry.device_name || '—'}</td>
               </tr>
             );
