@@ -21,14 +21,24 @@ import { eq } from 'drizzle-orm';
 import express, { Express } from 'express';
 import { createWebhookRouter } from '../routes/webhooks';
 import { WebhookLogger } from '../webhooks/logger';
+import { reloadConfig } from '../config';
 
 describe('Webhook HTTP Handler', () => {
   let db: Database;
   let drizzleDb: BetterSQLite3Database;
   let app: Express;
   let logger: WebhookLogger;
+  const TEST_WEBHOOK_VERIFY_TOKEN = 'test-webhook-verify-token-for-ci';
 
   beforeAll(() => {
+    // Ensure WEBHOOK_VERIFY_TOKEN is set for tests (CI doesn't load .env)
+    if (!process.env.WEBHOOK_VERIFY_TOKEN) {
+      process.env.WEBHOOK_VERIFY_TOKEN = TEST_WEBHOOK_VERIFY_TOKEN;
+    }
+    
+    // Reload config to pick up the environment variable
+    reloadConfig();
+    
     const setup = setupTestDb({ seed: false });
     db = setup.db;
     drizzleDb = setup.drizzleDb;
@@ -55,7 +65,7 @@ describe('Webhook HTTP Handler', () => {
   describe('GET /webhooks/strava - Subscription Validation', () => {
     it('should respond with challenge on valid subscription request', async () => {
       const challenge = 'test-challenge-string-12345';
-      const verifyToken = process.env.WEBHOOK_VERIFY_TOKEN || 'default-verify-token';
+      const verifyToken = process.env.WEBHOOK_VERIFY_TOKEN || TEST_WEBHOOK_VERIFY_TOKEN;
 
       const response = await request(app)
         .get('/webhooks/strava')
