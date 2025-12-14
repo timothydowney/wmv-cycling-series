@@ -16,6 +16,7 @@ export interface Week {
   strava_segment_id: number;
   segment_id?: number; // Legacy alias
   required_laps: number;
+  multiplier: number;
   start_at: number;
   end_at: number;
   notes?: string | null;

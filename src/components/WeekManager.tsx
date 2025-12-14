@@ -15,6 +15,7 @@ interface WeekFormData {
   segment_id: number;
   segment_name: string;
   required_laps: number;
+  multiplier: number;
   notes: string;
   // Display format: datetime-local inputs use YYYY-MM-DDTHH:MM format
   // We convert to/from Unix timestamps for API
@@ -65,6 +66,7 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
     segment_id: 0,
     segment_name: '',
     required_laps: 1,
+    multiplier: 1,
     notes: '',
     start_time: '',
     end_time: ''
@@ -88,6 +90,7 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
             segment_id: 0,
             segment_name: '',
             required_laps: 1,
+            multiplier: 1,
             notes: '',
             start_time: '',
             end_time: ''
@@ -100,7 +103,7 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
     
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'segment_id' || name === 'required_laps' 
+      [name]: name === 'segment_id' || name === 'required_laps' || name === 'multiplier'
         ? parseInt(value) || 0
         : value
     }));
@@ -154,6 +157,7 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
                 segment_id: formData.segment_id,
                 segment_name: formData.segment_name,
                 required_laps: formData.required_laps,
+                multiplier: formData.multiplier,
                 start_at: datetimeLocalToUnix(formData.start_time),
                 end_at: datetimeLocalToUnix(formData.end_time),
                 notes: formData.notes,
@@ -166,6 +170,7 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
             segment_id: formData.segment_id,
             segment_name: formData.segment_name,
             required_laps: formData.required_laps,
+            multiplier: formData.multiplier,
             start_at: datetimeLocalToUnix(formData.start_time),
             end_at: datetimeLocalToUnix(formData.end_time),
             notes: formData.notes,
@@ -188,7 +193,8 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
         required_laps: 1,
         start_time: '',
         end_time: '',
-        notes: ''
+        notes: '',
+        multiplier: 1
       });
       
       // Clear message after 3 seconds
@@ -216,6 +222,7 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
       segment_id: week.strava_segment_id ?? week.segment_id,
       segment_name: week.segment_name || '',
       required_laps: week.required_laps,
+      multiplier: week.multiplier || 1,
       notes: week.notes || '',
       start_time: unixToDatetimeLocal(week.start_at),
       end_time: unixToDatetimeLocal(week.end_at)
@@ -309,6 +316,7 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
       segment_id: 0,
       segment_name: '',
       required_laps: 1,
+      multiplier: 1,
       start_time: '',
       end_time: '',
       notes: ''
@@ -344,6 +352,7 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
                 <th>Name</th>
                 <th>Segment</th>
                 <th>Laps</th>
+                <th>Multiplier</th>
                 <th>Start</th>
                 <th>End</th>
                 <th>Actions</th>
@@ -367,6 +376,7 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
                     </div>
                   </td>
                   <td>{week.required_laps}</td>
+                  <td>{typeof week.multiplier === 'number' && week.multiplier >= 1 ? `${week.multiplier}x` : '-'}</td>
                   <td>{formatUnixDate(week.start_at)} {formatUnixTime(week.start_at)}</td>
                   <td>{formatUnixDate(week.end_at)} {formatUnixTime(week.end_at)}</td>
                   <td>
@@ -458,6 +468,21 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
                 required
                 min="1"
               />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="multiplier">Points Multiplier</label>
+              <input
+                type="number"
+                id="multiplier"
+                name="multiplier"
+                value={formData.multiplier}
+                onChange={handleInputChange}
+                min="1"
+                max="5"
+                step="1"
+              />
+              <small>Points multiplier for this week (1-5, default 1)</small>
             </div>
           </div>
 

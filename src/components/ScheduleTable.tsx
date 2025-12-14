@@ -61,6 +61,7 @@ const ScheduleTable: React.FC<Props> = ({ weeks, season }) => {
             <th>Date</th>
             <th>Course / Segment</th>
             <th>Laps</th>
+            <th>Multiplier</th>
             <th className="participants-header">Participants</th>
           </tr>
         </thead>
@@ -123,6 +124,7 @@ const ScheduleTable: React.FC<Props> = ({ weeks, season }) => {
                   </div>
                 </td>
                 <td className="required-laps">{week.required_laps}</td>
+                <td className="multiplier-cell">{typeof week.multiplier === 'number' && week.multiplier >= 1 ? `${week.multiplier}x` : '-'}</td>
                 <td className="participants-count">
                   {week.participants_count ? week.participants_count : '-'}
                 </td>

@@ -97,3 +97,53 @@
 .notes-display-content.ProseMirror h3 {
   font-size: 16px;
 }
+.points-with-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+
+.points-info-btn {
+  background: none;
+  border: none;
+  color: var(--wmv-orange);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.points-info-btn:hover {
+  background-color: var(--wmv-orange-light, #fff5f0);
+  color: var(--wmv-orange-hover, #e74c00);
+}
+
+.points-breakdown-popup {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: -20px;
+  background: var(--wmv-orange);
+  color: white;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.points-breakdown-popup div {
+  line-height: 1.6;
+}
+
+.points-breakdown-popup strong {
+  font-weight: 600;
+}
