@@ -83,6 +83,9 @@
   align-items: center;
   gap: 12px;
   position: relative;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 /* Strava Status Icon - Using Strava Brand Colors */
@@ -276,4 +279,266 @@
 .app-content {
   margin-top: 60px;
   padding: 20px;
+}
+
+/* ============================================================ */
+/* RESPONSIVE DESIGN FOR SMALLER SCREENS */
+/* ============================================================ */
+
+/* Tablet and smaller (under 1024px) */
+@media (max-width: 1023px) {
+  .navbar {
+    padding: 0 12px;
+    height: 64px;
+  }
+
+  .navbar-left {
+    gap: 12px;
+  }
+
+  .navbar-right {
+    gap: 8px;
+  }
+
+  .navbar-logo {
+    height: 36px;
+  }
+
+  .navbar-title {
+    font-size: clamp(0.9rem, 2.5vw, 1.1rem);
+  }
+
+  .strava-status-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .status-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .menu-button {
+    width: 36px;
+    height: 36px;
+  }
+
+  .menu-button svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .dropdown-menu {
+    width: 260px;
+  }
+}
+
+/* Mobile devices (under 768px) */
+@media (max-width: 767px) {
+  .navbar {
+    padding: 0 6px;
+    height: 56px;
+  }
+
+  .navbar-left {
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .navbar-logo {
+    height: 32px;
+    min-width: 32px;
+    max-width: 32px;
+  }
+
+  .navbar-title-section {
+    gap: 1px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .navbar-title {
+    font-size: clamp(0.85rem, 2vw, 1rem);
+    line-height: 1.2;
+    margin: 0;
+  }
+
+  .navbar-org-link {
+    font-size: var(--font-xs);
+  }
+
+  .navbar-right {
+    gap: 2px;
+    flex-shrink: 0;
+  }
+
+  .strava-status-icon {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+  }
+
+  .status-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .menu-button {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+  }
+
+  .menu-button svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .dropdown-menu {
+    width: 240px;
+    top: 44px;
+    max-width: calc(100vw - 12px);
+    right: 6px;
+  }
+
+  .menu-header {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .profile-pic {
+    width: 36px;
+    height: 36px;
+  }
+
+  .menu-item {
+    padding: 10px 12px;
+    font-size: var(--font-xs);
+    gap: 10px;
+  }
+
+  .menu-icon {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+/* Extra small screens (under 480px) */
+@media (max-width: 479px) {
+  .navbar {
+    padding: 0 4px;
+    height: 48px;
+    gap: 4px;
+  }
+
+  .navbar-left {
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .navbar-home-link {
+    height: 36px;
+    min-width: 36px;
+    max-width: 36px;
+  }
+
+  .navbar-logo {
+    height: 24px;
+    min-width: 24px;
+    max-width: 24px;
+    display: none;
+  }
+
+  .navbar-title-section {
+    gap: 0;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .navbar-title {
+    font-size: clamp(0.7rem, 1.5vw, 0.9rem);
+    line-height: 1;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .navbar-org-link {
+    font-size: 9px;
+    display: none;
+  }
+
+  .navbar-right {
+    gap: 1px;
+    flex-shrink: 0;
+  }
+
+  .strava-status-icon {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+  }
+
+  .status-icon {
+    width: 13px;
+    height: 13px;
+  }
+
+  .menu-button {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    padding: 2px;
+  }
+
+  .menu-button svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .dropdown-menu {
+    width: calc(100vw - 8px);
+    max-width: 320px;
+    top: 36px;
+    right: 4px;
+    left: auto;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+
+  .menu-header {
+    padding: 6px 10px;
+    gap: 6px;
+  }
+
+  .profile-pic {
+    width: 32px;
+    height: 32px;
+  }
+
+  .profile-name {
+    font-size: 9px;
+  }
+
+  .menu-item {
+    padding: 8px 10px;
+    font-size: 9px;
+    gap: 8px;
+  }
+
+  .menu-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .menu-section {
+    padding: 4px 0;
+  }
+
+  .menu-divider {
+    margin: 0;
+  }
 }

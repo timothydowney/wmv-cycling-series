@@ -1,18 +1,25 @@
 #root {
   margin: 0;
   padding: 0;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 .app {
   display: flex;
   flex-direction: column;
   gap: 2rem;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 .app-content {
   max-width: 1280px;
   margin: 80px auto 0;
   padding: clamp(1rem, 4vw, 2rem);
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 
