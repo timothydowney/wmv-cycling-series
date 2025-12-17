@@ -5,6 +5,7 @@ import SeasonLeaderboard from './components/SeasonLeaderboard';
 import ScheduleTable from './components/ScheduleTable';
 import SeasonWeekSelectors from './components/SeasonWeekSelectors';
 import NavBar from './components/NavBar';
+import BottomNav, { TabType } from './components/BottomNav';
 import AdminPanel from './components/AdminPanel';
 import ParticipantStatus from './components/ParticipantStatus';
 import ManageSegments from './components/ManageSegments';
@@ -27,6 +28,7 @@ function AppContent() {
   const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(null);
   const [selectedWeekId, setSelectedWeekId] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('leaderboard');
+  const [activeTab, setActiveTab] = useState<TabType>('weekly');
   const userAthleteId = useCurrentUser();
 
   // tRPC Queries
@@ -187,9 +189,10 @@ function AppContent() {
               weeks={weeks as Week[]} // Cast to compatible Week type
               selectedWeekId={selectedWeekId}
               setSelectedWeekId={setSelectedWeekId}
+              showWeekSelector={activeTab === 'weekly'}
             />
 
-            {(() => {
+            {activeTab === 'weekly' && (() => {
               // Calculate week number for display
               let weekNumber = undefined;
               if (selectedWeek && weeks.length > 0) {
@@ -216,11 +219,16 @@ function AppContent() {
               );
             })()}
 
-            {selectedSeason && <SeasonLeaderboard season={selectedSeason} />}
+            {activeTab === 'season' && selectedSeason && (
+              <SeasonLeaderboard season={selectedSeason} />
+            )}
 
-            <ScheduleTable weeks={weeks as Week[]} season={selectedSeason || undefined} />
+            {activeTab === 'schedule' && (
+              <ScheduleTable weeks={weeks as Week[]} season={selectedSeason || undefined} />
+            )}
 
             <Footer />
+            <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
           </>
         )}
       </div>

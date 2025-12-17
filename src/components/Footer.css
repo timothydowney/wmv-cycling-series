@@ -121,22 +121,36 @@
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .app-footer {
-    padding: 12px 16px;
-    margin-top: 30px;
+    padding: 12px 8px;
+    margin-top: 20px;
   }
 
   .footer-content {
-    gap: 10px;
-  }
-
-  .footer-section {
-    flex-direction: column;
     gap: 8px;
   }
 
-  .strava-logo {
-    width: 18px;
-    height: 18px;
+  .footer-section {
+    /* Keep row direction for links, allow wrapping */
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  
+  /* Ensure info section stays column */
+  .footer-info {
+    flex-direction: column;
+  }
+
+  .strava-logo-img {
+    height: 16px;
+  }
+  
+  .footer-text {
+    font-size: 11px;
+  }
+  
+  .footer-link {
+    font-size: 11px;
   }
 }
 

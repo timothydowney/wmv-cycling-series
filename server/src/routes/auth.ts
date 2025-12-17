@@ -111,7 +111,7 @@ export default (services: AuthServices): Router => {
    * GET /auth/status
    * Check current authentication status
    */
-  router.get('/status', (req: Request, res: Response): void => {
+  router.get('/status', async (req: Request, res: Response): Promise<void> => {
     const sess = req.session as Session & {
       stravaAthleteId?: number;
       athleteName?: string;
@@ -137,7 +137,7 @@ export default (services: AuthServices): Router => {
       }
 
       // Use LoginService to get full auth status
-      const status = loginService.getAuthStatus(athleteId);
+      const status = await loginService.getAuthStatus(athleteId);
       res.json(status);
     } catch (error) {
       console.error('Error getting auth status:', error);

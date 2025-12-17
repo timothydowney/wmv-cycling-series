@@ -60,7 +60,7 @@ const NavBar: React.FC<NavBarProps> = ({ onAdminPanelToggle, isAdminPanelOpen: _
           id: data.participant.strava_athlete_id,
           firstname: nameParts[0] || '',
           lastname: nameParts.slice(1).join(' ') || '',
-          profile: undefined // We don't have profile photo in our current schema
+          profile: data.participant.profile_picture_url || undefined
         });
       } else {
         setAthleteInfo(null);
@@ -104,7 +104,10 @@ const NavBar: React.FC<NavBarProps> = ({ onAdminPanelToggle, isAdminPanelOpen: _
           <img src="/wmv-logo.png" alt="Western Mass Velo" className="navbar-logo" />
         </a>
         <div className="navbar-title-section">
-          <h1 className="navbar-title">Zwift Hill Climb/Time Trial Series</h1>
+          <h1 className="navbar-title">
+            <span className="desktop-title">Zwift Hill Climb/Time Trial Series</span>
+            <span className="mobile-title">Zwift Series</span>
+          </h1>
           <a href="https://westernmassvelo.com/" target="_blank" rel="noopener noreferrer" className="navbar-org-link">
             Western Mass Velo
           </a>
@@ -112,27 +115,24 @@ const NavBar: React.FC<NavBarProps> = ({ onAdminPanelToggle, isAdminPanelOpen: _
       </div>
       
       <div className="navbar-right">
-        {/* Strava Connection Status - Using Strava Orange */}
-        <div className="strava-status-icon" title={isConnected ? 'Connected to Strava' : 'Not connected to Strava'}>
-          {isConnected ? (
-            <svg className="status-icon strava-connected" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-            </svg>
+        {/* Profile Menu Trigger */}
+        <button className="profile-menu-button" onClick={toggleMenu} aria-label="Menu">
+          {isConnected && athleteInfo ? (
+            athleteInfo.profile ? (
+              <img src={athleteInfo.profile} alt="Profile" className="navbar-profile-pic" />
+            ) : (
+              <div className="navbar-profile-initials">
+                {athleteInfo.firstname.charAt(0)}{athleteInfo.lastname.charAt(0)}
+              </div>
+            )
           ) : (
-            <svg className="status-icon strava-disconnected" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <div className="navbar-profile-placeholder">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+            </div>
           )}
-        </div>
-
-        {/* Unit Preference Toggle Switch */}
-        <UnitToggle units={units} setUnits={setUnits} />
-
-        {/* Hamburger Menu */}
-        <button className="menu-button" onClick={toggleMenu} aria-label="Menu">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
         </button>
 
         {/* Dropdown Menu */}
@@ -143,8 +143,12 @@ const NavBar: React.FC<NavBarProps> = ({ onAdminPanelToggle, isAdminPanelOpen: _
               {isConnected && athleteInfo ? (
                 <div className="menu-section">
                   <div className="menu-header">
-                    {athleteInfo.profile && (
+                    {athleteInfo.profile ? (
                       <img src={athleteInfo.profile} alt="Profile" className="profile-pic" />
+                    ) : (
+                      <div className="profile-pic-placeholder">
+                        {athleteInfo.firstname.charAt(0)}{athleteInfo.lastname.charAt(0)}
+                      </div>
                     )}
                     <div className="profile-info">
                       <div className="profile-name">{athleteInfo.firstname} {athleteInfo.lastname}</div>
@@ -159,6 +163,16 @@ const NavBar: React.FC<NavBarProps> = ({ onAdminPanelToggle, isAdminPanelOpen: _
                   </div>
                 </div>
               )}
+
+              <div className="menu-divider" />
+
+              {/* Unit Toggle in Menu */}
+              <div className="menu-section">
+                <div className="menu-item-custom">
+                  <span className="menu-label">Units</span>
+                  <UnitToggle units={units} setUnits={setUnits} />
+                </div>
+              </div>
 
               <div className="menu-divider" />
 
