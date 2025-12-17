@@ -38,6 +38,7 @@ export interface Participant {
   name: string;
   strava_athlete_id: number;
   is_connected: number; // 0 or 1
+  profile_picture_url?: string | null;
 }
 
 export interface AuthStatus {

@@ -8,11 +8,13 @@ import { eq } from 'drizzle-orm';
 import { participant, participantToken } from '../db/schema';
 import { encryptToken, decryptToken } from '../encryption';
 import * as stravaClient from '../stravaClient';
+import { getAthleteProfilePicture } from './StravaProfileService';
 
 interface ParticipantData {
   strava_athlete_id: number;
   name: string;
   is_connected: boolean;
+  profile_picture_url?: string | null;
 }
 
 interface AuthStatus {
@@ -106,7 +108,7 @@ class LoginService {
   /**
    * Get current authentication status
    */
-  getAuthStatus(athleteId?: number): AuthStatus {
+  async getAuthStatus(athleteId?: number): Promise<AuthStatus> {
     if (!athleteId) {
       return { 
         authenticated: false,
@@ -142,12 +144,23 @@ class LoginService {
     const adminIds = this.getAdminAthleteIds();
     const isAdmin = adminIds.includes(athleteId);
 
+    let profilePictureUrl: string | null = null;
+    if (tokenCheck) {
+      try {
+        const accessToken = await this.getValidAccessToken(athleteId);
+        profilePictureUrl = await getAthleteProfilePicture(athleteId, accessToken);
+      } catch (error) {
+        console.warn(`[LOGIN] Failed to fetch profile picture for athlete ${athleteId}:`, error);
+      }
+    }
+
     return {
       authenticated: true,
       participant: {
         name: participantData.name,
         strava_athlete_id: participantData.strava_athlete_id,
-        is_connected: !!tokenCheck
+        is_connected: !!tokenCheck,
+        profile_picture_url: profilePictureUrl
       },
       is_admin: isAdmin
     };

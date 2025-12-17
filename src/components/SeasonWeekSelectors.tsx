@@ -11,6 +11,7 @@ interface Props {
   weeks: Week[];
   selectedWeekId: number | null;
   setSelectedWeekId: (id: number) => void;
+  showWeekSelector?: boolean;
 }
 
 const SeasonWeekSelectors: React.FC<Props> = ({
@@ -19,7 +20,8 @@ const SeasonWeekSelectors: React.FC<Props> = ({
   setSelectedSeasonId,
   weeks,
   selectedWeekId,
-  setSelectedWeekId
+  setSelectedWeekId,
+  showWeekSelector = true
 }) => {
   // Show empty state if no seasons
   if (seasons.length === 0) {
@@ -58,11 +60,13 @@ const SeasonWeekSelectors: React.FC<Props> = ({
         selectedSeasonId={selectedSeasonId}
         setSelectedSeasonId={setSelectedSeasonId}
       />
-      <WeekSelector
-        weeks={weeks}
-        selectedWeekId={selectedWeekId}
-        setSelectedWeekId={setSelectedWeekId}
-      />
+      {showWeekSelector && (
+        <WeekSelector
+          weeks={weeks}
+          selectedWeekId={selectedWeekId}
+          setSelectedWeekId={setSelectedWeekId}
+        />
+      )}
     </div>
   );
 };
