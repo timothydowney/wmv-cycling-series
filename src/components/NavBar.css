@@ -489,11 +489,12 @@
 
   .navbar-title {
     font-size: clamp(0.8rem, 4vw, 1rem);
-    line-height: 1;
+    line-height: 1.2;
     margin: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    padding-bottom: 2px; /* Extra breathing room for descenders */
   }
 
   .desktop-title {

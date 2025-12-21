@@ -12,7 +12,7 @@ import ManageSegments from './components/ManageSegments';
 import SeasonManager from './components/SeasonManager';
 import WebhookManagementPanel from './components/WebhookManagementPanel';
 import StravaConnectInfoBox from './components/StravaConnectInfoBox';
-import Footer from './components/Footer';
+import AboutPage from './components/AboutPage';
 import { useCurrentUser } from './hooks/useCurrentUser';
 import { UnitProvider } from './context/UnitContext';
 
@@ -21,7 +21,7 @@ import { httpBatchLink } from '@trpc/client';
 import { trpc } from './utils/trpc';
 import { Week } from './types'; // Import shared types
 
-type ViewMode = 'leaderboard' | 'admin' | 'participants' | 'segments' | 'seasons' | 'webhooks';
+type ViewMode = 'leaderboard' | 'admin' | 'participants' | 'segments' | 'seasons' | 'webhooks' | 'about';
 
 function AppContent() {
   const utils = trpc.useUtils();
@@ -106,6 +106,20 @@ function AppContent() {
     setViewMode('leaderboard');
   };
 
+  const getPageTitle = (mode: ViewMode) => {
+    switch (mode) {
+      case 'admin': return 'Manage Competition';
+      case 'participants': return 'Participant Status';
+      case 'segments': return 'Manage Segments';
+      case 'seasons': return 'Manage Seasons';
+      case 'webhooks': return 'Manage Webhooks';
+      case 'about': return 'About';
+      case 'leaderboard':
+      default:
+        return 'Leaderboard';
+    }
+  };
+
   if (isLoading && !seasons.length) {
     return (
       <div className="app app-content">
@@ -125,12 +139,14 @@ function AppContent() {
   return (
     <UnitProvider>
       <NavBar 
+        title={getPageTitle(viewMode)}
         onAdminPanelToggle={() => setViewMode(viewMode === 'admin' ? 'leaderboard' : 'admin')} 
         isAdminPanelOpen={viewMode === 'admin'}
         onParticipantsClick={() => setViewMode('participants')}
         onLeaderboardClick={() => setViewMode('leaderboard')}
         onManageSeasonsClick={() => setViewMode('seasons')}
         onWebhooksClick={() => setViewMode('webhooks')}
+        onAboutClick={() => setViewMode('about')}
       />
       
       <div className="app app-content">
@@ -142,43 +158,25 @@ function AppContent() {
               selectedSeasonId={selectedSeasonId}
               onSeasonChange={setSelectedSeasonId}
             />
-            <Footer />
           </>
         ) : viewMode === 'participants' ? (
           <>
-            <div>
-              <h1 style={{ marginBottom: '2rem' }}>Participant Status</h1>
-              <ParticipantStatus />
-            </div>
-            <Footer />
+            <ParticipantStatus />
           </>
         ) : viewMode === 'segments' ? (
           <>
-            <div>
-              <h1 style={{ marginBottom: '1rem' }}>Manage Segments</h1>
-              <p className="admin-subtitle" style={{ marginTop: 0 }}>Add new Strava segments and manage known segments</p>
-              <ManageSegments />
-            </div>
-            <Footer />
+            <ManageSegments />
           </>
         ) : viewMode === 'seasons' ? (
           <>
-            <div>
-              <h1 style={{ marginBottom: '1rem' }}>Manage Seasons</h1>
-              <p className="admin-subtitle" style={{ marginTop: 0 }}>Add, edit, and remove seasons for the Zwift Hill Climb/Time Trial Series</p>
-              <SeasonManager onSeasonsChanged={handleSeasonsChanged} />
-            </div>
-            <Footer />
+            <SeasonManager onSeasonsChanged={handleSeasonsChanged} />
           </>
         ) : viewMode === 'webhooks' ? (
           <>
-            <div>
-              <h1 style={{ marginBottom: '1rem' }}>Manage Webhooks</h1>
-              <p className="admin-subtitle" style={{ marginTop: 0 }}>Monitor and manage real-time activity updates from Strava</p>
-              <WebhookManagementPanel />
-            </div>
-            <Footer />
+            <WebhookManagementPanel />
           </>
+        ) : viewMode === 'about' ? (
+          <AboutPage />
         ) : (
           <>
             <StravaConnectInfoBox show={userAthleteId === null} />
@@ -227,7 +225,6 @@ function AppContent() {
               <ScheduleTable weeks={weeks as Week[]} season={selectedSeason || undefined} />
             )}
 
-            <Footer />
             <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
           </>
         )}
