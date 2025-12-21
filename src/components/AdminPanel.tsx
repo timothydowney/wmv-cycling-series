@@ -53,11 +53,6 @@ function AdminPanel({ onFetchResults, seasons, selectedSeasonId, onSeasonChange 
 
   return (
     <div className="admin-panel">
-      <div className="admin-header">
-        <h1>Manage Competition</h1>
-        <p className="admin-subtitle">Create weeks, manage segments, and fetch results for the Zwift Hill Climb/Time Trial Series</p>
-      </div>
-
       {seasons.length > 0 && (
         <div className="admin-season-selector-wrapper">
           <SeasonSelector

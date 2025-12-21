@@ -68,9 +68,7 @@ export const WebhookManagementPanel: React.FC = () => {
 
   return (
     <div className="webhook-panel">
-      <div className="webhook-header">
-        <h2>Webhook Management</h2>
-      </div>
+
 
       {error && (
         <div className="error-banner">

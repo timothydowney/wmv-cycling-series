@@ -5,12 +5,14 @@ import { useUnits } from '../context/UnitContext';
 import UnitToggle from './UnitToggle';
 
 interface NavBarProps {
+  title?: string;
   onAdminPanelToggle: () => void;
   isAdminPanelOpen: boolean;
   onParticipantsClick?: () => void;
   onLeaderboardClick?: () => void;
   onManageSeasonsClick?: () => void;
   onWebhooksClick?: () => void;
+  onAboutClick?: () => void;
 }
 
 interface AthleteInfo {
@@ -20,7 +22,7 @@ interface AthleteInfo {
   profile?: string;
 }
 
-const NavBar: React.FC<NavBarProps> = ({ onAdminPanelToggle, isAdminPanelOpen: _isAdminPanelOpen, onParticipantsClick, onLeaderboardClick, onManageSeasonsClick, onWebhooksClick }) => {
+const NavBar: React.FC<NavBarProps> = ({ title, onAdminPanelToggle, isAdminPanelOpen: _isAdminPanelOpen, onParticipantsClick, onLeaderboardClick, onManageSeasonsClick, onWebhooksClick, onAboutClick }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -105,8 +107,14 @@ const NavBar: React.FC<NavBarProps> = ({ onAdminPanelToggle, isAdminPanelOpen: _
         </a>
         <div className="navbar-title-section">
           <h1 className="navbar-title">
-            <span className="desktop-title">Zwift Hill Climb/Time Trial Series</span>
-            <span className="mobile-title">Zwift Series</span>
+            {title ? (
+              <span>{title}</span>
+            ) : (
+              <>
+                <span className="desktop-title">Zwift Hill Climb/Time Trial Series</span>
+                <span className="mobile-title">Zwift Series</span>
+              </>
+            )}
           </h1>
           <a href="https://westernmassvelo.com/" target="_blank" rel="noopener noreferrer" className="navbar-org-link">
             Western Mass Velo
@@ -174,6 +182,8 @@ const NavBar: React.FC<NavBarProps> = ({ onAdminPanelToggle, isAdminPanelOpen: _
                 </div>
               </div>
 
+
+
               <div className="menu-divider" />
 
               <div className="menu-section">
@@ -187,7 +197,7 @@ const NavBar: React.FC<NavBarProps> = ({ onAdminPanelToggle, isAdminPanelOpen: _
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
                           d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                       </svg>
-                      View Leaderboard
+                      Leaderboard
                     </button>
                     
                     {isAdmin && (
@@ -233,6 +243,17 @@ const NavBar: React.FC<NavBarProps> = ({ onAdminPanelToggle, isAdminPanelOpen: _
                       </>
                     )}
                     
+                    <button className="menu-item" onClick={() => {
+                      if (onAboutClick) onAboutClick();
+                      setIsMenuOpen(false);
+                    }}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="menu-icon">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      About
+                    </button>
+
                     <button className="menu-item danger" onClick={handleDisconnect}>
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="menu-icon">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
@@ -242,9 +263,21 @@ const NavBar: React.FC<NavBarProps> = ({ onAdminPanelToggle, isAdminPanelOpen: _
                     </button>
                   </>
                 ) : (
-                  <button className="menu-item strava-connect-menu-item" onClick={handleConnect}>
-                    <img src="/assets/strava/btn_strava_connectwith_orange.svg" alt="Connect with Strava" className="strava-connect-button" />
-                  </button>
+                  <>
+                    <button className="menu-item" onClick={() => {
+                      if (onAboutClick) onAboutClick();
+                      setIsMenuOpen(false);
+                    }}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="menu-icon">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      About
+                    </button>
+                    <button className="menu-item strava-connect-menu-item" onClick={handleConnect}>
+                      <img src="/assets/strava/btn_strava_connectwith_orange.svg" alt="Connect with Strava" className="strava-connect-button" />
+                    </button>
+                  </>
                 )}
               </div>
             </div>

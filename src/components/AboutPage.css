@@ -1,0 +1,103 @@
+.about-page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+  color: #333;
+}
+
+.about-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.about-title {
+  font-size: 2rem;
+  color: var(--wmv-purple);
+  margin-bottom: 10px;
+}
+
+.about-subtitle {
+  font-size: 1.2rem;
+  color: #666;
+}
+
+.about-section {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.about-section h2 {
+  color: var(--wmv-orange);
+  font-size: 1.5rem;
+  margin-top: 0;
+  margin-bottom: 16px;
+  border-bottom: 2px solid #f0f0f0;
+  padding-bottom: 8px;
+}
+
+.about-links {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.about-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #f9f9f9;
+  border-radius: 8px;
+  text-decoration: none;
+  color: #333;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.about-link:hover {
+  background: #f0f0f0;
+  transform: translateX(4px);
+}
+
+.about-link-icon {
+  width: 24px;
+  height: 24px;
+  color: var(--wmv-orange);
+}
+
+.strava-attribution-section {
+  text-align: center;
+  margin-top: 40px;
+  padding: 20px;
+  background: #f9f9f9;
+  border-radius: 12px;
+}
+
+.powered-by-text {
+  display: block;
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.strava-logo-large {
+  height: 48px;
+  width: auto;
+  transition: opacity 0.2s;
+}
+
+.strava-logo-large:hover {
+  opacity: 0.8;
+}
+
+.copyright-section {
+  text-align: center;
+  margin-top: 40px;
+  color: #999;
+  font-size: 0.9rem;
+}
