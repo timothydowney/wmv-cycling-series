@@ -65,7 +65,7 @@ export const LeaderboardCard: React.FC<Props> = ({
                         <span>{entry.points} pts</span>
 
                         {/* PR Badge - Trophy Icon */}
-                        {(true || hasPR) && (
+                        {hasPR && (
                             <div style={{ marginLeft: '3px', display: 'flex', alignItems: 'center' }}>
                                 <svg
                                     xmlns="http://www.w3.org/2000/svg"
