@@ -50,7 +50,11 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard, weekNumber }) =
 
   return (
     <div className="weekly-leaderboard-container">
-      <WeeklyHeader week={week} weekNumber={weekNumber} />
+      <WeeklyHeader
+        week={week}
+        weekNumber={weekNumber}
+        participantCount={week.participants_count}
+      />
 
       {week.notes && (
         <div className="week-notes-display">
