@@ -15,7 +15,7 @@
     "lint": "eslint src/ --ext .ts,.js",
     "lint:fix": "eslint src/ --ext .ts,.js --fix",
     "typecheck": "tsc --noEmit",
-    "audit": "npm audit",
+    "audit": "npm audit --audit-level=high",
     "seed": "node scripts/seed.js",
     "export:season": "node scripts/export-season-data.js",
     "import:season": "node scripts/import-season-data.js",
@@ -32,7 +32,7 @@
     "drizzle-orm": "^0.44.7",
     "express": "^4.19.2",
     "express-session": "^1.18.2",
-    "strava-v3": "^2.2.1"
+    "strava-v3": "^3.1.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.8",
@@ -44,7 +44,7 @@
     "@types/supertest": "^6.0.3",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
-    "drizzle-kit": "^0.31.7",
+    "drizzle-kit": "^0.31.8",
     "eslint": "^8.45.0",
     "jest": "^30.2.0",
     "nodemon": "^3.1.10",
