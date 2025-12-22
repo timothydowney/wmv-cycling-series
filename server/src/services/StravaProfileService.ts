@@ -71,7 +71,7 @@ async function getAthleteProfilePicture(athleteId: number, accessToken: string):
 
     // Wrap the API call with a timeout to prevent hanging on slow/unreachable Strava API
     const athleteData = await withTimeout(
-      (client.getEndpoint as any)(`athletes/${athleteId}`, { id: athleteId }),
+      (client.athlete as any).client.getEndpoint(`athletes/${athleteId}`, { id: athleteId }),
       PROFILE_FETCH_TIMEOUT_MS,
       `Strava profile fetch for athlete ${athleteId}`
     ) as any;
