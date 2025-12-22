@@ -21,9 +21,10 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard, weekNumber }) =
   // Reset expansion when week changes
   useEffect(() => {
     setExpandedCardId(null);
-    setIsNotesExpanded(false);
+    // Default to expanded if the week has notes
+    setIsNotesExpanded(!!week?.notes);
     hasAutoExpanded.current = false; // Reset auto-expansion flag when week changes
-  }, [week?.id]);
+  }, [week?.id, week?.notes]);
 
   // Auto-expand the first place winner on load, but only once
   useEffect(() => {
