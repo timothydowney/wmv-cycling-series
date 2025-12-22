@@ -6,6 +6,7 @@ interface Props {
   profilePictureUrl?: string | null;
   showName?: boolean;
   size?: number;
+  inverted?: boolean;
 }
 
 /**
@@ -19,7 +20,8 @@ const StravaAthleteBadge: React.FC<Props> = ({
   name,
   profilePictureUrl,
   showName = true,
-  size = 32
+  size = 32,
+  inverted = false
 }) => {
   return (
     <a
@@ -33,16 +35,21 @@ const StravaAthleteBadge: React.FC<Props> = ({
         margin: 0,
         padding: 0,
         lineHeight: 0, // Kill ghost spacing
-        color: 'var(--wmv-purple)',
+        color: inverted ? 'white' : 'var(--wmv-purple)', // Inherit or explicit
         fontWeight: 600,
         textDecoration: 'none',
         transition: 'color 0.2s ease',
       }}
       onMouseEnter={(e) => {
-        (e.currentTarget as HTMLAnchorElement).style.color = 'var(--strava-orange, #FC5200)';
+        // Only hover color change if NOT inverted (on highlighted card, keep white)
+        if (!inverted) {
+          (e.currentTarget as HTMLAnchorElement).style.color = 'var(--strava-orange, #FC5200)';
+        }
       }}
       onMouseLeave={(e) => {
-        (e.currentTarget as HTMLAnchorElement).style.color = 'var(--wmv-purple)';
+        if (!inverted) {
+          (e.currentTarget as HTMLAnchorElement).style.color = 'var(--wmv-purple)';
+        }
       }}
       title={`View ${name} on Strava`}
     >
@@ -70,8 +77,8 @@ const StravaAthleteBadge: React.FC<Props> = ({
           height: `${size}px`,
           borderRadius: '50%',
           flexShrink: 0,
-          backgroundColor: 'var(--wmv-orange, #FC5200)',
-          color: 'white',
+          backgroundColor: inverted ? 'white' : 'var(--wmv-orange, #FC5200)',
+          color: inverted ? 'var(--wmv-orange, #FC5200)' : 'white',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
