@@ -66,14 +66,14 @@ export const LeaderboardCard: React.FC<Props> = ({
 
                         {/* PR Badge - Trophy Icon */}
                         {hasPR && (
-                            <div style={{ marginLeft: '3px', display: 'flex', alignItems: 'center' }}>
+                            <div style={{ marginLeft: '4px', display: 'flex', alignItems: 'center' }} title="Personal Record set!">
                                 <svg
                                     xmlns="http://www.w3.org/2000/svg"
                                     viewBox="0 0 24 24"
                                     fill="currentColor"
-                                    width="13"
-                                    height="13"
-                                    style={{ color: isCurrentUser ? 'white' : '#fab005' }}
+                                    width="14"
+                                    height="14"
+                                    style={{ color: isCurrentUser ? 'white' : 'var(--wmv-orange)' }}
                                 >
                                     <path fillRule="evenodd" d="M5.166 2.621v.858c-1.035.148-2.059.33-3.052.543a.5.5 0 0 0-.378.641l1.721 5.91c.273.938.927 1.655 1.71 1.991A5.797 5.797 0 0 0 9 13.917v.28c0 2.207 1.76 4.02 3.969 4.28l.204.023a8.216 8.216 0 0 1-4.706 1.1c-.815 0-1.187.975-.54 1.545 2.14 1.884 5.378 1.884 7.518 0 .647-.57-.375-1.545-.54-1.545a8.218 8.218 0 0 1-4.706-1.1l.204-.023c2.209-.26 3.969-2.073 3.969-4.28v-.28a5.795 5.795 0 0 0 3.834-1.353c.783-.336 1.437-1.052 1.71-1.991l1.721-5.91a.5.5 0 0 0-.378-.641 9.94 9.94 0 0 0-3.052-.543V2.62a.75.75 0 0 0-.75-.75h-13.5a.75.75 0 0 0-.75.75Zm12.636 1.738a8.436 8.436 0 0 1 2.502.5.501.501 0 0 1 .184.148l-1.042 3.575a4.34 4.34 0 0 1-.803.951 7.277 7.277 0 0 0 1.93-4.665 8.169 8.169 0 0 1-2.771-.51ZM5.38 5.174l-1.042 3.575a.502.502 0 0 0 .185.148 8.437 8.437 0 0 0 2.502-.5 8.17 8.17 0 0 0-2.772.509 7.278 7.278 0 0 1 1.93 4.665 4.341 4.341 0 0 0-.803-.951Z" clipRule="evenodd" />
                                 </svg>
@@ -143,7 +143,29 @@ export const LeaderboardCard: React.FC<Props> = ({
                                     <React.Fragment key={i}>
                                         <div style={{ color: 'var(--wmv-text-light)', paddingRight: '12px' }}>Lap {effort.lap}</div>
                                         <div style={{ borderBottom: '1px dotted #e0e0e0', position: 'relative', top: '-6px' }} />
-                                        <div style={{ textAlign: 'right', fontWeight: 500, paddingLeft: '8px' }}>
+                                        <div style={{
+                                            textAlign: 'right',
+                                            fontWeight: 500,
+                                            paddingLeft: '8px',
+                                            display: 'flex',
+                                            justifyContent: 'flex-end',
+                                            alignItems: 'center',
+                                            gap: '6px'
+                                        }}>
+                                            {effort.is_pr && (
+                                                <span title="PR on this lap" style={{ display: 'flex', alignItems: 'center' }}>
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        viewBox="0 0 24 24"
+                                                        fill="currentColor"
+                                                        width="12"
+                                                        height="12"
+                                                        style={{ color: 'var(--wmv-orange)' }}
+                                                    >
+                                                        <path fillRule="evenodd" d="M5.166 2.621v.858c-1.035.148-2.059.33-3.052.543a.5.5 0 0 0-.378.641l1.721 5.91c.273.938.927 1.655 1.71 1.991A5.797 5.797 0 0 0 9 13.917v.28c0 2.207 1.76 4.02 3.969 4.28l.204.023a8.216 8.216 0 0 1-4.706 1.1c-.815 0-1.187.975-.54 1.545 2.14 1.884 5.378 1.884 7.518 0 .647-.57-.375-1.545-.54-1.545a8.218 8.218 0 0 1-4.706-1.1l.204-.023c2.209-.26 3.969-2.073 3.969-4.28v-.28a5.795 5.795 0 0 0 3.834-1.353c.783-.336 1.437-1.052 1.71-1.991l1.721-5.91a.5.5 0 0 0-.378-.641 9.94 9.94 0 0 0-3.052-.543V2.62a.75.75 0 0 0-.75-.75h-13.5a.75.75 0 0 0-.75.75Zm12.636 1.738a8.436 8.436 0 0 1 2.502.5.501.501 0 0 1 .184.148l-1.042 3.575a4.34 4.34 0 0 1-.803.951 7.277 7.277 0 0 0 1.93-4.665 8.169 8.169 0 0 1-2.771-.51ZM5.38 5.174l-1.042 3.575a.502.502 0 0 0 .185.148 8.437 8.437 0 0 0 2.502-.5 8.17 8.17 0 0 0-2.772.509 7.278 7.278 0 0 1 1.93 4.665 4.341 4.341 0 0 0-.803-.951Z" clipRule="evenodd" />
+                                                    </svg>
+                                                </span>
+                                            )}
                                             {effort.strava_effort_id && activityId ? (
                                                 <a
                                                     href={`https://www.strava.com/activities/${activityId}/segments/${effort.strava_effort_id}`}
@@ -155,7 +177,6 @@ export const LeaderboardCard: React.FC<Props> = ({
                                                     {effort.time_hhmmss}
                                                 </a>
                                             ) : effort.time_hhmmss}
-                                            {effort.is_pr && <span style={{ marginLeft: '6px' }} title="PR on this lap">🏆</span>}
                                         </div>
                                     </React.Fragment>
                                 ))}
@@ -164,7 +185,6 @@ export const LeaderboardCard: React.FC<Props> = ({
                                 <div></div>
                                 <div style={{ textAlign: 'right', fontWeight: 700 }}>
                                     {entry.time_hhmmss}
-                                    {hasPR && <span style={{ marginLeft: '6px' }}>🏆</span>}
                                 </div>
                             </div>
                         ) : (
@@ -182,7 +202,6 @@ export const LeaderboardCard: React.FC<Props> = ({
                                 <span style={{ fontWeight: 600 }}>Total</span>
                                 <span style={{ fontWeight: 700 }}>
                                     {entry.time_hhmmss}
-                                    {hasPR && <span style={{ marginLeft: '6px' }}>🏆</span>}
                                 </span>
                             </div>
                         )}
