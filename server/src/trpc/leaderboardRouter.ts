@@ -1,6 +1,6 @@
 import { router, publicProcedure } from './init';
 import { z } from 'zod';
-import { week, result, participant, activity, segmentEffort } from '../db/schema';
+import { week, result, participant, activity, segmentEffort, segment } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { calculateWeekScoringDrizzle } from '../services/ScoringServiceDrizzle';
 import { getAthleteProfilePictures } from '../services/StravaProfileService';
@@ -29,160 +29,179 @@ export const leaderboardRouter = router({
   getWeekLeaderboard: publicProcedure
     .input(z.object({ weekId: z.number() }))
     .query(async ({ ctx, input }) => {
-      const { orm: drizzleDb } = ctx; // Prefer canonical `orm` alias (same instance)
+      try {
+        const { orm: drizzleDb } = ctx; // Prefer canonical `orm` alias (same instance)
 
-      const weekData = await drizzleDb.select({
-        id: week.id,
-        season_id: week.season_id,
-        week_name: week.week_name,
-        strava_segment_id: week.strava_segment_id,
-        required_laps: week.required_laps,
-        start_at: week.start_at,
-        end_at: week.end_at,
-        notes: week.notes,
-        multiplier: week.multiplier,
-      })
-        .from(week)
-        .where(eq(week.id, input.weekId))
-        .get();
+        const weekData = await drizzleDb.select({
+          id: week.id,
+          season_id: week.season_id,
+          week_name: week.week_name,
+          strava_segment_id: week.strava_segment_id,
+          required_laps: week.required_laps,
+          start_at: week.start_at,
+          end_at: week.end_at,
+          notes: week.notes,
+          multiplier: week.multiplier,
+          // Joined Segment Fields
+          segment_name: segment.name,
+          segment_distance: segment.distance,
+          segment_total_elevation_gain: segment.total_elevation_gain,
+          segment_average_grade: segment.average_grade,
+          segment_climb_category: segment.climb_category,
+          segment_city: segment.city,
+          segment_state: segment.state,
+          segment_country: segment.country,
+        })
+          .from(week)
+          .leftJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
+          .where(eq(week.id, input.weekId))
+          .get();
 
-      if (!weekData) {
-        throw new Error(`Week ${input.weekId} not found`);
-      }
+        if (!weekData) {
+          throw new Error(`Week ${input.weekId} not found`);
+        }
 
-      // Fetch results with participant and activity details
-      // Rank and points are NOT stored in DB, so we must fetch raw data and calculate them
-      const rawResults = await drizzleDb.select({
-        // Result fields
-        id: result.id,
-        week_id: result.week_id,
-        participant_id: result.strava_athlete_id, // use strava_athlete_id as participant_id
-        total_time_seconds: result.total_time_seconds,
-        
-        // Participant fields
-        name: participant.name,
-        // profile_picture_url is not in the schema shown in schema.ts, removing to avoid error
-        // If it exists in DB but not schema, we need to add it to schema.ts. 
-        // For now, assuming schema.ts is source of truth.
-        
-        // Activity fields
-        activity_id: result.activity_id,
-        strava_activity_id: activity.strava_activity_id,
-        activity_start_at: activity.start_at,
-        device_name: activity.device_name,
-        
-        // PR info (calculated via subquery or just checking segment efforts later)
-        // For now, we'll fetch efforts per row to be safe and accurate
-      })
-        .from(result)
-        .leftJoin(participant, eq(result.strava_athlete_id, participant.strava_athlete_id))
-        .leftJoin(activity, eq(result.activity_id, activity.id))
-        .where(eq(result.week_id, input.weekId))
-        .orderBy(result.total_time_seconds)
-        .all();
+        // Fetch results with participant and activity details
+        // Rank and points are NOT stored in DB, so we must fetch raw data and calculate them
+        const rawResults = await drizzleDb.select({
+          // Result fields
+          id: result.id,
+          week_id: result.week_id,
+          participant_id: result.strava_athlete_id, // use strava_athlete_id as participant_id
+          total_time_seconds: result.total_time_seconds,
 
-      const totalParticipants = rawResults.length;
+          // Participant fields
+          name: participant.name,
 
-      // Fetch profile pictures for all participants in this leaderboard
-      const participantIds = rawResults
-        .map(r => r.participant_id)
-        .filter(id => id !== null) as number[];
-      
-      const profilePictures = await getAthleteProfilePictures(
-        participantIds,
-        drizzleDb
-      );
+          // Activity fields
+          activity_id: result.activity_id,
+          strava_activity_id: activity.strava_activity_id,
+          activity_start_at: activity.start_at,
+          device_name: activity.device_name,
+        })
+          .from(result)
+          .leftJoin(participant, eq(result.strava_athlete_id, participant.strava_athlete_id))
+          .leftJoin(activity, eq(result.activity_id, activity.id))
+          .where(eq(result.week_id, input.weekId))
+          .orderBy(result.total_time_seconds)
+          .all();
 
-      const leaderboardEntries: LeaderboardEntryWithDetails[] = await Promise.all(
-        rawResults.map(async (rawResult, index) => {
-          // Calculate Rank and Points with multiplier applied
-          const rank = index + 1;
-          // basePoints = number of participants beaten = (total - rank)
-          const basePoints = totalParticipants - rank;
-          const participationBonus = 1; // Always 1 point for participating
-          
-          let prBonusPoints = 0;
-          let effortBreakdown: any[] = [];
+        const totalParticipants = rawResults.length;
 
-          if (rawResult.activity_id) {
-            const efforts = await drizzleDb.select({
-              lap: segmentEffort.effort_index,
-              time_seconds: segmentEffort.elapsed_seconds,
-              pr_achieved: segmentEffort.pr_achieved,
-              strava_effort_id: segmentEffort.strava_effort_id,
-            })
-              .from(segmentEffort)
-              .where(eq(segmentEffort.activity_id, rawResult.activity_id))
-              .orderBy(segmentEffort.effort_index)
-              .all();
-            
-            // Check for PR
-            const hasPr = efforts.some(e => e.pr_achieved === 1);
-            if (hasPr) {
-              prBonusPoints = 1;
+        // Fetch profile pictures for all participants in this leaderboard
+        const participantIds = rawResults
+          .map(r => r.participant_id)
+          .filter(id => id !== null) as number[];
+
+        const profilePictures = await getAthleteProfilePictures(
+          participantIds,
+          drizzleDb
+        );
+
+        const leaderboardEntries: LeaderboardEntryWithDetails[] = await Promise.all(
+          rawResults.map(async (rawResult, index) => {
+            // Calculate Rank and Points with multiplier applied
+            const rank = index + 1;
+            // basePoints = number of participants beaten = (total - rank)
+            const basePoints = totalParticipants - rank;
+            const participationBonus = 1; // Always 1 point for participating
+
+            let prBonusPoints = 0;
+            let effortBreakdown: any[] = [];
+
+            if (rawResult.activity_id) {
+              const efforts = await drizzleDb.select({
+                lap: segmentEffort.effort_index,
+                time_seconds: segmentEffort.elapsed_seconds,
+                pr_achieved: segmentEffort.pr_achieved,
+                strava_effort_id: segmentEffort.strava_effort_id,
+              })
+                .from(segmentEffort)
+                .where(eq(segmentEffort.activity_id, rawResult.activity_id))
+                .orderBy(segmentEffort.effort_index)
+                .all();
+
+              // Check for PR
+              const hasPr = efforts.some(e => e.pr_achieved === 1);
+              if (hasPr) {
+                prBonusPoints = 1;
+              }
+
+              effortBreakdown = efforts.map(e => ({
+                lap: e.lap + 1, // 0-based index to 1-based lap
+                time_seconds: e.time_seconds,
+                time_hhmmss: formatSecondsToHHMMSS(e.time_seconds),
+                is_pr: e.pr_achieved === 1,
+                strava_effort_id: e.strava_effort_id ? Number(e.strava_effort_id) : undefined
+              }));
             }
 
-            effortBreakdown = efforts.map(e => ({
-              lap: e.lap + 1, // 0-based index to 1-based lap
-              time_seconds: e.time_seconds,
-              time_hhmmss: formatSecondsToHHMMSS(e.time_seconds),
-              is_pr: e.pr_achieved === 1,
-              strava_effort_id: e.strava_effort_id ? Number(e.strava_effort_id) : undefined
-            }));
-          }
+            // Apply multiplier: (basePoints + participationBonus + prBonusPoints) * multiplier
+            const subtotal = basePoints + participationBonus + prBonusPoints;
+            const totalPoints = subtotal * weekData.multiplier;
 
-          // Apply multiplier: (basePoints + participationBonus + prBonusPoints) * multiplier
-          const subtotal = basePoints + participationBonus + prBonusPoints;
-          const totalPoints = subtotal * weekData.multiplier;
+            return {
+              rank: rank,
+              participant_id: rawResult.participant_id,
+              name: rawResult.name || 'Unknown',
+              profile_picture_url: profilePictures.get(rawResult.participant_id) || null,
+              total_time_seconds: rawResult.total_time_seconds || 0,
+              time_hhmmss: formatSecondsToHHMMSS(rawResult.total_time_seconds),
+              base_points: basePoints,
+              participation_bonus: participationBonus,
+              pr_bonus_points: prBonusPoints,
+              multiplier: weekData.multiplier,
+              points: totalPoints,
+              activity_url: rawResult.strava_activity_id
+                ? `https://www.strava.com/activities/${rawResult.strava_activity_id}`
+                : '',
+              activity_date: rawResult.activity_start_at
+                ? new Date(rawResult.activity_start_at * 1000).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                })
+                : '',
+              // Only show effort breakdown if more than 1 lap required
+              effort_breakdown: weekData.required_laps > 1 && effortBreakdown.length > 0 ? effortBreakdown : null,
+              device_name: rawResult.device_name,
+            };
+          })
+        );
 
-          return {
-            rank: rank,
-            participant_id: rawResult.participant_id,
-            name: rawResult.name || 'Unknown',
-            profile_picture_url: profilePictures.get(rawResult.participant_id) || null,
-            total_time_seconds: rawResult.total_time_seconds || 0,
-            time_hhmmss: formatSecondsToHHMMSS(rawResult.total_time_seconds),
-            base_points: basePoints,
-            participation_bonus: participationBonus,
-            pr_bonus_points: prBonusPoints,
-            multiplier: weekData.multiplier,
-            points: totalPoints,
-            activity_url: rawResult.strava_activity_id
-              ? `https://www.strava.com/activities/${rawResult.strava_activity_id}`
-              : '',
-            activity_date: rawResult.activity_start_at
-              ? new Date(rawResult.activity_start_at * 1000).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })
-              : '',
-            // Only show effort breakdown if more than 1 lap required
-            effort_breakdown: weekData.required_laps > 1 && effortBreakdown.length > 0 ? effortBreakdown : null,
-            device_name: rawResult.device_name,
-          };
-        })
-      );
-      
-      // Construct the Week object expected by frontend
-      // We use the data we fetched from 'week' table
-      const frontendWeekData = {
-        id: weekData.id,
-        season_id: weekData.season_id,
-        week_name: weekData.week_name,
-        segment_id: weekData.strava_segment_id, // Frontend legacy prop
-        strava_segment_id: weekData.strava_segment_id,
-        required_laps: weekData.required_laps,
-        start_at: weekData.start_at,
-        end_at: weekData.end_at,
-        multiplier: weekData.multiplier,
-        notes: weekData.notes || undefined, // Convert null to undefined
-      };
+        // Construct the Week object expected by frontend
+        // We use the data we fetched from 'week' table
+        const frontendWeekData = {
+          id: weekData.id,
+          season_id: weekData.season_id,
+          week_name: weekData.week_name,
+          segment_id: weekData.strava_segment_id, // Frontend legacy prop
+          strava_segment_id: weekData.strava_segment_id,
+          required_laps: weekData.required_laps,
+          start_at: weekData.start_at,
+          end_at: weekData.end_at,
+          multiplier: weekData.multiplier,
+          notes: weekData.notes || undefined, // Convert null to undefined
 
-      return {
-        week: frontendWeekData,
-        leaderboard: leaderboardEntries,
-      };
+          // Include joined segment details
+          segment_name: weekData.segment_name,
+          segment_distance: weekData.segment_distance,
+          segment_total_elevation_gain: weekData.segment_total_elevation_gain,
+          segment_average_grade: weekData.segment_average_grade,
+          segment_climb_category: weekData.segment_climb_category,
+          segment_city: weekData.segment_city,
+          segment_state: weekData.segment_state,
+          segment_country: weekData.segment_country,
+        };
+
+        return {
+          week: frontendWeekData,
+          leaderboard: leaderboardEntries,
+        };
+      } catch (error) {
+        console.error('ERROR in getWeekLeaderboard:', error);
+        throw error;
+      }
     }),
   getSeasonLeaderboard: publicProcedure
     .input(z.object({ seasonId: z.number() }))
@@ -209,7 +228,7 @@ export const leaderboardRouter = router({
 
       for (const w of weeks) {
         const weekResults = await calculateWeekScoringDrizzle(drizzleDb, w.id); // Pass drizzleDb
-        
+
         for (const res of weekResults.results) {
           const existing = participantTotals.get(res.participantId);
           if (existing) {
@@ -253,7 +272,7 @@ export const leaderboardRouter = router({
         // Add missing fields expected by SeasonStanding interface if any
         // For now, matching the shape returned previously
         strava_athlete_id: res.participantId, // Aliasing for frontend compat if needed
-        profile_picture_url: profilePictures.get(res.participantId) || null 
+        profile_picture_url: profilePictures.get(res.participantId) || null
       }));
     }),
 });
