@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Week, Season } from '../types';
-import { formatUnixDate, formatUnixTime } from '../utils/dateUtils';
+import { formatUnixDate } from '../utils/dateUtils';
 import { NotesDisplay } from './NotesDisplay';
-import SegmentMetadataDisplay from './SegmentMetadataDisplay';
+import { WeeklyHeader } from './WeeklyHeader';
 import './ScheduleTable.css';
 
 interface Props {
@@ -12,16 +12,14 @@ interface Props {
 
 const ScheduleTable: React.FC<Props> = ({ weeks, season }) => {
   const [expandedWeekId, setExpandedWeekId] = useState<number | null>(null);
-  const [expandedNotesWeekId, setExpandedNotesWeekId] = useState<number | null>(null);
-  const popupRef = useRef<HTMLDivElement>(null);
 
   // Sort weeks by start_at date
   const sortedWeeks = [...weeks].sort((a, b) => a.start_at - b.start_at);
 
-  // Get season start and end dates - prefer season prop, fallback to weeks
+  // Get season start and end dates
   let seasonStart = '';
   let seasonEnd = '';
-  
+
   if (season) {
     seasonStart = formatUnixDate(season.start_at);
     seasonEnd = formatUnixDate(season.end_at);
@@ -31,117 +29,93 @@ const ScheduleTable: React.FC<Props> = ({ weeks, season }) => {
   }
 
   // Find the upcoming week (today or in future)
-  const now = Math.floor(Date.now() / 1000); // Current Unix timestamp in seconds
+  const now = Math.floor(Date.now() / 1000);
   const upcomingWeek = sortedWeeks.find(week => week.end_at >= now);
 
-  // Handle click outside popup to dismiss
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (popupRef.current && !popupRef.current.contains(event.target as Node)) {
-        setExpandedWeekId(null);
-        setExpandedNotesWeekId(null);
-      }
-    };
-
-    if (expandedWeekId !== null || expandedNotesWeekId !== null) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside);
-      };
-    }
-  }, [expandedWeekId, expandedNotesWeekId]);
+  const toggleWeek = (weekId: number) => {
+    setExpandedWeekId(expandedWeekId === weekId ? null : weekId);
+  };
 
   return (
-    <div className="schedule-table-container">
-      <h2>Schedule | {season?.name || 'Unknown'} | {seasonStart} to {seasonEnd}</h2>
-      <table className="schedule-table">
-        <thead>
-          <tr>
-            <th>Week</th>
-            <th>Date</th>
-            <th>Course / Segment</th>
-            <th>Laps</th>
-            <th>Multiplier</th>
-            <th className="participants-header">Participants</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sortedWeeks.map((week, index) => (
-            <React.Fragment key={week.id}>
-              <tr className={upcomingWeek?.id === week.id ? 'upcoming' : ''}>
-                <td className="week-name">
-                  <div className="week-name-with-notes">
-                    {index + 1}. {week.week_name}
-                    {week.notes && (
-                      <button
-                        className="notes-info-btn"
-                        onClick={() => setExpandedNotesWeekId(expandedNotesWeekId === week.id ? null : week.id)}
-                        title="Show week notes"
-                        aria-label="Show week notes"
-                      >
-                        ⓘ
-                      </button>
-                    )}
-                  </div>
-                </td>
-                <td className="week-date">
-                  <div className="date-with-info">
-                    <span>{formatUnixDate(week.start_at)}</span>
-                    <button
-                      className="time-info-btn"
-                      onClick={() => setExpandedWeekId(expandedWeekId === week.id ? null : week.id)}
-                      title="Show time window"
-                      aria-label="Show time window"
-                    >
-                      ⓘ
-                    </button>
-                  </div>
-                  {expandedWeekId === week.id && (
-                    <div className="time-window-popup" ref={popupRef}>
-                      {formatUnixTime(week.start_at)} – {formatUnixTime(week.end_at)}
-                    </div>
-                  )}
-                </td>
-                <td className="segment-name">
-                  <div className="segment-info">
-                    <a 
-                      href={`https://www.strava.com/segments/${week.segment_id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title="View on Strava"
-                    >
-                      {week.segment_name || `Segment ${week.segment_id}`}
-                    </a>
-                    {week.segment_distance && (
-                      <SegmentMetadataDisplay
-                        segment={{
-                          distance: week.segment_distance || undefined,
-                          total_elevation_gain: week.segment_total_elevation_gain || undefined,
-                          segment_average_grade: week.segment_average_grade || undefined
-                        }}
-                      />
-                    )}
-                  </div>
-                </td>
-                <td className="required-laps">{week.required_laps}</td>
-                <td className="multiplier-cell">{typeof week.multiplier === 'number' && week.multiplier >= 1 ? `${week.multiplier}x` : '-'}</td>
-                <td className="participants-count">
-                  {week.participants_count ? week.participants_count : '-'}
-                </td>
-              </tr>
-              {expandedNotesWeekId === week.id && week.notes && (
-                <tr className="notes-row">
-                  <td colSpan={5}>
-                    <div className="week-notes-popup" ref={popupRef}>
-                      <NotesDisplay markdown={week.notes} />
-                    </div>
-                  </td>
-                </tr>
+    <div className="season-schedule-container" style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
+      <div style={{ marginBottom: '24px', textAlign: 'center' }}>
+        <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--wmv-text-dark)' }}>
+          Schedule
+        </h2>
+        <p style={{ color: 'var(--wmv-text-light)', marginTop: '4px' }}>
+          {season?.name || 'Unknown Season'} • {seasonStart} to {seasonEnd}
+        </p>
+      </div>
+
+      <div className="schedule-list" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {sortedWeeks.map((week, index) => {
+          const isExpanded = expandedWeekId === week.id;
+          const isUpcoming = upcomingWeek?.id === week.id;
+          const hasNotes = !!week.notes;
+
+          return (
+            <div key={week.id} className={`schedule-card-wrapper ${isUpcoming ? 'upcoming-week' : ''}`} style={{ position: 'relative' }}>
+
+              {/* Upcoming Label */}
+              {isUpcoming && (
+                <div style={{
+                  position: 'absolute',
+                  top: '-10px',
+                  right: '24px',
+                  backgroundColor: 'var(--wmv-orange)',
+                  color: 'white',
+                  padding: '4px 12px',
+                  borderRadius: '12px',
+                  fontSize: '0.75rem',
+                  fontWeight: 'bold',
+                  zIndex: 10,
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                }}>
+                  Next Up
+                </div>
               )}
-            </React.Fragment>
-          ))}
-        </tbody>
-      </table>
+
+              <WeeklyHeader
+                week={week}
+                weekNumber={index + 1}
+                participantCount={week.participants_count}
+                onClick={hasNotes ? () => toggleWeek(week.id) : undefined}
+                isExpanded={isExpanded}
+                hasNotes={hasNotes}
+              />
+
+              {/* Expandable Notes Section */}
+              {isExpanded && hasNotes && (
+                <div style={{
+                  marginTop: '-24px', // Pull up to connect with header
+                  marginLeft: '16px',
+                  marginRight: '16px',
+                  marginBottom: '16px',
+                  backgroundColor: '#f9fafb',
+                  borderBottomLeftRadius: '16px',
+                  borderBottomRightRadius: '16px',
+                  border: '1px solid #e5e7eb',
+                  borderTop: 'none',
+                  padding: '24px',
+                  paddingTop: '32px', // Extra padding to clear the overlap
+                  animation: 'slideDown 0.2s ease-out'
+                }}>
+                  <h4 style={{
+                    margin: '0 0 12px 0',
+                    fontSize: '0.9rem',
+                    textTransform: 'uppercase',
+                    color: 'var(--wmv-text-light)',
+                    letterSpacing: '0.05em'
+                  }}>
+                    Week Notes
+                  </h4>
+                  <NotesDisplay markdown={week.notes || ''} />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };

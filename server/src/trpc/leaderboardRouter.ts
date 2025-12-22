@@ -192,6 +192,7 @@ export const leaderboardRouter = router({
           segment_city: weekData.segment_city,
           segment_state: weekData.segment_state,
           segment_country: weekData.segment_country,
+          participants_count: totalParticipants,
         };
 
         return {
