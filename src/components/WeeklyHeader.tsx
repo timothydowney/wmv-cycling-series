@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Week } from '../types';
-import { ArrowsRightLeftIcon, ArrowTrendingUpIcon, ChartBarIcon, UsersIcon, ChevronDownIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { ArrowsRightLeftIcon, ArrowTrendingUpIcon, ChartBarIcon, UsersIcon, ChevronDownIcon, ClockIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
 import { formatUnixDate, formatUnixTime } from '../utils/dateUtils';
 import { formatLapCount } from '../utils/lapFormatter';
 import { useUnits } from '../context/UnitContext';
@@ -23,12 +23,10 @@ export const WeeklyHeader: React.FC<Props> = ({
     isExpanded = false,
     hasNotes = false
 }) => {
-    const { formattedDate, timeWindow, isFuture } = useMemo(() => {
-        const now = Date.now() / 1000;
+    const { formattedDate, timeWindow } = useMemo(() => {
         return {
             formattedDate: formatUnixDate(week.start_at),
-            timeWindow: `${formatUnixTime(week.start_at)} - ${formatUnixTime(week.end_at)}`,
-            isFuture: week.start_at > now
+            timeWindow: `${formatUnixTime(week.start_at)} - ${formatUnixTime(week.end_at)}`
         };
     }, [week.start_at, week.end_at]);
 
@@ -67,18 +65,36 @@ export const WeeklyHeader: React.FC<Props> = ({
         >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ flex: 1 }}> {/* Allow flex grow for main content */}
+                    {/* Week Name - Clickable Strava Link */}
                     <h2 style={{
                         margin: 0,
                         fontSize: 'var(--font-2xl)',
-                        color: 'var(--wmv-text-dark)',
                         lineHeight: 1.2,
                         marginBottom: '4px',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '12px',
+                        gap: '8px',
                         flexWrap: 'wrap'
                     }}>
-                        {week.week_name}
+                        <a
+                            href={`https://www.strava.com/segments/${week.strava_segment_id || week.segment_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                                color: 'var(--wmv-orange)',
+                                textDecoration: 'none',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                            }}
+                            className="week-title-link hover:underline"
+                        >
+                            {week.week_name}
+                            <ArrowTopRightOnSquareIcon width={20} height={20} />
+                        </a>
+
                         {week.multiplier > 1 && (
                             <span style={{
                                 backgroundColor: 'var(--wmv-orange)',
@@ -117,41 +133,32 @@ export const WeeklyHeader: React.FC<Props> = ({
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    {/* Strava Segment Link Icon */}
-                    <a
-                        href={`https://www.strava.com/segments/${week.segment_id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="View Segment on Strava"
-                        onClick={(e) => e.stopPropagation()} // Prevent card click
+                    {/* Expand/Collapse Toggle Button (Always visible for consistency) */}
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (onClick) onClick();
+                        }}
+                        disabled={!onClick}
+                        title={onClick ? (isExpanded ? "Collapse notes" : "Expand notes") : "No notes available"}
+                        aria-label={isExpanded ? "Collapse notes" : "Expand notes"}
                         style={{
-                            color: 'var(--wmv-orange)',
+                            background: 'transparent',
+                            border: 'none',
+                            cursor: onClick ? 'pointer' : 'default',
+                            padding: '8px',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            backgroundColor: 'var(--wmv-orange-light)',
-                            width: '32px',
-                            height: '32px',
-                            borderRadius: '50%',
-                            flexShrink: 0
+                            color: onClick ? 'var(--wmv-text-light)' : 'var(--wmv-gray-300)',
+                            transition: 'transform 0.2s ease, color 0.2s ease',
+                            transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                            opacity: onClick ? 1 : 0.5
                         }}
+                        className="week-expand-toggle"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
-                            <path d="M12 0L6 12h4l2-4 2 4h4L12 0z" />
-                            <path d="M14 14l-2 4-2-4h-3l5 10 5-10h-3z" />
-                        </svg>
-                    </a>
-
-                    {/* Expand Chevron (if actionable) */}
-                    {onClick && (
-                        <div style={{
-                            color: 'var(--wmv-text-light)',
-                            transition: 'transform 0.2s',
-                            transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)'
-                        }}>
-                            <ChevronDownIcon width={24} height={24} />
-                        </div>
-                    )}
+                        <ChevronDownIcon width={24} height={24} />
+                    </button>
                 </div>
             </div>
 
@@ -170,8 +177,8 @@ export const WeeklyHeader: React.FC<Props> = ({
                     {formatLapCount(week.required_laps)}
                 </div>
 
-                {/* Participant Count: Only show if NOT future and count exists */}
-                {participantCount !== undefined && !isFuture && (
+                {/* Participant Count: Always show if count exists */}
+                {participantCount !== undefined && (
                     <div className="week-header-chip" title="Participants">
                         <UsersIcon className="week-header-chip-icon" />
                         {participantCount}
