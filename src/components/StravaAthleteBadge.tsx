@@ -23,6 +23,13 @@ const StravaAthleteBadge: React.FC<Props> = ({
   size = 32,
   inverted = false
 }) => {
+  const [imageError, setImageError] = React.useState(false);
+
+  // Reset error state if URL changes (though unlikely for same user)
+  React.useEffect(() => {
+    setImageError(false);
+  }, [profilePictureUrl]);
+
   return (
     <a
       href={`https://www.strava.com/athletes/${athleteId}`}
@@ -54,7 +61,7 @@ const StravaAthleteBadge: React.FC<Props> = ({
       title={`View ${name} on Strava`}
     >
       {/* Strava profile picture */}
-      {profilePictureUrl ? (
+      {profilePictureUrl && profilePictureUrl !== 'avatar/athlete/large.png' && !imageError ? (
         <img
           src={profilePictureUrl}
           alt={name}
@@ -65,13 +72,10 @@ const StravaAthleteBadge: React.FC<Props> = ({
             flexShrink: 0,
             objectFit: 'cover'
           }}
-          onError={(e) => {
-            // Fallback if image fails to load
-            (e.target as HTMLImageElement).style.display = 'none';
-          }}
+          onError={() => setImageError(true)}
         />
       ) : (
-        // Fallback: Initials if no picture
+        // Fallback: Initials if no picture OR if image failed to load
         <div style={{
           width: `${size}px`,
           height: `${size}px`,
