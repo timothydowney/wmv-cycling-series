@@ -61,7 +61,7 @@ export function useMarkdownEditor(
   const { maxLength = DEFAULT_MAX_LENGTH, onContentChange } = options;
 
   const [isSourceMode, setIsSourceMode] = useState(false);
-  const [sourceText, setSourceText] = useState(initialContent || '');
+  const [sourceText, setSourceText] = useState('');
 
   // Initialize editor with TipTap
   const editor = useEditor({
@@ -179,6 +179,12 @@ export function useMarkdownEditor(
    */
   useEffect(() => {
     if (editor && initialContent !== undefined && !isSourceMode) {
+      // Avoid re-setting content if it matches current internal state
+      // This prevents cursor jumping when typing forces a parent re-render
+      if (initialContent === sourceText) {
+        return;
+      }
+
       setSourceText(initialContent);
       try {
         const manager = editor.storage.markdown?.manager;
@@ -190,7 +196,7 @@ export function useMarkdownEditor(
         console.warn('Error setting initial markdown content:', error);
       }
     }
-  }, [initialContent, editor, isSourceMode]);
+  }, [initialContent, editor, isSourceMode, sourceText]);
 
   // Calculate character count based on current mode
   const charCount = isSourceMode

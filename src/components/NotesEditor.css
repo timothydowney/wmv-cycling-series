@@ -131,6 +131,7 @@
   color: #333;
   cursor: text;
   min-height: 100px;
+  white-space: pre-wrap;
 }
 
 .ProseMirror p {
