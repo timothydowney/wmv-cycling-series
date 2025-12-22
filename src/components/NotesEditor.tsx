@@ -64,23 +64,8 @@ export const NotesEditor: React.FC<NotesEditorProps> = ({
             >
               •
             </button>
-            <button
-              type="button"
-              onClick={() => editor.chain().focus().toggleOrderedList().run()}
-              className={`toolbar-btn ${editor.isActive('orderedList') ? 'active' : ''}`}
-              title="Numbered List"
-            >
-              1.
-            </button>
-            <button
-              type="button"
-              onClick={() => editor.chain().focus().toggleCode().run()}
-              disabled={!editor.can().chain().focus().toggleCode().run()}
-              className={`toolbar-btn ${editor.isActive('code') ? 'active' : ''}`}
-              title="Code"
-            >
-              {'<>'}
-            </button>
+
+
             <button
               type="button"
               onClick={() => {
@@ -123,7 +108,7 @@ export const NotesEditor: React.FC<NotesEditorProps> = ({
       </div>
 
       {!isSourceMode ? (
-        <div 
+        <div
           className={`notes-editor-wrapper ${remaining < 100 ? 'warning' : ''}`}
           onClick={() => editor?.chain().focus().run()}
           role="textbox"
