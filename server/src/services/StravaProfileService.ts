@@ -68,16 +68,16 @@ async function getAthleteProfilePicture(athleteId: number, accessToken: string):
     // Use strava client library to fetch athlete profile
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const client = new (strava.client as any)(accessToken);
-    
+
     // Wrap the API call with a timeout to prevent hanging on slow/unreachable Strava API
     const athleteData = await withTimeout(
-      client.athletes.get({ id: athleteId }),
+      (client.getEndpoint as any)(`athletes/${athleteId}`, { id: athleteId }),
       PROFILE_FETCH_TIMEOUT_MS,
       `Strava profile fetch for athlete ${athleteId}`
     ) as any;
-    
+
     const profileUrl = (athleteData?.profile as string | null) || null;
-    
+
     // Cache the result
     profileCache.set(athleteId, {
       profile: profileUrl,
@@ -104,11 +104,11 @@ async function getAthleteProfilePicture(athleteId: number, accessToken: string):
  * @returns Map of athlete ID to profile picture URL
  */
 async function getAthleteProfilePictures(
-  athleteIds: number[], 
+  athleteIds: number[],
   db: BetterSQLite3Database
 ): Promise<Map<number, string | null>> {
   const results = new Map<number, string | null>();
-  
+
   // Filter out athletes already in cache
   const uncachedIds = athleteIds.filter(id => {
     const cached = profileCache.get(id);
@@ -126,7 +126,7 @@ async function getAthleteProfilePictures(
   // Build a map of athlete ID to their valid (refreshed) token
   // This way we use each athlete's own token when available, with auto-refresh
   const athleteTokens = new Map<number, string>();
-  
+
   for (const athleteId of uncachedIds) {
     try {
       // Use getValidAccessToken to ensure token is refreshed if expiring soon
@@ -154,7 +154,7 @@ async function getAthleteProfilePictures(
         .orderBy(desc(participantToken.updated_at))
         .limit(1)
         .get();
-      
+
       if (anyParticipant) {
         const validToken = await getValidAccessToken(db, stravaClientLib, anyParticipant.strava_athlete_id);
         if (validToken) {
@@ -184,7 +184,7 @@ async function getAthleteProfilePictures(
       const token = athleteTokens.get(id) || fallbackToken;
       return getAthleteProfilePicture(id, token!);
     });
-    
+
     const batchResults = await Promise.all(promises);
     batch.forEach((id, index) => {
       results.set(id, batchResults[index]);
