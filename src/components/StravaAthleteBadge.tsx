@@ -64,22 +64,29 @@ const StravaAthleteBadge: React.FC<Props> = ({
           }}
         />
       ) : (
-        // Fallback: Strava logo if no picture
-        <svg
-          width={size}
-          height={size}
-          viewBox="0 0 24 24"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          style={{ flexShrink: 0 }}
-        >
-          <circle cx="12" cy="12" r="12" fill="var(--strava-orange, #FC5200)" opacity="0.2" />
-          <path
-            d="M15.7 8.2L9.3 21.5H12.7L19.1 8.2M9 15.2L3.3 27.8H6.7L12.4 15.2"
-            fill="var(--strava-orange, #FC5200)"
-            transform="translate(-3, -8)"
-          />
-        </svg>
+        // Fallback: Initials if no picture
+        <div style={{
+          width: `${size}px`,
+          height: `${size}px`,
+          borderRadius: '50%',
+          flexShrink: 0,
+          backgroundColor: 'var(--wmv-orange, #FC5200)',
+          color: 'white',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: `${Math.max(10, size * 0.4)}px`, // Dynamic font size based on avatar size
+          fontWeight: 600,
+          textTransform: 'uppercase',
+          userSelect: 'none'
+        }}>
+          {name
+            .split(' ')
+            .map(part => part[0])
+            .slice(0, 2)
+            .join('')
+            .toUpperCase() || '?'}
+        </div>
       )}
 
       {/* Athlete name */}
