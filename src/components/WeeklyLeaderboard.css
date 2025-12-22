@@ -1,12 +1,44 @@
+.weekly-leaderboard-container {
+  width: 100%;
+  max-width: 100%;
+  /* User requested full width use */
+  margin: 0 auto;
+  padding: 0;
+  /* Remove extra padding, rely on app-content padding */
+}
+
+/* Tablet/Desktop */
+@media (min-width: 768px) {
+  .weekly-leaderboard-container {
+    padding: 0;
+  }
+}
+
+.leaderboard-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.no-results {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--wmv-text-light);
+  font-size: 1.1rem;
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
 .week-notes-display {
-  margin: 16px 0;
-  padding: 8px 12px;
-  background-color: #f8f9fa;
+  margin: 16px 0 24px 0;
+  padding: 16px;
+  background-color: white;
   border-left: 4px solid var(--wmv-orange, #ff6600);
-  border-radius: 4px;
+  border-radius: 8px;
   font-size: 14px;
   line-height: 1.6;
   color: #333;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 /* EditorContent wrapper from TipTap */
@@ -97,53 +129,210 @@
 .notes-display-content.ProseMirror h3 {
   font-size: 16px;
 }
-.points-with-info {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  position: relative;
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.points-info-btn {
-  background: none;
-  border: none;
-  color: var(--wmv-orange);
+/* Leaderboard Card Styles */
+/* Leaderboard Card Styles */
+.leaderboard-card {
+  background-color: #ffffff !important;
+  /* Force White */
+  border-radius: 12px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06);
   cursor: pointer;
-  font-size: 14px;
-  padding: 0;
-  width: 20px;
-  height: 20px;
-  display: flex;
+  border-left: 4px solid transparent;
+  /* Default border */
+  border-top: 1px solid transparent;
+  border-right: 1px solid transparent;
+  border-bottom: 1px solid transparent;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.leaderboard-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.leaderboard-card.current-user {
+  border-left-color: var(--wmv-orange);
+  background-color: #ffffff !important;
+  /* Ensure override */
+}
+
+.leaderboard-card.current-user .card-header {
+  background-color: var(--wmv-orange) !important;
+  /* Brand orange highlight */
+}
+
+/* Ensure contrast on dark orange background */
+.leaderboard-card.current-user .card-header .card-rank,
+.leaderboard-card.current-user .card-header .card-name,
+.leaderboard-card.current-user .card-header .card-points-row,
+.leaderboard-card.current-user .card-header .card-time,
+.leaderboard-card.current-user .card-header .card-chevron {
+  color: #ffffff !important;
+}
+
+/* Base styles now enforce single row - moved from media query */
+/* Ensure reliable sizing */
+.leaderboard-card,
+.leaderboard-card * {
+  box-sizing: border-box;
+}
+
+/* Base styles now enforce single row - moved from media query */
+.card-header {
+  display: flex !important;
+  flex-direction: row !important;
   align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: all 0.2s;
+  padding: 12px 12px;
+  /* Reduced side padding slightly to save space */
+  min-height: 56px;
+  background-color: #ffffff !important;
+  /* Force Explicit Pure White */
+  position: relative;
+  z-index: 2;
+  flex-wrap: nowrap !important;
+  width: 100%;
+}
+
+.card-rank {
+  font-size: 1.1rem;
+  font-weight: 700;
+  width: 14px;
+  /* Tight but safe width */
+  /* Further reduced width */
+  text-align: left;
+  color: var(--wmv-text-dark);
+  margin-right: 2px;
+  /* Tight spacing */
   flex-shrink: 0;
 }
 
-.points-info-btn:hover {
-  background-color: var(--wmv-orange-light, #fff5f0);
-  color: var(--wmv-orange-hover, #e74c00);
+/* Avatar on left again */
+.card-avatar {
+  margin-right: 0px;
+  /* Increased to 5px as requested */
+  flex-shrink: 0;
+  display: flex;
 }
 
-.points-breakdown-popup {
-  position: absolute;
-  top: calc(100% + 2px);
-  left: -20px;
-  background: var(--wmv-orange);
-  color: white;
-  padding: 6px 10px;
-  border-radius: 4px;
-  font-size: 11px;
-  white-space: nowrap;
-  z-index: 10;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+.card-main-info {
+  flex: 1;
+  /* Restore flex: 1 to push right side */
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  /* Center align, text nudged via margin */
+  justify-content: flex-start;
+  min-width: 0;
+  gap: 2px;
+  /* Revert to 2px to save horizontal space */
+  overflow: hidden;
+  /* Ensure truncation works */
 }
 
-.points-breakdown-popup div {
-  line-height: 1.6;
-}
-
-.points-breakdown-popup strong {
+.card-name {
   font-weight: 600;
+  font-size: 1.0rem;
+  /* Reduced to 1.0rem to prevent ellipsis */
+  color: var(--wmv-text-dark);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 4px;
+  /* Tiny margin before points */
+  margin-top: 2px;
+  /* Visual optical centering */
+}
+
+.week-header-chip {
+  display: inline-flex;
+  align-items: center;
+  background-color: #f2f4f7;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 0.85rem;
+  color: #4b5563;
+  font-weight: 500;
+}
+
+.week-header-chip-icon {
+  width: 14px;
+  height: 14px;
+  margin-right: 6px;
+  color: #6b7280;
+}
+
+.card-points-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  /* Reduced gap */
+  font-size: 0.85rem;
+  color: var(--wmv-text-light);
+  margin-top: 2px;
+  /* Visual optical centering match name */
+  white-space: nowrap;
+  flex-shrink: 0;
+  /* Don't shrink points */
+}
+
+.card-right-side {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* Reduced gap */
+  flex-shrink: 0;
+  /* Prevent shrinking */
+  margin-left: auto;
+  /* Push to far right */
+  color: var(--wmv-text-dark);
+  /* Ensure explicit color inheritance */
+  padding-left: 4px;
+  /* Small buffer */
+}
+
+.card-time {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--wmv-text-dark);
+  white-space: nowrap;
+  /* Prevent wrapping */
+}
+
+.card-chevron {
+  color: var(--wmv-text-light);
+  /* #666666 */
+  transition: transform 0.3s;
+  display: flex;
+  /* Ensure SVG centers */
+}
+
+.card-expanded-details {
+  background-color: #f9fafb;
+  /* Slightly darker cool gray */
+  padding: 16px 16px 24px 16px;
+  /* Added bottom padding (24px) */
+  border-top: 1px solid #f0f0f0;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
+  /* Subtle inner shadow for depth */
+  animation: fadeIn 0.2s ease-in-out;
+  position: relative;
+  z-index: 1;
 }
