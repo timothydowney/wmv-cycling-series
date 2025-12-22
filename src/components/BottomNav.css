@@ -51,6 +51,6 @@
 /* Adjust main content to not be hidden behind bottom nav */
 @media (max-width: 768px) {
   .app-content {
-    padding-bottom: calc(64px + env(safe-area-inset-bottom)) !important;
+    padding-bottom: calc(100px + env(safe-area-inset-bottom)) !important;
   }
 }
