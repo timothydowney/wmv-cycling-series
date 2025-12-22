@@ -1,6 +1,6 @@
 import React from 'react'; // Removed useState, useEffect
 import { useCurrentUser } from '../hooks/useCurrentUser';
-import StravaAthleteBadge from './StravaAthleteBadge';
+import { SeasonCard } from './SeasonCard';
 import { Season } from '../types'; // Still need Season type for props
 import { trpc } from '../utils/trpc'; // Import trpc
 
@@ -28,46 +28,37 @@ const SeasonLeaderboard: React.FC<Props> = ({ season }) => {
   }
 
   return (
-    <div>
-      <h2>Season | {season?.name || 'Unknown'} | Leaderboard</h2>
-      <table style={{ width: '100%' }}>
-        <thead>
-          <tr>
-            <th style={{ width: '60px' }}>Rank</th>
-            <th style={{ width: '200px' }}>Name</th>
-            <th>Total Points</th>
-            <th>Weeks Completed</th>
-          </tr>
-        </thead>
-        <tbody>
-          {standings.length === 0 ? (
-            <tr>
-              <td colSpan={4}>No season results yet</td>
-            </tr>
-          ) : (
-            standings.map((standing) => {
-              const isCurrentUser = userAthleteId !== null && userAthleteId === standing.strava_athlete_id;
+    <div className="weekly-leaderboard-container">
+      <div style={{ marginBottom: '12px', textAlign: 'center' }}>
+        <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--wmv-purple)', marginTop: 0 }}>
+          Season Leaderboard
+        </h2>
+      </div>
 
-              return (
-                <tr key={standing.strava_athlete_id} style={isCurrentUser ? { backgroundColor: 'var(--wmv-orange-light, #fff5f0)', fontWeight: 500 } : {}}>
-                  <td>{standing.rank}</td>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <StravaAthleteBadge 
-                        athleteId={standing.strava_athlete_id} 
-                        name={standing.name}
-                        profilePictureUrl={standing.profile_picture_url}
-                      />
-                    </div>
-                  </td>
-                  <td>{standing.totalPoints}</td>
-                  <td>{standing.weeksCompleted}</td>
-                </tr>
-              );
-            })
-          )}
-        </tbody>
-      </table>
+      <div className="leaderboard-list">
+        {standings.length === 0 ? (
+          <div className="no-results">
+            No season results yet.
+          </div>
+        ) : (
+          standings.map((standing) => {
+            const isCurrentUser = userAthleteId !== null && userAthleteId === standing.strava_athlete_id;
+
+            return (
+              <SeasonCard
+                key={standing.strava_athlete_id}
+                rank={standing.rank}
+                participantName={standing.name}
+                profilePictureUrl={standing.profile_picture_url}
+                totalPoints={standing.totalPoints}
+                weeksCompleted={standing.weeksCompleted}
+                isCurrentUser={isCurrentUser}
+                stravaAthleteId={standing.strava_athlete_id}
+              />
+            );
+          })
+        )}
+      </div>
     </div>
   );
 };

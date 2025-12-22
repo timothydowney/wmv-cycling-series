@@ -38,8 +38,8 @@ const ScheduleTable: React.FC<Props> = ({ weeks, season }) => {
 
   return (
     <div className="season-schedule-container" style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
-      <div style={{ marginBottom: '24px', textAlign: 'center' }}>
-        <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--wmv-text-dark)' }}>
+      <div style={{ marginBottom: '12px', textAlign: 'center' }}>
+        <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--wmv-purple)', marginTop: 0 }}>
           Schedule
         </h2>
         <p style={{ color: 'var(--wmv-text-light)', marginTop: '4px' }}>
