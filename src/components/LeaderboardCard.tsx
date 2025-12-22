@@ -53,6 +53,7 @@ export const LeaderboardCard: React.FC<Props> = ({
                         profilePictureUrl={entry.profile_picture_url}
                         showName={false}
                         size={32}
+                        inverted={isCurrentUser}
                     />
                 </div>
 

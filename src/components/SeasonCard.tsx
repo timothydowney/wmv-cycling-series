@@ -38,6 +38,7 @@ export const SeasonCard: React.FC<Props> = ({
                         profilePictureUrl={profilePictureUrl}
                         showName={false}
                         size={40}
+                        inverted={isCurrentUser}
                     />
                 </div>
 
