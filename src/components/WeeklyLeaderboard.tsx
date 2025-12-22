@@ -50,21 +50,24 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard, weekNumber }) =
     );
   }
 
-  const hasNotes = !!week.notes;
+
 
   return (
     <div className="weekly-leaderboard-container">
-      <div style={{ position: 'relative', marginBottom: hasNotes && isNotesExpanded ? '16px' : '24px' }}>
+      <div style={{ position: 'relative', marginBottom: isNotesExpanded ? '16px' : '24px' }}>
         <WeeklyHeader
           week={week}
           weekNumber={weekNumber}
           participantCount={week.participants_count}
-          onClick={hasNotes ? () => setIsNotesExpanded(!isNotesExpanded) : undefined}
+          onClick={() => {
+            console.log('Toggling notes:', !isNotesExpanded);
+            setIsNotesExpanded(prev => !prev);
+          }}
           isExpanded={isNotesExpanded}
-          hasNotes={hasNotes}
+
         />
 
-        {hasNotes && isNotesExpanded && (
+        {isNotesExpanded && (
           <div style={{
             marginTop: '-24px', // Pull up to connect with header
             marginLeft: '16px',
@@ -80,7 +83,13 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard, weekNumber }) =
             position: 'relative',
             zIndex: 0
           }}>
-            <NotesDisplay markdown={week.notes!} />
+            {week.notes ? (
+              <NotesDisplay markdown={week.notes} />
+            ) : (
+              <div style={{ color: 'var(--wmv-text-light)', fontStyle: 'italic', textAlign: 'center', padding: '12px' }}>
+                No notes for this week.
+              </div>
+            )}
           </div>
         )}
       </div>
