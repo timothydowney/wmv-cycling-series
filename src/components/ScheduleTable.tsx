@@ -51,7 +51,7 @@ const ScheduleTable: React.FC<Props> = ({ weeks, season }) => {
         {sortedWeeks.map((week, index) => {
           const isExpanded = expandedWeekId === week.id;
           const isUpcoming = upcomingWeek?.id === week.id;
-          const hasNotes = !!week.notes;
+
 
           return (
             <div key={week.id} className={`schedule-card-wrapper ${isUpcoming ? 'upcoming-week' : ''}`} style={{ position: 'relative' }}>
@@ -79,13 +79,13 @@ const ScheduleTable: React.FC<Props> = ({ weeks, season }) => {
                 week={week}
                 weekNumber={index + 1}
                 participantCount={week.participants_count}
-                onClick={hasNotes ? () => toggleWeek(week.id) : undefined}
+                onClick={() => toggleWeek(week.id)}
                 isExpanded={isExpanded}
-                hasNotes={hasNotes}
+
               />
 
               {/* Expandable Notes Section */}
-              {isExpanded && hasNotes && (
+              {isExpanded && (
                 <div style={{
                   marginTop: '-24px', // Pull up to connect with header
                   marginLeft: '16px',
@@ -109,7 +109,13 @@ const ScheduleTable: React.FC<Props> = ({ weeks, season }) => {
                   }}>
                     Week Notes
                   </h4>
-                  <NotesDisplay markdown={week.notes || ''} />
+                  {week.notes ? (
+                    <NotesDisplay markdown={week.notes} />
+                  ) : (
+                    <div style={{ color: 'var(--wmv-text-light)', fontStyle: 'italic', padding: '12px 0' }}>
+                      No notes for this week.
+                    </div>
+                  )}
                 </div>
               )}
             </div>

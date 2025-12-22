@@ -12,7 +12,6 @@ interface Props {
     participantCount?: number;
     onClick?: () => void;
     isExpanded?: boolean;
-    hasNotes?: boolean;
 }
 
 export const WeeklyHeader: React.FC<Props> = ({
@@ -20,8 +19,7 @@ export const WeeklyHeader: React.FC<Props> = ({
     weekNumber,
     participantCount,
     onClick,
-    isExpanded = false,
-    hasNotes = false
+    isExpanded = false
 }) => {
     const { formattedDate, timeWindow } = useMemo(() => {
         return {
@@ -47,6 +45,7 @@ export const WeeklyHeader: React.FC<Props> = ({
                 cursor: onClick ? 'pointer' : 'default',
                 transition: 'transform 0.2s ease, box-shadow 0.2s ease',
                 position: 'relative',
+                zIndex: 20, // Ensure header stays above expanded notes
                 border: onClick && isExpanded ? '1px solid var(--wmv-orange)' : '1px solid transparent'
             }}
             className={onClick ? "hover:shadow-md" : ""}
@@ -207,20 +206,7 @@ export const WeeklyHeader: React.FC<Props> = ({
                     </div>
                 )}
 
-                {/* Notes Indicator */}
-                {hasNotes && !isExpanded && (
-                    <div style={{
-                        marginLeft: 'auto',
-                        fontSize: '0.75rem',
-                        color: 'var(--wmv-orange)',
-                        fontWeight: 600,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                    }}>
-                        <span>Has Notes</span>
-                    </div>
-                )}
+
             </div>
         </div>
     );
