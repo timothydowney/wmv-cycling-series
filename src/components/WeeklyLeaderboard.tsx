@@ -14,12 +14,14 @@ interface Props {
 
 const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard, weekNumber }) => {
   const userAthleteId = useCurrentUser();
+  const [isNotesExpanded, setIsNotesExpanded] = useState(false);
   const [expandedCardId, setExpandedCardId] = useState<number | null>(null);
   const hasAutoExpanded = useRef(false);
 
   // Reset expansion when week changes
   useEffect(() => {
     setExpandedCardId(null);
+    setIsNotesExpanded(false);
     hasAutoExpanded.current = false; // Reset auto-expansion flag when week changes
   }, [week?.id]);
 
@@ -48,19 +50,40 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard, weekNumber }) =
     );
   }
 
+  const hasNotes = !!week.notes;
+
   return (
     <div className="weekly-leaderboard-container">
-      <WeeklyHeader
-        week={week}
-        weekNumber={weekNumber}
-        participantCount={week.participants_count}
-      />
+      <div style={{ position: 'relative', marginBottom: hasNotes && isNotesExpanded ? '16px' : '24px' }}>
+        <WeeklyHeader
+          week={week}
+          weekNumber={weekNumber}
+          participantCount={week.participants_count}
+          onClick={hasNotes ? () => setIsNotesExpanded(!isNotesExpanded) : undefined}
+          isExpanded={isNotesExpanded}
+          hasNotes={hasNotes}
+        />
 
-      {week.notes && (
-        <div className="week-notes-display">
-          <NotesDisplay markdown={week.notes} />
-        </div>
-      )}
+        {hasNotes && isNotesExpanded && (
+          <div style={{
+            marginTop: '-24px', // Pull up to connect with header
+            marginLeft: '16px',
+            marginRight: '16px',
+            backgroundColor: '#f9fafb',
+            borderBottomLeftRadius: '16px',
+            borderBottomRightRadius: '16px',
+            border: '1px solid #e5e7eb',
+            borderTop: 'none',
+            padding: '24px',
+            paddingTop: '32px', // Extra padding to clear the overlap
+            animation: 'slideDown 0.2s ease-out',
+            position: 'relative',
+            zIndex: 0
+          }}>
+            <NotesDisplay markdown={week.notes!} />
+          </div>
+        )}
+      </div>
 
       <div className="leaderboard-list">
         {leaderboard.length === 0 ? (
