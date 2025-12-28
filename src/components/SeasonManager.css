@@ -95,10 +95,37 @@
   box-shadow: 0 0 0 2px rgba(252, 76, 2, 0.1);
 }
 
+
 .form-group small {
   margin-top: 0.25rem;
   color: #666;
   font-size: 0.85rem;
+}
+
+.checkbox-group {
+  grid-column: 1 / -1;
+  /* Take full width */
+  background-color: #f0f0f0;
+  padding: 12px;
+  border-radius: 4px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 1rem;
+  color: #333;
+  margin-bottom: 0 !important;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  cursor: pointer;
 }
 
 .form-actions {
@@ -197,10 +224,22 @@
   border: 1px solid #c3e6cb;
 }
 
-.status-badge.inactive {
+.status-badge.closed {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.status-badge.ended {
   background: #e2e3e5;
   color: #383d41;
   border: 1px solid #d6d8db;
+}
+
+.status-badge.inactive {
+  background: #f0f0f0;
+  color: #666;
+  border: 1px solid #ddd;
 }
 
 .action-buttons {
@@ -230,59 +269,93 @@
   stroke-width: 1.5;
 }
 
-.action-buttons .season-action-edit {
-  color: #007bff;
-}
-
-.action-buttons .season-action-edit:hover {
-  transform: scale(1.1);
-}
-
-.action-buttons .season-action-delete {
-  color: #dc3545;
-}
-
-.action-buttons .season-action-delete:hover {
-  transform: scale(1.1);
-}
-
-.icon-button {
-  display: inline-flex;
+/* Main Wrapper */
+.status-toggle-wrapper {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  padding: 0;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  background: transparent;
+  gap: 12px;
+}
+
+/* Status Text Label (Left) */
+.status-label-text {
+  font-weight: normal;
+  font-size: inherit;
+  min-width: 50px;
+  /* Prevent jumpiness */
+  text-align: right;
   color: inherit;
 }
 
-.icon-button svg {
-  width: 28px;
-  height: 28px;
-  stroke-width: 1.5;
+/* Remove specific colored text classes as requested */
+
+/* Toggle Switch (Adapted from UnitToggle.css) */
+.season-toggle-switch {
+  display: inline-flex;
+  align-items: center;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  width: 72px;
+  /* Slightly smaller than UnitToggle's 88px since no text inside knob */
+  height: 32px;
+  cursor: pointer;
+  position: relative;
+  user-select: none;
+  padding: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  flex-shrink: 0;
 }
 
-.season-action-edit {
-  color: #007bff;
-  background: transparent;
+.season-toggle-switch:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  border-color: #ccc;
 }
 
-.season-action-edit:hover {
-  transform: scale(1.1);
-  background: transparent;
+.season-toggle-switch:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(252, 76, 2, 0.2);
+  /* theme orange focus */
 }
 
-.season-action-delete {
-  color: #dc3545;
-  background: transparent;
+/* Sliding Knob */
+.season-toggle-button {
+  position: absolute;
+  width: 32px;
+  height: 26px;
+  background: white;
+  border-radius: 15px;
+  /* Pill shape */
+  left: 2px;
+  top: 2px;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.season-action-delete:hover {
-  transform: scale(1.1);
-  background: transparent;
+/* Open/Active State - Knob on Right */
+.season-toggle-switch.active .season-toggle-button {
+  left: 36px;
+  /* width 72 - button 32 - border/pad -> approx shift */
+  background: var(--wmv-orange);
+  /* Theme Orange */
+  box-shadow: 0 2px 8px rgba(252, 76, 2, 0.3);
+}
+
+/* Closed State - Knob on Left */
+.season-toggle-switch.closed .season-toggle-button {
+  left: 2px;
+  background: #6c757d;
+  /* Neutral Gray */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Table Column Widths */
+.seasons-table th:nth-child(4) {
+  width: 160px;
+  /* Status column - needs more width for label+toggle */
+}
+
+.seasons-table th:nth-child(5) {
+  min-width: 100px;
+  /* Actions column */
 }

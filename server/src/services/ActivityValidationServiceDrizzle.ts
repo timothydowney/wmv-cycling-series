@@ -49,13 +49,23 @@ interface SeasonStatusResult {
 }
 
 class ActivityValidationServiceDrizzle {
-  constructor(private db: BetterSQLite3Database) {}
+  constructor(private db: BetterSQLite3Database) { }
 
   /**
    * Check if a season is currently closed (end_at has passed).
    */
   isSeasonClosed(seasonData: Season): { isClosed: boolean; reason?: string; end_at?: number } {
     const now = Math.floor(Date.now() / 1000); // Current Unix time
+
+    // Explicitly check for manual closure
+    // Note: Drizzle schema has is_active as integer (0 or 1), no boolean mode
+    if (seasonData.is_active === 0) {
+      return {
+        isClosed: true,
+        reason: 'Season is manually closed by administrator',
+        end_at: seasonData.end_at
+      };
+    }
 
     if (seasonData.end_at && now > seasonData.end_at) {
       const endDate = new Date(seasonData.end_at * 1000).toISOString();
@@ -74,6 +84,16 @@ class ActivityValidationServiceDrizzle {
    */
   isSeasonOpen(seasonData: Season): SeasonStatusResult {
     const now = Math.floor(Date.now() / 1000);
+
+    // Check manual closure
+    if (seasonData.is_active === 0) {
+      return {
+        isOpen: false,
+        isClosed: true,
+        reason: 'Season is manually closed by administrator',
+        end_at: seasonData.end_at
+      };
+    }
 
     // Check if season has started
     if (seasonData.start_at && now < seasonData.start_at) {
