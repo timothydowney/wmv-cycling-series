@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import './SeasonManager.css';
 import { trpc } from '../utils/trpc';
 import type { Season } from 'server/src/db/schema';
 import { formatUnixDate, dateToUnixStart, dateToUnixEnd, unixToDateLocal } from '../utils/dateUtils';
-import { PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { PencilIcon, TrashIcon, DocumentDuplicateIcon } from '@heroicons/react/24/outline';
+import { WeeklyHeader } from './WeeklyHeader';
+import { NotesDisplay } from './NotesDisplay';
 
 interface SeasonFormData {
   name: string;
@@ -40,7 +42,115 @@ function SeasonManager({ onSeasonsChanged }: Props) {
     }
   });
 
+  const cloneMutation = trpc.season.clone.useMutation({
+    onSuccess: () => {
+      utils.season.getAll.invalidate();
+      if (onSeasonsChanged) onSeasonsChanged();
+      setMessage({ type: 'success', text: 'Season cloned successfully!' });
+      setIsCloning(false);
+      setCloneSourceId(null);
+      setCloneStartDate('');
+      setCloneNewName('');
+      setTimeout(() => setMessage(null), 3000);
+    },
+    onError: (err) => {
+      setMessage({ type: 'error', text: err.message });
+      setTimeout(() => setMessage(null), 5000);
+    }
+  });
+
   const [isCreating, setIsCreating] = useState(false);
+  const [isCloning, setIsCloning] = useState(false);
+  const [cloneSourceId, setCloneSourceId] = useState<number | null>(null);
+  const [cloneStartDate, setCloneStartDate] = useState('');
+  const [cloneNewName, setCloneNewName] = useState('');
+  const [expandedPreviewIds, setExpandedPreviewIds] = useState<number[]>([]);
+
+  const { data: sourceWeeks = [] } = trpc.week.getAll.useQuery(
+    { seasonId: cloneSourceId || 0 },
+    { enabled: !!cloneSourceId }
+  );
+
+  const togglePreviewExpand = (index: number) => {
+    setExpandedPreviewIds(prev => 
+      prev.includes(index) 
+        ? prev.filter(id => id !== index)
+        : [...prev, index]
+    );
+  };
+
+  const previewWeeks = useMemo(() => {
+    if (!cloneSourceId || !cloneStartDate || !sourceWeeks.length) return [];
+    
+    const sourceSeason = seasons.find(s => s.id === cloneSourceId);
+    if (!sourceSeason) return [];
+
+    // Sort weeks by start date to ensure correct order and offset calculation
+    const sortedWeeks = [...sourceWeeks].sort((a, b) => a.start_at - b.start_at);
+    const firstWeekStart = sortedWeeks[0].start_at;
+
+    // Calculate time-of-day of the first week to preserve it
+    const firstWeekMidnight = dateToUnixStart(unixToDateLocal(firstWeekStart));
+    const timeOfDay = firstWeekStart - firstWeekMidnight;
+    
+    // New start time = Selected Date Midnight + Original Time of Day
+    const targetDateMidnight = dateToUnixStart(cloneStartDate);
+    const newStartUnix = targetDateMidnight + timeOfDay;
+
+    return sortedWeeks.map(w => {
+      // Calculate offset in DAYS relative to the FIRST WEEK
+      // This avoids DST shift issues by snapping to exact 24-hour intervals
+      const diffSeconds = w.start_at - firstWeekStart;
+      const daysDiff = Math.round(diffSeconds / 86400);
+      
+      const duration = w.end_at - w.start_at;
+      
+      // New start is exactly N days after the first week's new start
+      const newStart = newStartUnix + (daysDiff * 86400);
+      const newEnd = newStart + duration;
+      
+      return {
+        ...w,
+        newStart,
+        newEnd
+      };
+    });
+  }, [cloneSourceId, cloneStartDate, sourceWeeks, seasons]);
+
+  const handleCloneSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cloneSourceId || !cloneStartDate || !cloneNewName) {
+      setMessage({ type: 'error', text: 'Please fill in all fields' });
+      return;
+    }
+
+    // We need to calculate the exact start timestamp (including time of day)
+    // just like we did for the preview
+    const sourceWeeksSorted = [...sourceWeeks].sort((a, b) => a.start_at - b.start_at);
+    if (sourceWeeksSorted.length === 0) {
+       // Fallback if no weeks (shouldn't happen if cloning a valid season)
+       const newStartUnix = dateToUnixStart(cloneStartDate);
+       await cloneMutation.mutateAsync({
+        sourceSeasonId: cloneSourceId,
+        newStartDate: newStartUnix,
+        newName: cloneNewName
+      });
+      return;
+    }
+
+    const firstWeekStart = sourceWeeksSorted[0].start_at;
+    const firstWeekMidnight = dateToUnixStart(unixToDateLocal(firstWeekStart));
+    const timeOfDay = firstWeekStart - firstWeekMidnight;
+    
+    const targetDateMidnight = dateToUnixStart(cloneStartDate);
+    const newStartUnix = targetDateMidnight + timeOfDay;
+    
+    await cloneMutation.mutateAsync({
+      sourceSeasonId: cloneSourceId,
+      newStartDate: newStartUnix,
+      newName: cloneNewName
+    });
+  };
   const [editingSeasonId, setEditingSeasonId] = useState<number | null>(null);
   const [formData, setFormData] = useState<SeasonFormData>({
     name: '',
@@ -174,6 +284,10 @@ function SeasonManager({ onSeasonsChanged }: Props) {
       start_at: '',
       end_at: ''
     });
+    setIsCloning(false);
+    setCloneSourceId(null);
+    setCloneStartDate('');
+    setCloneNewName('');
   };
 
   return (
@@ -248,13 +362,133 @@ function SeasonManager({ onSeasonsChanged }: Props) {
         )}
       </div>
 
-      {!isCreating && (
-        <button
-          className="create-button"
-          onClick={() => setIsCreating(true)}
-        >
-          + Create New Season
-        </button>
+      {!isCreating && !isCloning && (
+        <div className="season-actions-row" style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+          <button
+            className="create-button"
+            onClick={() => setIsCreating(true)}
+          >
+            + Create New Season
+          </button>
+          <button
+            className="create-button"
+            onClick={() => setIsCloning(true)}
+            style={{ backgroundColor: '#4a5568' }}
+          >
+            <DocumentDuplicateIcon width={20} height={20} style={{ display: 'inline', marginRight: '5px', verticalAlign: 'text-bottom' }} />
+            Clone a Season
+          </button>
+        </div>
+      )}
+
+      {isCloning && (
+        <div className="season-creation-area">
+          <form className="season-form" onSubmit={handleCloneSubmit}>
+            <h3>Clone a Season</h3>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="sourceSeason">Source Season</label>
+                <select
+                  id="sourceSeason"
+                  value={cloneSourceId || ''}
+                  onChange={(e) => setCloneSourceId(Number(e.target.value))}
+                  required
+                  className="form-select"
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                >
+                  <option value="">Select a season to clone...</option>
+                  {seasons.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="cloneNewName">New Season Name</label>
+                <input
+                  type="text"
+                  id="cloneNewName"
+                  value={cloneNewName}
+                  onChange={(e) => setCloneNewName(e.target.value)}
+                  required
+                  placeholder="e.g., Spring 2026"
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="cloneStartDate">New Start Date</label>
+                <input
+                  type="date"
+                  id="cloneStartDate"
+                  value={cloneStartDate}
+                  onChange={(e) => setCloneStartDate(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            {previewWeeks.length > 0 && (
+              <div className="clone-preview" style={{ marginTop: '20px', marginBottom: '20px' }}>
+                <h4>Preview: {previewWeeks.length} Weeks</h4>
+                <div style={{ maxHeight: '600px', overflowY: 'auto', padding: '4px' }}>
+                  {previewWeeks.map((w, i) => {
+                    const isExpanded = expandedPreviewIds.includes(i);
+                    return (
+                      <div key={i} style={{ marginBottom: isExpanded ? '16px' : '24px' }}>
+                        <WeeklyHeader 
+                          week={{
+                            ...w, 
+                            start_at: w.newStart, 
+                            end_at: w.newEnd
+                          }} 
+                          weekNumber={i + 1}
+                          onClick={() => togglePreviewExpand(i)}
+                          isExpanded={isExpanded}
+                        />
+                        {isExpanded && (
+                          <div style={{
+                            marginTop: '-24px',
+                            marginLeft: '16px',
+                            marginRight: '16px',
+                            backgroundColor: '#f9fafb',
+                            borderBottomLeftRadius: '16px',
+                            borderBottomRightRadius: '16px',
+                            border: '1px solid #e5e7eb',
+                            borderTop: 'none',
+                            padding: '24px',
+                            paddingTop: '32px',
+                            animation: 'slideDown 0.2s ease-out',
+                            position: 'relative',
+                            zIndex: 0
+                          }}>
+                            {w.notes ? (
+                              <NotesDisplay markdown={w.notes} />
+                            ) : (
+                              <div style={{ color: 'var(--wmv-text-light)', fontStyle: 'italic', textAlign: 'center', padding: '12px' }}>
+                                No notes for this week.
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="form-actions">
+              <button type="button" className="cancel-button" onClick={cancelEdit}>
+                Cancel
+              </button>
+              <button type="submit" className="submit-button" disabled={cloneMutation.isPending}>
+                {cloneMutation.isPending ? 'Cloning...' : 'Clone Season'}
+              </button>
+            </div>
+          </form>
+        </div>
       )}
 
       {isCreating && (

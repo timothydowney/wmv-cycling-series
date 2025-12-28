@@ -134,6 +134,7 @@ export const WeeklyHeader: React.FC<Props> = ({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     {/* Expand/Collapse Toggle Button (Always visible for consistency) */}
                     <button
+                        type="button"
                         onClick={(e) => {
                             e.stopPropagation();
                             if (onClick) onClick();

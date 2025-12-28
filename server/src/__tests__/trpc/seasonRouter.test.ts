@@ -2,8 +2,8 @@ import { Database } from 'better-sqlite3';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { appRouter } from '../../routers';
 import { createContext } from '../../trpc/context';
-import { setupTestDb, teardownTestDb, clearAllData, createSeason } from '../testDataHelpers';
-import { season } from '../../db/schema';
+import { setupTestDb, teardownTestDb, clearAllData, createSeason, createSegment } from '../testDataHelpers';
+import { season, week } from '../../db/schema';
 import { eq } from 'drizzle-orm';
 
 describe('seasonRouter', () => {
@@ -158,6 +158,67 @@ describe('seasonRouter', () => {
 
       // @ts-ignore
       await expect(caller.season.delete(Number(seasonId))).rejects.toThrow('UNAUTHORIZED');
+    });
+  });
+
+  describe('clone', () => {
+    it('should clone a season and its weeks', async () => {
+      const caller = getCaller(true);
+      
+      // Create segment for FK
+      createSegment(drizzleDb, 123, 'Test Segment');
+
+      // 1. Create source season
+      // Start season at 9000, but first week starts at 10000
+      // This tests that the clone aligns the first week to the new start date, ignoring the season padding
+      const sourceSeason = createSeason(drizzleDb, 'Source Season', true, { startAt: 9000, endAt: 20000 });
+      
+      // 2. Create source weeks directly
+      drizzleDb.insert(week).values({
+        season_id: sourceSeason.id,
+        week_name: 'Week 1',
+        strava_segment_id: 123,
+        required_laps: 1,
+        start_at: 10000,
+        end_at: 11000
+      }).run();
+
+      // Week 2 is exactly 7 days later (7 * 86400 = 604800 seconds)
+      // Start: 10000 + 604800 = 614800
+      // End: 11000 + 604800 = 615800
+      drizzleDb.insert(week).values({
+        season_id: sourceSeason.id,
+        week_name: 'Week 2',
+        strava_segment_id: 123,
+        required_laps: 1,
+        start_at: 614800,
+        end_at: 615800
+      }).run();
+
+      // 3. Clone
+      const newStartDate = 30000;
+      const result = await caller.season.clone({
+        sourceSeasonId: sourceSeason.id,
+        newStartDate: newStartDate,
+        newName: 'Cloned Season'
+      });
+
+      expect(result.name).toBe('Cloned Season');
+      expect(result.start_at).toBe(newStartDate);
+      
+      // 4. Verify weeks
+      const newWeeks = await drizzleDb.select().from(week).where(eq(week.season_id, result.id)).orderBy(week.start_at).all();
+      expect(newWeeks).toHaveLength(2);
+
+      // Week 1: offset 0 (relative to first week). New start = 30000. Duration 1000. End = 31000.
+      expect(newWeeks[0].week_name).toBe('Week 1');
+      expect(newWeeks[0].start_at).toBe(30000);
+      expect(newWeeks[0].end_at).toBe(31000);
+
+      // Week 2: offset 7 days (604800 seconds). New start = 30000 + 604800 = 634800.
+      expect(newWeeks[1].week_name).toBe('Week 2');
+      expect(newWeeks[1].start_at).toBe(30000 + 604800);
+      expect(newWeeks[1].end_at).toBe(31000 + 604800);
     });
   });
 });

@@ -133,6 +133,74 @@ class SeasonService {
 
     return { message: 'Season deleted successfully' };
   }
+
+  /**
+   * Clone an existing season and its weeks to a new start date
+   */
+  cloneSeason(sourceSeasonId: number, newStartDate: number, newName: string): Season {
+    // 1. Get source season
+    const sourceSeason = this.getSeasonById(sourceSeasonId);
+    if (!sourceSeason) {
+      throw new Error('Source season not found');
+    }
+
+    // 2. Get source weeks
+    const sourceWeeks = this.db.select().from(week).where(eq(week.season_id, sourceSeasonId)).orderBy(week.start_at).all();
+
+    // 3. Calculate new season end date
+    // We want the first week to start exactly on newStartDate.
+    // So we calculate offsets relative to the FIRST WEEK, not the season start.
+    let firstWeekStart = sourceSeason.start_at;
+    if (sourceWeeks.length > 0) {
+      firstWeekStart = sourceWeeks[0].start_at;
+    }
+
+    // Calculate duration of the original season to determine new end date
+    // If we shift the start, we should shift the end by the same amount relative to the new start
+    // But wait, if we align to the first week, the season "container" duration might need adjustment if it had padding.
+    // For simplicity, let's keep the season duration the same, but shift the start.
+    // Actually, if the user says "New Start Date" is for the first week, maybe we should set the Season Start to that too.
+    // Let's assume New Start Date = Season Start Date = First Week Start Date.
+    
+    const seasonDuration = sourceSeason.end_at - sourceSeason.start_at;
+    const newEndDate = newStartDate + seasonDuration;
+
+    // 4. Create new season
+    // This will handle deactivating other seasons if is_active is true
+    const newSeason = this.createSeason({
+      name: newName,
+      start_at: newStartDate,
+      end_at: newEndDate,
+      is_active: true
+    });
+
+    // 5. Clone weeks
+    for (const sourceWeek of sourceWeeks) {
+      // Calculate offset in DAYS relative to the FIRST WEEK
+      // This avoids DST shift issues by snapping to exact 24-hour intervals
+      const diffSeconds = sourceWeek.start_at - firstWeekStart;
+      const daysDiff = Math.round(diffSeconds / 86400);
+      
+      const duration = sourceWeek.end_at - sourceWeek.start_at;
+      
+      // New start is exactly N days after the first week's new start
+      const newWeekStart = newStartDate + (daysDiff * 86400);
+      const newWeekEnd = newWeekStart + duration;
+
+      this.db.insert(week).values({
+        season_id: newSeason.id,
+        week_name: sourceWeek.week_name,
+        strava_segment_id: sourceWeek.strava_segment_id,
+        required_laps: sourceWeek.required_laps,
+        start_at: newWeekStart,
+        end_at: newWeekEnd,
+        multiplier: sourceWeek.multiplier,
+        notes: sourceWeek.notes
+      }).run();
+    }
+
+    return newSeason;
+  }
 }
 
 export default SeasonService;
