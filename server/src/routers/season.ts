@@ -63,4 +63,15 @@ export const seasonRouter = router({
         });
       }
     }),
+
+  clone: adminProcedure
+    .input(z.object({
+      sourceSeasonId: z.number(),
+      newStartDate: z.number(),
+      newName: z.string(),
+    }))
+    .mutation(({ ctx, input }) => {
+      const seasonService = new SeasonService(ctx.orm);
+      return seasonService.cloneSeason(input.sourceSeasonId, input.newStartDate, input.newName);
+    }),
 });

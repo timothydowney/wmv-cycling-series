@@ -103,7 +103,6 @@ function AppContent() {
   // Handler for when seasons are changed in SeasonManager - refresh seasons list
   const handleSeasonsChanged = () => {
     utils.season.getAll.invalidate();
-    setViewMode('leaderboard');
   };
 
   const getPageTitle = (mode: ViewMode) => {
