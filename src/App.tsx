@@ -38,7 +38,7 @@ function AppContent() {
 
   const weeksQuery = trpc.week.getAll.useQuery(
     { seasonId: selectedSeasonId!, includeParticipantCount: true },
-    {
+    { 
       enabled: !!selectedSeasonId,
       refetchOnWindowFocus: false
     }
@@ -55,7 +55,7 @@ function AppContent() {
   const seasons = useMemo(() => seasonsQuery.data || [], [seasonsQuery.data]);
   const weeks = useMemo(() => weeksQuery.data || [], [weeksQuery.data]);
   const selectedSeason = seasons.find(s => s.id === selectedSeasonId) || null;
-
+  
   // Extract week and leaderboard data from tRPC query result
   // We cast the week from tRPC to match our frontend Week type which might have legacy fields
   const selectedWeek = weekLeaderboardQuery.data?.week ? (weekLeaderboardQuery.data.week as unknown as Week) : null;
@@ -78,18 +78,18 @@ function AppContent() {
     if (weeks.length > 0) {
       // If no week selected OR the selected week is not in the current weeks list (season changed)
       const isSelectedWeekInList = selectedWeekId && weeks.some(w => w.id === selectedWeekId);
-
+      
       if (!selectedWeekId || !isSelectedWeekInList) {
         const now = Math.floor(Date.now() / 1000);
         const today = Math.floor(now / 86400) * 86400;
-
+        
         const sortedWeeks = [...weeks].sort((a, b) => b.start_at - a.start_at);
         const pastWeek = sortedWeeks.find(week => week.start_at <= today);
-
+        
         setSelectedWeekId(pastWeek ? pastWeek.id : sortedWeeks[0].id);
       }
     } else if (weeksQuery.isFetched && weeks.length === 0) {
-      setSelectedWeekId(null);
+        setSelectedWeekId(null);
     }
   }, [weeks, weeksQuery.isFetched, selectedWeekId]);
 
@@ -138,9 +138,9 @@ function AppContent() {
 
   return (
     <UnitProvider>
-      <NavBar
+      <NavBar 
         title={getPageTitle(viewMode)}
-        onAdminPanelToggle={() => setViewMode(viewMode === 'admin' ? 'leaderboard' : 'admin')}
+        onAdminPanelToggle={() => setViewMode(viewMode === 'admin' ? 'leaderboard' : 'admin')} 
         isAdminPanelOpen={viewMode === 'admin'}
         onParticipantsClick={() => setViewMode('participants')}
         onLeaderboardClick={() => setViewMode('leaderboard')}
@@ -148,11 +148,11 @@ function AppContent() {
         onWebhooksClick={() => setViewMode('webhooks')}
         onAboutClick={() => setViewMode('about')}
       />
-
+      
       <div className="app app-content">
         {viewMode === 'admin' ? (
           <>
-            <AdminPanel
+            <AdminPanel 
               onFetchResults={handleFetchResults}
               seasons={seasons}
               selectedSeasonId={selectedSeasonId}
@@ -209,7 +209,7 @@ function AppContent() {
                 }
               }
               return (
-                <WeeklyLeaderboard
+                <WeeklyLeaderboard 
                   week={selectedWeek}
                   leaderboard={weekLeaderboard}
                   weekNumber={weekNumber}
@@ -225,8 +225,6 @@ function AppContent() {
               <ScheduleTable weeks={weeks as Week[]} season={selectedSeason || undefined} />
             )}
 
-            {/* Spacer to ensure content clears the fixed BottomNav */}
-            <div style={{ height: 'calc(20px + env(safe-area-inset-bottom))' }} />
             <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
           </>
         )}

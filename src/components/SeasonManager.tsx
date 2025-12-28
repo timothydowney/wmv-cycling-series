@@ -81,16 +81,23 @@ function SeasonManager({ onSeasonsChanged }: Props) {
         name: formData.name,
         start_at: startUnix,
         end_at: endUnix,
-        is_active: false // Default to false, logic handled by backend/service if needed
+        is_active: editingSeasonId ? undefined : true // Default to true on create, unless specifically toggled later
       };
 
       if (editingSeasonId) {
         await updateMutation.mutateAsync({
           id: editingSeasonId,
-          data: submitData
+          data: {
+            name: formData.name,
+            start_at: startUnix,
+            end_at: endUnix
+          }
         });
       } else {
-        await createMutation.mutateAsync(submitData);
+        await createMutation.mutateAsync({
+          ...submitData,
+          is_active: true
+        });
       }
 
       setMessage({
@@ -123,6 +130,23 @@ function SeasonManager({ onSeasonsChanged }: Props) {
     });
     setEditingSeasonId(season.id);
     setIsCreating(true);
+  };
+
+  const handleToggleStatus = async (season: Season) => {
+    const newStatus = season.is_active === 1 ? false : true;
+
+    try {
+      await updateMutation.mutateAsync({
+        id: season.id,
+        data: {
+          is_active: newStatus
+        }
+      });
+      // No message shown on success as requested
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message });
+      setTimeout(() => setMessage(null), 5000);
+    }
   };
 
   const handleDelete = async (seasonId: number) => {
@@ -177,17 +201,26 @@ function SeasonManager({ onSeasonsChanged }: Props) {
             </thead>
             <tbody>
               {seasons.map(season => {
-                const now = Math.floor(Date.now() / 1000);
-                const isWithinDates = season.start_at <= now && now <= season.end_at;
+                const isActive = season.is_active === 1;
+
                 return (
                   <tr key={season.id}>
                     <td>{season.name}</td>
                     <td>{formatUnixDate(season.start_at)}</td>
                     <td>{formatUnixDate(season.end_at)}</td>
                     <td>
-                      <span className={`status-badge ${isWithinDates ? 'active' : 'inactive'}`}>
-                        {isWithinDates ? 'Active' : 'Inactive'}
-                      </span>
+                      <div className="status-toggle-wrapper">
+                        <span className={`status-label-text ${isActive ? 'active' : 'closed'}`}>
+                          {isActive ? 'Active' : 'Closed'}
+                        </span>
+                        <button
+                          className={`season-toggle-switch ${isActive ? 'active' : 'closed'}`}
+                          onClick={() => handleToggleStatus(season)}
+                          title={isActive ? "Click to Close Season" : "Click to Activate Season"}
+                        >
+                          <div className="season-toggle-button" />
+                        </button>
+                      </div>
                     </td>
                     <td>
                       <div className="action-buttons">
@@ -196,14 +229,14 @@ function SeasonManager({ onSeasonsChanged }: Props) {
                           onClick={() => handleEdit(season)}
                           title="Edit season"
                         >
-                          <PencilIcon width={28} height={28} />
+                          <PencilIcon width={24} height={24} />
                         </button>
                         <button
                           className="icon-button season-action-delete"
                           onClick={() => handleDelete(season.id)}
                           title="Delete season"
                         >
-                          <TrashIcon width={28} height={28} />
+                          <TrashIcon width={24} height={24} />
                         </button>
                       </div>
                     </td>
@@ -269,6 +302,7 @@ function SeasonManager({ onSeasonsChanged }: Props) {
                 />
               </div>
             </div>
+
 
             <div className="form-actions">
               <button type="submit" className="submit-button">
