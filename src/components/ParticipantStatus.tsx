@@ -7,12 +7,12 @@ import StravaAthleteBadge from './StravaAthleteBadge';
 function ParticipantStatus() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
-  
+
   const { data: participants = [], isLoading: loading, error: loadError } = trpc.participant.getAll.useQuery(
     undefined,
-    { 
+    {
       enabled: isAdmin,
-      refetchOnWindowFocus: false 
+      refetchOnWindowFocus: false
     }
   );
 
@@ -67,7 +67,7 @@ function ParticipantStatus() {
         </p>
       </div>
 
-      <table className="participants-table">
+      <table className="participants-table wmv-table">
         <thead>
           <tr>
             <th>Name</th>
@@ -93,7 +93,7 @@ function ParticipantStatus() {
                 </span>
               </td>
               <td>
-                {participant.token_expires_at 
+                {participant.token_expires_at
                   ? new Date(parseInt(participant.token_expires_at) * 1000).toLocaleString()
                   : '-'
                 }
@@ -106,11 +106,11 @@ function ParticipantStatus() {
       <div className="help-text">
         <h4>About Connection Status</h4>
         <p>
-          Participants must connect their Strava accounts using the "Connect with Strava" button 
+          Participants must connect their Strava accounts using the "Connect with Strava" button
           in the main app before their activities can be fetched.
         </p>
         <p>
-          When you click "Fetch Results" for a week, only connected participants will have their 
+          When you click "Fetch Results" for a week, only connected participants will have their
           activities retrieved and scored.
         </p>
       </div>

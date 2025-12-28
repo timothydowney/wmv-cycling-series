@@ -24,7 +24,7 @@
 
 
 
-table {
+.wmv-table {
   width: 100%;
   border-collapse: collapse;
   margin-bottom: 2em;
@@ -32,14 +32,14 @@ table {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-th,
-td {
+.wmv-table th,
+.wmv-table td {
   border: 1px solid var(--wmv-border, #e0e0e0);
   padding: 0.75em;
   text-align: left;
 }
 
-th {
+.wmv-table th {
   background-color: var(--wmv-orange, #f56004);
   color: white;
   font-weight: 600;

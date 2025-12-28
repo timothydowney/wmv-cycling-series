@@ -1,6 +1,7 @@
 import React from 'react';
 import { useUnits } from '../context/UnitContext';
 import { formatDistance, formatElevation } from '../utils/unitConversion';
+import './SegmentMetadataDisplay.css';
 
 /**
  * Segment metadata type - self-contained with all segment display fields.
@@ -32,13 +33,13 @@ export const SegmentMetadataDisplay: React.FC<SegmentMetadataDisplayProps> = ({
   segment
 }) => {
   const { units } = useUnits();
-  
+
   // Extract fields, supporting both naming conventions
   const distance = segment.distance;
   const elevationGain = segment.total_elevation_gain ?? segment.elevation_gain;
   const averageGrade = segment.segment_average_grade ?? segment.average_grade;
   const climbCategory = segment.climb_category ?? segment.climbCategory;
-  
+
   // If no data available, don't render anything
   if (!distance && !elevationGain && averageGrade === undefined && climbCategory === undefined) {
     return null;
@@ -52,21 +53,21 @@ export const SegmentMetadataDisplay: React.FC<SegmentMetadataDisplayProps> = ({
           <div className="metadata-value">{formatDistance(distance, units)}</div>
         </div>
       )}
-      
+
       {elevationGain !== undefined && (
         <div className="metadata-card">
           <div className="metadata-label">Elevation Gain</div>
           <div className="metadata-value">{formatElevation(elevationGain, units)}</div>
         </div>
       )}
-      
+
       {averageGrade !== undefined && (
         <div className="metadata-card">
           <div className="metadata-label">Avg Grade</div>
           <div className="metadata-value">{averageGrade.toFixed(1)}%</div>
         </div>
       )}
-      
+
       {climbCategory !== undefined && climbCategory !== null && (
         <div className="metadata-card">
           <div className="metadata-label">Category</div>

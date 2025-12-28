@@ -134,7 +134,7 @@ function SeasonManager({ onSeasonsChanged }: Props) {
       await deleteMutation.mutateAsync(seasonId);
 
       setMessage({ type: 'success', text: 'Season deleted successfully!' });
-      
+
       setTimeout(() => setMessage(null), 3000);
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message });
@@ -165,7 +165,7 @@ function SeasonManager({ onSeasonsChanged }: Props) {
         {seasons.length === 0 ? (
           <p className="no-seasons">No seasons created yet. Create your first season below.</p>
         ) : (
-          <table className="seasons-table">
+          <table className="seasons-table wmv-table">
             <thead>
               <tr>
                 <th>Name</th>
@@ -180,34 +180,34 @@ function SeasonManager({ onSeasonsChanged }: Props) {
                 const now = Math.floor(Date.now() / 1000);
                 const isWithinDates = season.start_at <= now && now <= season.end_at;
                 return (
-                <tr key={season.id}>
-                  <td>{season.name}</td>
-                  <td>{formatUnixDate(season.start_at)}</td>
-                  <td>{formatUnixDate(season.end_at)}</td>
-                  <td>
-                    <span className={`status-badge ${isWithinDates ? 'active' : 'inactive'}`}>
-                      {isWithinDates ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="action-buttons">
-                      <button
-                        className="icon-button season-action-edit"
-                        onClick={() => handleEdit(season)}
-                        title="Edit season"
-                      >
-                        <PencilIcon width={28} height={28} />
-                      </button>
-                      <button
-                        className="icon-button season-action-delete"
-                        onClick={() => handleDelete(season.id)}
-                        title="Delete season"
-                      >
-                        <TrashIcon width={28} height={28} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                  <tr key={season.id}>
+                    <td>{season.name}</td>
+                    <td>{formatUnixDate(season.start_at)}</td>
+                    <td>{formatUnixDate(season.end_at)}</td>
+                    <td>
+                      <span className={`status-badge ${isWithinDates ? 'active' : 'inactive'}`}>
+                        {isWithinDates ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="action-buttons">
+                        <button
+                          className="icon-button season-action-edit"
+                          onClick={() => handleEdit(season)}
+                          title="Edit season"
+                        >
+                          <PencilIcon width={28} height={28} />
+                        </button>
+                        <button
+                          className="icon-button season-action-delete"
+                          onClick={() => handleDelete(season.id)}
+                          title="Delete season"
+                        >
+                          <TrashIcon width={28} height={28} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
                 );
               })}
             </tbody>

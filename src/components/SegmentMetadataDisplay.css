@@ -1,0 +1,28 @@
+.segment-metadata-cards-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.metadata-card {
+    display: flex;
+    flex-direction: column;
+    background-color: var(--wmv-bg-light, #f5f5f5);
+    padding: 6px 10px;
+    border-radius: 8px;
+    min-width: 80px;
+}
+
+.metadata-label {
+    font-size: 0.75rem;
+    color: var(--wmv-text-light, #666);
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.metadata-value {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--wmv-text-dark, #333);
+}

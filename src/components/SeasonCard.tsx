@@ -1,6 +1,6 @@
 import React from 'react';
 import StravaAthleteBadge from './StravaAthleteBadge';
-import './WeeklyLeaderboard.css'; // Reuse existing styles
+import './Card.css'; // Shared card styles
 import { CalendarDaysIcon } from '@heroicons/react/24/outline';
 
 interface Props {
