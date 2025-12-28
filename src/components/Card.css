@@ -1,0 +1,172 @@
+/* Shared Card Styles */
+.leaderboard-card {
+    background-color: var(--wmv-white);
+    border-radius: 12px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06);
+    cursor: pointer;
+    border-left: 4px solid transparent;
+    border-top: 1px solid transparent;
+    border-right: 1px solid transparent;
+    border-bottom: 1px solid transparent;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.leaderboard-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.leaderboard-card.current-user {
+    border-left-color: var(--wmv-orange);
+    background-color: var(--wmv-white);
+}
+
+.leaderboard-card.current-user .card-header {
+    background-color: var(--wmv-orange);
+}
+
+/* Ensure contrast on dark orange background */
+.leaderboard-card.current-user .card-header .card-rank,
+.leaderboard-card.current-user .card-header .card-name,
+.leaderboard-card.current-user .card-header .card-points-row,
+.leaderboard-card.current-user .card-header .card-time,
+.leaderboard-card.current-user .card-header .card-chevron {
+    color: var(--wmv-white);
+}
+
+.leaderboard-card * {
+    box-sizing: border-box;
+}
+
+.card-header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 12px 12px;
+    min-height: 56px;
+    background-color: var(--wmv-white);
+    position: relative;
+    z-index: 2;
+    flex-wrap: nowrap;
+    width: 100%;
+}
+
+.card-rank {
+    font-size: 1.1rem;
+    font-weight: 700;
+    width: 14px;
+    text-align: left;
+    color: var(--wmv-text-dark);
+    margin-right: 2px;
+    flex-shrink: 0;
+}
+
+.card-avatar {
+    margin-right: 0px;
+    flex-shrink: 0;
+    display: flex;
+}
+
+.card-main-info {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    min-width: 0;
+    gap: 2px;
+    overflow: hidden;
+}
+
+.card-name {
+    font-weight: 600;
+    font-size: 1.0rem;
+    color: var(--wmv-text-dark);
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-right: 4px;
+    margin-top: 2px;
+}
+
+.card-points-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.85rem;
+    color: var(--wmv-text-light);
+    margin-top: 2px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.card-right-side {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    margin-left: auto;
+    color: var(--wmv-text-dark);
+    padding-left: 4px;
+}
+
+.card-time {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--wmv-text-dark);
+    white-space: nowrap;
+}
+
+.card-chevron {
+    color: var(--wmv-text-light);
+    transition: transform 0.3s;
+    display: flex;
+}
+
+.card-expanded-details {
+    background-color: var(--wmv-bg-light, #f9fafb);
+    padding: 16px 16px 24px 16px;
+    border-top: 1px solid var(--wmv-border, #f0f0f0);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
+    animation: fadeIn 0.2s ease-in-out;
+    position: relative;
+    z-index: 1;
+}
+
+
+.week-header-chip {
+    display: inline-flex;
+    align-items: center;
+    background-color: var(--wmv-bg-light, #f2f4f7);
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 0.85rem;
+    color: var(--wmv-text-light);
+    /* Changed to var for consistency */
+    font-weight: 500;
+}
+
+.week-header-chip-icon {
+    width: 14px;
+    height: 14px;
+    margin-right: 6px;
+    color: var(--wmv-text-light);
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

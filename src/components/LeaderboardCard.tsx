@@ -1,7 +1,8 @@
 
-
 import React from 'react';
 import { Week, LeaderboardEntry } from '../types';
+import './Card.css'; // Shared card styles
+import './WeeklyLeaderboard.css'; // Keeping for now if it has other needed styles, but Card styles are moved.
 import StravaAthleteBadge from './StravaAthleteBadge';
 
 interface Props {
