@@ -19,6 +19,10 @@ describe('BatchFetchService Retry Logic', () => {
   let weekId: number;
 
   beforeEach(() => {
+    // Mock system time to be within the season (2025)
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2025-01-02T12:00:00Z'));
+
     const testDb = setupTestDb();
     db = testDb.db;
     orm = testDb.orm;
@@ -47,6 +51,7 @@ describe('BatchFetchService Retry Logic', () => {
   afterEach(() => {
     teardownTestDb(db);
     jest.clearAllMocks();
+    jest.useRealTimers();
   });
 
   it('should retry with forceRefresh=true when Strava returns 401', async () => {
