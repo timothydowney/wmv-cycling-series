@@ -58,19 +58,7 @@ const ScheduleTable: React.FC<Props> = ({ weeks, season }) => {
 
               {/* Upcoming Label */}
               {isUpcoming && (
-                <div style={{
-                  position: 'absolute',
-                  top: '-10px',
-                  right: '24px',
-                  backgroundColor: 'var(--wmv-orange)',
-                  color: 'white',
-                  padding: '4px 12px',
-                  borderRadius: '12px',
-                  fontSize: '0.75rem',
-                  fontWeight: 'bold',
-                  zIndex: 10,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                }}>
+                <div className="next-up-badge">
                   Next Up
                 </div>
               )}
