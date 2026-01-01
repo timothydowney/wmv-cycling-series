@@ -15,6 +15,7 @@ import StravaConnectInfoBox from './components/StravaConnectInfoBox';
 import AboutPage from './components/AboutPage';
 import { useCurrentUser } from './hooks/useCurrentUser';
 import { UnitProvider } from './context/UnitContext';
+import { getDefaultSeason, getDefaultWeek } from './utils/defaultSelection';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { httpBatchLink } from '@trpc/client';
@@ -68,8 +69,10 @@ function AppContent() {
   useEffect(() => {
     if (seasons.length > 0 && selectedSeasonId === null) {
       const now = Math.floor(Date.now() / 1000);
-      const currentSeason = seasons.find(season => season.start_at <= now && now <= season.end_at);
-      setSelectedSeasonId(currentSeason ? currentSeason.id : seasons[0].id);
+      const defaultSeason = getDefaultSeason(seasons, now);
+      if (defaultSeason) {
+        setSelectedSeasonId(defaultSeason.id);
+      }
     }
   }, [seasons, selectedSeasonId]);
 
@@ -81,12 +84,10 @@ function AppContent() {
       
       if (!selectedWeekId || !isSelectedWeekInList) {
         const now = Math.floor(Date.now() / 1000);
-        const today = Math.floor(now / 86400) * 86400;
-        
-        const sortedWeeks = [...weeks].sort((a, b) => b.start_at - a.start_at);
-        const pastWeek = sortedWeeks.find(week => week.start_at <= today);
-        
-        setSelectedWeekId(pastWeek ? pastWeek.id : sortedWeeks[0].id);
+        const defaultWeek = getDefaultWeek(weeks, now);
+        if (defaultWeek) {
+          setSelectedWeekId(defaultWeek.id);
+        }
       }
     } else if (weeksQuery.isFetched && weeks.length === 0) {
         setSelectedWeekId(null);
