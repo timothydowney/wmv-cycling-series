@@ -13,10 +13,10 @@ import { LogLevel, LoggerCallback, StructuredLogger } from '../types/Logger';
 import ActivityValidationServiceDrizzle from './ActivityValidationServiceDrizzle';
 
 interface FetchResult {
-  participant_id: number;
+  participant_id: string;
   participant_name: string;
   activity_found: boolean;
-  activity_id?: number;
+  activity_id?: string;
   total_time?: number;
   segment_efforts?: number;
   reason?: string;
@@ -38,7 +38,7 @@ class BatchFetchService {
     private db: BetterSQLite3Database,
     private getValidAccessToken: (
       db: BetterSQLite3Database,
-      athleteId: number,
+      athleteId: string,
       forceRefresh?: boolean
     ) => Promise<string>
   ) {
@@ -104,7 +104,7 @@ class BatchFetchService {
           results_found: 0,
           summary: [
             {
-              participant_id: 0,
+              participant_id: '0',
               participant_name: 'All',
               activity_found: false,
               reason: `Season has ended (${seasonStatus.reason}). Cannot fetch activities for closed season.`
@@ -164,7 +164,7 @@ class BatchFetchService {
         results_found: 0,
         summary: [
           {
-            participant_id: 0,
+            participant_id: '0',
             participant_name: 'All',
             activity_found: false,
             reason: `Event date (${futureDate}) is in the future - activities cannot be fetched before the event occurs`

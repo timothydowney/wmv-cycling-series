@@ -202,37 +202,13 @@ The app uses **role-based access control** to distinguish between regular users 
 
 ### Architecture
 
-**Admins are identified by Strava athlete ID** (configured via `ADMIN_ATHLETE_IDS` environment variable):
+**Admins are identified by Strava athlete ID** (configured via `ADMIN_ATHLETE_IDS` environment variable).
 
-```javascript
-// Helper function parses comma-separated athlete IDs
-function getAdminAthleteIds() {
-  if (!process.env.ADMIN_ATHLETE_IDS) return [];
-  return process.env.ADMIN_ATHLETE_IDS
-    .split(',')
-    .map(id => parseInt(id.trim()))
-    .filter(id => !isNaN(id));
-}
+**Implementation:**
+- Helper: `getAdminAthleteIds` in [server/src/config.ts](server/src/config.ts)
+- Middleware: `requireAdmin` in [server/src/middleware/auth.ts](server/src/middleware/auth.ts) (or [server/src/index.ts](server/src/index.ts))
 
-// Middleware protects admin endpoints
-const requireAdmin = (req, res, next) => {
-  // Must be authenticated first
-  if (!req.session.stravaAthleteId) 
-    return res.status(401).json({ error: 'Not authenticated' });
-  
-  // Check if athlete ID is in admin list
-  const adminIds = getAdminAthleteIds();
-  if (!adminIds.includes(req.session.stravaAthleteId))
-    return res.status(403).json({ error: 'Admin access required' });
-  
-  next();
-};
-
-// All admin routes protected
-app.post('/admin/weeks', requireAdmin, handleCreateWeek);
-app.get('/admin/participants', requireAdmin, handleGetParticipants);
-// ... etc
-```
+The middleware ensures that the user is authenticated and their athlete ID is present in the admin list before allowing access to `/admin/*` endpoints.
 
 ### User Experience
 
@@ -379,14 +355,9 @@ When processing Strava API responses, **ALWAYS use `start_date` (UTC), NEVER use
 - This replicates the original timezone bug
 - Always use `start_date` which has explicit Z suffix (UTC, unambiguous)
 
-**Code Example:**
-```javascript
-// CORRECT: Use start_date (UTC)
-const unixSeconds = isoToUnix(activityData.start_date);  // ✅
-
-// WRONG: Using start_date_local causes timezone bug
-const unixSeconds = isoToUnix(activityData.start_date_local);  // ❌
-```
+**Implementation:**
+- Utility: `isoToUnix` in [server/src/dateUtils.ts](server/src/dateUtils.ts)
+- Usage: Always pass `start_date` (UTC) to `isoToUnix()` when processing Strava responses.
 
 **Applies To:**
 - Activity responses: `start_date` ✅ vs `start_date_local` ❌

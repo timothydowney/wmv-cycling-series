@@ -11,9 +11,9 @@ import { activity, participant, result, segmentEffort, week, webhookEvent } from
 
 export interface ActivitySummary {
   activityId: number;
-  stravaActivityId: number;
+  stravaActivityId: string;
   weekId: number;
-  participantId: number;
+  participantId: string;
   participantName: string;
   totalTimeSeconds: number;
   segmentEffortCount: number;
@@ -23,7 +23,7 @@ export interface ActivitySummary {
 export interface ResultSummary {
   resultId: number;
   weekId: number;
-  participantId: number;
+  participantId: string;
   participantName: string;
   totalTimeSeconds: number;
   rank: number;
@@ -39,13 +39,13 @@ export interface WeekLeaderboard {
 }
 
 export interface ParticipantActivityHistory {
-  participantId: number;
+  participantId: string;
   participantName: string;
   activities: Array<{
     weekId: number;
     weekName: string;
     activityId: number;
-    stravaActivityId: number;
+    stravaActivityId: string;
     totalTimeSeconds: number;
     segmentEfforts: number;
     prCount: number;
@@ -237,7 +237,7 @@ export class LeaderboardQueryService {
    * Get participant's activity history
    */
   getParticipantActivityHistory(
-    participantId: number
+    participantId: string
   ): ParticipantActivityHistory {
     const participantRow = this.db
       .select({ id: participant.strava_athlete_id, name: participant.name })
@@ -357,7 +357,7 @@ export class LeaderboardQueryService {
    */
   verifyIdempotency(
     weekId: number,
-    participantId: number
+    participantId: string
   ): {
     resultId: number;
     totalTimeSeconds: number;

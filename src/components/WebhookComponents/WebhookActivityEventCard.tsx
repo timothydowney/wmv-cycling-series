@@ -5,11 +5,11 @@ import './WebhookActivityEventCard.css';
 
 interface EnrichedActivity {
   athlete: {
-    athlete_id: number;
+    athlete_id: string;
     name: string;
   };
   strava_data?: {
-    activity_id: number;
+    activity_id: string;
     name: string;
     type: string;
     distance_m: number;

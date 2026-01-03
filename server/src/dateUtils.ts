@@ -13,19 +13,19 @@
  *       Without Z, the string is parsed as browser/process local timezone, which varies by environment.
  *       Use Z suffix to ensure identical behavior everywhere (dev, prod, tests).
  * 
- * @param isoString - ISO 8601 datetime with Z suffix (e.g., "2025-01-15T14:30:00Z")
+ * @param isoString - ISO 8601 datetime with Z suffix, Unix timestamp, or Date object
  * @returns Unix timestamp in seconds, or null if invalid
  * 
  * @example
  *   isoToUnix("2025-01-15T14:30:00Z") → 1736947800
  *   isoToUnix("2025-01-15T00:00:00Z") → 1736899200
  */
-export function isoToUnix(isoString: string | number | null | undefined): number | null {
+export function isoToUnix(isoString: string | number | Date | null | undefined): number | null {
   if (!isoString) return null;
   if (typeof isoString === 'number') return isoString; // Already a Unix timestamp
   
   try {
-    const ms = new Date(isoString).getTime();
+    const ms = (isoString instanceof Date) ? isoString.getTime() : new Date(isoString).getTime();
     if (isNaN(ms)) return null;
     return Math.floor(ms / 1000);
   } catch {

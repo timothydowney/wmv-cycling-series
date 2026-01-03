@@ -13,9 +13,9 @@ import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 describe('Activity Storage', () => {
   let db: Database.Database;
   let orm: BetterSQLite3Database;
-  let testAthleteId: number;
+  let testAthleteId: string;
   let testWeekId: number;
-  let testSegmentId: number;
+  let testSegmentId: string;
 
   beforeEach(() => {
     const setup = setupTestDb({ seed: false });
@@ -23,8 +23,8 @@ describe('Activity Storage', () => {
     orm = setup.orm;
 
     // Create test data
-    testAthleteId = 12345678;
-    testSegmentId = 98765432;
+    testAthleteId = '12345678';
+    testSegmentId = '98765432';
     
     createParticipant(orm, testAthleteId, 'Test User');
     const season = createSeason(orm, 'Test Season');
@@ -44,17 +44,17 @@ describe('Activity Storage', () => {
   describe('storeActivityAndEfforts', () => {
     it('should store activity and segment efforts when no existing activity', () => {
       const activityData: ActivityToStore = {
-        id: 9876543210,
+        id: '9876543210',
         start_date: '2025-06-01T10:00:00Z',
         device_name: 'Garmin Edge 530',
         segmentEfforts: [
           {
-            id: 1111111111,
+            id: '1111111111',
             start_date: '2025-06-01T10:05:00Z',
             elapsed_time: 720
           },
           {
-            id: 2222222222,
+            id: '2222222222',
             start_date: '2025-06-01T10:07:00Z',
             elapsed_time: 710,
             pr_rank: 1 // PR achieved
@@ -68,7 +68,7 @@ describe('Activity Storage', () => {
       // Verify activity was inserted
       const activities = orm.select().from(activity).all();
       expect(activities).toHaveLength(1);
-      expect(activities[0].strava_activity_id).toBe(9876543210);
+      expect(activities[0].strava_activity_id).toBe('9876543210');
       expect(activities[0].week_id).toBe(testWeekId);
       expect(activities[0].strava_athlete_id).toBe(testAthleteId);
 
@@ -90,12 +90,12 @@ describe('Activity Storage', () => {
     it('should delete existing activity and efforts before storing new ones', () => {
       // First, store an activity
       const firstActivity: ActivityToStore = {
-        id: 9876543210,
+        id: '9876543210',
         start_date: '2025-06-01T10:00:00Z',
         device_name: 'Garmin Edge 530',
         segmentEfforts: [
           {
-            id: 1111111111,
+            id: '1111111111',
             start_date: '2025-06-01T10:05:00Z',
             elapsed_time: 720
           }
@@ -112,11 +112,11 @@ describe('Activity Storage', () => {
 
       // Now store a different activity (should replace the old one)
       const secondActivity: ActivityToStore = {
-        id: 9876543211,
+        id: '9876543211',
         start_date: '2025-06-01T11:00:00Z',
         segmentEfforts: [
           {
-            id: 3333333333,
+            id: '3333333333',
             start_date: '2025-06-01T11:05:00Z',
             elapsed_time: 650
           }
@@ -129,7 +129,7 @@ describe('Activity Storage', () => {
       // Verify old data was replaced
       const activities = orm.select().from(activity).all();
       expect(activities).toHaveLength(1);
-      expect(activities[0].strava_activity_id).toBe(9876543211);
+      expect(activities[0].strava_activity_id).toBe('9876543211');
 
       const efforts = orm.select().from(segmentEffort).all();
       expect(efforts).toHaveLength(1);
@@ -142,12 +142,12 @@ describe('Activity Storage', () => {
 
     it('should handle activity with no device name', () => {
       const activityData: ActivityToStore = {
-        id: 9876543212,
+        id: '9876543212',
         start_date: '2025-06-01T12:00:00Z',
         device_name: undefined,
         segmentEfforts: [
           {
-            id: 4444444444,
+            id: '4444444444',
             start_date: '2025-06-01T12:05:00Z',
             elapsed_time: 680
           }
@@ -164,24 +164,24 @@ describe('Activity Storage', () => {
 
     it('should handle multiple segment efforts correctly', () => {
       const activityData: ActivityToStore = {
-        id: 9876543213,
+        id: '9876543213',
         start_date: '2025-06-01T13:00:00Z',
         device_name: 'Garmin Edge 1030+',
         segmentEfforts: [
           {
-            id: 5555555555,
+            id: '5555555555',
             start_date: '2025-06-01T13:05:00Z',
             elapsed_time: 600,
             pr_rank: 1
           },
           {
-            id: 6666666666,
+            id: '6666666666',
             start_date: '2025-06-01T13:15:00Z',
             elapsed_time: 590,
             pr_rank: 2
           },
           {
-            id: 7777777777,
+            id: '7777777777',
             start_date: '2025-06-01T13:25:00Z',
             elapsed_time: 595
           }
@@ -206,22 +206,22 @@ describe('Activity Storage', () => {
 
     it('should convert pr_rank to boolean correctly (truthy = 1, falsy = 0)', () => {
       const activityData: ActivityToStore = {
-        id: 9876543214,
+        id: '9876543214',
         start_date: '2025-06-01T14:00:00Z',
         segmentEfforts: [
           {
-            id: 8888888888,
+            id: '8888888888',
             start_date: '2025-06-01T14:05:00Z',
             elapsed_time: 700,
             pr_rank: 1
           },
           {
-            id: 9999999999,
+            id: '9999999999',
             start_date: '2025-06-01T14:15:00Z',
             elapsed_time: 710
           },
           {
-            id: 1010101010,
+            id: '1010101010',
             start_date: '2025-06-01T14:25:00Z',
             elapsed_time: 705,
             pr_rank: 0
@@ -240,12 +240,12 @@ describe('Activity Storage', () => {
 
     it('should store result with correct total time', () => {
       const activityData: ActivityToStore = {
-        id: 9876543215,
+        id: '9876543215',
         start_date: '2025-06-01T15:00:00Z',
         device_name: 'Wahoo Elemnt',
         segmentEfforts: [
           {
-            id: 1212121212,
+            id: '1212121212',
             start_date: '2025-06-01T15:05:00Z',
             elapsed_time: 1420
           }
@@ -264,12 +264,12 @@ describe('Activity Storage', () => {
 
     it('should handle transactional rollback on error', () => {
       const activityData: ActivityToStore = {
-        id: 9876543216,
+        id: '9876543216',
         start_date: '2025-06-01T16:00:00Z',
         device_name: 'Test Device',
         segmentEfforts: [
           {
-            id: 1313131313,
+            id: '1313131313',
             start_date: '2025-06-01T16:05:00Z',
             elapsed_time: 750
           }

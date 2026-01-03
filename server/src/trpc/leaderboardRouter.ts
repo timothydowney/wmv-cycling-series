@@ -91,7 +91,7 @@ export const leaderboardRouter = router({
         // Fetch profile pictures for all participants in this leaderboard
         const participantIds = rawResults
           .map(r => r.participant_id)
-          .filter(id => id !== null) as number[];
+          .filter(id => id !== null) as string[];
 
         const profilePictures = await getAthleteProfilePictures(
           participantIds,
@@ -132,7 +132,7 @@ export const leaderboardRouter = router({
                 time_seconds: e.time_seconds,
                 time_hhmmss: formatSecondsToHHMMSS(e.time_seconds),
                 is_pr: e.pr_achieved === 1,
-                strava_effort_id: e.strava_effort_id ? Number(e.strava_effort_id) : undefined
+                strava_effort_id: e.strava_effort_id || undefined
               }));
             }
 
@@ -221,7 +221,7 @@ export const leaderboardRouter = router({
       }
 
       // Calculate scoring for each week and sum by participant
-      const participantTotals: Map<number, {
+      const participantTotals: Map<string, {
         name: string;
         totalPoints: number;
         weeksCompleted: number;

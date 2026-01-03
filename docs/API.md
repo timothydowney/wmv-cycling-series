@@ -22,14 +22,14 @@ Response shape:
     "id": number,
     "week_name": string,
     "date": "YYYY-MM-DD",
-    "segment_id": number,
+    "strava_segment_id": string,
     "required_laps": number,
-    "start_time": "ISO8601",
-    "end_time": "ISO8601"
+    "start_at": number,
+    "end_at": number
   },
   "leaderboard": [
     {
-      "participant_id": number,
+      "participant_id": string,
       "name": string,
       "total_time_sec": number,
       "rank": number,
@@ -56,7 +56,7 @@ Response shape:
   },
   "leaderboard": [
     {
-      "participant_id": number,
+      "participant_id": string,
       "name": string,
       "total_points": number,
       "weeks_completed": number,
@@ -115,15 +115,15 @@ POST /admin/weeks/{id}/fetch-results
   "results_found": 10,
   "summary": [
     {
-      "participant_id": 12345,
+      "participant_id": "12345",
       "participant_name": "Alice",
       "activity_found": true,
-      "activity_id": 987654321,
+      "activity_id": "987654321",
       "total_time": 1420,
       "segment_efforts": 2
     },
     {
-      "participant_id": 23456,
+      "participant_id": "23456",
       "participant_name": "Bob",
       "activity_found": false,
       "reason": "No qualifying activities on event day"
@@ -162,7 +162,7 @@ GET /admin/segments/{strava_segment_id}/validate
 **Response:**
 ```json
 {
-  "id": 12345678,
+  "id": "12345678",
   "name": "Lookout Mountain",
   "distance": 2.5,
   "average_grade": 6.5,

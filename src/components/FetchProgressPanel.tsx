@@ -3,7 +3,7 @@ import { XMarkIcon } from '@heroicons/react/24/outline';
 import './FetchProgressPanel.css';
 
 export interface EffortLink {
-  effortId: number;
+  effortId: string;
   activityId: number;
 }
 

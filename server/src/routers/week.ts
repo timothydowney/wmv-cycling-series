@@ -32,7 +32,7 @@ export const weekRouter = router({
     .input(z.object({
       season_id: z.number().optional(),
       week_name: z.string(),
-      segment_id: z.number(),
+      segment_id: z.string(),
       segment_name: z.string().optional(),
       required_laps: z.number(),
       start_at: z.number().optional(),
@@ -52,7 +52,7 @@ export const weekRouter = router({
         season_id: z.number().optional(),
         week_name: z.string().optional(),
         date: z.string().optional(),
-        segment_id: z.number().optional(),
+        segment_id: z.string().optional(),
         required_laps: z.number().optional(),
         start_time: z.string().optional(),
         end_time: z.string().optional(),

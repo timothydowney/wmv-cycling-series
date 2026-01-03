@@ -264,7 +264,7 @@ class WeekService {
   createWeek(data: {
     season_id?: number;
     week_name: string;
-    segment_id: number;
+    segment_id: string;
     segment_name?: string;
     required_laps: number;
     start_at?: number;
@@ -398,7 +398,7 @@ class WeekService {
       season_id?: number;
       week_name?: string;
       date?: string;
-      segment_id?: number;
+      segment_id?: string;
       required_laps?: number;
       start_time?: string;
       end_time?: string;

@@ -23,7 +23,7 @@ describe('participantRouter', () => {
   const getCaller = (isAdmin: boolean) => {
     const req = {
       session: {
-        stravaAthleteId: isAdmin ? 999001 : undefined,
+        stravaAthleteId: isAdmin ? '999001' : undefined,
         isAdmin
       }
     } as any;
@@ -49,8 +49,8 @@ describe('participantRouter', () => {
 
     it('should return all participants', async () => {
       const caller = getCaller(false);
-      createParticipant(orm, 1, 'Alice');
-      createParticipant(orm, 2, 'Bob');
+      createParticipant(orm, '1', 'Alice');
+      createParticipant(orm, '2', 'Bob');
 
       const result = await caller.participant.getAll();
       expect(result).toHaveLength(2);
@@ -66,16 +66,16 @@ describe('participantRouter', () => {
   describe('getById', () => {
     it('should return a participant by ID', async () => {
       const caller = getCaller(false);
-      createParticipant(orm, 1, 'Charlie');
+      createParticipant(orm, '1', 'Charlie');
 
-      const result = await caller.participant.getById(1);
+      const result = await caller.participant.getById('1');
       expect(result).toBeDefined();
-      expect(result!.name).toBe('Charlie');
+      expect(result?.name).toBe('Charlie');
     });
 
-    it('should return null for non-existent participant', async () => {
+    it('should return null for non-existent ID', async () => {
       const caller = getCaller(false);
-      const result = await caller.participant.getById(999);
+      const result = await caller.participant.getById('999');
       expect(result).toBeNull();
     });
   });

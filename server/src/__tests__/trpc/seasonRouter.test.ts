@@ -25,7 +25,7 @@ describe('seasonRouter', () => {
   const getCaller = (isAdmin: boolean) => {
     const req = {
       session: {
-        stravaAthleteId: isAdmin ? 999001 : undefined,
+        stravaAthleteId: isAdmin ? '999001' : undefined,
         isAdmin
       }
     } as any;
@@ -166,7 +166,7 @@ describe('seasonRouter', () => {
       const caller = getCaller(true);
       
       // Create segment for FK
-      createSegment(drizzleDb, 123, 'Test Segment');
+      createSegment(drizzleDb, '123', 'Test Segment');
 
       // 1. Create source season
       // Start season at 9000, but first week starts at 10000
@@ -177,7 +177,7 @@ describe('seasonRouter', () => {
       drizzleDb.insert(week).values({
         season_id: sourceSeason.id,
         week_name: 'Week 1',
-        strava_segment_id: 123,
+        strava_segment_id: '123',
         required_laps: 1,
         start_at: 10000,
         end_at: 11000
@@ -189,7 +189,7 @@ describe('seasonRouter', () => {
       drizzleDb.insert(week).values({
         season_id: sourceSeason.id,
         week_name: 'Week 2',
-        strava_segment_id: 123,
+        strava_segment_id: '123',
         required_laps: 1,
         start_at: 614800,
         end_at: 615800

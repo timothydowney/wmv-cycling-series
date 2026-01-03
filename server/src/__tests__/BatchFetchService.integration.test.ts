@@ -25,7 +25,7 @@ describe('BatchFetchService with Season Validation', () => {
     drizzleDb = testDb.drizzleDb;
 
     // Create a common segment for all tests in this suite
-    createSegment(drizzleDb, 999999, 'Test Segment', { distance: 2500, averageGrade: 6.5 });
+    createSegment(drizzleDb, '999999', 'Test Segment', { distance: 2500, averageGrade: 6.5 });
 
     // Create service instance with mock token provider (reset for each test)
     service = new BatchFetchService(drizzleDb, async () => 'mock-token');
@@ -45,13 +45,13 @@ describe('BatchFetchService with Season Validation', () => {
       });
 
       // Create a segment
-      const segment = createSegment(drizzleDb, 12345, 'Test Segment', { distance: 2500, averageGrade: 6.5 });
+      const segment = createSegment(drizzleDb, '12345', 'Test Segment', { distance: 2500, averageGrade: 6.5 });
 
       // Create a week in the closed season
       const week = createWeek(drizzleDb, {
         seasonId: closedSeason.id,
         weekName: 'Closed Week',
-        stravaSegmentId: 12345,
+        stravaSegmentId: '12345',
         startTime: new Date((now - 86400 * 20) * 1000).toISOString(),
         endTime: new Date((now - 86400 * 19) * 1000).toISOString(),
         requiredLaps: 1
@@ -77,13 +77,13 @@ describe('BatchFetchService with Season Validation', () => {
       });
 
       // Create a segment
-      const segment = createSegment(drizzleDb, 12345, 'Test Segment', { distance: 2500, averageGrade: 6.5 });
+      const segment = createSegment(drizzleDb, '12345', 'Test Segment', { distance: 2500, averageGrade: 6.5 });
 
       // Create a week in the active season (yesterday)
       const week = createWeek(drizzleDb, {
         seasonId: activeSeason.id,
         weekName: 'Active Week',
-        stravaSegmentId: 12345,
+        stravaSegmentId: '12345',
         startTime: new Date((now - 86400) * 1000).toISOString(),
         endTime: new Date((now - 86400 + 86400) * 1000).toISOString(),
         requiredLaps: 1

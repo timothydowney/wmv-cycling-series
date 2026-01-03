@@ -42,11 +42,11 @@ describe('LeaderboardQueryService', () => {
 
     it('should return week leaderboard with results', () => {
       const week = createWeek(drizzleDb, { weekName: 'Week 1' });
-      const participant = createParticipant(drizzleDb, 12345, 'Alice');
+      const participant = createParticipant(drizzleDb, '12345', 'Alice');
       const activity = createActivity(drizzleDb, {
         weekId: week.id,
         stravaAthleteId: participant.strava_athlete_id,
-        stravaActivityId: 111,
+        stravaActivityId: '111',
       });
 
       createResult(drizzleDb, {
@@ -68,18 +68,18 @@ describe('LeaderboardQueryService', () => {
 
     it('should return results ordered by rank', () => {
       const week = createWeek(drizzleDb, { weekName: 'Week 1' });
-      const alice = createParticipant(drizzleDb, 12345, 'Alice');
-      const bob = createParticipant(drizzleDb, 67890, 'Bob');
+      const alice = createParticipant(drizzleDb, '12345', 'Alice');
+      const bob = createParticipant(drizzleDb, '67890', 'Bob');
 
       const activity1 = createActivity(drizzleDb, {
         weekId: week.id,
         stravaAthleteId: alice.strava_athlete_id,
-        stravaActivityId: 111,
+        stravaActivityId: '111',
       });
       const activity2 = createActivity(drizzleDb, {
         weekId: week.id,
         stravaAthleteId: bob.strava_athlete_id,
-        stravaActivityId: 222,
+        stravaActivityId: '222',
       });
 
       createResult(drizzleDb, {
@@ -111,11 +111,11 @@ describe('LeaderboardQueryService', () => {
 
     it('should return activities for a week', () => {
       const week = createWeek(drizzleDb, { weekName: 'Week 1' });
-      const participant = createParticipant(drizzleDb, 12345, 'Alice');
+      const participant = createParticipant(drizzleDb, '12345', 'Alice');
       const activity = createActivity(drizzleDb, {
         weekId: week.id,
         stravaAthleteId: participant.strava_athlete_id,
-        stravaActivityId: 111,
+        stravaActivityId: '111',
       });
 
       createSegmentEffort(drizzleDb, {
@@ -135,11 +135,11 @@ describe('LeaderboardQueryService', () => {
 
     it('should count PR achievements', () => {
       const week = createWeek(drizzleDb, { weekName: 'Week 1' });
-      const participant = createParticipant(drizzleDb, 12345, 'Alice');
+      const participant = createParticipant(drizzleDb, '12345', 'Alice');
       const activity = createActivity(drizzleDb, {
         weekId: week.id,
         stravaAthleteId: participant.strava_athlete_id,
-        stravaActivityId: 111,
+        stravaActivityId: '111',
       });
 
       createSegmentEffort(drizzleDb, {
@@ -162,28 +162,28 @@ describe('LeaderboardQueryService', () => {
 
     it('should return activity details', () => {
       const week = createWeek(drizzleDb, { weekName: 'Week 1' });
-      const participant = createParticipant(drizzleDb, 12345, 'Alice');
+      const participant = createParticipant(drizzleDb, '12345', 'Alice');
       const activity = createActivity(drizzleDb, {
         weekId: week.id,
         stravaAthleteId: participant.strava_athlete_id,
-        stravaActivityId: 111,
+        stravaActivityId: '111',
       });
 
       const details = service.getActivityDetails(activity.id);
 
       expect(details).not.toBeNull();
-      expect(details?.activity.strava_activity_id).toBe(111);
+      expect(details?.activity.strava_activity_id).toBe('111');
       expect(details?.segmentEfforts).toHaveLength(0);
       expect(details?.result).toBeNull();
     });
 
     it('should return segment efforts with activity', () => {
       const week = createWeek(drizzleDb, { weekName: 'Week 1' });
-      const participant = createParticipant(drizzleDb, 12345, 'Alice');
+      const participant = createParticipant(drizzleDb, '12345', 'Alice');
       const activity = createActivity(drizzleDb, {
         weekId: week.id,
         stravaAthleteId: participant.strava_athlete_id,
-        stravaActivityId: 111,
+        stravaActivityId: '111',
       });
 
       createSegmentEffort(drizzleDb, {
@@ -202,11 +202,11 @@ describe('LeaderboardQueryService', () => {
 
   describe('getParticipantActivityHistory', () => {
     it('should throw error for non-existent participant', () => {
-      expect(() => service.getParticipantActivityHistory(999)).toThrow('Participant 999 not found');
+      expect(() => service.getParticipantActivityHistory('999')).toThrow('Participant 999 not found');
     });
 
     it('should return empty history for participant with no activities', () => {
-      const participant = createParticipant(drizzleDb, 12345, 'Alice');
+      const participant = createParticipant(drizzleDb, '12345', 'Alice');
 
       const history = service.getParticipantActivityHistory(participant.strava_athlete_id);
 
@@ -218,12 +218,12 @@ describe('LeaderboardQueryService', () => {
     });
 
     it('should return participant activity history', () => {
-      const participant = createParticipant(drizzleDb, 12345, 'Alice');
+      const participant = createParticipant(drizzleDb, '12345', 'Alice');
       const week1 = createWeek(drizzleDb, { weekName: 'Week 1' });
       const activity = createActivity(drizzleDb, {
         weekId: week1.id,
         stravaAthleteId: participant.strava_athlete_id,
-        stravaActivityId: 111,
+        stravaActivityId: '111',
       });
 
       createResult(drizzleDb, {
@@ -242,7 +242,7 @@ describe('LeaderboardQueryService', () => {
     });
 
     it('should sum points across multiple weeks', () => {
-      const alice = createParticipant(drizzleDb, 12345, 'Alice');
+      const alice = createParticipant(drizzleDb, '12345', 'Alice');
       const week1 = createWeek(drizzleDb, { weekName: 'Week 1' });
       const week2 = createWeek(drizzleDb, { weekName: 'Week 2' });
 
@@ -250,13 +250,13 @@ describe('LeaderboardQueryService', () => {
       const act1Alice = createActivity(drizzleDb, {
         weekId: week1.id,
         stravaAthleteId: alice.strava_athlete_id,
-        stravaActivityId: 111,
+        stravaActivityId: '111',
       });
-      const bob = createParticipant(drizzleDb, 67890, 'Bob');
+      const bob = createParticipant(drizzleDb, '67890', 'Bob');
       const act1Bob = createActivity(drizzleDb, {
         weekId: week1.id,
         stravaAthleteId: bob.strava_athlete_id,
-        stravaActivityId: 222,
+        stravaActivityId: '222',
       });
 
       createResult(drizzleDb, {
@@ -276,14 +276,14 @@ describe('LeaderboardQueryService', () => {
       const act2Alice = createActivity(drizzleDb, {
         weekId: week2.id,
         stravaAthleteId: alice.strava_athlete_id,
-        stravaActivityId: 333,
+        stravaActivityId: '333',
       });
-      const p2 = createParticipant(drizzleDb, 22222, 'P2');
-      const p3 = createParticipant(drizzleDb, 33333, 'P3');
-      const p4 = createParticipant(drizzleDb, 44444, 'P4');
-      const act2P2 = createActivity(drizzleDb, { weekId: week2.id, stravaAthleteId: p2.strava_athlete_id, stravaActivityId: 444 });
-      const act2P3 = createActivity(drizzleDb, { weekId: week2.id, stravaAthleteId: p3.strava_athlete_id, stravaActivityId: 555 });
-      const act2P4 = createActivity(drizzleDb, { weekId: week2.id, stravaAthleteId: p4.strava_athlete_id, stravaActivityId: 666 });
+      const p2 = createParticipant(drizzleDb, '22222', 'P2');
+      const p3 = createParticipant(drizzleDb, '33333', 'P3');
+      const p4 = createParticipant(drizzleDb, '44444', 'P4');
+      const act2P2 = createActivity(drizzleDb, { weekId: week2.id, stravaAthleteId: p2.strava_athlete_id, stravaActivityId: '444' });
+      const act2P3 = createActivity(drizzleDb, { weekId: week2.id, stravaAthleteId: p3.strava_athlete_id, stravaActivityId: '555' });
+      const act2P4 = createActivity(drizzleDb, { weekId: week2.id, stravaAthleteId: p4.strava_athlete_id, stravaActivityId: '666' });
 
       createResult(drizzleDb, { weekId: week2.id, stravaAthleteId: alice.strava_athlete_id, activityId: act2Alice.id, totalTimeSeconds: 900 });
       createResult(drizzleDb, { weekId: week2.id, stravaAthleteId: p2.strava_athlete_id, activityId: act2P2.id, totalTimeSeconds: 1000 });
@@ -304,17 +304,17 @@ describe('LeaderboardQueryService', () => {
 
     it('should compare two activities and identify faster one', () => {
       const week = createWeek(drizzleDb, { weekName: 'Week 1' });
-      const participant = createParticipant(drizzleDb, 12345, 'Alice');
+      const participant = createParticipant(drizzleDb, '12345', 'Alice');
       
       const activity1 = createActivity(drizzleDb, {
         weekId: week.id,
         stravaAthleteId: participant.strava_athlete_id,
-        stravaActivityId: 111,
+        stravaActivityId: '111',
       });
       const activity2 = createActivity(drizzleDb, {
         weekId: week.id,
         stravaAthleteId: participant.strava_athlete_id,
-        stravaActivityId: 222,
+        stravaActivityId: '222',
       });
 
       // Add segment efforts to produce different totals
@@ -329,17 +329,17 @@ describe('LeaderboardQueryService', () => {
 
     it('should identify equal times', () => {
       const week = createWeek(drizzleDb, { weekName: 'Week 1' });
-      const participant = createParticipant(drizzleDb, 12345, 'Alice');
+      const participant = createParticipant(drizzleDb, '12345', 'Alice');
       
       const activity1 = createActivity(drizzleDb, {
         weekId: week.id,
         stravaAthleteId: participant.strava_athlete_id,
-        stravaActivityId: 111,
+        stravaActivityId: '111',
       });
       const activity2 = createActivity(drizzleDb, {
         weekId: week.id,
         stravaAthleteId: participant.strava_athlete_id,
-        stravaActivityId: 222,
+        stravaActivityId: '222',
       });
 
       // Equal segment efforts
@@ -355,17 +355,17 @@ describe('LeaderboardQueryService', () => {
 
   describe('verifyIdempotency', () => {
     it('should return null if result not found', () => {
-      const result = service.verifyIdempotency(999, 999);
+      const result = service.verifyIdempotency(999, '999');
       expect(result).toBeNull();
     });
 
     it('should return result for idempotency verification', () => {
       const week = createWeek(drizzleDb, { weekName: 'Week 1' });
-      const participant = createParticipant(drizzleDb, 12345, 'Alice');
+      const participant = createParticipant(drizzleDb, '12345', 'Alice');
       const activity = createActivity(drizzleDb, {
         weekId: week.id,
         stravaAthleteId: participant.strava_athlete_id,
-        stravaActivityId: 111,
+        stravaActivityId: '111',
       });
 
       createResult(drizzleDb, {
@@ -397,12 +397,12 @@ describe('LeaderboardQueryService', () => {
     });
 
     it('should return correct statistics', () => {
-      const participant = createParticipant(drizzleDb, 12345, 'Alice');
+      const participant = createParticipant(drizzleDb, '12345', 'Alice');
       const week = createWeek(drizzleDb, { weekName: 'Week 1' });
       const activity = createActivity(drizzleDb, {
         weekId: week.id,
         stravaAthleteId: participant.strava_athlete_id,
-        stravaActivityId: 111,
+        stravaActivityId: '111',
       });
 
       createSegmentEffort(drizzleDb, {

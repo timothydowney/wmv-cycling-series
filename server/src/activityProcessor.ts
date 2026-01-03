@@ -10,7 +10,11 @@
  * providing clean, testable functions for activity matching and validation.
  */
 
-import * as stravaClient from './stravaClient';
+import { 
+  type Activity as ActivityResponse, 
+  type SegmentEffort as SegmentEffortResponse,
+  getActivity
+} from './stravaClient';
 import { isoToUnix } from './dateUtils';
 import { LogLevel, LoggerCallback } from './types/Logger';
 
@@ -24,42 +28,10 @@ interface Week {
 }
 
 /**
- * Segment effort from Strava API
- */
-interface SegmentEffortResponse {
-  id?: number | string; // Effort ID from Strava
-  segment: {
-    id: number;
-    name: string;
-    [key: string]: unknown;
-  };
-  elapsed_time: number;
-  [key: string]: unknown;
-}
-
-/**
- * Activity from Strava API
- */
-interface ActivityResponse {
-  id: number;
-  name: string;
-  start_date: string;
-  segment_efforts?: SegmentEffortResponse[];
-  type?: string;
-  distance?: number;
-  total_elevation_gain?: number;
-  kudos_count?: number;
-  commute?: boolean;
-  trainer?: boolean;
-  device_name?: string;
-  [key: string]: unknown;
-}
-
-/**
  * Best qualifying activity result
  */
 interface BestActivity {
-  id: number;
+  id: string;
   name: string;
   start_date: string;
   totalTime: number;
@@ -87,7 +59,7 @@ interface BestActivity {
  */
 async function findBestQualifyingActivity(
   activities: ActivityResponse[],
-  targetSegmentId: number,
+  targetSegmentId: string,
   requiredLaps: number,
   accessToken: string,
   week?: Week,
@@ -100,7 +72,7 @@ async function findBestQualifyingActivity(
   // Filter activities by time window using simple integer comparison
   const validActivitiesByTime: ActivityResponse[] = [];
   const rejectedActivities: Array<{
-    id: number;
+    id: string;
     name: string;
     start_date: string;
     reason: string;
@@ -126,9 +98,9 @@ async function findBestQualifyingActivity(
       validActivitiesByTime.push(activity);
     } else {
       rejectedActivities.push({
-        id: activity.id,
+        id: activity.id.toString(),
         name: activity.name,
-        start_date: activity.start_date,
+        start_date: activity.start_date instanceof Date ? activity.start_date.toISOString() : activity.start_date as string,
         reason: 'Outside time window'
       });
     }
@@ -169,7 +141,7 @@ async function findBestQualifyingActivity(
 
     try {
       // Fetch full activity details (includes all segment efforts)
-      const fullActivity = await stravaClient.getActivity(
+      const fullActivity = await getActivity(
         activity.id,
         accessToken
       );
@@ -193,13 +165,17 @@ async function findBestQualifyingActivity(
 
       // Filter to segment efforts matching our target segment
       const matchingEfforts = fullActivity.segment_efforts.filter(
-        (effort) => effort.segment.id === targetSegmentId
+        (effort) => effort.segment?.id === targetSegmentId
       );
 
       // Log what segments we found vs what we were looking for
       if (matchingEfforts.length === 0) {
         const foundSegmentIds = [
-          ...new Set(fullActivity.segment_efforts.map((e) => e.segment.id))
+          ...new Set(
+            fullActivity.segment_efforts
+              .map((e) => e.segment?.id)
+              .filter((id): id is string => id !== undefined)
+          )
         ];
         console.log(
           `  ✗ Target segment ${targetSegmentId} NOT found. Found segment IDs: ${foundSegmentIds.join(', ')}`
@@ -207,7 +183,9 @@ async function findBestQualifyingActivity(
         console.log('    Segment names in activity:');
         [
           ...new Set(
-            fullActivity.segment_efforts.map((e) => e.segment.name)
+            fullActivity.segment_efforts
+              .map((e) => e.segment?.name)
+              .filter((name): name is string => name !== undefined)
           )
         ].forEach((name) => {
           console.log(`      - '${name}'`);
@@ -220,7 +198,7 @@ async function findBestQualifyingActivity(
         if (onLog) {
           onLog(LogLevel.Info, `Found ${matchingEfforts.length} ${requiredLaps === 1 ? 'effort' : 'efforts'}:`);
           const effortLinks = matchingEfforts.map(effort => ({
-            effortId: typeof effort.id === 'number' ? effort.id : parseInt(String(effort.id), 10),
+            effortId: String(effort.id),
             activityId: fullActivity.id
           }));
           matchingEfforts.forEach((effort, idx) => {
@@ -319,7 +297,7 @@ async function findBestQualifyingActivity(
             const totalTimeStr = `${totalMinutes}:${totalSeconds.toString().padStart(2, '0')}`;
             const lapNums = window.lapIndices.map(idx => idx + 1).join(', ');
             const effortLinks = window.efforts.map(effort => ({
-              effortId: typeof effort.id === 'number' ? effort.id : parseInt(String(effort.id), 10),
+              effortId: String(effort.id),
               activityId: fullActivity.id
             }));
             onLog(LogLevel.Info, `  Window ${window.index + 1} (laps ${lapNums}): ${effortTimes} = ${totalTimeStr}`, undefined, effortLinks);
@@ -362,9 +340,9 @@ async function findBestQualifyingActivity(
         );
         bestTime = totalTime;
         bestActivity = {
-          id: fullActivity.id,
+          id: fullActivity.id.toString(),
           name: fullActivity.name,
-          start_date: fullActivity.start_date as string,
+          start_date: fullActivity.start_date instanceof Date ? fullActivity.start_date.toISOString() : fullActivity.start_date as string,
           totalTime: totalTime,
           segmentEfforts: selectedEfforts as unknown as SegmentEffortResponse[],
           activity_url: `https://www.strava.com/activities/${fullActivity.id}`,

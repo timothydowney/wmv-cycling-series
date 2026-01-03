@@ -42,10 +42,10 @@ describe('Webhook Processor', () => {
       
       const processor = createWebhookProcessor(null, mockService);
       const event = {
-        object_id: 123456789,
+        object_id: '123456789',
         object_type: 'activity',
         aspect_type: 'delete',
-        owner_id: 12345,
+        owner_id: '12345',
         event_time: Math.floor(Date.now() / 1000),
         subscription_id: 1
       };
@@ -54,7 +54,7 @@ describe('Webhook Processor', () => {
       await processor(event, mockLogger);
 
       // Assert
-      expect(mockService.deleteActivity).toHaveBeenCalledWith(123456789);
+      expect(mockService.deleteActivity).toHaveBeenCalledWith('123456789');
       expect(mockService.deleteActivity).toHaveBeenCalledTimes(1);
     });
   });
@@ -67,10 +67,10 @@ describe('Webhook Processor', () => {
       
       const processor = createWebhookProcessor(null, mockService);
       const event = {
-        object_id: 12345,
+        object_id: '12345',
         object_type: 'athlete',
         aspect_type: 'update',
-        owner_id: 12345,
+        owner_id: '12345',
         event_time: Math.floor(Date.now() / 1000),
         subscription_id: 1,
         updates: {
@@ -82,8 +82,8 @@ describe('Webhook Processor', () => {
       await processor(event, mockLogger);
 
       // Assert
-      expect(mockService.findParticipantByAthleteId).toHaveBeenCalledWith(12345);
-      expect(mockService.deleteAthleteTokens).toHaveBeenCalledWith(12345);
+      expect(mockService.findParticipantByAthleteId).toHaveBeenCalledWith('12345');
+      expect(mockService.deleteAthleteTokens).toHaveBeenCalledWith('12345');
     });
   });
 });

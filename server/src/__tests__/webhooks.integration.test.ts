@@ -68,7 +68,7 @@ describe('Webhook Integration Tests', () => {
     it('should process activity webhook and update leaderboard with correct scoring', async () => {
       // Setup
       const season = createSeason(drizzleDb, 'Test Season 2025', true);
-      const segment = createSegment(drizzleDb, 12345678, 'Test Segment', {
+      const segment = createSegment(drizzleDb, '12345678', 'Test Segment', {
         distance: 2500,
         averageGrade: 5.2,
         city: 'Denver',
@@ -87,11 +87,11 @@ describe('Webhook Integration Tests', () => {
       });
 
       // Create participants
-      const alice = createParticipant(drizzleDb, 111001, 'Alice', {
+      const alice = createParticipant(drizzleDb, '111001', 'Alice', {
         accessToken: 'alice_token',
         refreshToken: 'alice_refresh'
       });
-      const bob = createParticipant(drizzleDb, 111002, 'Bob', {
+      const bob = createParticipant(drizzleDb, '111002', 'Bob', {
         accessToken: 'bob_token',
         refreshToken: 'bob_refresh'
       });
@@ -99,28 +99,28 @@ describe('Webhook Integration Tests', () => {
       // Configure mock activities
       // Alice: fast activity (1200s)
       mockStravaClient.setActivity(
-        9001,
-        ActivityScenarios.withPR(9001, segment.strava_segment_id, 1200)
+        '9001',
+        ActivityScenarios.withPR('9001', segment.strava_segment_id, 1200)
       );
 
       // Bob: slower activity (1500s)
       mockStravaClient.setActivity(
-        9002,
-        ActivityScenarios.withoutPR(9002, segment.strava_segment_id, 1500)
+        '9002',
+        ActivityScenarios.withoutPR('9002', segment.strava_segment_id, 1500)
       );
 
       // Simulate webhook receipt for Alice's activity
       const aliceWebhookEvent = {
-        object_id: 9001,
+        object_id: '9001',
         object_type: 'activity',
         aspect_type: 'create',
-        owner_id: 111001,
+        owner_id: '111001',
         event_time: Math.floor(Date.now() / 1000),
         subscription_id: 1
       };
 
       // Process webhook for Alice
-      const aliceActivity = await mockStravaClient.getActivity('alice_token', 9001);
+      const aliceActivity = await mockStravaClient.getActivity('alice_token', '9001');
       expect(aliceActivity.segment_efforts.length).toBeGreaterThan(0);
       expect(aliceActivity.segment_efforts[0].elapsed_time).toBe(1200);
 
@@ -131,7 +131,7 @@ describe('Webhook Integration Tests', () => {
 
       // Process webhook for Bob
       mockStravaClient.clearCallLog();
-      const bobActivity = await mockStravaClient.getActivity('bob_token', 9002);
+      const bobActivity = await mockStravaClient.getActivity('bob_token', '9002');
       expect(bobActivity.segment_efforts[0].elapsed_time).toBe(1500);
 
       const bobCallLog = mockStravaClient.getCallLog();
@@ -146,7 +146,7 @@ describe('Webhook Integration Tests', () => {
   describe('Test 2: Multiple Activities - Best Selection', () => {
     it('should select fastest activity when multiple qualify in same week', async () => {
       const season = createSeason(drizzleDb, 'Test Season', true);
-      const segment = createSegment(drizzleDb, 22345678, 'Segment 2', {
+      const segment = createSegment(drizzleDb, '22345678', 'Segment 2', {
         distance: 3000,
         averageGrade: 6.5
       });
@@ -161,28 +161,28 @@ describe('Webhook Integration Tests', () => {
         endTime: '2025-11-08T22:00:00Z'
       });
 
-      createParticipant(drizzleDb, 211001, 'Charlie', {
+      createParticipant(drizzleDb, '211001', 'Charlie', {
         accessToken: 'charlie_token'
       });
 
       // Activity A: slower (2000s)
       mockStravaClient.setActivity(
-        9101,
-        ActivityScenarios.withoutPR(9101, segment.strava_segment_id, 2000)
+        '9101',
+        ActivityScenarios.withoutPR('9101', segment.strava_segment_id, 2000)
       );
 
       // Activity B: faster (1500s)
       mockStravaClient.setActivity(
-        9102,
-        ActivityScenarios.withoutPR(9102, segment.strava_segment_id, 1500)
+        '9102',
+        ActivityScenarios.withoutPR('9102', segment.strava_segment_id, 1500)
       );
 
       // Get Activity A (simulating first webhook)
-      const activityA = await mockStravaClient.getActivity('charlie_token', 9101);
+      const activityA = await mockStravaClient.getActivity('charlie_token', '9101');
       expect(activityA.segment_efforts[0].elapsed_time).toBe(2000);
 
       // Get Activity B (simulating second webhook)
-      const activityB = await mockStravaClient.getActivity('charlie_token', 9102);
+      const activityB = await mockStravaClient.getActivity('charlie_token', '9102');
       expect(activityB.segment_efforts[0].elapsed_time).toBe(1500);
 
       // Activity B is faster, should be selected
@@ -199,7 +199,7 @@ describe('Webhook Integration Tests', () => {
   describe('Test 3: PR Detection and Bonus Scoring', () => {
     it('should award PR bonus when segment effort has pr_rank field', async () => {
       const season = createSeason(drizzleDb, 'Test Season', true);
-      const segment = createSegment(drizzleDb, 33345678, 'Segment 3');
+      const segment = createSegment(drizzleDb, '33345678', 'Segment 3');
 
       const week = createWeek(drizzleDb, {
         seasonId: season.id,
@@ -209,17 +209,17 @@ describe('Webhook Integration Tests', () => {
         requiredLaps: 1
       });
 
-      createParticipant(drizzleDb, 311001, 'Diana', {
+      createParticipant(drizzleDb, '311001', 'Diana', {
         accessToken: 'diana_token'
       });
 
       // Activity with PR achievement (pr_rank present)
       mockStravaClient.setActivity(
-        9201,
-        ActivityScenarios.withPR(9201, segment.strava_segment_id, 1300)
+        '9201',
+        ActivityScenarios.withPR('9201', segment.strava_segment_id, 1300)
       );
 
-      const activity = await mockStravaClient.getActivity('diana_token', 9201);
+      const activity = await mockStravaClient.getActivity('diana_token', '9201');
       const effort = activity.segment_efforts[0];
 
       // Verify PR detection
@@ -228,11 +228,11 @@ describe('Webhook Integration Tests', () => {
 
       // Activity without PR (no pr_rank field)
       mockStravaClient.setActivity(
-        9202,
-        ActivityScenarios.withoutPR(9202, segment.strava_segment_id, 1400)
+        '9202',
+        ActivityScenarios.withoutPR('9202', segment.strava_segment_id, 1400)
       );
 
-      const activityNoPR = await mockStravaClient.getActivity('diana_token', 9202);
+      const activityNoPR = await mockStravaClient.getActivity('diana_token', '9202');
       const effortNoPR = activityNoPR.segment_efforts[0];
 
       // Verify no PR
@@ -249,7 +249,7 @@ describe('Webhook Integration Tests', () => {
       const season = createSeason(drizzleDb, 'Test Season', true);
 
       // Create participant with tokens
-      createParticipant(drizzleDb, 411001, 'Eve', {
+      createParticipant(drizzleDb, '411001', 'Eve', {
         accessToken: 'eve_token',
         refreshToken: 'eve_refresh'
       });
@@ -262,7 +262,7 @@ describe('Webhook Integration Tests', () => {
       let token = drizzleDb
         .select()
         .from(participantToken)
-        .where(eq(participantToken.strava_athlete_id, 411001))
+        .where(eq(participantToken.strava_athlete_id, '411001'))
         .get();
       expect(token).toBeDefined();
       expect(token.access_token).toBe('eve_token');
@@ -270,7 +270,7 @@ describe('Webhook Integration Tests', () => {
       // Simulate deauth webhook by deleting tokens
       const deleted = drizzleDb
         .delete(participantToken)
-        .where(eq(participantToken.strava_athlete_id, 411001))
+        .where(eq(participantToken.strava_athlete_id, '411001'))
         .run();
       expect(deleted.changes).toBe(1);
 
@@ -278,7 +278,7 @@ describe('Webhook Integration Tests', () => {
       token = drizzleDb
         .select()
         .from(participantToken)
-        .where(eq(participantToken.strava_athlete_id, 411001))
+        .where(eq(participantToken.strava_athlete_id, '411001'))
         .get();
       expect(token).toBeUndefined();
 
@@ -286,7 +286,7 @@ describe('Webhook Integration Tests', () => {
       const p = drizzleDb
         .select()
         .from(participant)
-        .where(eq(participant.strava_athlete_id, 411001))
+        .where(eq(participant.strava_athlete_id, '411001'))
         .get();
       expect(p).toBeDefined();
       expect(p.name).toBe('Eve');
@@ -300,7 +300,7 @@ describe('Webhook Integration Tests', () => {
   describe('Test 5: Activity Deletion - Cascade and Recalculation', () => {
     it('should cascade delete activity and recalculate leaderboard when activity deleted', async () => {
       const season = createSeason(drizzleDb, 'Test Season', true);
-      const segment = createSegment(drizzleDb, 55345678, 'Segment 5');
+      const segment = createSegment(drizzleDb, '55345678', 'Segment 5');
 
       const week = createWeek(drizzleDb, {
         seasonId: season.id,
@@ -310,26 +310,26 @@ describe('Webhook Integration Tests', () => {
       });
 
       // Create two participants
-      createParticipant(drizzleDb, 511001, 'Frank', {
+      createParticipant(drizzleDb, '511001', 'Frank', {
         accessToken: 'frank_token'
       });
-      createParticipant(drizzleDb, 511002, 'Grace', {
+      createParticipant(drizzleDb, '511002', 'Grace', {
         accessToken: 'grace_token'
       });
 
       // Create activities
       mockStravaClient.setActivity(
-        9401,
-        ActivityScenarios.withoutPR(9401, segment.strava_segment_id, 1000)
+        '9401',
+        ActivityScenarios.withoutPR('9401', segment.strava_segment_id, 1000)
       );
       mockStravaClient.setActivity(
-        9402,
-        ActivityScenarios.withoutPR(9402, segment.strava_segment_id, 1200)
+        '9402',
+        ActivityScenarios.withoutPR('9402', segment.strava_segment_id, 1200)
       );
 
       // Verify activities exist
-      const activity1 = await mockStravaClient.getActivity('frank_token', 9401);
-      const activity2 = await mockStravaClient.getActivity('grace_token', 9402);
+      const activity1 = await mockStravaClient.getActivity('frank_token', '9401');
+      const activity2 = await mockStravaClient.getActivity('grace_token', '9402');
       expect(activity1).toBeDefined();
       expect(activity2).toBeDefined();
 
@@ -339,7 +339,7 @@ describe('Webhook Integration Tests', () => {
       
       const delActivity = drizzleDb
         .delete(activity)
-        .where(eq(activity.strava_activity_id, 9401))
+        .where(eq(activity.strava_activity_id, '9401'))
         .run();
       expect(delActivity.changes).toBe(0); // No activity stored yet in test (would be 1 in real flow)
     });
@@ -352,7 +352,7 @@ describe('Webhook Integration Tests', () => {
   describe('Test 6: Concurrent Webhooks - No Race Conditions', () => {
     it('should handle multiple concurrent webhooks without data corruption', async () => {
       const season = createSeason(drizzleDb, 'Test Season', true);
-      const segment = createSegment(drizzleDb, 66345678, 'Segment 6');
+      const segment = createSegment(drizzleDb, '66345678', 'Segment 6');
 
       const week = createWeek(drizzleDb, {
         seasonId: season.id,
@@ -362,35 +362,35 @@ describe('Webhook Integration Tests', () => {
       });
 
       // Create 3 participants
-      createParticipant(drizzleDb, 611001, 'Henry', {
+      createParticipant(drizzleDb, '611001', 'Henry', {
         accessToken: 'henry_token'
       });
-      createParticipant(drizzleDb, 611002, 'Iris', {
+      createParticipant(drizzleDb, '611002', 'Iris', {
         accessToken: 'iris_token'
       });
-      createParticipant(drizzleDb, 611003, 'Jack', {
+      createParticipant(drizzleDb, '611003', 'Jack', {
         accessToken: 'jack_token'
       });
 
       // Set up concurrent activities
       mockStravaClient.setActivity(
-        9501,
-        ActivityScenarios.withoutPR(9501, segment.strava_segment_id, 1100)
+        '9501',
+        ActivityScenarios.withoutPR('9501', segment.strava_segment_id, 1100)
       );
       mockStravaClient.setActivity(
-        9502,
-        ActivityScenarios.withoutPR(9502, segment.strava_segment_id, 1050)
+        '9502',
+        ActivityScenarios.withoutPR('9502', segment.strava_segment_id, 1050)
       );
       mockStravaClient.setActivity(
-        9503,
-        ActivityScenarios.withoutPR(9503, segment.strava_segment_id, 1200)
+        '9503',
+        ActivityScenarios.withoutPR('9503', segment.strava_segment_id, 1200)
       );
 
       // Simulate concurrent fetches (would be triggered by webhook events)
       const [act1, act2, act3] = await Promise.all([
-        mockStravaClient.getActivity('henry_token', 9501),
-        mockStravaClient.getActivity('iris_token', 9502),
-        mockStravaClient.getActivity('jack_token', 9503)
+        mockStravaClient.getActivity('henry_token', '9501'),
+        mockStravaClient.getActivity('iris_token', '9502'),
+        mockStravaClient.getActivity('jack_token', '9503')
       ]);
 
       expect(act1).toBeDefined();
@@ -411,7 +411,7 @@ describe('Webhook Integration Tests', () => {
   describe('Test 7: Non-Qualifying Activities - Skip Without Error', () => {
     it('should skip non-qualifying activities and not create results', async () => {
       const season = createSeason(drizzleDb, 'Test Season', true);
-      const segment = createSegment(drizzleDb, 77345678, 'Segment 7');
+      const segment = createSegment(drizzleDb, '77345678', 'Segment 7');
 
       const week = createWeek(drizzleDb, {
         seasonId: season.id,
@@ -420,17 +420,17 @@ describe('Webhook Integration Tests', () => {
         requiredLaps: 2 // Requires 2 laps
       });
 
-      createParticipant(drizzleDb, 711001, 'Kate', {
+      createParticipant(drizzleDb, '711001', 'Kate', {
         accessToken: 'kate_token'
       });
 
       // Activity with only 1 lap (doesn't meet requirement)
       mockStravaClient.setActivity(
-        9601,
-        ActivityScenarios.withoutPR(9601, segment.strava_segment_id, 1000)
+        '9601',
+        ActivityScenarios.withoutPR('9601', segment.strava_segment_id, 1000)
       );
 
-      const activity = await mockStravaClient.getActivity('kate_token', 9601);
+      const activity = await mockStravaClient.getActivity('kate_token', '9601');
 
       // Activity exists but doesn't qualify (only 1 effort, needs 2)
       expect(activity.segment_efforts.length).toBe(1);
@@ -445,7 +445,7 @@ describe('Webhook Integration Tests', () => {
   describe('Test 8: Webhook Idempotency - Same Webhook Multiple Times', () => {
     it('should handle replayed webhooks without creating duplicates', async () => {
       const season = createSeason(drizzleDb, 'Test Season', true);
-      const segment = createSegment(drizzleDb, 88345678, 'Segment 8');
+      const segment = createSegment(drizzleDb, '88345678', 'Segment 8');
 
       const week = createWeek(drizzleDb, {
         seasonId: season.id,
@@ -454,24 +454,24 @@ describe('Webhook Integration Tests', () => {
         requiredLaps: 1
       });
 
-      createParticipant(drizzleDb, 811001, 'Linda', {
+      createParticipant(drizzleDb, '811001', 'Linda', {
         accessToken: 'linda_token'
       });
 
       mockStravaClient.setActivity(
-        9701,
-        ActivityScenarios.withoutPR(9701, segment.strava_segment_id, 1150)
+        '9701',
+        ActivityScenarios.withoutPR('9701', segment.strava_segment_id, 1150)
       );
 
       // Simulate webhook received twice (network retry or operator replay)
-      const firstFetch = await mockStravaClient.getActivity('linda_token', 9701);
-      expect(firstFetch.id).toBe(9701);
+      const firstFetch = await mockStravaClient.getActivity('linda_token', '9701');
+      expect(firstFetch.id).toBe('9701');
 
       mockStravaClient.clearCallLog();
 
       // Fetch again (replayed webhook)
-      const secondFetch = await mockStravaClient.getActivity('linda_token', 9701);
-      expect(secondFetch.id).toBe(9701);
+      const secondFetch = await mockStravaClient.getActivity('linda_token', '9701');
+      expect(secondFetch.id).toBe('9701');
 
       // Should get same data both times
       expect(firstFetch.segment_efforts[0].elapsed_time).toBe(
@@ -487,7 +487,7 @@ describe('Webhook Integration Tests', () => {
   describe('Test 9: Multiple Laps - Best Window Selection', () => {
     it('should handle activities with multiple laps and select fastest window', async () => {
       const season = createSeason(drizzleDb, 'Test Season', true);
-      const segment = createSegment(drizzleDb, 99345678, 'Segment 9');
+      const segment = createSegment(drizzleDb, '99345678', 'Segment 9');
 
       const week = createWeek(drizzleDb, {
         seasonId: season.id,
@@ -496,18 +496,18 @@ describe('Webhook Integration Tests', () => {
         requiredLaps: 2 // Requires 2 laps
       });
 
-      createParticipant(drizzleDb, 911001, 'Mike', {
+      createParticipant(drizzleDb, '911001', 'Mike', {
         accessToken: 'mike_token'
       });
 
       // Activity with 3 laps: [600, 580, 590]
       // Best 2-lap window: [580, 590] = 1170
       mockStravaClient.setActivity(
-        9801,
-        ActivityScenarios.withMultipleLaps(9801, segment.strava_segment_id, 3, [600, 580, 590])
+        '9801',
+        ActivityScenarios.withMultipleLaps('9801', segment.strava_segment_id, 3, [600, 580, 590])
       );
 
-      const activity = await mockStravaClient.getActivity('mike_token', 9801);
+      const activity = await mockStravaClient.getActivity('mike_token', '9801');
 
       expect(activity.segment_efforts.length).toBe(3);
       expect(activity.segment_efforts[0].elapsed_time).toBe(600);
@@ -529,7 +529,7 @@ describe('Webhook Integration Tests', () => {
   describe('Test 10: Scoring Calculation Verification', () => {
     it('should calculate correct points with actual database logic', async () => {
       const season = createSeason(drizzleDb, 'Test Season', true);
-      const segment = createSegment(drizzleDb, 100345678, 'Segment 10');
+      const segment = createSegment(drizzleDb, '100345678', 'Segment 10');
 
       const week = createWeek(drizzleDb, {
         seasonId: season.id,
@@ -539,43 +539,43 @@ describe('Webhook Integration Tests', () => {
       });
 
       // Create 4 participants for scoring test
-      createParticipant(drizzleDb, 1011001, 'Neil', {
+      createParticipant(drizzleDb, '1011001', 'Neil', {
         accessToken: 'neil_token'
       });
-      createParticipant(drizzleDb, 1011002, 'Olivia', {
+      createParticipant(drizzleDb, '1011002', 'Olivia', {
         accessToken: 'olivia_token'
       });
-      createParticipant(drizzleDb, 1011003, 'Peter', {
+      createParticipant(drizzleDb, '1011003', 'Peter', {
         accessToken: 'peter_token'
       });
-      createParticipant(drizzleDb, 1011004, 'Quinn', {
+      createParticipant(drizzleDb, '1011004', 'Quinn', {
         accessToken: 'quinn_token'
       });
 
       // Set up activities with increasing times
       mockStravaClient.setActivity(
-        9901,
-        ActivityScenarios.withPR(9901, segment.strava_segment_id, 1000) // Fastest, with PR
+        '9901',
+        ActivityScenarios.withPR('9901', segment.strava_segment_id, 1000) // Fastest, with PR
       );
       mockStravaClient.setActivity(
-        9902,
-        ActivityScenarios.withoutPR(9902, segment.strava_segment_id, 1100)
+        '9902',
+        ActivityScenarios.withoutPR('9902', segment.strava_segment_id, 1100)
       );
       mockStravaClient.setActivity(
-        9903,
-        ActivityScenarios.withoutPR(9903, segment.strava_segment_id, 1200)
+        '9903',
+        ActivityScenarios.withoutPR('9903', segment.strava_segment_id, 1200)
       );
       mockStravaClient.setActivity(
-        9904,
-        ActivityScenarios.withoutPR(9904, segment.strava_segment_id, 1300) // Slowest
+        '9904',
+        ActivityScenarios.withoutPR('9904', segment.strava_segment_id, 1300) // Slowest
       );
 
       // Fetch all activities
       const activities = await Promise.all([
-        mockStravaClient.getActivity('neil_token', 9901),
-        mockStravaClient.getActivity('olivia_token', 9902),
-        mockStravaClient.getActivity('peter_token', 9903),
-        mockStravaClient.getActivity('quinn_token', 9904)
+        mockStravaClient.getActivity('neil_token', '9901'),
+        mockStravaClient.getActivity('olivia_token', '9902'),
+        mockStravaClient.getActivity('peter_token', '9903'),
+        mockStravaClient.getActivity('quinn_token', '9904')
       ]);
 
       // Verify ranking by time

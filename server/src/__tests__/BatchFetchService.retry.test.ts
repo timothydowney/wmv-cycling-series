@@ -29,10 +29,10 @@ describe('BatchFetchService Retry Logic', () => {
 
     // Setup seed data
     const season = createSeason(orm, 'Season 1', true);
-    const segment = createSegment(orm, 12345, 'Seg 1');
+    const segment = createSegment(orm, '12345', 'Seg 1');
     const week = createWeek(orm, { 
       seasonId: season.id, 
-      stravaSegmentId: 12345, 
+      stravaSegmentId: '12345', 
       weekName: 'Week 1',
       startTime: '2025-01-01T00:00:00Z',
       endTime: '2025-01-01T23:59:59Z'
@@ -40,7 +40,7 @@ describe('BatchFetchService Retry Logic', () => {
     weekId = week.id;
 
     // Create a participant with a "valid" token entry in DB (value doesn't matter as we mock the getter)
-    createParticipant(orm, 111, 'User 1', { accessToken: 'token_1', refreshToken: 'refresh_1' });
+    createParticipant(orm, '111', 'User 1', { accessToken: 'token_1', refreshToken: 'refresh_1' });
 
     // Mock getValidAccessToken
     mockGetToken = jest.fn();
@@ -74,8 +74,8 @@ describe('BatchFetchService Retry Logic', () => {
 
     // Assertions
     expect(mockGetToken).toHaveBeenCalledTimes(2);
-    expect(mockGetToken).toHaveBeenNthCalledWith(1, expect.anything(), 111); // Initial fetch
-    expect(mockGetToken).toHaveBeenNthCalledWith(2, expect.anything(), 111, true); // Retry with forceRefresh=true
+    expect(mockGetToken).toHaveBeenNthCalledWith(1, expect.anything(), '111'); // Initial fetch
+    expect(mockGetToken).toHaveBeenNthCalledWith(2, expect.anything(), '111', true); // Retry with forceRefresh=true
 
     expect(mockListActivities).toHaveBeenCalledTimes(2);
     expect(result.participants_processed).toBe(1);

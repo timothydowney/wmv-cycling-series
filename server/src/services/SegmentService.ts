@@ -24,10 +24,10 @@ class SegmentService {
    * Used by: week creation, fetch-results, segment validation
    */
   async fetchAndStoreSegmentMetadata(
-    segmentId: number,
+    segmentId: string,
     context: string, // e.g., "week-create", "fetch-results", "validation"
     logCallback?: LogCallback,
-    preferredAthleteId?: number // Optional: Try this athlete first
+    preferredAthleteId?: string // Optional: Try this athlete first
   ): Promise<Segment | null> {
     const log = logCallback ? (level: string, msg: string) => logCallback(level, msg) : () => {};
 
@@ -104,7 +104,7 @@ class SegmentService {
    * Store segment metadata in database
    * INSERT OR REPLACE ensures idempotency
    */
-  private storeSegmentMetadata(segmentId: number, data: any): void {
+  private storeSegmentMetadata(segmentId: string, data: any): void {
     this.db
       .insert(segment)
       .values({
@@ -138,7 +138,7 @@ class SegmentService {
    * Ensure segment exists in database as placeholder (name only)
    * Used when metadata fetch fails but FK constraint requires the row
    */
-  private createPlaceholderSegment(segmentId: number): Segment | null {
+  private createPlaceholderSegment(segmentId: string): Segment | null {
     const existing = this.db
       .select({ strava_segment_id: segment.strava_segment_id })
       .from(segment)
@@ -160,7 +160,7 @@ class SegmentService {
   /**
    * Retrieve stored segment from database
    */
-  private getStoredSegment(segmentId: number): Segment | null {
+  private getStoredSegment(segmentId: string): Segment | null {
     const result = this.db
       .select()
       .from(segment)
@@ -173,7 +173,7 @@ class SegmentService {
   /**
    * Check if segment exists in database
    */
-  segmentExists(segmentId: number): boolean {
+  segmentExists(segmentId: string): boolean {
     const result = this.db
       .select({ strava_segment_id: segment.strava_segment_id })
       .from(segment)
@@ -187,7 +187,7 @@ class SegmentService {
    * Create or update a segment manually
    */
   createSegment(data: {
-    strava_segment_id: number;
+    strava_segment_id: string;
     name: string;
     distance?: number;
     total_elevation_gain?: number;

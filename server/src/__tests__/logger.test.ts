@@ -300,8 +300,8 @@ describe('Logger Types & Utilities', () => {
 
       const logger = new StructuredLogger('Test', callback);
       const effortLinks: EffortLink[] = [
-        { effortId: 123, activityId: 456 },
-        { effortId: 789, activityId: 456 }
+        { effortId: '123', activityId: 456 },
+        { effortId: '789', activityId: 456 }
       ];
 
       logger.info('Found 2 efforts:', undefined, effortLinks);
@@ -314,13 +314,13 @@ describe('Logger Types & Utilities', () => {
     it('should collect logs with effortLinks', () => {
       const [callback, getLogs] = createCollectingLoggerCallback();
 
-      const effortLink: EffortLink = { effortId: 111, activityId: 222 };
+      const effortLink: EffortLink = { effortId: '111', activityId: 222 };
       callback(LogLevel.Info, 'Lap 1: 12:34', undefined, [effortLink]);
 
       const logs = getLogs();
       expect(logs[0].effortLinks).toBeDefined();
       expect(logs[0].effortLinks).toHaveLength(1);
-      expect(logs[0].effortLinks![0].effortId).toBe(111);
+      expect(logs[0].effortLinks![0].effortId).toBe('111');
       expect(logs[0].effortLinks![0].activityId).toBe(222);
     });
 
@@ -328,9 +328,9 @@ describe('Logger Types & Utilities', () => {
       const [callback, getLogs] = createCollectingLoggerCallback();
 
       const effortLinks: EffortLink[] = [
-        { effortId: 1, activityId: 100 },
-        { effortId: 2, activityId: 100 },
-        { effortId: 3, activityId: 100 }
+        { effortId: '1', activityId: 100 },
+        { effortId: '2', activityId: 100 },
+        { effortId: '3', activityId: 100 }
       ];
       callback(LogLevel.Info, 'Window analysis: 12:34 + 12:45 + 12:50 = 38:09', undefined, effortLinks);
 
@@ -364,7 +364,7 @@ describe('Logger Types & Utilities', () => {
 
       const filtered = createFilteredLoggerCallback(baseCallback, [LogLevel.Info]);
 
-      const effortLinks: EffortLink[] = [{ effortId: 999, activityId: 888 }];
+      const effortLinks: EffortLink[] = [{ effortId: '999', activityId: 888 }];
       filtered(LogLevel.Info, 'message', 'Bob', effortLinks);
 
       expect(logged).toHaveLength(1);
@@ -379,7 +379,7 @@ describe('Logger Types & Utilities', () => {
 
       const filtered = createFilteredLoggerCallback(baseCallback, [LogLevel.Error]);
 
-      const effortLinks: EffortLink[] = [{ effortId: 999, activityId: 888 }];
+      const effortLinks: EffortLink[] = [{ effortId: '999', activityId: 888 }];
       filtered(LogLevel.Info, 'message', undefined, effortLinks);
 
       expect(logged).toHaveLength(0);

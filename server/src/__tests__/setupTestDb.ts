@@ -43,7 +43,7 @@ export function setupTestDb(options?: { seed?: boolean }): { db: Database.Databa
 
   if (seed) {
     // Manually seed data for debugging Foreign Key issues
-    const p1_data: InsertParticipant = { strava_athlete_id: 100, name: 'Test User 1', active: true };
+    const p1_data: InsertParticipant = { strava_athlete_id: '100', name: 'Test User 1', active: true };
     const testParticipant = drizzleDb.insert(participant).values(p1_data).returning().get();
 
     const s1_data: InsertSeason = { 
@@ -54,7 +54,7 @@ export function setupTestDb(options?: { seed?: boolean }): { db: Database.Databa
     };
     const testSeason = drizzleDb.insert(season).values(s1_data).returning().get();
     
-    const sg1_data: InsertSegment = { strava_segment_id: 1000, name: 'Test Segment' };
+    const sg1_data: InsertSegment = { strava_segment_id: '1000', name: 'Test Segment' };
     const testSegment = drizzleDb.insert(segment).values(sg1_data).returning().get();
 
     const w1_data: InsertWeek = {
@@ -70,7 +70,7 @@ export function setupTestDb(options?: { seed?: boolean }): { db: Database.Databa
     const a1_data: InsertActivity = {
       week_id: testWeek.id,
       strava_athlete_id: testParticipant.strava_athlete_id,
-      strava_activity_id: Math.floor(Math.random() * 1000000000),
+      strava_activity_id: String(Math.floor(Math.random() * 1000000000)),
       start_at: Math.floor(new Date('2025-06-01T10:00:00Z').getTime() / 1000), 
       validation_status: 'valid'
     };
@@ -85,13 +85,13 @@ export function setupTestDb(options?: { seed?: boolean }): { db: Database.Databa
     drizzleDb.insert(result).values(r1_data).returning().get();
 
     // Create second participant for leaderboard testing
-    const p2_data: InsertParticipant = { strava_athlete_id: 200, name: 'Test User 2', active: true };
+    const p2_data: InsertParticipant = { strava_athlete_id: '200', name: 'Test User 2', active: true };
     const testParticipant2 = drizzleDb.insert(participant).values(p2_data).returning().get();
 
     const a2_data: InsertActivity = {
       week_id: testWeek.id,
       strava_athlete_id: testParticipant2.strava_athlete_id,
-      strava_activity_id: Math.floor(Math.random() * 1000000000),
+      strava_activity_id: String(Math.floor(Math.random() * 1000000000)),
       start_at: Math.floor(new Date('2025-06-01T11:00:00Z').getTime() / 1000),
       validation_status: 'valid'
     };

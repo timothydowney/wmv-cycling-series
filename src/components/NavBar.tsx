@@ -16,7 +16,7 @@ interface NavBarProps {
 }
 
 interface AthleteInfo {
-  id: number;
+  id: string;
   firstname: string;
   lastname: string;
   profile?: string;

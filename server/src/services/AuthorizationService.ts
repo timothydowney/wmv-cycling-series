@@ -22,7 +22,7 @@ interface AuthorizationResult {
  */
 interface Request {
   session?: {
-    stravaAthleteId?: number;
+    stravaAthleteId?: string;
     [key: string]: unknown;
   };
   path?: string;
@@ -43,13 +43,13 @@ interface Response {
 type NextFunction = () => void;
 
 class AuthorizationService {
-  private getAdminAthleteIds: () => number[];
+  private getAdminAthleteIds: () => string[];
 
   /**
    * Initialize authorization service with admin athlete ID resolver
    * @param getAdminAthleteIds - Function that returns array of admin athlete IDs
    */
-  constructor(getAdminAthleteIds?: () => number[]) {
+  constructor(getAdminAthleteIds?: () => string[]) {
     this.getAdminAthleteIds = getAdminAthleteIds || (() => []);
   }
 
@@ -58,7 +58,7 @@ class AuthorizationService {
    * @param stravaAthleteId - Strava athlete ID
    * @returns Whether the athlete is an admin
    */
-  isAdmin(stravaAthleteId: number | null | undefined): boolean {
+  isAdmin(stravaAthleteId: string | null | undefined): boolean {
     if (!stravaAthleteId) {
       return false;
     }
@@ -74,7 +74,7 @@ class AuthorizationService {
    * @returns { authorized: boolean, statusCode: number, message?: string }
    */
   checkAuthorization(
-    stravaAthleteId: number | null | undefined,
+    stravaAthleteId: string | null | undefined,
     adminRequired = false
   ): AuthorizationResult {
     // First check: must be authenticated for protected routes

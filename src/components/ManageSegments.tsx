@@ -5,13 +5,13 @@ import { ValidatedSegmentDetails } from '../types';
 import { trpc } from '../utils/trpc';
 import SegmentCard from './SegmentCard';
 
-const parseSegmentInput = (input: string): number | null => {
+const parseSegmentInput = (input: string): string | null => {
   const trimmed = input.trim();
   // numeric ID
-  if (/^\d+$/.test(trimmed)) return parseInt(trimmed, 10);
+  if (/^\d+$/.test(trimmed)) return trimmed;
   // URL formats like https://www.strava.com/segments/12744502?x=y
   const urlMatch = trimmed.match(/segments\/(\d+)/);
-  if (urlMatch) return parseInt(urlMatch[1], 10);
+  if (urlMatch) return urlMatch[1];
   return null;
 };
 
@@ -34,7 +34,7 @@ function ManageSegments() {
   const [input, setInput] = useState('');
   const [validating, setValidating] = useState(false);
   const [validated, setValidated] = useState<ValidatedSegmentDetails | null>(null);
-  const [lastValidatedId, setLastValidatedId] = useState<number | null>(null);
+  const [lastValidatedId, setLastValidatedId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -55,7 +55,7 @@ function ManageSegments() {
     checkAdmin();
   }, []);
 
-  const existingIds = useMemo(() => new Set(segments.map(s => String(s.strava_segment_id))), [segments]);
+  const existingIds = useMemo(() => new Set(segments.map(s => s.strava_segment_id)), [segments]);
 
   const handleValidate = async () => {
     setActionMessage(null);
@@ -75,7 +75,7 @@ function ManageSegments() {
       // The router returns ValidatedSegmentDetails compatible object
       setValidated(details as ValidatedSegmentDetails);
       setLastValidatedId(id);
-      if (existingIds.has(String(details.strava_segment_id))) {
+      if (existingIds.has(details.strava_segment_id)) {
         setActionMessage({ type: 'success', text: 'Segment already exists in database.' });
       } else {
         setActionMessage({ type: 'success', text: 'Segment validated. Click "Add to Database" to save.' });

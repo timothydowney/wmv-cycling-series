@@ -45,7 +45,8 @@ logConfigOnStartup();
 
 // Configure strava-v3 with credentials from config (skip if not set for tests)
 if (config.stravaClientId && config.stravaClientSecret) {
-  (strava.config as any)({
+  strava.config({
+    access_token: '',
     client_id: config.stravaClientId,
     client_secret: config.stravaClientSecret,
     redirect_uri: config.stravaRedirectUri
@@ -140,11 +141,18 @@ if (isTestMode()) {
 // Initialize database schema using Drizzle migrations
 console.log('[DB] Running Drizzle migrations...');
 try {
+  // Disable foreign keys during migration to allow table recreation
+  db.pragma('foreign_keys = OFF');
+  
   // Resolve migrations folder based on the compiled JS location
   // In dev: server/dist/index.js -> migrations at server/drizzle
   // In docker: /app/server/dist/index.js -> migrations at /app/server/drizzle
   const migrationsFolder = path.resolve(__dirname, '../drizzle');
   migrate(drizzleDb, { migrationsFolder });
+  
+  // Re-enable foreign keys after migration
+  db.pragma('foreign_keys = ON');
+  
   console.log('[DB] ✓ Drizzle migrations applied successfully');
   
   // Log table information
@@ -177,7 +185,7 @@ try {
 // ========================================
 
 // Helper: Get admin athlete IDs from config
-export function getAdminAthleteIds(): number[] {
+export function getAdminAthleteIds(): string[] {
   return config.adminAthleteIds;
 }
 

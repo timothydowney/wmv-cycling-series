@@ -23,7 +23,7 @@ describe('weekRouter', () => {
   const getCaller = (isAdmin: boolean) => {
     const req = {
       session: {
-        stravaAthleteId: isAdmin ? 999001 : undefined,
+        stravaAthleteId: isAdmin ? '999001' : undefined,
         isAdmin,
       },
     } as any;
@@ -54,8 +54,8 @@ describe('weekRouter', () => {
       const caller = getCaller(false);
 
       const { id: seasonId } = createSeason(orm, 'Season 1', true);
-      createSegment(orm, 12345);
-      createWeek(orm, { seasonId, stravaSegmentId: 12345, weekName: 'Week 1' });
+      createSegment(orm, '12345');
+      createWeek(orm, { seasonId, stravaSegmentId: '12345', weekName: 'Week 1' });
 
       const result = await caller.week.getAll({ seasonId });
       expect(result).toHaveLength(1);
@@ -68,8 +68,8 @@ describe('weekRouter', () => {
       const caller = getCaller(false);
 
       const { id: seasonId } = createSeason(orm, 'Season 1');
-      createSegment(orm, 12345);
-      const { id: weekId } = createWeek(orm, { seasonId, stravaSegmentId: 12345, weekName: 'Target Week' });
+      createSegment(orm, '12345');
+      const { id: weekId } = createWeek(orm, { seasonId, stravaSegmentId: '12345', weekName: 'Target Week' });
 
       const result = await caller.week.getById(Number(weekId));
       expect(result.week_name).toBe('Target Week');
@@ -90,7 +90,7 @@ describe('weekRouter', () => {
       const input = {
         season_id: Number(seasonId),
         week_name: 'New Week',
-        segment_id: 12345,
+        segment_id: '12345',
         segment_name: 'New Segment',
         required_laps: 1,
         start_at: 1000,
@@ -99,7 +99,7 @@ describe('weekRouter', () => {
 
       const result = await caller.week.create(input);
       expect(result.week_name).toBe('New Week');
-      expect(result.strava_segment_id).toBe(12345);
+      expect(result.strava_segment_id).toBe('12345');
 
       const foundWeek = await orm.select().from(week).where(eq(week.id, result.id)).get();
       expect(foundWeek).toBeDefined();
@@ -111,7 +111,7 @@ describe('weekRouter', () => {
 
       const input = {
         week_name: 'New Week',
-        segment_id: 12345,
+        segment_id: '12345',
         required_laps: 1,
       } as any;
 
@@ -124,8 +124,8 @@ describe('weekRouter', () => {
       const caller = getCaller(true);
 
       const { id: seasonId } = createSeason(orm, 'Season 1');
-      createSegment(orm, 12345);
-      const { id: weekId } = createWeek(orm, { seasonId, stravaSegmentId: 12345, weekName: 'Old Name' });
+      createSegment(orm, '12345');
+      const { id: weekId } = createWeek(orm, { seasonId, stravaSegmentId: '12345', weekName: 'Old Name' });
 
       const result = await caller.week.update({
         id: Number(weekId),
@@ -141,8 +141,8 @@ describe('weekRouter', () => {
       const caller = getCaller(true);
 
       const { id: seasonId } = createSeason(orm, 'Season 1');
-      createSegment(orm, 12345);
-      const { id: weekId } = createWeek(orm, { seasonId, stravaSegmentId: 12345 });
+      createSegment(orm, '12345');
+      const { id: weekId } = createWeek(orm, { seasonId, stravaSegmentId: '12345' });
 
       const result = await caller.week.delete(Number(weekId));
       expect(result.message).toBe('Week deleted successfully');

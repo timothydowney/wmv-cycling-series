@@ -8,7 +8,7 @@ export const sessions = sqliteTable('sessions', {
 });
 
 export const participant = sqliteTable('participant', {
-  strava_athlete_id: integer('strava_athlete_id').primaryKey(),
+  strava_athlete_id: text('strava_athlete_id').primaryKey(),
   name: text().notNull(),
   created_at: text('created_at').default('sql`(CURRENT_TIMESTAMP)`'),
   active: integer('active', { mode: 'boolean' }).default(true).notNull(),
@@ -29,7 +29,7 @@ export const week = sqliteTable('week', {
   id: integer().primaryKey({ autoIncrement: true }),
   season_id: integer('season_id').notNull().references(() => season.id),
   week_name: text('week_name').notNull(),
-  strava_segment_id: integer('strava_segment_id').notNull().references(() => segment.strava_segment_id),
+  strava_segment_id: text('strava_segment_id').notNull().references(() => segment.strava_segment_id),
   required_laps: integer('required_laps').default(1).notNull(),
   start_at: integer('start_at').notNull(),
   end_at: integer('end_at').notNull(),
@@ -44,8 +44,8 @@ export const week = sqliteTable('week', {
 export const activity = sqliteTable('activity', {
   id: integer().primaryKey({ autoIncrement: true }),
   week_id: integer('week_id').notNull().references(() => week.id),
-  strava_athlete_id: integer('strava_athlete_id').notNull().references(() => participant.strava_athlete_id),
-  strava_activity_id: integer('strava_activity_id').notNull(),
+  strava_athlete_id: text('strava_athlete_id').notNull().references(() => participant.strava_athlete_id),
+  strava_activity_id: text('strava_activity_id').notNull(),
   start_at: integer('start_at').notNull(),
   device_name: text('device_name'),
   validation_status: text('validation_status').default('valid'),
@@ -61,7 +61,7 @@ export const activity = sqliteTable('activity', {
 export const segmentEffort = sqliteTable('segment_effort', {
   id: integer().primaryKey({ autoIncrement: true }),
   activity_id: integer('activity_id').notNull().references(() => activity.id),
-  strava_segment_id: integer('strava_segment_id').notNull().references(() => segment.strava_segment_id),
+  strava_segment_id: text('strava_segment_id').notNull().references(() => segment.strava_segment_id),
   strava_effort_id: text('strava_effort_id'),
   effort_index: integer('effort_index').notNull(),
   elapsed_seconds: integer('elapsed_seconds').notNull(),
@@ -75,7 +75,7 @@ export const segmentEffort = sqliteTable('segment_effort', {
 export const result = sqliteTable('result', {
   id: integer().primaryKey({ autoIncrement: true }),
   week_id: integer('week_id').notNull().references(() => week.id),
-  strava_athlete_id: integer('strava_athlete_id').notNull().references(() => participant.strava_athlete_id),
+  strava_athlete_id: text('strava_athlete_id').notNull().references(() => participant.strava_athlete_id),
   activity_id: integer('activity_id').references(() => activity.id),
   total_time_seconds: integer('total_time_seconds').notNull(),
   created_at: text('created_at').default('sql`(CURRENT_TIMESTAMP)`'),
@@ -88,7 +88,7 @@ export const result = sqliteTable('result', {
 ]);
 
 export const participantToken = sqliteTable('participant_token', {
-  strava_athlete_id: integer('strava_athlete_id').primaryKey().references(() => participant.strava_athlete_id, { onDelete: 'cascade' } ),
+  strava_athlete_id: text('strava_athlete_id').primaryKey().references(() => participant.strava_athlete_id, { onDelete: 'cascade' } ),
   access_token: text('access_token').notNull(),
   refresh_token: text('refresh_token').notNull(),
   expires_at: integer('expires_at').notNull(),
@@ -102,7 +102,7 @@ export const participantToken = sqliteTable('participant_token', {
 
 export const deletionRequest = sqliteTable('deletion_request', {
   id: integer().primaryKey({ autoIncrement: true }),
-  strava_athlete_id: integer('strava_athlete_id').notNull(),
+  strava_athlete_id: text('strava_athlete_id').notNull(),
   requested_at: text('requested_at').notNull(),
   status: text().default('pending'),
   completed_at: text('completed_at'),
@@ -115,7 +115,7 @@ export const schemaMigrations = sqliteTable('schema_migrations', {
 });
 
 export const segment = sqliteTable('segment', {
-  strava_segment_id: integer('strava_segment_id').primaryKey(),
+  strava_segment_id: text('strava_segment_id').primaryKey(),
   name: text().notNull(),
   distance: real(),
   average_grade: real('average_grade'),

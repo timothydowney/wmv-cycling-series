@@ -27,7 +27,7 @@ describe('Activity Processor', () => {
 
   describe('findBestQualifyingActivity', () => {
     test('returns null for empty activity list', async () => {
-      const result = await activityProcessor.findBestQualifyingActivity([], 123, 1, 'token');
+      const result = await activityProcessor.findBestQualifyingActivity([], '123', 1, 'token');
       expect(result).toBeNull();
     });
 
@@ -35,13 +35,13 @@ describe('Activity Processor', () => {
       const week = {
         start_time: '2025-10-28T00:00:00Z',
         end_time: '2025-10-28T22:00:00Z',
-        strava_segment_id: 100,
+        strava_segment_id: '100',
         required_laps: 1
       };
 
       const activities = [
-        { id: 1, start_date: '2025-10-27T12:00:00Z' }, // Before window
-        { id: 2, start_date: '2025-10-28T12:00:00Z' }  // Within window
+        { id: '1', start_date: '2025-10-27T12:00:00Z' }, // Before window
+        { id: '2', start_date: '2025-10-28T12:00:00Z' }  // Within window
       ];
 
       stravaClient.getActivity.mockResolvedValue(null);
@@ -62,17 +62,17 @@ describe('Activity Processor', () => {
       const week = {
         start_at: isoToUnix('2025-10-28T00:00:00Z'),
         end_at: isoToUnix('2025-10-28T22:00:00Z'),
-        strava_segment_id: 100,
+        strava_segment_id: '100',
         required_laps: 1
       };
 
       const activities = [
-        { id: 1, start_date: '2025-10-28T12:00:00Z' },
-        { id: 2, start_date: '2025-10-28T14:00:00Z' }
+        { id: '1', start_date: '2025-10-28T12:00:00Z' },
+        { id: '2', start_date: '2025-10-28T14:00:00Z' }
       ];
 
       stravaClient.getActivity.mockResolvedValue({
-        id: 1,
+        id: '1',
         name: 'Test Activity',
         segment_efforts: []
       });
@@ -93,20 +93,20 @@ describe('Activity Processor', () => {
       const week = {
         start_at: isoToUnix('2025-10-28T00:00:00Z'),
         end_at: isoToUnix('2025-10-28T22:00:00Z'),
-        strava_segment_id: 100,
+        strava_segment_id: '100',
         required_laps: 1
       };
 
       const activities = [
-        { id: 1, start_date: '2025-10-28T12:00:00Z' }
+        { id: '1', start_date: '2025-10-28T12:00:00Z' }
       ];
 
       stravaClient.getActivity.mockResolvedValue({
-        id: 1,
+        id: '1',
         name: 'Test Activity',
         segment_efforts: [
           {
-            segment: { id: 100 }, // Correct segment
+            segment: { id: '100' }, // Correct segment
             elapsed_time: 600
           }
         ]
@@ -121,27 +121,27 @@ describe('Activity Processor', () => {
       );
 
       expect(result).not.toBeNull();
-      expect(result.id).toBe(1);
+      expect(result.id).toBe('1');
     });
 
     test('requires minimum number of laps', async () => {
       const week = {
         start_at: isoToUnix('2025-10-28T00:00:00Z'),
         end_at: isoToUnix('2025-10-28T22:00:00Z'),
-        strava_segment_id: 100,
+        strava_segment_id: '100',
         required_laps: 3
       };
 
       const activities = [
-        { id: 1, start_date: '2025-10-28T12:00:00Z' }
+        { id: '1', start_date: '2025-10-28T12:00:00Z' }
       ];
 
       stravaClient.getActivity.mockResolvedValue({
-        id: 1,
+        id: '1',
         name: 'Test Activity',
         segment_efforts: [
-          { segment: { id: 100 }, elapsed_time: 600 },
-          { segment: { id: 100 }, elapsed_time: 620 }
+          { segment: { id: '100' }, elapsed_time: 600 },
+          { segment: { id: '100' }, elapsed_time: 620 }
           // Only 2 efforts, but 3 required
         ]
       });
@@ -161,30 +161,30 @@ describe('Activity Processor', () => {
       const week = {
         start_at: isoToUnix('2025-10-28T00:00:00Z'),
         end_at: isoToUnix('2025-10-28T22:00:00Z'),
-        strava_segment_id: 100,
+        strava_segment_id: '100',
         required_laps: 2
       };
 
       const activities = [
-        { id: 1, start_date: '2025-10-28T12:00:00Z' },
-        { id: 2, start_date: '2025-10-28T13:00:00Z' }
+        { id: '1', start_date: '2025-10-28T12:00:00Z' },
+        { id: '2', start_date: '2025-10-28T13:00:00Z' }
       ];
 
       stravaClient.getActivity
         .mockResolvedValueOnce({
-          id: 1,
+          id: '1',
           name: 'Slower Activity',
           segment_efforts: [
-            { segment: { id: 100 }, elapsed_time: 600 },
-            { segment: { id: 100 }, elapsed_time: 620 }
+            { segment: { id: '100' }, elapsed_time: 600 },
+            { segment: { id: '100' }, elapsed_time: 620 }
           ]
         })
         .mockResolvedValueOnce({
-          id: 2,
+          id: '2',
           name: 'Faster Activity',
           segment_efforts: [
-            { segment: { id: 100 }, elapsed_time: 580 },
-            { segment: { id: 100 }, elapsed_time: 590 }
+            { segment: { id: '100' }, elapsed_time: 580 },
+            { segment: { id: '100' }, elapsed_time: 590 }
           ]
         });
 
@@ -197,7 +197,7 @@ describe('Activity Processor', () => {
       );
 
       expect(result).not.toBeNull();
-      expect(result.id).toBe(2); // Faster activity
+      expect(result.id).toBe('2'); // Faster activity
     });
 
     test('finds best consecutive window when more than required laps', async () => {
@@ -205,12 +205,12 @@ describe('Activity Processor', () => {
       const week = {
         start_at: isoToUnix('2025-10-28T00:00:00Z'),
         end_at: isoToUnix('2025-10-28T22:00:00Z'),
-        strava_segment_id: 100,
+        strava_segment_id: '100',
         required_laps: 2
       };
 
       const activities = [
-        { id: 1, start_date: '2025-10-28T12:00:00Z' }
+        { id: '1', start_date: '2025-10-28T12:00:00Z' }
       ];
 
       // 5 efforts total: [600, 650, 580, 640, 620]
@@ -219,14 +219,14 @@ describe('Activity Processor', () => {
       // Old algorithm (taking fastest 2): would take [580, 600] = 1180 (WRONG - not consecutive)
       // New algorithm: should take [580, 640] = 1220 (CORRECT - consecutive window)
       stravaClient.getActivity.mockResolvedValue({
-        id: 1,
+        id: '1',
         name: 'Multiple Attempts Activity',
         segment_efforts: [
-          { segment: { id: 100 }, elapsed_time: 600 },  // Warmup
-          { segment: { id: 100 }, elapsed_time: 650 },  // Slower
-          { segment: { id: 100 }, elapsed_time: 580 },  // Fast
-          { segment: { id: 100 }, elapsed_time: 640 },  // Med
-          { segment: { id: 100 }, elapsed_time: 620 }   // Cooldown
+          { segment: { id: '100' }, elapsed_time: 600 },  // Warmup
+          { segment: { id: '100' }, elapsed_time: 650 },  // Slower
+          { segment: { id: '100' }, elapsed_time: 580 },  // Fast
+          { segment: { id: '100' }, elapsed_time: 640 },  // Med
+          { segment: { id: '100' }, elapsed_time: 620 }   // Cooldown
         ]
       });
 
@@ -252,25 +252,25 @@ describe('Activity Processor', () => {
       const week = {
         start_at: isoToUnix('2025-10-28T00:00:00Z'),
         end_at: isoToUnix('2025-10-28T22:00:00Z'),
-        strava_segment_id: 100,
+        strava_segment_id: '100',
         required_laps: 2
       };
 
       const activities = [
-        { id: 1, start_date: '2025-10-28T12:00:00Z' }
+        { id: '1', start_date: '2025-10-28T12:00:00Z' }
       ];
 
       // Efforts: [400, 500, 450, 550]
       // Windows: [400+500=900], [500+450=950], [450+550=1000]
       // Best: [400+500=900]
       stravaClient.getActivity.mockResolvedValue({
-        id: 1,
+        id: '1',
         name: 'Test Activity',
         segment_efforts: [
-          { segment: { id: 100 }, elapsed_time: 400 },
-          { segment: { id: 100 }, elapsed_time: 500 },
-          { segment: { id: 100 }, elapsed_time: 450 },
-          { segment: { id: 100 }, elapsed_time: 550 }
+          { segment: { id: '100' }, elapsed_time: 400 },
+          { segment: { id: '100' }, elapsed_time: 500 },
+          { segment: { id: '100' }, elapsed_time: 450 },
+          { segment: { id: '100' }, elapsed_time: 550 }
         ]
       });
 
@@ -293,20 +293,20 @@ describe('Activity Processor', () => {
       const week = {
         start_at: isoToUnix('2025-10-28T00:00:00Z'),
         end_at: isoToUnix('2025-10-28T22:00:00Z'),
-        strava_segment_id: 100,
+        strava_segment_id: '100',
         required_laps: 2
       };
 
       const activities = [
-        { id: 1, start_date: '2025-10-28T12:00:00Z' }
+        { id: '1', start_date: '2025-10-28T12:00:00Z' }
       ];
 
       stravaClient.getActivity.mockResolvedValue({
-        id: 1,
+        id: '1',
         name: 'Exact Match',
         segment_efforts: [
-          { segment: { id: 100 }, elapsed_time: 580 },
-          { segment: { id: 100 }, elapsed_time: 590 }
+          { segment: { id: '100' }, elapsed_time: 580 },
+          { segment: { id: '100' }, elapsed_time: 590 }
         ]
       });
 
@@ -328,26 +328,26 @@ describe('Activity Processor', () => {
       const week = {
         start_at: isoToUnix('2025-10-28T00:00:00Z'),
         end_at: isoToUnix('2025-10-28T22:00:00Z'),
-        strava_segment_id: 100,
+        strava_segment_id: '100',
         required_laps: 3
       };
 
       const activities = [
-        { id: 1, start_date: '2025-10-28T12:00:00Z' }
+        { id: '1', start_date: '2025-10-28T12:00:00Z' }
       ];
 
       // Efforts: [400, 350, 380, 420, 390]
       // Windows: [400+350+380=1130], [350+380+420=1150], [380+420+390=1190]
       // Best: [400+350+380=1130]
       stravaClient.getActivity.mockResolvedValue({
-        id: 1,
+        id: '1',
         name: 'Test Activity',
         segment_efforts: [
-          { segment: { id: 100 }, elapsed_time: 400 },
-          { segment: { id: 100 }, elapsed_time: 350 },
-          { segment: { id: 100 }, elapsed_time: 380 },
-          { segment: { id: 100 }, elapsed_time: 420 },
-          { segment: { id: 100 }, elapsed_time: 390 }
+          { segment: { id: '100' }, elapsed_time: 400 },
+          { segment: { id: '100' }, elapsed_time: 350 },
+          { segment: { id: '100' }, elapsed_time: 380 },
+          { segment: { id: '100' }, elapsed_time: 420 },
+          { segment: { id: '100' }, elapsed_time: 390 }
         ]
       });
 
@@ -370,12 +370,12 @@ describe('Activity Processor', () => {
       const week = {
         start_at: isoToUnix('2025-10-28T00:00:00Z'),
         end_at: isoToUnix('2025-10-28T22:00:00Z'),
-        strava_segment_id: 100,
+        strava_segment_id: '100',
         required_laps: 1
       };
 
       const activities = [
-        { id: 1, start_date: '2025-10-28T12:00:00Z' }
+        { id: '1', start_date: '2025-10-28T12:00:00Z' }
       ];
 
       stravaClient.getActivity.mockRejectedValue(new Error('API Error'));
@@ -399,22 +399,22 @@ describe('Activity Processor', () => {
       const week = {
         start_at: isoToUnix('2025-01-07T00:00:00Z'),
         end_at: isoToUnix('2025-01-07T22:00:00Z'),
-        strava_segment_id: 100,
+        strava_segment_id: '100',
         required_laps: 1
       };
 
       const activities = [
-        { id: 1, start_date: '2024-01-06T23:59:59Z' },  // Before window
-        { id: 2, start_date: '2025-01-07T12:00:00Z' },  // Inside window
-        { id: 3, start_date: '2025-01-07T22:00:01Z' },  // After window
-        { id: 4, start_date: '2025-01-08T00:00:00Z' }   // Next day
+        { id: '1', start_date: '2024-01-06T23:59:59Z' },  // Before window
+        { id: '2', start_date: '2025-01-07T12:00:00Z' },  // Inside window
+        { id: '3', start_date: '2025-01-07T22:00:01Z' },  // After window
+        { id: '4', start_date: '2025-01-08T00:00:00Z' }   // Next day
       ];
 
       stravaClient.getActivity.mockResolvedValue({
-        id: 2,
+        id: '2',
         name: 'Valid Activity',
         segment_efforts: [
-          { segment: { id: 100 }, elapsed_time: 600 }
+          { segment: { id: '100' }, elapsed_time: 600 }
         ]
       });
 
@@ -428,30 +428,30 @@ describe('Activity Processor', () => {
 
       // Should only call getActivity once (for activity #2, the only one in window)
       expect(stravaClient.getActivity).toHaveBeenCalledTimes(1);
-      expect(stravaClient.getActivity).toHaveBeenCalledWith(2, 'token');
+      expect(stravaClient.getActivity).toHaveBeenCalledWith('2', 'token');
       
       // Result should be from the only valid activity
       expect(result).not.toBeNull();
-      expect(result.id).toBe(2);
+      expect(result.id).toBe('2');
     });
 
     test('handles week parameter omission gracefully (backward compatibility)', async () => {
       // If week not provided, should process all activities (old behavior)
       const activities = [
-        { id: 1, start_date: '2025-10-28T12:00:00Z' }
+        { id: '1', start_date: '2025-10-28T12:00:00Z' }
       ];
 
       stravaClient.getActivity.mockResolvedValue({
-        id: 1,
+        id: '1',
         name: 'Test Activity',
         segment_efforts: [
-          { segment: { id: 100 }, elapsed_time: 600 }
+          { segment: { id: '100' }, elapsed_time: 600 }
         ]
       });
 
       const result = await activityProcessor.findBestQualifyingActivity(
         activities,
-        100,  // targetSegmentId
+        '100',  // targetSegmentId
         1,    // requiredLaps
         'token'
         // Note: week parameter omitted
@@ -459,7 +459,7 @@ describe('Activity Processor', () => {
 
       // Should still work (backward compatibility)
       expect(result).not.toBeNull();
-      expect(result.id).toBe(1);
+      expect(result.id).toBe('1');
     });
   });
 });

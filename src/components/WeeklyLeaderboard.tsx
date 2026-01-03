@@ -15,7 +15,7 @@ interface Props {
 const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard, weekNumber }) => {
   const userAthleteId = useCurrentUser();
   const [isNotesExpanded, setIsNotesExpanded] = useState(false);
-  const [expandedCardId, setExpandedCardId] = useState<number | null>(null);
+  const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
   const hasAutoExpanded = useRef(false);
 
   // Reset expansion when week changes
@@ -37,7 +37,7 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard, weekNumber }) =
     }
   }, [leaderboard]);
 
-  const handleCardToggle = (participantId: number) => {
+  const handleCardToggle = (participantId: string) => {
     setExpandedCardId(prev => (prev === participantId ? null : participantId));
   };
 

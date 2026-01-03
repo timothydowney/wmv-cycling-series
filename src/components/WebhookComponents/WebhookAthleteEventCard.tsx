@@ -4,7 +4,7 @@ import WebhookEventCard, { WebhookEvent } from './WebhookEventCard';
 import './WebhookAthleteEventCard.css';
 
 interface EnrichedAthlete {
-  athlete_id: number;
+  athlete_id: string;
   name: string | null;
   profile_url?: string;
 }

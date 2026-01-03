@@ -8,7 +8,6 @@
  */
 
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import strava from 'strava-v3';
 import { getValidAccessToken } from '../tokenManager';
 import * as stravaClientLib from '../stravaClient';
 import { participantToken } from '../db/schema';
@@ -20,7 +19,7 @@ interface CachedProfile {
   profile: string | null;
   timestamp: number;
 }
-const profileCache = new Map<number, CachedProfile>();
+const profileCache = new Map<string, CachedProfile>();
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 const PROFILE_FETCH_TIMEOUT_MS = 5000; // 5 second timeout for Strava API calls
 
@@ -57,7 +56,7 @@ async function withTimeout<T>(
  * @param accessToken - OAuth access token (from the athlete being fetched, or any connected athlete)
  * @returns Profile picture URL or null if fetch fails
  */
-async function getAthleteProfilePicture(athleteId: number, accessToken: string): Promise<string | null> {
+async function getAthleteProfilePicture(athleteId: string, accessToken: string): Promise<string | null> {
   try {
     // Check cache first
     const cached = profileCache.get(athleteId);
@@ -66,17 +65,17 @@ async function getAthleteProfilePicture(athleteId: number, accessToken: string):
     }
 
     // Use strava client library to fetch athlete profile
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const client = new (strava.client as any)(accessToken);
+    const client = stravaClientLib.createStravaClient(accessToken);
 
     // Wrap the API call with a timeout to prevent hanging on slow/unreachable Strava API
+    // Note: strava-v3 v3.1.0 uses axios internally, but we still use this wrapper for safety
     const athleteData = await withTimeout(
-      (client.athlete as any).client.getEndpoint(`athletes/${athleteId}`, { id: athleteId }),
+      client.athletes.get({ athlete_id: athleteId }),
       PROFILE_FETCH_TIMEOUT_MS,
       `Strava profile fetch for athlete ${athleteId}`
-    ) as any;
+    );
 
-    const profileUrl = (athleteData?.profile as string | null) || null;
+    const profileUrl = athleteData?.athlete?.profile || null;
 
     // Cache the result
     profileCache.set(athleteId, {
@@ -104,10 +103,10 @@ async function getAthleteProfilePicture(athleteId: number, accessToken: string):
  * @returns Map of athlete ID to profile picture URL
  */
 async function getAthleteProfilePictures(
-  athleteIds: number[],
+  athleteIds: string[],
   db: BetterSQLite3Database
-): Promise<Map<number, string | null>> {
-  const results = new Map<number, string | null>();
+): Promise<Map<string, string | null>> {
+  const results = new Map<string, string | null>();
 
   // Filter out athletes already in cache
   const uncachedIds = athleteIds.filter(id => {
@@ -125,7 +124,7 @@ async function getAthleteProfilePictures(
 
   // Build a map of athlete ID to their valid (refreshed) token
   // This way we use each athlete's own token when available, with auto-refresh
-  const athleteTokens = new Map<number, string>();
+  const athleteTokens = new Map<string, string>();
 
   for (const athleteId of uncachedIds) {
     try {

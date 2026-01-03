@@ -10,7 +10,7 @@ interface Props {
     totalPoints: number;
     weeksCompleted: number;
     isCurrentUser: boolean;
-    stravaAthleteId: number;
+    stravaAthleteId: string;
 }
 
 export const SeasonCard: React.FC<Props> = ({

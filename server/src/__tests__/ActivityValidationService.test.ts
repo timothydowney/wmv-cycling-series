@@ -24,9 +24,9 @@ describe('ActivityValidationService', () => {
     service = new ActivityValidationService(orm);
 
     // Create test segments first (required for week foreign key)
-    createSegment(orm, 1, 'Test Segment 1');
-    createSegment(orm, 2, 'Test Segment 2');
-    createSegment(orm, 3, 'Test Segment 3');
+    createSegment(orm, '1', 'Test Segment 1');
+    createSegment(orm, '2', 'Test Segment 2');
+    createSegment(orm, '3', 'Test Segment 3');
 
     // Create test seasons
     // Seasons
@@ -143,7 +143,7 @@ describe('ActivityValidationService', () => {
       const activity = {
         id: 123,
         start_date: new Date(now * 1000).toISOString() // Right now
-      };
+      } as any;
 
       const result = service.isActivityWithinTimeWindow(activity, week);
 
@@ -155,7 +155,7 @@ describe('ActivityValidationService', () => {
       const activity = {
         id: 123,
         start_date: new Date((weekStart - 3600) * 1000).toISOString() // 1 hour before window start
-      };
+      } as any;
 
       const result = service.isActivityWithinTimeWindow(activity, week);
 
@@ -167,7 +167,7 @@ describe('ActivityValidationService', () => {
       const activity = {
         id: 123,
         start_date: new Date((weekEnd + 3600) * 1000).toISOString() // 1 hour after window end
-      };
+      } as any;
 
       const result = service.isActivityWithinTimeWindow(activity, week);
 
@@ -179,11 +179,11 @@ describe('ActivityValidationService', () => {
       const activityAtStart = {
         id: 123,
         start_date: new Date(weekStart * 1000).toISOString()
-      };
+      } as any;
       const activityAtEnd = {
         id: 124,
         start_date: new Date(weekEnd * 1000).toISOString()
-      };
+      } as any;
 
       expect(service.isActivityWithinTimeWindow(activityAtStart, week).valid).toBe(true);
       expect(service.isActivityWithinTimeWindow(activityAtEnd, week).valid).toBe(true);
@@ -193,12 +193,12 @@ describe('ActivityValidationService', () => {
       const activity = {
         id: 123,
         start_date: 'invalid-date'
-      };
+      } as any;
 
       const result = service.isActivityWithinTimeWindow(activity, week);
 
       expect(result.valid).toBe(false);
-      expect(result.reason).toContain('Invalid activity start_date format');
+      expect(result.reason).toContain('Invalid activity date');
     });
   });
 
@@ -212,7 +212,7 @@ describe('ActivityValidationService', () => {
       const activity = {
         id: 123,
         start_date: new Date(now * 1000).toISOString()
-      };
+      } as any;
 
       const result = service.isActivityWithinSeasonRange(activity, seasonRow);
 
@@ -229,7 +229,7 @@ describe('ActivityValidationService', () => {
       const activity = {
         id: 123,
         start_date: new Date((seasonRow.start_at - 86400) * 1000).toISOString() // 1 day before season starts
-      };
+      } as any;
 
       const result = service.isActivityWithinSeasonRange(activity, seasonRow);
 
@@ -246,7 +246,7 @@ describe('ActivityValidationService', () => {
       const activity = {
         id: 123,
         start_date: new Date((seasonRow.end_at + 86400) * 1000).toISOString() // 1 day after season ends
-      };
+      } as any;
 
       const result = service.isActivityWithinSeasonRange(activity, seasonRow);
 
@@ -266,7 +266,7 @@ describe('ActivityValidationService', () => {
       const activity = {
         id: 123,
         start_date: new Date((now + 86400 * 100) * 1000).toISOString() // 100 days from now (within season)
-      };
+      } as any;
 
       const result = service.isActivityWithinSeasonRange(activity, noEndSeason);
 
@@ -403,8 +403,8 @@ describe('ActivityValidationService', () => {
       const weekStart = now - 3600;
       const weekEnd = now + 3600;
       const toIso = (s: number) => new Date(s * 1000).toISOString();
-      createWeek(orm, { seasonId, weekName: 'Week 1', stravaSegmentId: 1, startTime: toIso(weekStart), endTime: toIso(weekEnd), requiredLaps: 1 });
-      createWeek(orm, { seasonId, weekName: 'Week 2', stravaSegmentId: 2, startTime: toIso(now + 86400), endTime: toIso(now + 86400 + 3600), requiredLaps: 1 });
+      createWeek(orm, { seasonId, weekName: 'Week 1', stravaSegmentId: '1', startTime: toIso(weekStart), endTime: toIso(weekEnd), requiredLaps: 1 });
+      createWeek(orm, { seasonId, weekName: 'Week 2', stravaSegmentId: '2', startTime: toIso(now + 86400), endTime: toIso(now + 86400 + 3600), requiredLaps: 1 });
     });
 
     it('returns weeks containing activity timestamp', () => {
@@ -446,7 +446,7 @@ describe('ActivityValidationService', () => {
 
       // Create overlapping week
       const toIso2 = (s: number) => new Date(s * 1000).toISOString();
-      createWeek(orm, { seasonId, weekName: 'Week Overlap', stravaSegmentId: 3, startTime: toIso2(now + 86400), endTime: toIso2(now + 86400 + 7200), requiredLaps: 1 });
+      createWeek(orm, { seasonId, weekName: 'Week Overlap', stravaSegmentId: '3', startTime: toIso2(now + 86400), endTime: toIso2(now + 86400 + 7200), requiredLaps: 1 });
 
       const weeks = service.getWeeksForActivityInSeason(seasonId, midpoint);
 

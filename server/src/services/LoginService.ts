@@ -11,7 +11,7 @@ import * as stravaClient from '../stravaClient';
 import { getAthleteProfilePicture } from './StravaProfileService';
 
 interface ParticipantData {
-  strava_athlete_id: number;
+  strava_athlete_id: string;
   name: string;
   is_connected: boolean;
   profile_picture_url?: string | null;
@@ -26,7 +26,7 @@ interface AuthStatus {
 class LoginService {
   constructor(
     private drizzleDb: BetterSQLite3Database,
-    private getAdminAthleteIds: () => number[]
+    private getAdminAthleteIds: () => string[]
   ) {}
 
   /**
@@ -34,8 +34,8 @@ class LoginService {
    * Called at GET /auth/strava/callback
    */
   async exchangeCodeAndCreateSession(code: string): Promise<{
-    participantId: number;
-    athleteId: number;
+    participantId: string;
+    athleteId: string;
     athleteName: string;
     isAdmin: boolean;
   }> {
@@ -43,7 +43,7 @@ class LoginService {
     const tokenData = await stravaClient.exchangeAuthorizationCode(code);
     
     const athlete = tokenData.athlete as Record<string, unknown>;
-    const athleteId = athlete.id as number;
+    const athleteId = String(athlete.id);
     const athleteName = `${athlete.firstname} ${athlete.lastname}`;
 
     // Find or create participant using Drizzle
@@ -108,7 +108,7 @@ class LoginService {
   /**
    * Get current authentication status
    */
-  async getAuthStatus(athleteId?: number): Promise<AuthStatus> {
+  async getAuthStatus(athleteId?: string): Promise<AuthStatus> {
     if (!athleteId) {
       return { 
         authenticated: false,
@@ -170,7 +170,7 @@ class LoginService {
    * Disconnect Strava account
    * Deletes tokens and invalidates session
    */
-  disconnectStrava(athleteId: number): { message: string } {
+  disconnectStrava(athleteId: string): { message: string } {
     // Delete tokens for this athlete using Drizzle
     this.drizzleDb
       .delete(participantToken)
@@ -187,7 +187,7 @@ class LoginService {
    * Used before making Strava API calls
    */
   async getValidAccessToken(
-    athleteId: number
+    athleteId: string
   ): Promise<string> {
     const tokenRecord = this.drizzleDb
       .select({

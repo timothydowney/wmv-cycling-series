@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface Props {
-  athleteId: number;
+  athleteId: string;
   name: string;
   profilePictureUrl?: string | null;
   showName?: boolean;

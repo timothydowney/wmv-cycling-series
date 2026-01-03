@@ -7,27 +7,19 @@ import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { participantToken } from './db/schema';
 import { eq } from 'drizzle-orm';
 import { decryptToken, encryptToken } from './encryption';
+import { type RefreshTokenResponse as TokenData } from './stravaClient';
 
 /**
  * Token record from the database
  */
 interface TokenRecord {
-  strava_athlete_id: number;
+  strava_athlete_id: string;
   access_token: string;
   refresh_token: string;
   expires_at: number;
   scope?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
-}
-
-/**
- * New token data from Strava API refresh
- */
-interface TokenData {
-  access_token: string;
-  refresh_token: string;
-  expires_at: number;
 }
 
 /**
@@ -49,7 +41,7 @@ interface StravaClient {
 async function getValidAccessToken(
   db: BetterSQLite3Database,
   stravaClient: StravaClient,
-  stravaAthleteId: number,
+  stravaAthleteId: string,
   forceRefresh: boolean = false
 ): Promise<string> {
   const tokenRecord = db

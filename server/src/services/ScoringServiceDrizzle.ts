@@ -3,7 +3,7 @@ import { eq, max, sql } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
 export interface ScoringResult {
-  participantId: number;
+  participantId: string;
   participantName: string;
   rank: number;
   totalTimeSeconds: number;

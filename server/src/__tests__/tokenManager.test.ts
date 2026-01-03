@@ -18,7 +18,7 @@ interface MockStravaClient {
 describe('Token Manager', () => {
   let drizzleDb: BetterSQLite3Database;
   let mockStravaClient: MockStravaClient;
-  const testAthleteId = 12345678;
+  const testAthleteId = '12345678';
 
   beforeEach(() => {
     const { drizzleDb: testDb } = setupTestDb({ seed: false });
