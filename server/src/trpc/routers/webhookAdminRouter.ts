@@ -241,8 +241,8 @@ export const webhookAdminRouter = router({
 
       // Only enrich if it's an activity event
       if (payload?.object_type === 'activity') {
-        const athleteId = payload.owner_id;
-        const activityId = payload.object_id;
+        const athleteId = String(payload.owner_id);
+        const activityId = String(payload.object_id);
 
         // Get participant from our database
         const participantRecord = orm
@@ -272,20 +272,20 @@ export const webhookAdminRouter = router({
           if (participantRecord) {
             console.log(`[Admin:Webhooks] Fetching Strava activity details for activity ${activityId}`);
             const token = await getValidAccessToken(ctx.orm, stravaClientModule, participantRecord.strava_athlete_id); // Pass drizzleDb via ctx.orm
-            const activity = await stravaClientModule.getActivity(activityId, token); // Use stravaClientModule.getActivity
+            const activityData = await stravaClientModule.getActivity(activityId, token); // Use stravaClientModule.getActivity
             enrichment.strava_data = {
-              activity_id: activity.id,
-              name: activity.name,
-              type: activity.type,
-              distance_m: activity.distance,
-              moving_time_sec: activity.moving_time,
-              elevation_gain_m: activity.elevation_gain,
-              start_date_iso: activity.start_date,
-              device_name: activity.device_name || null,
-              segment_effort_count: activity.segment_efforts?.length || 0,
-              visibility: activity.visibility || null
+              activity_id: String(activityData.id),
+              name: activityData.name,
+              type: activityData.type,
+              distance_m: activityData.distance,
+              moving_time_sec: activityData.moving_time,
+              elevation_gain_m: activityData.elevation_gain,
+              start_date_iso: activityData.start_date,
+              device_name: activityData.device_name || null,
+              segment_effort_count: activityData.segment_efforts?.length || 0,
+              visibility: activityData.visibility || null
             };
-            console.log(`[Admin:Webhooks] ✓ Activity details loaded: '${activity.name}'`);
+            console.log(`[Admin:Webhooks] ✓ Activity details loaded: '${activityData.name}'`);
           } else {
             console.log(`[Admin:Webhooks] No participant found for athlete ${athleteId}, skipping Strava API call`);
           }
@@ -338,7 +338,7 @@ export const webhookAdminRouter = router({
           .innerJoin(week, eq(activity.week_id, week.id))
           .innerJoin(season, eq(week.season_id, season.id))
           .leftJoin(segmentEffort, eq(activity.id, segmentEffort.activity_id))
-          .where(eq(activity.strava_activity_id, activityId))
+          .where(eq(activity.strava_activity_id, String(activityId)))
           .groupBy(week.id, season.id)
           .orderBy(season.id, week.id)
           .all();

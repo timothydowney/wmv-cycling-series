@@ -10,17 +10,9 @@
 
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { and, desc, asc, lte, gte, eq } from 'drizzle-orm';
-import { Season, season as seasonTable, week as weekTable } from '../db/schema';
+import { season as seasonTable, week as weekTable, type Season } from '../db/schema';
+import { type Activity as ActivityWithTimestamp } from '../stravaClient';
 import { isoToUnix } from '../dateUtils';
-
-/**
- * Activity with start_date in Strava ISO format (UTC with Z suffix)
- */
-interface ActivityWithTimestamp {
-  id: number;
-  start_date: string; // ISO 8601 UTC: "2025-11-15T10:30:45Z"
-  [key: string]: unknown;
-}
 
 /**
  * Week with time window as Unix seconds (UTC)
@@ -133,14 +125,11 @@ class ActivityValidationService {
    * @returns { valid: boolean, reason?: string }
    */
   isActivityWithinTimeWindow(activity: ActivityWithTimestamp, week: WeekTimeWindow): ValidationResult {
-    // Convert Strava ISO to Unix seconds
+    // Convert Strava Date to Unix seconds
     const activityUnix = isoToUnix(activity.start_date);
 
     if (activityUnix === null) {
-      return {
-        valid: false,
-        reason: `Invalid activity start_date format: ${activity.start_date}`
-      };
+      return { valid: false, reason: `Invalid activity date: ${activity.start_date}` };
     }
 
     // Simple integer comparison (no timezone math needed)
@@ -169,10 +158,7 @@ class ActivityValidationService {
     const activityUnix = isoToUnix(activity.start_date);
 
     if (activityUnix === null) {
-      return {
-        valid: false,
-        reason: `Invalid activity start_date format: ${activity.start_date}`
-      };
+      return { valid: false, reason: `Invalid activity date: ${activity.start_date}` };
     }
 
     // Activity must be after season start

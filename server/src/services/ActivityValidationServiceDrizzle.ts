@@ -9,15 +9,7 @@ import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { and, desc, asc, lte, gte, or, isNull, eq } from 'drizzle-orm';
 import { season, week, Season } from '../db/schema';
 import { isoToUnix } from '../dateUtils';
-
-/**
- * Activity with start_date in Strava ISO format (UTC with Z suffix)
- */
-interface ActivityWithTimestamp {
-  id: number;
-  start_date: string; // ISO 8601 UTC: "2025-11-15T10:30:45Z"
-  [key: string]: unknown;
-}
+import { type Activity as ActivityWithTimestamp } from '../stravaClient';
 
 /**
  * Week with time window as Unix seconds (UTC)

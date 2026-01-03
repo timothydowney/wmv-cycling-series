@@ -14,7 +14,7 @@ export const participantRouter = router({
   }),
 
   getById: publicProcedure
-    .input(z.number())
+    .input(z.string())
     .query(async ({ ctx, input }) => {
       const participantService = new ParticipantService(ctx.orm);
       return participantService.getParticipantByStravaAthleteId(input);

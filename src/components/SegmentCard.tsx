@@ -1,7 +1,7 @@
 import './SegmentCard.css';
 
 interface SegmentCardProps {
-  id: number;
+  id: string;
   name: string;
   distance?: number;
   average_grade?: number;

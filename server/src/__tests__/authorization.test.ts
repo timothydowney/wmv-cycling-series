@@ -22,31 +22,18 @@ describe('AuthorizationService', () => {
 
 
   beforeEach(() => {
-
-    service = new AuthorizationService(() => [12345, 67890]);
-
+    service = new AuthorizationService(() => ['12345', '67890']);
   });
 
-
-
   describe('isAdmin', () => {
-
     test('should return true for admin athlete IDs', () => {
-
-      expect(service.isAdmin(12345)).toBe(true);
-
-      expect(service.isAdmin(67890)).toBe(true);
-
+      expect(service.isAdmin('12345')).toBe(true);
+      expect(service.isAdmin('67890')).toBe(true);
     });
 
-
-
     test('should return false for non-admin athlete IDs', () => {
-
-      expect(service.isAdmin(99999)).toBe(false);
-
-      expect(service.isAdmin(11111)).toBe(false);
-
+      expect(service.isAdmin('99999')).toBe(false);
+      expect(service.isAdmin('11111')).toBe(false);
     });
 
 
@@ -92,51 +79,34 @@ describe('AuthorizationService', () => {
 
 
     test('should allow authenticated non-admin users when admin not required', () => {
-
-      const result = service.checkAuthorization(99999, false);
-
+      const result = service.checkAuthorization('99999', false);
       expect(result.authorized).toBe(true);
-
       expect(result.statusCode).toBe(200);
-
     });
 
 
 
     test('should reject authenticated non-admin users when admin required', () => {
-
-      const result = service.checkAuthorization(99999, true);
-
+      const result = service.checkAuthorization('99999', true);
       expect(result.authorized).toBe(false);
-
       expect(result.statusCode).toBe(403);
-
       expect(result.message).toContain('Admin access required');
-
     });
 
 
 
     test('should allow authenticated admin users when admin required', () => {
-
-      const result = service.checkAuthorization(12345, true);
-
+      const result = service.checkAuthorization('12345', true);
       expect(result.authorized).toBe(true);
-
       expect(result.statusCode).toBe(200);
-
     });
 
 
 
     test('should allow authenticated admin users when admin not required', () => {
-
-      const result = service.checkAuthorization(12345, false);
-
+      const result = service.checkAuthorization('12345', false);
       expect(result.authorized).toBe(true);
-
       expect(result.statusCode).toBe(200);
-
     });
 
   });
@@ -257,7 +227,7 @@ describe('AuthorizationService', () => {
 
       app.use((_req: any, _res: any, next: any) => {
 
-        _req.session.stravaAthleteId = 12345; // Admin ID
+        _req.session.stravaAthleteId = '12345'; // Admin ID
 
         next();
 
@@ -293,7 +263,7 @@ describe('AuthorizationService', () => {
 
       const nextMock = jest.fn();
 
-      const req = { session: { stravaAthleteId: 12345 } };
+      const req = { session: { stravaAthleteId: '12345' } };
 
       const statusMock = jest.fn();
 
@@ -361,7 +331,7 @@ describe('AuthorizationService', () => {
 
     test('should have no admins in empty service', () => {
 
-      expect(service.isAdmin(12345)).toBe(false);
+      expect(service.isAdmin('12345')).toBe(false);
 
     });
 
@@ -369,7 +339,7 @@ describe('AuthorizationService', () => {
 
     test('should reject all users as admin when list is empty', () => {
 
-      const result = service.checkAuthorization(12345, true);
+      const result = service.checkAuthorization('12345', true);
 
       expect(result.authorized).toBe(false);
 
@@ -393,7 +363,7 @@ describe('AuthorizationService', () => {
 
     test('should default to empty admin list', () => {
 
-      expect(service.isAdmin(12345)).toBe(false);
+      expect(service.isAdmin('12345')).toBe(false);
 
     });
 
@@ -401,7 +371,7 @@ describe('AuthorizationService', () => {
 
     test('should still authorize non-admin access', () => {
 
-      const result = service.checkAuthorization(12345, false);
+      const result = service.checkAuthorization('12345', false);
 
       expect(result.authorized).toBe(true);
 

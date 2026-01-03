@@ -36,9 +36,9 @@ import { Week } from '../db/schema'; // Import Drizzle Week type
  * Abstracts database operations to make processor testable via dependency injection
  */
 export interface WebhookService {
-  deleteActivity(stravaActivityId: number): { deleted: boolean; changes: number };
-  deleteAthleteTokens(athleteId: number): { deleted: boolean; changes: number };
-  findParticipantByAthleteId(athleteId: number): { name: string } | undefined;
+  deleteActivity(stravaActivityId: string): { deleted: boolean; changes: number };
+  deleteAthleteTokens(athleteId: string): { deleted: boolean; changes: number };
+  findParticipantByAthleteId(athleteId: string): { name: string } | undefined;
 }
 
 /**
@@ -46,7 +46,7 @@ export interface WebhookService {
  */
 function createDefaultService(db: BetterSQLite3Database): WebhookService {
   return {
-    deleteActivity(stravaActivityId: number) {
+    deleteActivity(stravaActivityId: string) {
       const activityRecord = db
         .select({ id: activity.id, week_id: activity.week_id })
         .from(activity)
@@ -72,7 +72,7 @@ function createDefaultService(db: BetterSQLite3Database): WebhookService {
       return { deleted: true, changes: totalChanges };
     },
 
-    deleteAthleteTokens(athleteId: number) {
+    deleteAthleteTokens(athleteId: string) {
       const deleted = db
         .delete(participantToken)
         .where(eq(participantToken.strava_athlete_id, athleteId))
@@ -81,7 +81,7 @@ function createDefaultService(db: BetterSQLite3Database): WebhookService {
       return { deleted: deleted.changes > 0, changes: deleted.changes };
     },
 
-    findParticipantByAthleteId(athleteId: number) {
+    findParticipantByAthleteId(athleteId: string) {
       return db
         .select({ name: participant.name })
         .from(participant)
@@ -185,7 +185,8 @@ async function processActivityEvent(
 ): Promise<void> {
   // Initialize validation service if not provided (for direct calls)
   const validator = validationService || new ActivityValidationServiceDrizzle(db);
-  const { object_id: activityId, owner_id: athleteId } = event;
+  const activityId = String(event.object_id);
+  const athleteId = String(event.owner_id);
 
   console.log('[Webhook:Processor] Activity event', {
     activityId,
@@ -226,7 +227,7 @@ async function processActivityEvent(
   }
 
   // 3. Find all active seasons that contain this activity's timestamp
-  const activityUnix = Math.floor(new Date(activityData.start_date as string).getTime() / 1000);
+  const activityUnix = Math.floor(new Date(activityData.start_date as any).getTime() / 1000);
   const seasons = validator.getAllActiveSeasonsContainingTimestamp(activityUnix);
 
   if (seasons.length === 0) {
@@ -366,7 +367,8 @@ async function processActivityDeletion(
   _logger: WebhookLogger,
   service: WebhookService
 ): Promise<void> {
-  const { object_id: activityId, owner_id: athleteId } = event;
+  const activityId = String(event.object_id);
+  const athleteId = String(event.owner_id);
 
   console.log('[Webhook:Processor] Activity deletion event', {
     activityId,
@@ -403,7 +405,7 @@ async function processAthleteDisconnection(
   _logger: WebhookLogger,
   service: WebhookService
 ): Promise<void> {
-  const { owner_id: athleteId } = event;
+  const athleteId = String(event.owner_id);
 
   console.log('[Webhook:Processor] Athlete deauthorization event', {
     athleteId

@@ -4,8 +4,8 @@ import { trpc } from '../utils/trpc';
 import { AdminSegment } from '../types'; // Using shared type for better consistency
 
 interface SegmentInputProps {
-  value: { id: number; name: string };
-  onChange: (segmentId: number, segmentName: string) => void;
+  value: { id: string; name: string };
+  onChange: (segmentId: string, segmentName: string) => void;
 }
 
 function SegmentInput({ value, onChange }: SegmentInputProps) {
@@ -26,7 +26,7 @@ function SegmentInput({ value, onChange }: SegmentInputProps) {
   // Update internal state when value prop changes
   useEffect(() => {
     if (value.id) {
-      setUrlInput(value.id.toString());
+      setUrlInput(value.id);
       setNameInput(value.name);
       if (value.name) {
         setValidationState('valid');
@@ -37,24 +37,24 @@ function SegmentInput({ value, onChange }: SegmentInputProps) {
   /**
    * Parse Strava segment URL or ID
    */
-  const parseSegmentInput = (input: string): number | null => {
+  const parseSegmentInput = (input: string): string | null => {
     const trimmed = input.trim();
     
     // If it's just a number
     if (/^\d+$/.test(trimmed)) {
-      return parseInt(trimmed, 10);
+      return trimmed;
     }
     
     // If it's a URL, extract segment ID
     const urlMatch = trimmed.match(/segments\/(\d+)/);
     if (urlMatch) {
-      return parseInt(urlMatch[1], 10);
+      return urlMatch[1];
     }
     
     return null;
   };
 
-  const validateSegment = async (segmentId: number) => {
+  const validateSegment = async (segmentId: string) => {
     setValidationState('validating');
     setErrorMessage('');
     
@@ -66,7 +66,7 @@ function SegmentInput({ value, onChange }: SegmentInputProps) {
     } catch (error: any) {
       setValidationState('error');
       setErrorMessage(error.message || 'Invalid segment');
-      onChange(0, '');
+      onChange('', '');
     }
   };
 
@@ -80,7 +80,7 @@ function SegmentInput({ value, onChange }: SegmentInputProps) {
     if (!segmentId) {
       setValidationState('error');
       setErrorMessage('Invalid segment URL or ID');
-      onChange(0, '');
+      onChange('', '');
       return;
     }
     
@@ -106,7 +106,7 @@ function SegmentInput({ value, onChange }: SegmentInputProps) {
   };
 
   const handleNameSegmentSelect = (segment: AdminSegment) => {
-    setUrlInput(segment.strava_segment_id.toString());
+    setUrlInput(segment.strava_segment_id);
     setNameInput(segment.name);
     setValidationState('valid');
     onChange(segment.strava_segment_id, segment.name);

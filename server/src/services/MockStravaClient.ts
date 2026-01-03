@@ -11,36 +11,7 @@
  * - Track which methods were called (for assertions)
  */
 
-export interface StravaActivity {
-  id: number;
-  name: string;
-  start_date: string; // ISO 8601 UTC with Z suffix
-  start_date_local: string;
-  distance: number;
-  moving_time: number;
-  elapsed_time: number;
-  elevation_gain: number;
-  sport_type: string;
-  segment_efforts: StravaSegmentEffort[];
-  [key: string]: any;
-}
-
-export interface StravaSegmentEffort {
-  id: number;
-  name: string;
-  segment: {
-    id: number;
-    name: string;
-    distance: number;
-    average_grade: number;
-  };
-  start_date: string;
-  start_date_local: string;
-  elapsed_time: number;
-  moving_time: number;
-  pr_rank?: number | null; // Present if PR achieved
-  [key: string]: any;
-}
+import { type Activity as StravaActivity } from '../stravaClient';
 
 export type MockScenario = 'success' | 'notFound' | 'rateLimit' | 'networkError';
 
@@ -64,7 +35,7 @@ export class MockStravaClient {
    */
   setActivity(activityId: number, activity: Partial<StravaActivity>): void {
     const defaultActivity = this.createDefaultActivity(activityId);
-    this.customActivities.set(activityId, { ...defaultActivity, ...activity });
+    this.customActivities.set(activityId, { ...defaultActivity, ...activity } as StravaActivity);
   }
 
   /**
@@ -172,11 +143,11 @@ export class MockStravaClient {
       distance: 5000,
       moving_time: 1200,
       elapsed_time: 1200,
-      elevation_gain: 100,
+      total_elevation_gain: 100,
       sport_type: 'Ride',
       segment_efforts: [
         {
-          id: activityId * 100 + 1,
+          id: String(activityId * 100 + 1),
           name: 'Segment 1',
           segment: {
             id: 12345678,
@@ -189,8 +160,9 @@ export class MockStravaClient {
           elapsed_time: 600,
           moving_time: 580
         }
-      ]
-    };
+      ],
+      athlete: { id: 12345 }
+    } as any;
   }
 }
 
@@ -213,11 +185,11 @@ export const ActivityScenarios = {
       distance: 5000,
       moving_time: 1200,
       elapsed_time: 1200,
-      elevation_gain: 100,
+      total_elevation_gain: 100,
       sport_type: 'Ride',
       segment_efforts: [
         {
-          id: activityId * 100 + 1,
+          id: String(activityId * 100 + 1),
           name: 'Segment Effort',
           segment: {
             id: segmentId,
@@ -231,8 +203,9 @@ export const ActivityScenarios = {
           moving_time: elapsedTime - 20,
           pr_rank: 1 // Indicates PR achieved
         }
-      ]
-    };
+      ],
+      athlete: { id: 12345 }
+    } as any;
   },
 
   /**
@@ -254,11 +227,11 @@ export const ActivityScenarios = {
       distance: 5000,
       moving_time: 1200,
       elapsed_time: 1200,
-      elevation_gain: 100,
+      total_elevation_gain: 100,
       sport_type: 'Ride',
       segment_efforts: [
         {
-          id: activityId * 100 + 1,
+          id: String(activityId * 100 + 1),
           name: 'Segment Effort',
           segment: {
             id: segmentId,
@@ -271,8 +244,9 @@ export const ActivityScenarios = {
           elapsed_time: elapsedTime,
           moving_time: elapsedTime - 20
         }
-      ]
-    };
+      ],
+      athlete: { id: 12345 }
+    } as any;
   },
 
   /**
@@ -297,10 +271,10 @@ export const ActivityScenarios = {
       distance: 5000 * lapCount,
       moving_time: times.reduce((a, b) => a + b, 0),
       elapsed_time: times.reduce((a, b) => a + b, 0),
-      elevation_gain: 100 * lapCount,
+      total_elevation_gain: 100 * lapCount,
       sport_type: 'Ride',
       segment_efforts: times.map((time, index) => ({
-        id: activityId * 100 + index + 1,
+        id: String(activityId * 100 + index + 1),
         name: `Lap ${index + 1}`,
         segment: {
           id: segmentId,
@@ -316,7 +290,8 @@ export const ActivityScenarios = {
         elapsed_time: time,
         moving_time: time - 20,
         pr_rank: index === 0 ? 1 : undefined // Only first lap is PR
-      }))
-    };
+      })),
+      athlete: { id: 12345 }
+    } as any;
   }
 };

@@ -5,134 +5,23 @@ This document describes the SQLite database schema for tracking weekly cycling c
 
 **Scale:** Designed for <100 participants. SQLite is perfect for this - simple, fast, no separate database server needed.
 
-## Schema Version 2.0 (Updated for Activity Tracking)
+## Schema Overview
 
-### Tables
+The database is managed using **Drizzle ORM**. The source of truth for the schema is [server/src/db/schema.ts](../server/src/db/schema.ts).
 
-#### `participants`
-Stores information about competition participants.
-```sql
-CREATE TABLE participants (
-  id INTEGER PRIMARY KEY,
-  name TEXT NOT NULL,
-  strava_athlete_id INTEGER UNIQUE,  -- NEW: Link to Strava athlete
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-```
+### Core Tables
 
-#### `segments`
-Stores Strava segments used in weekly competitions + cached metadata.
-```sql
-CREATE TABLE segments (
-  id INTEGER PRIMARY KEY,
-  name TEXT NOT NULL,
-  strava_segment_id INTEGER NOT NULL UNIQUE,
-  distance INTEGER,            -- meters (nullable until first refresh)
-  average_grade REAL,          -- percentage (nullable)
-  city TEXT,
-  state TEXT,
-  country TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-```
+- **`participant`**: Stores athlete information and connection status.
+- **`segment`**: Cached Strava segment metadata (distance, grade, location).
+- **`season`**: Defines competition periods (e.g., "2025 Season").
+- **`week`**: Individual weekly events linked to a season and a segment.
+- **`activity`**: The best qualifying Strava activity for a participant in a given week.
+- **`segment_effort`**: Individual laps/efforts extracted from a qualifying activity.
+- **`result`**: Calculated rankings and times (points are computed on-read).
+- **`participant_token`**: Encrypted OAuth tokens for Strava API access.
+- **`webhook_event`**: Log of received Strava webhook events for monitoring.
 
-#### `weeks`
-Defines each weekly competition objective with configurable time windows.
-```sql
-CREATE TABLE weeks (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  week_name TEXT NOT NULL,
-  date TEXT NOT NULL,  -- The Tuesday date (ISO 8601: YYYY-MM-DD)
-  segment_id INTEGER NOT NULL,
-  required_laps INTEGER NOT NULL DEFAULT 1,  -- How many times segment must be completed
-  start_time TEXT NOT NULL,  -- ISO 8601 timestamp: when valid submissions start
-  end_time TEXT NOT NULL,  -- ISO 8601 timestamp: when valid submissions end
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY(segment_id) REFERENCES segments(id)
-);
-```
-**Time Window Configuration:**
-- Default: midnight (00:00:00) to 10pm (22:00:00) on event day
-- Customizable per week for special events
-- Enforced during activity submission validation
-
-#### `activities` (NEW)
-Stores Strava activities for each participant per week. When admin triggers batch fetch, this table is populated with the best qualifying activity for each participant.
-
-```sql
-CREATE TABLE activities (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  week_id INTEGER NOT NULL,
-  participant_id INTEGER NOT NULL,
-  strava_activity_id INTEGER NOT NULL,  -- Strava's activity ID
-  activity_url TEXT NOT NULL,  -- Full Strava URL
-  activity_date TEXT NOT NULL,  -- ISO 8601 date from Strava
-  validation_status TEXT DEFAULT 'pending',  -- pending, valid, invalid
-  validation_message TEXT,  -- Error/success message
-  validated_at TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY(week_id) REFERENCES weeks(id),
-  FOREIGN KEY(participant_id) REFERENCES participants(id),
-  UNIQUE(week_id, participant_id)  -- One activity per participant per week (best activity)
-);
-```
-
-**Admin Fetch Behavior:**
-- When admin triggers `POST /admin/weeks/:id/fetch-results`, the system finds the **best qualifying activity** for each participant on the event day
-- If an activity already exists for a participant in this week, it is replaced with the current best activity (via REPLACE INTO or DELETE + INSERT)
-- This allows safe re-fetching if participants complete additional attempts after initial fetch
-- Only the best activity (fastest total time with required reps) is stored per participant per week
-
-#### `segment_efforts` (NEW)
-Stores individual segment efforts extracted from activities.
-```sql
-CREATE TABLE segment_efforts (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  activity_id INTEGER NOT NULL,
-  segment_id INTEGER NOT NULL,
-  effort_index INTEGER NOT NULL,  -- 1st lap, 2nd lap, etc.
-  elapsed_seconds INTEGER NOT NULL,
-  start_time TEXT,  -- ISO 8601 timestamp
-  pr_achieved BOOLEAN DEFAULT 0,  -- 1 if this effort was a PR (pr_rank === 1), 0 otherwise
-  FOREIGN KEY(activity_id) REFERENCES activities(id),
-  FOREIGN KEY(segment_id) REFERENCES segments(id)
-);
-```
-**PR Detection:** The `pr_achieved` flag is set from Strava API's segment effort response when `pr_rank === 1` (indicates athlete's absolute fastest ever on this segment).
-
-#### `results` (UPDATED)
-Stores calculated competition results for each participant per week.
-```sql
-CREATE TABLE results (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  week_id INTEGER NOT NULL,
-  participant_id INTEGER NOT NULL,
-  activity_id INTEGER,  -- Link to validated activity
-  total_time_seconds INTEGER NOT NULL,  -- Sum of all required segment efforts
-  rank INTEGER,  -- Calculated ranking (1 = fastest)
-  points INTEGER,  -- Total points = base points + PR bonus
-  pr_bonus_points INTEGER DEFAULT 0,  -- 1 if participant achieved PR, 0 otherwise
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY(week_id) REFERENCES weeks(id),
-  FOREIGN KEY(participant_id) REFERENCES participants(id),
-  FOREIGN KEY(activity_id) REFERENCES activities(id),
-  UNIQUE(week_id, participant_id)
-);
-```
-**Points Calculation:**
-- `base_points = (total_participants - rank) + 1`
-  - Example with 4 participants:
-    - 1st place: (4 - 1) + 1 = 4 points
-    - 2nd place: (4 - 2) + 1 = 3 points
-    - 3rd place: (4 - 3) + 1 = 2 points
-    - 4th place: (4 - 4) + 1 = 1 point
-  - Participants with no valid activity get 0 points
-- `pr_bonus_points = 1 if ANY segment effort has pr_achieved = 1, else 0`
-  - Maximum 1 PR bonus per week, even if multiple segment efforts are PRs
-- `points = base_points + pr_bonus_points`
-
-**Note:** The formula `(total - rank) + 1` incorporates both the "beat participants" count AND the participation bonus of 1 point.
+For the full SQL definitions and indexes, see the [Drizzle schema file](../server/src/db/schema.ts).
 
 ## Data Flow
 
@@ -227,13 +116,13 @@ Note: Manual submission via `POST /weeks/:id/submit-activity` is deprecated in f
 ### Season Leaderboard
 ```sql
 SELECT 
-  participant_id,
+  strava_athlete_id,
   name,
   SUM(points) as total_points,
   COUNT(*) as weeks_completed
 FROM results
-JOIN participants ON results.participant_id = participants.id
-GROUP BY participant_id
+JOIN participants ON results.strava_athlete_id = participants.strava_athlete_id
+GROUP BY strava_athlete_id
 ORDER BY total_points DESC;
 ```
 
@@ -258,11 +147,11 @@ ORDER BY total_points DESC;
 
 ## Indexes for Performance
 ```sql
-CREATE INDEX idx_activities_week_participant ON activities(week_id, participant_id);
-CREATE INDEX idx_activities_status ON activities(validation_status);
-CREATE INDEX idx_segment_efforts_activity ON segment_efforts(activity_id);
-CREATE INDEX idx_results_week ON results(week_id);
-CREATE INDEX idx_results_participant ON results(participant_id);
+CREATE INDEX idx_activity_status ON activities(validation_status);
+CREATE INDEX idx_activity_week_participant ON activities(week_id, strava_athlete_id);
+CREATE INDEX idx_segment_effort_activity ON segment_efforts(activity_id);
+CREATE INDEX idx_result_week ON results(week_id);
+CREATE INDEX idx_result_participant ON results(strava_athlete_id);
 ```
 
 ## Example Queries
@@ -270,17 +159,15 @@ CREATE INDEX idx_results_participant ON results(participant_id);
 ### Get Week Leaderboard with Activity Links
 ```sql
 SELECT 
-  r.rank,
-  p.name,
   r.total_time_seconds,
-  r.points,
-  a.activity_url,
-  a.activity_date
+  p.name,
+  a.strava_activity_id,
+  a.start_at
 FROM results r
-JOIN participants p ON r.participant_id = p.id
+JOIN participants p ON r.strava_athlete_id = p.strava_athlete_id
 LEFT JOIN activities a ON r.activity_id = a.id
 WHERE r.week_id = ?
-ORDER BY r.rank ASC;
+ORDER BY r.total_time_seconds ASC;
 ```
 
 ### Get Participant's Segment Efforts for a Week
@@ -288,9 +175,9 @@ ORDER BY r.rank ASC;
 SELECT 
   se.effort_index,
   se.elapsed_seconds,
-  se.start_time
+  se.start_at
 FROM segment_efforts se
 JOIN activities a ON se.activity_id = a.id
-WHERE a.week_id = ? AND a.participant_id = ?
+WHERE a.week_id = ? AND a.strava_athlete_id = ?
 ORDER BY se.effort_index ASC;
 ```

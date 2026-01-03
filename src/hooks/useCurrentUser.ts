@@ -5,8 +5,8 @@ import { getAuthStatus } from '../api';
  * Hook to get the current logged-in user's Strava athlete ID
  * Returns null if user is not authenticated
  */
-export function useCurrentUser(): number | null {
-  const [userAthleteId, setUserAthleteId] = useState<number | null>(null);
+export function useCurrentUser(): string | null {
+  const [userAthleteId, setUserAthleteId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchAuthStatus = async () => {

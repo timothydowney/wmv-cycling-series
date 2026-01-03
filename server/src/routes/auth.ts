@@ -68,7 +68,7 @@ export default (services: AuthServices): Router => {
 
       // Attach to session with typed fields
       const sess = req.session as Session & {
-        stravaAthleteId?: number;
+        stravaAthleteId?: string;
         athleteName?: string;
         isAdmin?: boolean;
       };
@@ -113,7 +113,7 @@ export default (services: AuthServices): Router => {
    */
   router.get('/status', async (req: Request, res: Response): Promise<void> => {
     const sess = req.session as Session & {
-      stravaAthleteId?: number;
+      stravaAthleteId?: string;
       athleteName?: string;
       isAdmin?: boolean;
     };
@@ -151,7 +151,7 @@ export default (services: AuthServices): Router => {
    */
   router.post('/disconnect', (req: Request, res: Response): void => {
     const sess = req.session as Session & {
-      stravaAthleteId?: number;
+      stravaAthleteId?: string;
     };
     const athleteId = sess.stravaAthleteId;
     if (!athleteId) {

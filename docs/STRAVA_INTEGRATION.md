@@ -65,31 +65,11 @@ When a participant first uses the app, they see their connection status:
 - **Not connected:** "Connect with Strava" button visible
 - **Connected:** "Connected as [athlete name]" with option to disconnect
 
-Frontend sends user to:
-```
-GET /auth/strava
-```
+The frontend initiates the flow by directing the user to `GET /auth/strava`.
 
-Backend redirects to Strava OAuth:
-
-```javascript
-app.get('/auth/strava', (req, res) => {
-  const stravaAuthUrl = 'https://www.strava.com/oauth/authorize?' + 
-    new URLSearchParams({
-      client_id: process.env.STRAVA_CLIENT_ID,  // 170916
-      redirect_uri: 'http://localhost:3001/auth/strava/callback',
-      response_type: 'code',
-      approval_prompt: 'auto',
-      scope: 'activity:read,profile:read_all'
-    });
-  
-  res.redirect(stravaAuthUrl);
-});
-```
-
-**Scopes:**
-- `activity:read` - Read public and follower-visible activities (not private)
-- `profile:read_all` - Read full athlete profile to link Strava athlete ID
+**Implementation:**
+- Route: [server/src/routes/auth.ts](server/src/routes/auth.ts)
+- Logic: Redirects to Strava's authorization endpoint with required scopes (`activity:read`, `profile:read_all`).
 
 ### Step 2: User Authorizes on Strava
 
@@ -106,84 +86,16 @@ http://localhost:3001/auth/strava/callback?code=abc123def456&scope=read,activity
 
 ### Step 4: Exchange Authorization Code for Tokens
 
-```javascript
-app.get('/auth/strava/callback', async (req, res) => {
-  const { code, scope } = req.query;
-  
-  if (!code) {
-    return res.status(400).send('Authorization denied');
-  }
-  
-  // Exchange code for tokens
-  const tokenResponse = await fetch('https://www.strava.com/oauth/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      client_id: process.env.STRAVA_CLIENT_ID,
-      client_secret: process.env.STRAVA_CLIENT_SECRET,
-      code: code,
-      grant_type: 'authorization_code'
-    })
-  });
-  
-  const tokenData = await tokenResponse.json();
-  /*
-  {
-    "token_type": "Bearer",
-    "expires_at": 1568775134,        // Unix timestamp
-    "expires_in": 21600,             // Seconds (6 hours)
-    "refresh_token": "e5n567567...", // Use to get new access tokens
-    "access_token": "a4b945687g...", // Use to call Strava API
-    "athlete": {
-      "id": 227615,                  // Strava athlete ID (KEY!)
-      "username": "marianne_t",
-      "firstname": "Marianne",
-      "lastname": "T",
-      ...
-    }
-  }
-  */
-  
-  const stravaAthleteId = tokenData.athlete.id;
-  
-  // Find or create participant in database
-  let participant = db.prepare(`
-    SELECT * FROM participants WHERE strava_athlete_id = ?
-  `).get(stravaAthleteId);
-  
-  if (!participant) {
-    // New user—create participant record
-    const result = db.prepare(`
-      INSERT INTO participants (name, strava_athlete_id)
-      VALUES (?, ?)
-    `).run(
-      `${tokenData.athlete.firstname} ${tokenData.athlete.lastname}`,
-      stravaAthleteId
-    );
-    participant = { id: result.lastInsertRowid };
-  }
-  
-  // Store tokens for this participant
-  db.prepare(`
-    INSERT OR REPLACE INTO participant_tokens 
-    (participant_id, access_token, refresh_token, expires_at, scope)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(
-    participant.id,
-    tokenData.access_token,
-    tokenData.refresh_token,
-    tokenData.expires_at,
-    scope || tokenData.scope
-  );
-  
-  // Create session so frontend knows who's logged in
-  req.session.participantId = participant.id;
-  req.session.athleteName = tokenData.athlete.firstname;
-  
-  // Redirect to dashboard
-  res.redirect('/dashboard');
-});
-```
+The backend receives the authorization code and exchanges it for access and refresh tokens.
+
+**Implementation:**
+- Route: [server/src/routes/auth.ts](server/src/routes/auth.ts)
+- Service: [server/src/services/LoginService.ts](server/src/services/LoginService.ts)
+- Logic:
+    1. Exchange `code` for tokens via Strava API.
+    2. Upsert participant record in `participants` table.
+    3. Store encrypted tokens in `participant_token` table.
+    4. Establish an Express session.
 
 **Critical Points:**
 - Authorization codes are **single-use** (can only exchange once)
@@ -196,79 +108,34 @@ app.get('/auth/strava/callback', async (req, res) => {
 Database table for OAuth tokens:
 
 ```sql
-CREATE TABLE IF NOT EXISTS participant_tokens (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  participant_id INTEGER NOT NULL UNIQUE,
+CREATE TABLE IF NOT EXISTS participant_token (
+  strava_athlete_id TEXT PRIMARY KEY,
   access_token TEXT NOT NULL,
   refresh_token TEXT NOT NULL,
   expires_at INTEGER NOT NULL,  -- Unix timestamp
   scope TEXT,                    -- Scopes user actually granted
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY(participant_id) REFERENCES participants(id) ON DELETE CASCADE
+  FOREIGN KEY(strava_athlete_id) REFERENCES participants(strava_athlete_id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_participant_tokens_participant ON participant_tokens(participant_id);
+CREATE INDEX idx_participant_token_participant ON participant_token(strava_athlete_id);
 ```
 
 **Security Note:** In production, encrypt `access_token` and `refresh_token` at rest.
 
 ### Step 6: Refresh Tokens Before API Calls
 
-**Critical:** Access tokens expire every 6 hours. Before ANY Strava API call, check expiration and refresh if needed:
+**Critical:** Access tokens expire every 6 hours. Before ANY Strava API call, the system checks the expiration and refreshes the token if it expires within the next hour.
 
-```javascript
-async function getValidAccessToken(participantId) {
-  const tokenRecord = db.prepare(`
-    SELECT * FROM participant_tokens WHERE participant_id = ?
-  `).get(participantId);
-  
-  if (!tokenRecord) {
-    throw new Error('Participant not connected to Strava');
-  }
-  
-  const now = Math.floor(Date.now() / 1000);  // Current Unix timestamp
-  
-  // Token expires in less than 1 hour? Refresh proactively
-  if (tokenRecord.expires_at < (now + 3600)) {
-    console.log(`Token expiring soon for participant ${participantId}, refreshing...`);
-    
-    // Request new access token using refresh token
-    const refreshResponse = await fetch('https://www.strava.com/oauth/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: process.env.STRAVA_CLIENT_ID,
-        client_secret: process.env.STRAVA_CLIENT_SECRET,
-        grant_type: 'refresh_token',
-        refresh_token: tokenRecord.refresh_token
-      })
-    });
-    
-    const newTokenData = await refreshResponse.json();
-    
-    // Update database with NEW tokens
-    db.prepare(`
-      UPDATE participant_tokens 
-      SET access_token = ?,
-          refresh_token = ?,
-          expires_at = ?,
-          updated_at = CURRENT_TIMESTAMP
-      WHERE participant_id = ?
-    `).run(
-      newTokenData.access_token,
-      newTokenData.refresh_token,
-      newTokenData.expires_at,
-      participantId
-    );
-    
-    return newTokenData.access_token;
-  }
-  
-  // Token still valid, return it
-  return tokenRecord.access_token;
-}
-```
+**Implementation:**
+- Utility: [server/src/tokenManager.ts](server/src/tokenManager.ts)
+- Method: `getValidAccessToken(stravaAthleteId)`
+- Logic:
+    1. Retrieve token record from `participant_token` table.
+    2. If `expires_at` is within 1 hour, request a new token using the `refresh_token`.
+    3. Update the database with the new `access_token`, `refresh_token`, and `expires_at`.
+    4. Return the valid `access_token`.
 
 **Why refresh proactively (1 hour before expiry)?**
 - Avoids race conditions where token expires mid-request
@@ -297,153 +164,10 @@ async function getValidAccessToken(participantId) {
 5. Return summary of results found
 
 **Implementation:**
-
-```javascript
-app.post('/admin/weeks/:id/fetch-results', async (req, res) => {
-  const weekId = req.params.id;
-  
-  // Get week details
-  const week = db.prepare('SELECT * FROM weeks WHERE id = ?').get(weekId);
-  if (!week) return res.status(404).json({ error: 'Week not found' });
-  
-  // Get all connected participants
-  const participants = db.prepare(`
-    SELECT p.id, p.name, p.strava_athlete_id, pt.access_token
-    FROM participants p
-    JOIN participant_tokens pt ON p.id = pt.participant_id
-    WHERE pt.access_token IS NOT NULL
-  `).all();
-  
-  const results = [];
-  
-  for (const participant of participants) {
-    try {
-      // Get valid token (auto-refreshes if needed)
-      const accessToken = await getValidAccessToken(participant.id);
-      
-      // Fetch activities from event day
-      const activities = await fetchActivitiesOnDay(
-        accessToken,
-        week.start_time,
-        week.end_time
-      );
-      
-      // Find best qualifying activity
-      const bestActivity = await findBestQualifyingActivity(
-        activities,
-        week.segment_id,
-        week.required_laps,
-        accessToken
-      );
-      
-      if (bestActivity) {
-        // Store activity and efforts
-        storeActivityAndEfforts(participant.id, weekId, bestActivity);
-        results.push({
-          participant_id: participant.id,
-          participant_name: participant.name,
-          activity_found: true,
-          activity_id: bestActivity.id,
-          total_time: bestActivity.totalTime,
-          segment_efforts: bestActivity.segmentEfforts.length
-        });
-      } else {
-        results.push({
-          participant_id: participant.id,
-          participant_name: participant.name,
-          activity_found: false,
-          reason: 'No qualifying activities on event day'
-        });
-      }
-    } catch (error) {
-      results.push({
-        participant_id: participant.id,
-        participant_name: participant.name,
-        activity_found: false,
-        reason: error.message
-      });
-    }
-  }
-  
-  // Recalculate leaderboard
-  calculateWeekResults(weekId);
-  
-  res.json({
-    message: 'Results fetched successfully',
-    week_id: weekId,
-    participants_processed: participants.length,
-    results_found: results.filter(r => r.activity_found).length,
-    summary: results
-  });
-});
-```
-
-**Helper: Fetch Activities on Day**
-
-```javascript
-async function fetchActivitiesOnDay(accessToken, startTime, endTime) {
-  const after = Math.floor(new Date(startTime).getTime() / 1000);
-  const before = Math.floor(new Date(endTime).getTime() / 1000);
-  
-  const response = await fetch('https://www.strava.com/api/v3/athlete/activities', {
-    headers: { 'Authorization': `Bearer ${accessToken}` }
-  });
-  
-  const activities = await response.json();
-  return activities.filter(a => {
-    const activityTime = Math.floor(new Date(a.start_date).getTime() / 1000);
-    return activityTime >= after && activityTime <= before;
-  });
-}
-```
-
-**Helper: Find Best Qualifying Activity**
-
-```javascript
-async function findBestQualifyingActivity(
-  activities, 
-  segmentId, 
-  requiredLaps, 
-  accessToken
-) {
-  let bestActivity = null;
-  let bestTime = Infinity;
-  
-  for (const activity of activities) {
-    // Fetch full activity details (includes segment efforts)
-    const fullActivity = await fetch(
-      `https://www.strava.com/api/v3/activities/${activity.id}`,
-      { headers: { 'Authorization': `Bearer ${accessToken}` } }
-    ).then(r => r.json());
-    
-    // Filter to segment efforts matching our segment
-    const matchingEfforts = fullActivity.segment_efforts.filter(
-      effort => effort.segment.id === segmentId
-    );
-    
-    // Check if activity has required number of repetitions
-    if (matchingEfforts.length >= requiredLaps) {
-      // Calculate total time (sum of required laps)
-      const sortedEfforts = matchingEfforts
-        .sort((a, b) => a.elapsed_time - b.elapsed_time)
-        .slice(0, requiredLaps);
-      
-      const totalTime = sortedEfforts.reduce((sum, e) => sum + e.elapsed_time, 0);
-      
-      if (totalTime < bestTime) {
-        bestTime = totalTime;
-        bestActivity = {
-          id: fullActivity.id,
-          totalTime: totalTime,
-          segmentEfforts: sortedEfforts
-        };
-      }
-    }
-  }
-  
-  return bestActivity;
-}
-```
+- Route: [server/src/routes/admin/fetch.ts](server/src/routes/admin/fetch.ts)
+- Service: [server/src/services/BatchFetchService.ts](server/src/services/BatchFetchService.ts)
+- Activity Matching: [server/src/activityProcessor.ts](server/src/activityProcessor.ts)
+- Storage: [server/src/activityStorage.ts](server/src/activityStorage.ts)
 
 ### Activity Matching Rules
 

@@ -102,7 +102,7 @@ Shows all participants with OAuth connection status:
   {
     "id": 1,
     "name": "Tim",
-    "strava_athlete_id": 12345678,
+    "strava_athlete_id": "12345678",
     "connected": true,
     "connected_at": "2025-11-09T10:30:00Z"
   },
@@ -147,7 +147,7 @@ curl -X POST http://localhost:3001/admin/weeks \
   -d '{
     "week_name": "Week 3: Lookout Mountain Triple",
     "date": "2025-11-19",
-    "segment_id": 23456789,
+    "segment_id": "23456789",
     "required_laps": 3
   }'
 ```
@@ -158,7 +158,7 @@ curl -X POST http://localhost:3001/admin/weeks \
   "id": 3,
   "week_name": "Week 3: Lookout Mountain Triple",
   "date": "2025-11-19",
-  "segment_id": 23456789,
+  "segment_id": "23456789",
   "required_laps": 3,
   "start_time": "2025-11-19T00:00:00Z",
   "end_time": "2025-11-19T22:00:00Z"
@@ -184,7 +184,7 @@ curl -X POST http://localhost:3001/admin/weeks \
   -d '{
     "week_name": "Week 4: Sunrise Challenge",
     "date": "2025-11-26",
-    "segment_id": 2,
+    "segment_id": "2",
     "required_laps": 1,
     "start_time": "2025-11-26T06:00:00Z",
     "end_time": "2025-11-26T12:00:00Z"
@@ -236,7 +236,7 @@ curl -X POST http://localhost:3001/admin/weeks \
   -d '{
     "week_name": "Week 1: Season Opener - Lookout Mountain",
     "date": "2025-11-05",
-    "segment_id": 1,
+    "segment_id": "1",
     "required_laps": 1
   }'
 
@@ -246,7 +246,7 @@ curl -X POST http://localhost:3001/admin/weeks \
   -d '{
     "week_name": "Week 2: Champs-Élysées Double",
     "date": "2025-11-12",
-    "segment_id": 2,
+    "segment_id": "2",
     "required_laps": 2
   }'
 
@@ -256,7 +256,7 @@ curl -X POST http://localhost:3001/admin/weeks \
   -d '{
     "week_name": "Week 3: Turkey Day Hill Repeats",
     "date": "2025-11-26",
-    "segment_id": 1,
+    "segment_id": "1",
     "required_laps": 5
   }'
 ```
@@ -290,15 +290,15 @@ curl -X POST http://localhost:3001/admin/weeks/3/fetch-results
   "results_found": 10,
   "summary": [
     {
-      "participant_id": 1,
+      "participant_id": "1",
       "participant_name": "Tim",
       "activity_found": true,
-      "activity_id": 123456789,
+      "activity_id": "123456789",
       "total_time": 1420,
       "segment_efforts": 3
     },
     {
-      "participant_id": 2,
+      "participant_id": "2",
       "participant_name": "Chris",
       "activity_found": false,
       "reason": "No qualifying activities on event day"
@@ -433,7 +433,7 @@ If weather or conditions require switching segments:
 ```bash
 curl -X PUT http://localhost:3001/admin/weeks/1 \
   -H "Content-Type: application/json" \
-  -d '{"segment_id": 98765432}'
+  -d '{"segment_id": "98765432"}'
 ```
 
 ### Adding bonus laps

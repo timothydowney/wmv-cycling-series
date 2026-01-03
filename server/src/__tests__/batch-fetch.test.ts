@@ -60,9 +60,9 @@ describe('Batch Fetch - POST /admin/weeks/:id/fetch-results', () => {
   let drizzleDb: BetterSQLite3Database;
   let app: express.Express;
 
-  const TEST_SEGMENT_ID = 12345678;
-  const P1_ATHLETE_ID = 111111;
-  const P2_ATHLETE_ID = 222222;
+  const TEST_SEGMENT_ID = '12345678';
+  const P1_ATHLETE_ID = '111111';
+  const P2_ATHLETE_ID = '222222';
   
   let seasonId;
 
@@ -81,7 +81,7 @@ describe('Batch Fetch - POST /admin/weeks/:id/fetch-results', () => {
     // Mock session middleware
     app.use((req, res, next) => {
       req.session = {
-        stravaAthleteId: 999001, // Admin user by default
+        stravaAthleteId: '999001', // Admin user by default
         isAdmin: true
       };
       next();
@@ -109,7 +109,7 @@ describe('Batch Fetch - POST /admin/weeks/:id/fetch-results', () => {
       refreshToken: 'refresh_p2',
       expiresAt: 9999999999
     });
-    createParticipant(drizzleDb, 999001, 'Admin User', {
+    createParticipant(drizzleDb, '999001', 'Admin User', {
       accessToken: 'token_admin',
       refreshToken: 'refresh_admin',
       expiresAt: 9999999999
@@ -237,7 +237,7 @@ describe('Batch Fetch - POST /admin/weeks/:id/fetch-results', () => {
 
     stravaClient.listAthleteActivities.mockResolvedValue([
       {
-        id: 301,
+        id: '301',
         name: 'Short Ride',
         start_date: '2025-12-09T10:00:00Z'
       }
@@ -245,7 +245,7 @@ describe('Batch Fetch - POST /admin/weeks/:id/fetch-results', () => {
 
     // Only 2 efforts, but 3 required
     stravaClient.getActivity.mockResolvedValue({
-      id: 301,
+      id: '301',
       segment_efforts: [
         { segment: { id: TEST_SEGMENT_ID }, elapsed_time: 600 },
         { segment: { id: TEST_SEGMENT_ID }, elapsed_time: 620 }
@@ -270,7 +270,7 @@ describe('Batch Fetch - POST /admin/weeks/:id/fetch-results', () => {
 
     stravaClient.listAthleteActivities.mockResolvedValue([
       {
-        id: 401,
+        id: '401',
         name: 'Perfect Ride',
         start_date: '2025-12-16T10:00:00Z'
       }
@@ -278,7 +278,7 @@ describe('Batch Fetch - POST /admin/weeks/:id/fetch-results', () => {
 
     // Exactly 2 efforts = meets requirement
     stravaClient.getActivity.mockResolvedValue({
-      id: 401,
+      id: '401',
       segment_efforts: [
         { segment: { id: TEST_SEGMENT_ID }, elapsed_time: 600 },
         { segment: { id: TEST_SEGMENT_ID }, elapsed_time: 620 }
@@ -294,7 +294,7 @@ describe('Batch Fetch - POST /admin/weeks/:id/fetch-results', () => {
   });
 
   test('should reject activities without required segment', async () => {
-    const OTHER_SEGMENT = 99999999;
+    const OTHER_SEGMENT = '99999999';
     
     const week = createWeek(drizzleDb, {
       seasonId,
@@ -305,14 +305,14 @@ describe('Batch Fetch - POST /admin/weeks/:id/fetch-results', () => {
 
     stravaClient.listAthleteActivities.mockResolvedValue([
       {
-        id: 501,
+        id: '501',
         name: 'Wrong Segment Ride',
         start_date: '2025-12-23T10:00:00Z'
       }
     ]);
 
     stravaClient.getActivity.mockResolvedValue({
-      id: 501,
+      id: '501',
       segment_efforts: [
         { segment: { id: OTHER_SEGMENT }, elapsed_time: 600 }
       ]

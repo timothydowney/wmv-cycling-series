@@ -45,7 +45,7 @@ interface CreateSegmentOptions {
 
 interface CreateWeekOptions {
   seasonId?: number;
-  stravaSegmentId?: number;
+  stravaSegmentId?: string;
   weekName?: string;
   date?: string;
   requiredLaps?: number;
@@ -55,9 +55,9 @@ interface CreateWeekOptions {
 
 interface CreateActivityOptions {
   weekId: number;
-  stravaAthleteId: number;
-  stravaActivityId?: number; 
-  stravaSegmentId?: number; // Optional - only create segment effort if provided
+  stravaAthleteId: string;
+  stravaActivityId?: string; 
+  stravaSegmentId?: string; // Optional - only create segment effort if provided
   elapsedSeconds?: number;
   prAchieved?: boolean;
   activityStartTime?: string;
@@ -66,32 +66,32 @@ interface CreateActivityOptions {
 
 interface CreateResultOptions {
   weekId: number;
-  stravaAthleteId: number;
+  stravaAthleteId: string;
   activityId?: number | null;
   totalTimeSeconds?: number;
 }
 
 interface CreateFullUserOptions {
-  stravaAthleteId: number;
+  stravaAthleteId: string;
   name?: string;
   seasonName?: string;
   weekName?: string;
-  stravaSegmentId?: number;
-  stravaActivityId?: number;
+  stravaSegmentId?: string;
+  stravaActivityId?: string;
 }
 
 interface CreateWeekWithResultsOptions {
   seasonId: number;
-  stravaSegmentId: number;
+  stravaSegmentId: string;
   weekName?: string;
-  participantIds?: number[];
+  participantIds?: string[];
   times?: number[];
 }
 
 /**
  * Create a test participant with optional token
  */
-export function createParticipant(db: TestDb, stravaAthleteId: number, name: string | null = null, withToken: boolean | TokenOptions = false): SelectParticipant {
+export function createParticipant(db: TestDb, stravaAthleteId: string, name: string | null = null, withToken: boolean | TokenOptions = false): SelectParticipant {
   const participantName = name || `Test User ${stravaAthleteId}`;
   
   const newParticipant: InsertParticipant = {
@@ -153,7 +153,7 @@ export function createSeason(db: TestDb, name: string = 'Test Season', isActive:
 /**
  * Create a test segment
  */
-export function createSegment(db: TestDb, stravaSegmentId: number, name: string | null = null, options: CreateSegmentOptions = {}): SelectSegment {
+export function createSegment(db: TestDb, stravaSegmentId: string, name: string | null = null, options: CreateSegmentOptions = {}): SelectSegment {
   const segmentName = name || `Segment ${stravaSegmentId}`;
   
   const newSegmentData: InsertSegment = {
@@ -196,13 +196,13 @@ export function createWeek(db: TestDb, options: CreateWeekOptions = {}): SelectW
     const existingDefault = db
       .select()
       .from(segment)
-      .where(eq(segment.strava_segment_id, 12345678))
+      .where(eq(segment.strava_segment_id, '12345678'))
       .get();
 
     if (existingDefault) {
-      finalSegmentId = 12345678;
+      finalSegmentId = '12345678';
     } else {
-      const defaultSegment = createSegment(db, 12345678, 'Default Test Segment');
+      const defaultSegment = createSegment(db, '12345678', 'Default Test Segment');
       finalSegmentId = defaultSegment.strava_segment_id;
     }
   }
@@ -231,7 +231,7 @@ export function createActivity(db: TestDb, options: CreateActivityOptions): Sele
   const {
     weekId,
     stravaAthleteId,
-    stravaActivityId = Math.floor(Math.random() * 1000000000), // Generate a random number
+    stravaActivityId = String(Math.floor(Math.random() * 1000000000)), // Generate a random string
     stravaSegmentId,
     elapsedSeconds = 1000,
     prAchieved = false,
@@ -280,7 +280,7 @@ export function createActivity(db: TestDb, options: CreateActivityOptions): Sele
 
 interface CreateSegmentEffortOptions {
   activityId: number;
-  stravaSegmentId?: number;
+  stravaSegmentId?: string;
   effortIndex?: number;
   elapsedSeconds?: number;
   startAt?: string;
@@ -295,7 +295,7 @@ interface CreateSegmentEffortOptions {
 export function createSegmentEffort(db: TestDb, options: CreateSegmentEffortOptions): SelectSegmentEffort {
   const {
     activityId,
-    stravaSegmentId = 12345678,
+    stravaSegmentId = '12345678',
     effortIndex = 0,
     elapsedSeconds = 600,
     startAt = '2025-06-01T10:05:00Z',
@@ -357,7 +357,7 @@ export function createFullUserWithActivity(db: TestDb, options: CreateFullUserOp
     name = `Test User ${stravaAthleteId}`,
     seasonName = 'Test Season',
     weekName = 'Test Week',
-    stravaSegmentId = 99999,
+    stravaSegmentId = '99999',
     stravaActivityId
   } = options;
   
@@ -373,7 +373,7 @@ export function createFullUserWithActivity(db: TestDb, options: CreateFullUserOp
   const newActivity = createActivity(db, {
     weekId: newWeek.id,
     stravaAthleteId: newParticipant.strava_athlete_id,
-    stravaActivityId: stravaActivityId || Math.floor(Math.random() * 1000000000),
+    stravaActivityId: stravaActivityId || String(Math.floor(Math.random() * 1000000000)),
     stravaSegmentId: newSegment.strava_segment_id
   });
   
@@ -417,7 +417,7 @@ export function clearAllData(db: TestDb) {
 export function createMultipleParticipants(db: TestDb, count: number, withTokens: boolean = false): SelectParticipant[] {
   const participantsList: SelectParticipant[] = [];
   for (let i = 1; i <= count; i++) {
-    const athleteId = 1000000 + i;
+    const athleteId = String(1000000 + i);
     const newParticipant = createParticipant(db, athleteId, `Test Participant ${i}`, withTokens);
     participantsList.push(newParticipant);
   }
@@ -458,7 +458,7 @@ export function createWeekWithResults(db: TestDb, options: CreateWeekWithResults
     const newActivity = createActivity(db, {
       weekId: newWeek.id,
       stravaAthleteId: athleteId,
-      stravaActivityId: Math.floor(Math.random() * 1000000000),
+      stravaActivityId: String(Math.floor(Math.random() * 1000000000)),
       stravaSegmentId,
       elapsedSeconds: totalTime,
       prAchieved: index === 0 // First person gets PR
@@ -491,7 +491,7 @@ export function createWeekWithResults(db: TestDb, options: CreateWeekWithResults
 /**
  * Create a mock request object for testing authorization
  */
-export function createMockAuthRequest(athleteId: number, isAdmin: boolean = false) {
+export function createMockAuthRequest(athleteId: string, isAdmin: boolean = false) {
   return {
     _testAthleteId: athleteId,
     session: {
@@ -507,7 +507,7 @@ export function createMockAuthRequest(athleteId: number, isAdmin: boolean = fals
 export async function makeRequestAsUser(requestModule: any, app: any, options: {
   method: string;
   path: string;
-  athleteId?: number;
+  athleteId?: string;
   data?: any;
 }) {
   const { method = 'get', path, athleteId, data } = options;
@@ -534,8 +534,8 @@ export function createActivityWithResult(
   db: TestDb,
   options: {
     weekId: number;
-    stravaAthleteId: number;
-    stravaActivityId: number;
+    stravaAthleteId: string;
+    stravaActivityId: string;
     elapsedSeconds?: number;
     prAchieved?: boolean;
   }

@@ -11,7 +11,11 @@
  * to make testing and maintenance easier.
  */
 
-import strava from 'strava-v3';
+import strava, { 
+  RefreshTokenResponse as StravaRefreshTokenResponse,
+  DetailedActivityResponse,
+  AthleteRouteResponse
+} from 'strava-v3';
 import { Segment } from './db/schema'; // Import Drizzle Segment type
 
 /**
@@ -25,22 +29,18 @@ interface OAuthTokenData {
 }
 
 /**
- * Token refresh response
+ * Token refresh response (using library type as base)
  */
-interface RefreshTokenResponse {
-  access_token: string;
-  refresh_token: string;
-  expires_at: number;
-}
+type RefreshTokenResponse = Pick<StravaRefreshTokenResponse, 'access_token' | 'refresh_token' | 'expires_at'>;
 
 /**
  * Activity data from Strava API
+ * Note: We extend the library's DetailedActivityResponse and add segment_efforts 
+ * which is missing from the library's type definition.
  */
-interface Activity {
-  id: number;
-  name: string;
-  type: string;
+interface Activity extends DetailedActivityResponse {
   segment_efforts?: SegmentEffort[];
+  device_name?: string;
   [key: string]: unknown;
 }
 
@@ -49,11 +49,13 @@ interface Activity {
  */
 interface SegmentEffort {
   id: string;
-  segment: {
-    id: number;
+  segment?: {
+    id: string;
     [key: string]: unknown;
   };
   elapsed_time: number;
+  start_date: string;
+  pr_rank?: number | null;
   [key: string]: unknown;
 }
 
@@ -61,7 +63,7 @@ interface SegmentEffort {
  * Segment data from Strava API
  */
 interface StravaApiSegment {
-  id: number;
+  id: string;
   name: string;
   distance: number;
   average_grade?: number;
@@ -71,6 +73,44 @@ interface StravaApiSegment {
   state?: string;
   country?: string;
   [key: string]: unknown;
+}
+
+/**
+ * Internal interface for the Strava client instance to avoid 'as any' at call sites.
+ * The strava-v3 library's own types are currently incomplete for these methods.
+ */
+interface StravaClientInstance {
+  activities: {
+    get(args: { id: string; include_all_efforts?: boolean }): Promise<Activity>;
+    listAthleteActivities(args: {
+      after?: number;
+      before?: number;
+      page?: number;
+      per_page?: number;
+    }): Promise<Activity[]>;
+  };
+  segments: {
+    get(args: { id: string }): Promise<StravaApiSegment>;
+  };
+  athletes: {
+    get(args: { athlete_id: string }): Promise<AthleteRouteResponse>;
+  };
+  athlete: {
+    listActivities(args: {
+      after?: number;
+      before?: number;
+      page?: number;
+      per_page?: number;
+      include_all_efforts?: boolean;
+    }): Promise<Activity[]>;
+  };
+}
+
+/**
+ * Helper to create a typed Strava client instance.
+ */
+function createStravaClient(accessToken: string): StravaClientInstance {
+  return new (strava.client as any)(accessToken);
 }
 
 /**
@@ -133,13 +173,12 @@ async function refreshAccessToken(
  * @returns Activity data including segment_efforts
  * @throws {Error} If activity fetch fails
  */
-async function getActivity(activityId: number, accessToken: string): Promise<Activity> {
+async function getActivity(activityId: string, accessToken: string): Promise<Activity> {
   try {
     console.log(
       `[Strava API] Fetching full activity details for ID: ${activityId}`
     );
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const client = new (strava.client as any)(accessToken);
+    const client = createStravaClient(accessToken);
 
     const activity = await client.activities.get({
       id: activityId,
@@ -192,8 +231,7 @@ async function listAthleteActivities(
   options: ListActivitiesOptions = {}
 ): Promise<Activity[]> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const client = new (strava.client as any)(accessToken);
+    const client = createStravaClient(accessToken);
     const perPage = options.perPage || 100; // Max allowed by Strava
     const includeAllEfforts = options.includeAllEfforts !== false; // Default true
 
@@ -267,7 +305,7 @@ async function listAthleteActivities(
     }
     // Check if it's an AggregateError (has errors array)
     else if (error instanceof Error && 'errors' in error) {
-      const aggError = error as any;
+      const aggError = error as Error & { errors: any[] };
       console.error(`  AggregateError with ${aggError.errors?.length || 0} sub-errors:`);
       const messages = (aggError.errors || [])
         .map((e: any, idx: number) => {
@@ -294,12 +332,11 @@ async function listAthleteActivities(
  * @throws {Error} If segment fetch fails
  */
 async function getSegment(
-  segmentId: number,
+  segmentId: string,
   accessToken: string
 ): Promise<StravaApiSegment> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const client = new (strava.client as any)(accessToken);
+    const client = createStravaClient(accessToken);
 
     const segment = await client.segments.get({ id: segmentId });
 
@@ -373,10 +410,12 @@ export {
   listAthleteActivities,
   getSegment,
   mapStravaSegmentToSegmentRow,
+  createStravaClient,
   type OAuthTokenData,
   type RefreshTokenResponse,
   type Activity,
   type SegmentEffort,
   type StravaApiSegment,
-  type ListActivitiesOptions
+  type ListActivitiesOptions,
+  type StravaClientInstance
 };

@@ -36,26 +36,16 @@ import { isoToUnix } from './dateUtils';
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { activity, segmentEffort, result } from './db/schema';
 import { eq, and } from 'drizzle-orm';
-
-/**
- * Segment effort data from activity
- */
-interface SegmentEffortData {
-  id: string | number;
-  start_date: string;
-  elapsed_time: number;
-  pr_rank?: number;
-  [key: string]: unknown;
-}
+import { type SegmentEffort } from './stravaClient';
 
 /**
  * Activity data to store
  */
 interface ActivityToStore {
-  id: number;
+  id: string;
   start_date: string;
   device_name?: string;
-  segmentEfforts: SegmentEffortData[];
+  segmentEfforts: SegmentEffort[];
   totalTime: number;
 }
 
@@ -71,10 +61,10 @@ interface ActivityToStore {
  */
 function storeActivityAndEfforts(
   db: BetterSQLite3Database,
-  stravaAthleteId: number,
+  stravaAthleteId: string,
   weekId: number,
   activityData: ActivityToStore,
-  stravaSegmentId: number
+  stravaSegmentId: string
 ): void {
   // Use a transaction to ensure atomicity
   db.transaction((tx) => {
@@ -140,7 +130,7 @@ function storeActivityAndEfforts(
       tx.insert(segmentEffort).values({
         activity_id: activityDbId,
         strava_segment_id: stravaSegmentId,
-        strava_effort_id: String(effort.id),
+        strava_effort_id: effort.id,
         effort_index: i,
         elapsed_seconds: effort.elapsed_time,
         start_at: effortStartUnix || 0,
@@ -162,5 +152,5 @@ function storeActivityAndEfforts(
   });
 }
 
-export { storeActivityAndEfforts, type ActivityToStore, type SegmentEffortData };
+export { storeActivityAndEfforts, type ActivityToStore };
 

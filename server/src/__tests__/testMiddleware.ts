@@ -26,14 +26,14 @@ function registerTestMiddleware(app) {
     
     if (overrideAthleteId) {
       // Non-admin test: use the override athlete ID (which is NOT in ADMIN_ATHLETE_IDS)
-      req.session.stravaAthleteId = parseInt(overrideAthleteId, 10);
+      req.session.stravaAthleteId = String(overrideAthleteId);
       req.session.athleteName = `Test User ${overrideAthleteId}`;
       req.session.save(() => next());
     } else if (!req.session.stravaAthleteId) {
       // No override header, and session not already set
       // For /admin routes, auto-inject admin ID; otherwise leave unauthenticated
       if (req.path.startsWith('/admin')) {
-        req.session.stravaAthleteId = 999001; // Test admin ID
+        req.session.stravaAthleteId = '999001'; // Test admin ID
         req.session.athleteName = 'Test Admin';
         req.session.save(() => next());
       } else {

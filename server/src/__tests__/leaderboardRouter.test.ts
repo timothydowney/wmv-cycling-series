@@ -45,7 +45,7 @@ describe('leaderboardRouter', () => {
     it('should return an empty leaderboard for a valid week with no results', async () => {
       // Create a new segment and week specifically for this test case
       // to ensure it has no results.
-      const segmentId = 123;
+      const segmentId = '123';
       createSegment(drizzleDb, segmentId, 'Empty Segment');
       
       const newWeek = createWeek(drizzleDb, { 

@@ -12,7 +12,7 @@ import { trpc } from '../utils/trpc';
 
 interface WeekFormData {
   week_name: string;
-  segment_id: number;
+  segment_id: string;
   segment_name: string;
   required_laps: number;
   multiplier: number;
@@ -63,7 +63,7 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
   const [editingWeekId, setEditingWeekId] = useState<number | null>(null);
   const [formData, setFormData] = useState<WeekFormData>({
     week_name: '',
-    segment_id: 0,
+    segment_id: '',
     segment_name: '',
     required_laps: 1,
     multiplier: 1,
@@ -87,7 +87,7 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
       setIsCreating(false);
       setFormData({
         week_name: '',
-        segment_id: 0,
+        segment_id: '',
         segment_name: '',
         required_laps: 1,
         multiplier: 1,
@@ -103,7 +103,7 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
 
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'segment_id' || name === 'required_laps' || name === 'multiplier'
+      [name]: name === 'required_laps' || name === 'multiplier'
         ? parseInt(value) || 0
         : value
     }));
@@ -188,7 +188,7 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
       setEditingWeekId(null);
       setFormData({
         week_name: '',
-        segment_id: 0,
+        segment_id: '',
         segment_name: '',
         required_laps: 1,
         start_time: '',
@@ -313,7 +313,7 @@ function WeekManager({ onFetchResults, seasonId }: WeekManagerProps) {
     setEditingWeekId(null);
     setFormData({
       week_name: '',
-      segment_id: 0,
+      segment_id: '',
       segment_name: '',
       required_laps: 1,
       multiplier: 1,

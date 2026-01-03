@@ -25,7 +25,7 @@ describe('segmentRouter', () => {
   const getCaller = (isAdmin: boolean) => {
     const req = {
       session: {
-        stravaAthleteId: isAdmin ? 999001 : undefined,
+        stravaAthleteId: isAdmin ? '999001' : undefined,
         isAdmin
       }
     } as any;
@@ -51,8 +51,8 @@ describe('segmentRouter', () => {
 
     it('should return all segments', async () => {
       const caller = getCaller(false);
-      createSegment(drizzleDb, 1, 'Segment A');
-      createSegment(drizzleDb, 2, 'Segment B');
+      createSegment(drizzleDb, '1', 'Segment A');
+      createSegment(drizzleDb, '2', 'Segment B');
 
       const result = await caller.segment.getAll();
       expect(result).toHaveLength(2);
@@ -67,17 +67,17 @@ describe('segmentRouter', () => {
     it('should create a segment when admin', async () => {
       const caller = getCaller(true);
       const input = {
-        strava_segment_id: 123,
+        strava_segment_id: '123',
         name: 'Manual Segment',
         distance: 1000
       };
 
       const result = await caller.segment.create(input);
       expect(result.name).toBe('Manual Segment');
-      expect(result.strava_segment_id).toBe(123);
+      expect(result.strava_segment_id).toBe('123');
       
       // Verify in DB
-      const foundSegment = await drizzleDb.select().from(segment).where(eq(segment.strava_segment_id, 123)).get();
+      const foundSegment = await drizzleDb.select().from(segment).where(eq(segment.strava_segment_id, '123')).get();
       expect(foundSegment).toBeDefined();
       expect(foundSegment?.name).toBe('Manual Segment');
     });
@@ -85,7 +85,7 @@ describe('segmentRouter', () => {
     it('should fail when not admin', async () => {
       const caller = getCaller(false);
       const input = {
-        strava_segment_id: 123,
+        strava_segment_id: '123',
         name: 'Manual Segment'
       };
 
@@ -97,15 +97,15 @@ describe('segmentRouter', () => {
   describe('validate', () => {
     it('should fail when not admin', async () => {
       const caller = getCaller(false);
-      await expect(caller.segment.validate(123)).rejects.toThrow('UNAUTHORIZED');
+      await expect(caller.segment.validate('123')).rejects.toThrow('UNAUTHORIZED');
     });
 
     it('should validate (create placeholder if no token) when admin', async () => {
       const caller = getCaller(true);
       // This will likely log "No connected participants, creating placeholder segment"
-      const result = await caller.segment.validate(999);
+      const result = await caller.segment.validate('999');
       expect(result).toBeDefined();
-      expect(result!.strava_segment_id).toBe(999);
+      expect(result!.strava_segment_id).toBe('999');
       expect(result!.name).toBe('Segment 999'); // Placeholder name logic
     });
   });

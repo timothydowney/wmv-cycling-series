@@ -26,7 +26,7 @@ describe('Scoring Multiplier Feature', () => {
         .values({
           season_id: 1,
           week_name: 'Test Week - 2x Multiplier',
-          strava_segment_id: 12345,
+          strava_segment_id: '12345',
           required_laps: 1,
           start_at: 1700000000,
           end_at: 1700086400,
@@ -40,7 +40,7 @@ describe('Scoring Multiplier Feature', () => {
       for (let i = 1; i <= 3; i++) {
         drizzleDb.insert(participant)
           .values({
-            strava_athlete_id: 1000 + i,
+            strava_athlete_id: '1000' + i,
             name: `Athlete ${i}`,
             active: true
           })
@@ -52,8 +52,8 @@ describe('Scoring Multiplier Feature', () => {
         .insert(activity)
         .values({
           week_id: testWeek.id,
-          strava_athlete_id: 1001,
-          strava_activity_id: 100001,
+          strava_athlete_id: '1001',
+          strava_activity_id: '100001',
           start_at: 1700043200,
           device_name: 'Garmin'
         })
@@ -64,8 +64,8 @@ describe('Scoring Multiplier Feature', () => {
         .insert(activity)
         .values({
           week_id: testWeek.id,
-          strava_athlete_id: 1002,
-          strava_activity_id: 100002,
+          strava_athlete_id: '1002',
+          strava_activity_id: '100002',
           start_at: 1700043200,
           device_name: 'Garmin'
         })
@@ -76,8 +76,8 @@ describe('Scoring Multiplier Feature', () => {
         .insert(activity)
         .values({
           week_id: testWeek.id,
-          strava_athlete_id: 1003,
-          strava_activity_id: 100003,
+          strava_athlete_id: '1003',
+          strava_activity_id: '100003',
           start_at: 1700043200,
           device_name: 'Garmin'
         })
@@ -89,7 +89,7 @@ describe('Scoring Multiplier Feature', () => {
       drizzleDb.insert(result)
         .values({
           week_id: testWeek.id,
-          strava_athlete_id: 1001,
+          strava_athlete_id: '1001',
           activity_id: activity1.id,
           total_time_seconds: 1000
         })
@@ -99,7 +99,7 @@ describe('Scoring Multiplier Feature', () => {
       drizzleDb.insert(result)
         .values({
           week_id: testWeek.id,
-          strava_athlete_id: 1002,
+          strava_athlete_id: '1002',
           activity_id: activity2.id,
           total_time_seconds: 1100
         })
@@ -109,7 +109,7 @@ describe('Scoring Multiplier Feature', () => {
       drizzleDb.insert(result)
         .values({
           week_id: testWeek.id,
-          strava_athlete_id: 1003,
+          strava_athlete_id: '1003',
           activity_id: activity3.id,
           total_time_seconds: 1200
         })
@@ -119,7 +119,7 @@ describe('Scoring Multiplier Feature', () => {
       drizzleDb.insert(segmentEffort)
         .values({
           activity_id: activity1.id,
-          strava_segment_id: 12345,
+          strava_segment_id: '12345',
           effort_index: 0,
           elapsed_seconds: 1000,
           start_at: 1700043200,
@@ -130,7 +130,7 @@ describe('Scoring Multiplier Feature', () => {
       drizzleDb.insert(segmentEffort)
         .values({
           activity_id: activity2.id,
-          strava_segment_id: 12345,
+          strava_segment_id: '12345',
           effort_index: 0,
           elapsed_seconds: 1100,
           start_at: 1700043200,
@@ -141,7 +141,7 @@ describe('Scoring Multiplier Feature', () => {
       drizzleDb.insert(segmentEffort)
         .values({
           activity_id: activity3.id,
-          strava_segment_id: 12345,
+          strava_segment_id: '12345',
           effort_index: 0,
           elapsed_seconds: 1200,
           start_at: 1700043200,
@@ -199,7 +199,7 @@ describe('Scoring Multiplier Feature', () => {
         .values({
           season_id: 1,
           week_name: 'Test Week - PR Bonus with Multiplier',
-          strava_segment_id: 12345,
+          strava_segment_id: '12345',
           required_laps: 1,
           start_at: 1700000000,
           end_at: 1700086400,
@@ -212,7 +212,7 @@ describe('Scoring Multiplier Feature', () => {
       // Create participant
       drizzleDb.insert(participant)
         .values({
-          strava_athlete_id: 2001,
+          strava_athlete_id: '2001',
           name: 'PR Athlete',
           active: true
         })
@@ -223,8 +223,8 @@ describe('Scoring Multiplier Feature', () => {
         .insert(activity)
         .values({
           week_id: testWeek.id,
-          strava_athlete_id: 2001,
-          strava_activity_id: 200001,
+          strava_athlete_id: '2001',
+          strava_activity_id: '200001',
           start_at: 1700043200,
           device_name: 'Garmin'
         })
@@ -235,7 +235,7 @@ describe('Scoring Multiplier Feature', () => {
       drizzleDb.insert(result)
         .values({
           week_id: testWeek.id,
-          strava_athlete_id: 2001,
+          strava_athlete_id: '2001',
           activity_id: testActivity.id,
           total_time_seconds: 1000
         })
@@ -245,7 +245,7 @@ describe('Scoring Multiplier Feature', () => {
       drizzleDb.insert(segmentEffort)
         .values({
           activity_id: testActivity.id,
-          strava_segment_id: 12345,
+          strava_segment_id: '12345',
           effort_index: 0,
           elapsed_seconds: 1000,
           start_at: 1700043200,
@@ -276,7 +276,7 @@ describe('Scoring Multiplier Feature', () => {
         .values({
           season_id: 1,
           week_name: 'Test Week - No Multiplier',
-          strava_segment_id: 12345,
+          strava_segment_id: '12345',
           required_laps: 1,
           start_at: 1700000000,
           end_at: 1700086400,
@@ -289,7 +289,7 @@ describe('Scoring Multiplier Feature', () => {
       // Create 2 participants
       drizzleDb.insert(participant)
         .values({
-          strava_athlete_id: 3001,
+          strava_athlete_id: '3001',
           name: 'Athlete 1',
           active: true
         })
@@ -297,7 +297,7 @@ describe('Scoring Multiplier Feature', () => {
 
       drizzleDb.insert(participant)
         .values({
-          strava_athlete_id: 3002,
+          strava_athlete_id: '3002',
           name: 'Athlete 2',
           active: true
         })
@@ -308,8 +308,8 @@ describe('Scoring Multiplier Feature', () => {
         .insert(activity)
         .values({
           week_id: testWeek.id,
-          strava_athlete_id: 3001,
-          strava_activity_id: 300001,
+          strava_athlete_id: '3001',
+          strava_activity_id: '300001',
           start_at: 1700043200,
           device_name: 'Garmin'
         })
@@ -320,8 +320,8 @@ describe('Scoring Multiplier Feature', () => {
         .insert(activity)
         .values({
           week_id: testWeek.id,
-          strava_athlete_id: 3002,
-          strava_activity_id: 300002,
+          strava_athlete_id: '3002',
+          strava_activity_id: '300002',
           start_at: 1700043200,
           device_name: 'Garmin'
         })
@@ -331,7 +331,7 @@ describe('Scoring Multiplier Feature', () => {
       drizzleDb.insert(result)
         .values({
           week_id: testWeek.id,
-          strava_athlete_id: 3001,
+          strava_athlete_id: '3001',
           activity_id: activity1.id,
           total_time_seconds: 1000
         })
@@ -340,7 +340,7 @@ describe('Scoring Multiplier Feature', () => {
       drizzleDb.insert(result)
         .values({
           week_id: testWeek.id,
-          strava_athlete_id: 3002,
+          strava_athlete_id: '3002',
           activity_id: activity2.id,
           total_time_seconds: 1100
         })
@@ -350,7 +350,7 @@ describe('Scoring Multiplier Feature', () => {
       drizzleDb.insert(segmentEffort)
         .values({
           activity_id: activity1.id,
-          strava_segment_id: 12345,
+          strava_segment_id: '12345',
           effort_index: 0,
           elapsed_seconds: 1000,
           start_at: 1700043200,
@@ -361,7 +361,7 @@ describe('Scoring Multiplier Feature', () => {
       drizzleDb.insert(segmentEffort)
         .values({
           activity_id: activity2.id,
-          strava_segment_id: 12345,
+          strava_segment_id: '12345',
           effort_index: 0,
           elapsed_seconds: 1100,
           start_at: 1700043200,
@@ -386,7 +386,7 @@ describe('Scoring Multiplier Feature', () => {
         .values({
           season_id: 1,
           week_name: 'Test Week - Max Multiplier',
-          strava_segment_id: 12345,
+          strava_segment_id: '12345',
           required_laps: 1,
           start_at: 1700000000,
           end_at: 1700086400,
@@ -399,7 +399,7 @@ describe('Scoring Multiplier Feature', () => {
       // Create participant
       drizzleDb.insert(participant)
         .values({
-          strava_athlete_id: 4001,
+          strava_athlete_id: '4001',
           name: 'Max Multiplier Athlete',
           active: true
         })
@@ -410,8 +410,8 @@ describe('Scoring Multiplier Feature', () => {
         .insert(activity)
         .values({
           week_id: testWeek.id,
-          strava_athlete_id: 4001,
-          strava_activity_id: 400001,
+          strava_athlete_id: '4001',
+          strava_activity_id: '400001',
           start_at: 1700043200,
           device_name: 'Garmin'
         })
@@ -421,7 +421,7 @@ describe('Scoring Multiplier Feature', () => {
       drizzleDb.insert(result)
         .values({
           week_id: testWeek.id,
-          strava_athlete_id: 4001,
+          strava_athlete_id: '4001',
           activity_id: testActivity.id,
           total_time_seconds: 1000
         })
@@ -431,7 +431,7 @@ describe('Scoring Multiplier Feature', () => {
       drizzleDb.insert(segmentEffort)
         .values({
           activity_id: testActivity.id,
-          strava_segment_id: 12345,
+          strava_segment_id: '12345',
           effort_index: 0,
           elapsed_seconds: 1000,
           start_at: 1700043200,
@@ -457,7 +457,7 @@ describe('Scoring Multiplier Feature', () => {
         .values({
           season_id: 1,
           week_name: 'Empty Week',
-          strava_segment_id: 12345,
+          strava_segment_id: '12345',
           required_laps: 1,
           start_at: 1700000000,
           end_at: 1700086400,
@@ -483,7 +483,7 @@ describe('Scoring Multiplier Feature', () => {
         .values({
           season_id: 1,
           week_name: 'Week A - 1x',
-          strava_segment_id: 12345,
+          strava_segment_id: '12345',
           required_laps: 1,
           start_at: 1700000000,
           end_at: 1700086400,
@@ -498,7 +498,7 @@ describe('Scoring Multiplier Feature', () => {
         .values({
           season_id: 1,
           week_name: 'Week B - 2x',
-          strava_segment_id: 12345,
+          strava_segment_id: '12345',
           required_laps: 1,
           start_at: 1700086401,
           end_at: 1700172800,
@@ -511,7 +511,7 @@ describe('Scoring Multiplier Feature', () => {
       // Create participant
       drizzleDb.insert(participant)
         .values({
-          strava_athlete_id: 5001,
+          strava_athlete_id: '5001',
           name: 'Multi-Week Athlete',
           active: true
         })
@@ -522,8 +522,8 @@ describe('Scoring Multiplier Feature', () => {
         .insert(activity)
         .values({
           week_id: testWeekA.id,
-          strava_athlete_id: 5001,
-          strava_activity_id: 500001,
+          strava_athlete_id: '5001',
+          strava_activity_id: '500001',
           start_at: 1700043200,
           device_name: 'Garmin'
         })
@@ -534,8 +534,8 @@ describe('Scoring Multiplier Feature', () => {
         .insert(activity)
         .values({
           week_id: testWeekB.id,
-          strava_athlete_id: 5001,
-          strava_activity_id: 500002,
+          strava_athlete_id: '5001',
+          strava_activity_id: '500002',
           start_at: 1700129600,
           device_name: 'Garmin'
         })
@@ -546,7 +546,7 @@ describe('Scoring Multiplier Feature', () => {
       drizzleDb.insert(result)
         .values({
           week_id: testWeekA.id,
-          strava_athlete_id: 5001,
+          strava_athlete_id: '5001',
           activity_id: activityA.id,
           total_time_seconds: 1000
         })
@@ -555,7 +555,7 @@ describe('Scoring Multiplier Feature', () => {
       drizzleDb.insert(result)
         .values({
           week_id: testWeekB.id,
-          strava_athlete_id: 5001,
+          strava_athlete_id: '5001',
           activity_id: activityB.id,
           total_time_seconds: 1000
         })
@@ -565,7 +565,7 @@ describe('Scoring Multiplier Feature', () => {
       drizzleDb.insert(segmentEffort)
         .values({
           activity_id: activityA.id,
-          strava_segment_id: 12345,
+          strava_segment_id: '12345',
           effort_index: 0,
           elapsed_seconds: 1000,
           start_at: 1700043200,
@@ -576,7 +576,7 @@ describe('Scoring Multiplier Feature', () => {
       drizzleDb.insert(segmentEffort)
         .values({
           activity_id: activityB.id,
-          strava_segment_id: 12345,
+          strava_segment_id: '12345',
           effort_index: 0,
           elapsed_seconds: 1000,
           start_at: 1700129600,

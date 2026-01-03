@@ -5,7 +5,7 @@ import { type Database as DatabaseType } from 'better-sqlite3';
 import type { Session } from 'express-session';
 
 interface CustomSession {
-  stravaAthleteId?: number;
+  stravaAthleteId?: string;
   isAdmin?: boolean;
 }
 
@@ -17,7 +17,7 @@ export type Context = {
   drizzleDb: BetterSQLite3Database; // Drizzle instance
   orm: BetterSQLite3Database; // Canonical alias for Drizzle instance
   session: Session & Partial<CustomSession>;
-  userId?: number;
+  userId?: string;
   isAdmin: boolean;
 };
 

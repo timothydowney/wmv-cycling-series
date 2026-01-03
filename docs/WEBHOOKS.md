@@ -84,27 +84,27 @@ graph TD
 
 ### Components
 
-**1. Webhook Routes** (`server/src/routes/webhooks.ts`)
+**1. Webhook Routes** ([server/src/routes/webhooks.ts](server/src/routes/webhooks.ts))
 - `GET /webhooks/strava` - Subscription validation (Strava sends challenge, we echo it back)
 - `POST /webhooks/strava` - Event receipt (Strava sends activities, deletions, disconnections)
 - Both protected by feature flag: `WEBHOOK_ENABLED`
 
-**2. Webhook Logger** (`server/src/webhooks/logger.ts`)
+**2. Webhook Logger** ([server/src/webhooks/logger.ts](server/src/webhooks/logger.ts))
 - Persists webhook events to database table `webhook_event`
 - Marks each event as processed (success) or failed (with error message)
-- **Required when webhooks are enabled** - persists events for admin dashboard monitoring
 - Feeds the webhook status endpoint with event counts and success rates
 
-**3. Webhook Processor** (`server/src/webhooks/processor.ts`)
+**3. Webhook Processor** ([server/src/webhooks/processor.ts](server/src/webhooks/processor.ts))
 - Async event processor - decoupled from HTTP layer
 - Three event handlers:
   - `processActivityEvent()` - Activity created/updated
   - `processActivityDeletion()` - Activity deleted
   - `processAthleteDisconnection()` - Athlete revoked authorization
-- Factory pattern: `createWebhookProcessor(db)` binds database instance
-- Reuses existing activity matching/storage logic (zero code duplication)
+- Reuses existing activity matching/storage logic:
+  - **Activity Matching:** [server/src/activityProcessor.ts](server/src/activityProcessor.ts)
+  - **Database Storage:** [server/src/activityStorage.ts](server/src/activityStorage.ts)
 
-**4. Subscription Manager** (`server/src/webhooks/subscriptionManager.ts`) - *Future*
+**4. Subscription Manager** ([server/src/webhooks/subscriptionManager.ts](server/src/webhooks/subscriptionManager.ts)) - *Future*
 - Subscribe/unsubscribe from Strava API
 - Handle subscription verification
 - Manage subscription lifecycle (24-hour expiry, renewal)

@@ -11,7 +11,7 @@ export const segmentRouter = router({
   create: adminProcedure
     .input(z.object({
       name: z.string(),
-      strava_segment_id: z.number(),
+      strava_segment_id: z.string(),
       distance: z.number().optional(),
       average_grade: z.number().optional(),
       city: z.string().optional(),
@@ -24,7 +24,7 @@ export const segmentRouter = router({
     }),
 
   validate: adminProcedure
-    .input(z.number())
+    .input(z.string())
     .query(async ({ ctx, input }) => {
       const segmentService = new SegmentService(ctx.orm);
       return segmentService.fetchAndStoreSegmentMetadata(input, 'trpc-validate', undefined, ctx.userId);

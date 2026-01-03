@@ -28,7 +28,7 @@ jest.mock('strava-v3', () => ({
 
 jest.mock('../stravaClient', () => ({
   getSegment: jest.fn().mockResolvedValue({
-    id: 12345678,  // NOTE: Strava API returns 'id', not 'strava_segment_id'
+    id: '12345678',  // NOTE: Strava API returns 'id', not 'strava_segment_id'
     name: 'Test Segment Name',
     distance: 3000,
     total_elevation_gain: 150,
@@ -60,8 +60,8 @@ describe('SegmentService', () => {
   let drizzleDb: BetterSQLite3Database;
   let service: SegmentService;
 
-  const TEST_SEGMENT_ID = 12345678;
-  const TEST_ATHLETE_ID = 999001;
+  const TEST_SEGMENT_ID = '12345678';
+  const TEST_ATHLETE_ID = '999001';
 
   beforeAll(() => {
     const testDb = setupTestDb();
@@ -285,7 +285,7 @@ describe('SegmentService', () => {
     });
 
     test('segmentExists() returns false for non-existing segment', async () => {
-      expect(await service.segmentExists(99999999)).toBe(false);
+      expect(await service.segmentExists('99999999')).toBe(false);
     });
 
     test('getAllSegments() returns empty array when no segments', async () => {
@@ -294,9 +294,9 @@ describe('SegmentService', () => {
     });
 
     test('getAllSegments() returns all segments sorted by name', async () => {
-      createSegment(drizzleDb, 111, 'Zebra Climb');
-      createSegment(drizzleDb, 222, 'Apple Ridge');
-      createSegment(drizzleDb, 333, 'Mountain Peak');
+      createSegment(drizzleDb, '111', 'Zebra Climb');
+      createSegment(drizzleDb, '222', 'Apple Ridge');
+      createSegment(drizzleDb, '333', 'Mountain Peak');
 
       const segments = await service.getAllSegments();
       expect(segments).toHaveLength(3);

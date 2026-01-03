@@ -1,7 +1,7 @@
 export interface ResultSummary {
   resultId: number;
   weekId: number;
-  participantId: number;
+  participantId: string;
   participantName: string;
   totalTimeSeconds: number;
   rank: number;
@@ -12,7 +12,7 @@ export interface ResultSummary {
 
 export interface LeaderboardEntryWithDetails {
   rank: number;
-  participant_id: number;
+  participant_id: string;
   name: string;
   total_time_seconds: number;
   time_hhmmss: string; // This will need to be formatted in the frontend
@@ -29,8 +29,8 @@ export interface LeaderboardEntryWithDetails {
     time_seconds: number;
     time_hhmmss: string;
     is_pr?: boolean;
-    strava_effort_id?: number;
+    strava_effort_id?: string;
   }> | null;
-  strava_effort_id?: number;
+  strava_effort_id?: string;
   device_name?: string | null;
 }

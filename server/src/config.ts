@@ -64,7 +64,7 @@ interface Config {
   webhookVerifyToken: string | undefined;
   webhookPersistEvents: boolean;
   // Admin
-  adminAthleteIds: number[];
+  adminAthleteIds: string[];
 }
 
 function getConfig(): Config {
@@ -72,13 +72,13 @@ function getConfig(): Config {
   const isDevelopment = nodeEnv !== 'production';
 
   // Parse admin athlete IDs
-  const adminAthleteIds: number[] = [];
+  const adminAthleteIds: string[] = [];
   if (process.env.ADMIN_ATHLETE_IDS) {
     adminAthleteIds.push(
       ...process.env.ADMIN_ATHLETE_IDS
         .split(',')
-        .map(id => parseInt(id.trim()))
-        .filter(id => !isNaN(id))
+        .map(id => id.trim())
+        .filter(id => id.length > 0)
     );
   }
 

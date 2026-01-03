@@ -59,7 +59,7 @@ class ParticipantService {
   /**
    * Get a participant by Strava athlete ID
    */
-  getParticipantByStravaAthleteId(stravaAthleteId: number): Participant | null {
+  getParticipantByStravaAthleteId(stravaAthleteId: string): Participant | null {
     const result = this.db
       .select()
       .from(participant)

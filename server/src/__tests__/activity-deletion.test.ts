@@ -51,7 +51,7 @@ describe('Activity Deletion and Score Recalculation', () => {
 
   describe('Activity Deletion', () => {
     it('deleting activity removes from leaderboard', async () => {
-      const segment = createSegment(drizzleDb, 60001, 'Delete Segment');
+      const segment = createSegment(drizzleDb, '60001', 'Delete Segment');
       const week = createWeek(drizzleDb, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
@@ -60,15 +60,15 @@ describe('Activity Deletion and Score Recalculation', () => {
 
       const result1 = createActivityWithResult(drizzleDb, {
         weekId: week.id,
-        stravaAthleteId: 60001,
-        stravaActivityId: 60001,
+        stravaAthleteId: '60001',
+        stravaActivityId: '60001',
         elapsedSeconds: 500,
       });
 
       const result2 = createActivityWithResult(drizzleDb, {
         weekId: week.id,
-        stravaAthleteId: 60002,
-        stravaActivityId: 60002,
+        stravaAthleteId: '60002',
+        stravaActivityId: '60002',
         elapsedSeconds: 600,
       });
 
@@ -80,7 +80,7 @@ describe('Activity Deletion and Score Recalculation', () => {
         .where(
           and(
             eq(result.week_id, week.id),
-            eq(result.strava_athlete_id, 60001)
+            eq(result.strava_athlete_id, '60001')
           )
         )
         .run();
@@ -91,7 +91,7 @@ describe('Activity Deletion and Score Recalculation', () => {
     });
 
     it('deleting leader triggers recalculation of rankings', async () => {
-      const segment = createSegment(drizzleDb, 60003, 'Leader Delete Segment');
+      const segment = createSegment(drizzleDb, '60003', 'Leader Delete Segment');
       const week = createWeek(drizzleDb, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
@@ -101,22 +101,22 @@ describe('Activity Deletion and Score Recalculation', () => {
       // Create 3 participants with leader, 2nd, 3rd
       createActivityWithResult(drizzleDb, {
         weekId: week.id,
-        stravaAthleteId: 60101,
-        stravaActivityId: 60101,
+        stravaAthleteId: '60101',
+        stravaActivityId: '60101',
         elapsedSeconds: 400, // 1st
       });
 
       createActivityWithResult(drizzleDb, {
         weekId: week.id,
-        stravaAthleteId: 60102,
-        stravaActivityId: 60102,
+        stravaAthleteId: '60102',
+        stravaActivityId: '60102',
         elapsedSeconds: 500, // 2nd
       });
 
       createActivityWithResult(drizzleDb, {
         weekId: week.id,
-        stravaAthleteId: 60103,
-        stravaActivityId: 60103,
+        stravaAthleteId: '60103',
+        stravaActivityId: '60103',
         elapsedSeconds: 600, // 3rd
       });
 
@@ -129,7 +129,7 @@ describe('Activity Deletion and Score Recalculation', () => {
         .where(
           and(
             eq(result.week_id, week.id),
-            eq(result.strava_athlete_id, 60101)
+            eq(result.strava_athlete_id, '60101')
           )
         )
         .run();
@@ -147,7 +147,7 @@ describe('Activity Deletion and Score Recalculation', () => {
     });
 
     it('deleting activity removes PR bonus points', async () => {
-      const segment = createSegment(drizzleDb, 60004, 'PR Delete Segment');
+      const segment = createSegment(drizzleDb, '60004', 'PR Delete Segment');
       const week = createWeek(drizzleDb, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
@@ -157,8 +157,8 @@ describe('Activity Deletion and Score Recalculation', () => {
       // Activity with PR
       createActivityWithResult(drizzleDb, {
         weekId: week.id,
-        stravaAthleteId: 60201,
-        stravaActivityId: 60201,
+        stravaAthleteId: '60201',
+        stravaActivityId: '60201',
         elapsedSeconds: 500,
         prAchieved: true,
       });
@@ -166,8 +166,8 @@ describe('Activity Deletion and Score Recalculation', () => {
       // Activity without PR
       createActivityWithResult(drizzleDb, {
         weekId: week.id,
-        stravaAthleteId: 60202,
-        stravaActivityId: 60202,
+        stravaAthleteId: '60202',
+        stravaActivityId: '60202',
         elapsedSeconds: 600,
         prAchieved: false,
       });
@@ -181,7 +181,7 @@ describe('Activity Deletion and Score Recalculation', () => {
         .where(
           and(
             eq(result.week_id, week.id),
-            eq(result.strava_athlete_id, 60201)
+            eq(result.strava_athlete_id, '60201')
           )
         )
         .run();
@@ -195,8 +195,8 @@ describe('Activity Deletion and Score Recalculation', () => {
 
   describe('Season Leaderboard After Deletion', () => {
     it('deleting activity updates season totals', async () => {
-      const segment1 = createSegment(drizzleDb, 60005, 'Season Delete Seg1');
-      const segment2 = createSegment(drizzleDb, 60006, 'Season Delete Seg2');
+      const segment1 = createSegment(drizzleDb, '60005', 'Season Delete Seg1');
+      const segment2 = createSegment(drizzleDb, '60006', 'Season Delete Seg2');
 
       const week1 = createWeek(drizzleDb, {
         seasonId: seedData.seasons[0].id,
@@ -210,21 +210,21 @@ describe('Activity Deletion and Score Recalculation', () => {
         weekName: 'Season Delete Week 2',
       });
 
-      const p1 = 60301;
-      const p2 = 60302;
+      const p1 = '60301';
+      const p2 = '60302';
 
       // Week 1: p1 1st (2 pts), p2 2nd (1 pt)
       createActivityWithResult(drizzleDb, {
         weekId: week1.id,
         stravaAthleteId: p1,
-        stravaActivityId: 60301,
+        stravaActivityId: '60301',
         elapsedSeconds: 500,
       });
 
       createActivityWithResult(drizzleDb, {
         weekId: week1.id,
         stravaAthleteId: p2,
-        stravaActivityId: 60302,
+        stravaActivityId: '60302',
         elapsedSeconds: 600,
       });
 
@@ -232,14 +232,14 @@ describe('Activity Deletion and Score Recalculation', () => {
       createActivityWithResult(drizzleDb, {
         weekId: week2.id,
         stravaAthleteId: p1,
-        stravaActivityId: 60303,
+        stravaActivityId: '60303',
         elapsedSeconds: 500,
       });
 
       createActivityWithResult(drizzleDb, {
         weekId: week2.id,
         stravaAthleteId: p2,
-        stravaActivityId: 60304,
+        stravaActivityId: '60304',
         elapsedSeconds: 600,
       });
 
@@ -258,7 +258,7 @@ describe('Activity Deletion and Score Recalculation', () => {
         .where(
           and(
             eq(result.week_id, week2.id),
-            eq(result.strava_athlete_id, 60301)
+            eq(result.strava_athlete_id, '60301')
           )
         )
         .run();
@@ -280,7 +280,7 @@ describe('Activity Deletion and Score Recalculation', () => {
 
   describe('Multiple Activity Deletion', () => {
     it('deleting all activities makes leaderboard empty', async () => {
-      const segment = createSegment(drizzleDb, 60007, 'All Delete Segment');
+      const segment = createSegment(drizzleDb, '60007', 'All Delete Segment');
       const week = createWeek(drizzleDb, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
@@ -289,15 +289,15 @@ describe('Activity Deletion and Score Recalculation', () => {
 
       createActivityWithResult(drizzleDb, {
         weekId: week.id,
-        stravaAthleteId: 60401,
-        stravaActivityId: 60401,
+        stravaAthleteId: '60401',
+        stravaActivityId: '60401',
         elapsedSeconds: 500,
       });
 
       createActivityWithResult(drizzleDb, {
         weekId: week.id,
-        stravaAthleteId: 60402,
-        stravaActivityId: 60402,
+        stravaAthleteId: '60402',
+        stravaActivityId: '60402',
         elapsedSeconds: 600,
       });
 
@@ -314,7 +314,7 @@ describe('Activity Deletion and Score Recalculation', () => {
     });
 
     it('deleting one of two activities updates sole survivor ranking', async () => {
-      const segment = createSegment(drizzleDb, 60008, 'Survivor Segment');
+      const segment = createSegment(drizzleDb, '60008', 'Survivor Segment');
       const week = createWeek(drizzleDb, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
@@ -323,15 +323,15 @@ describe('Activity Deletion and Score Recalculation', () => {
 
       createActivityWithResult(drizzleDb, {
         weekId: week.id,
-        stravaAthleteId: 60501,
-        stravaActivityId: 60501,
+        stravaAthleteId: '60501',
+        stravaActivityId: '60501',
         elapsedSeconds: 500,
       });
 
       createActivityWithResult(drizzleDb, {
         weekId: week.id,
-        stravaAthleteId: 60502,
-        stravaActivityId: 60502,
+        stravaAthleteId: '60502',
+        stravaActivityId: '60502',
         elapsedSeconds: 600,
       });
 
@@ -348,7 +348,7 @@ describe('Activity Deletion and Score Recalculation', () => {
         .where(
           and(
             eq(result.week_id, week.id),
-            eq(result.strava_athlete_id, 60502)
+            eq(result.strava_athlete_id, '60502')
           )
         )
         .run();
@@ -362,7 +362,7 @@ describe('Activity Deletion and Score Recalculation', () => {
 
   describe('Result Table Cascade Delete', () => {
     it('deleting result removes from leaderboard', async () => {
-      const segment = createSegment(drizzleDb, 60009, 'Cascade Segment');
+      const segment = createSegment(drizzleDb, '60009', 'Cascade Segment');
       const week = createWeek(drizzleDb, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
@@ -371,8 +371,8 @@ describe('Activity Deletion and Score Recalculation', () => {
 
       createActivityWithResult(drizzleDb, {
         weekId: week.id,
-        stravaAthleteId: 60601,
-        stravaActivityId: 60601,
+        stravaAthleteId: '60601',
+        stravaActivityId: '60601',
         elapsedSeconds: 500,
       });
 
@@ -385,7 +385,7 @@ describe('Activity Deletion and Score Recalculation', () => {
         .where(
           and(
             eq(result.week_id, week.id),
-            eq(result.strava_athlete_id, 60601)
+            eq(result.strava_athlete_id, '60601')
           )
         )
         .run();
@@ -398,8 +398,8 @@ describe('Activity Deletion and Score Recalculation', () => {
 
   describe('Deletion with Multiple Weeks', () => {
     it('deletion in one week does not affect another week', async () => {
-      const segment1 = createSegment(drizzleDb, 60010, 'Week Iso Seg1');
-      const segment2 = createSegment(drizzleDb, 60011, 'Week Iso Seg2');
+      const segment1 = createSegment(drizzleDb, '60010', 'Week Iso Seg1');
+      const segment2 = createSegment(drizzleDb, '60011', 'Week Iso Seg2');
 
       const week1 = createWeek(drizzleDb, {
         seasonId: seedData.seasons[0].id,
@@ -413,35 +413,35 @@ describe('Activity Deletion and Score Recalculation', () => {
         weekName: 'Week Iso 2',
       });
 
-      const p1 = 60701;
-      const p2 = 60702;
+      const p1 = '60701';
+      const p2 = '60702';
 
       // Both weeks have same 2 participants
       createActivityWithResult(drizzleDb, {
         weekId: week1.id,
         stravaAthleteId: p1,
-        stravaActivityId: 60701,
+        stravaActivityId: '60701',
         elapsedSeconds: 500,
       });
 
       createActivityWithResult(drizzleDb, {
         weekId: week1.id,
         stravaAthleteId: p2,
-        stravaActivityId: 60702,
+        stravaActivityId: '60702',
         elapsedSeconds: 600,
       });
 
       createActivityWithResult(drizzleDb, {
         weekId: week2.id,
         stravaAthleteId: p1,
-        stravaActivityId: 60703,
+        stravaActivityId: '60703',
         elapsedSeconds: 500,
       });
 
       createActivityWithResult(drizzleDb, {
         weekId: week2.id,
         stravaAthleteId: p2,
-        stravaActivityId: 60704,
+        stravaActivityId: '60704',
         elapsedSeconds: 600,
       });
 
@@ -456,7 +456,7 @@ describe('Activity Deletion and Score Recalculation', () => {
         .where(
           and(
             eq(result.week_id, week1.id),
-            eq(result.strava_athlete_id, 60701)
+            eq(result.strava_athlete_id, '60701')
           )
         )
         .run();

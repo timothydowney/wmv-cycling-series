@@ -31,8 +31,8 @@ export enum LogLevel {
  * Effort link for clickable Strava effort references
  */
 export interface EffortLink {
-  effortId: number;
-  activityId: number;
+  effortId: string;
+  activityId: string;
 }
 
 /**

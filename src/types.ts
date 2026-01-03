@@ -13,7 +13,7 @@ export interface Week {
   id: number;
   season_id: number;
   week_name: string;
-  strava_segment_id: number;
+  strava_segment_id: string;
   segment_id?: number; // Legacy alias
   required_laps: number;
   multiplier: number;
@@ -36,7 +36,7 @@ export interface Week {
 export interface Participant {
   id: number;
   name: string;
-  strava_athlete_id: number;
+  strava_athlete_id: string;
   is_connected: number; // 0 or 1
   profile_picture_url?: string | null;
 }
@@ -48,7 +48,7 @@ export interface AuthStatus {
 }
 
 export interface AdminSegment {
-  strava_segment_id: number;
+  strava_segment_id: string;
   name: string;
   distance?: number | null;
   average_grade?: number | null;
@@ -60,7 +60,7 @@ export interface AdminSegment {
 }
 
 export interface ValidatedSegmentDetails {
-  strava_segment_id: number;
+  strava_segment_id: string;
   name: string;
   distance?: number | null;
   average_grade?: number | null;
@@ -71,7 +71,7 @@ export interface ValidatedSegmentDetails {
 
 export interface LeaderboardEntry {
   rank: number;
-  participant_id: number;
+  participant_id: string;
   name: string;
   total_time_seconds: number;
   time_hhmmss: string;
@@ -81,6 +81,6 @@ export interface LeaderboardEntry {
   activity_date: string;
   profile_picture_url?: string | null;
   effort_breakdown?: any[] | null;
-  strava_effort_id?: number;
+  strava_effort_id?: string;
   device_name?: string | null;
 }

@@ -1,3 +1,5 @@
+import { type Activity as StravaActivity, type SegmentEffort } from '../stravaClient';
+
 /**
  * Webhook Type Definitions
  *
@@ -26,35 +28,7 @@ export interface AthleteWebhookEvent extends WebhookEvent {
   };
 }
 
-/**
- * Strava Activity details (minimal subset we care about)
- */
-export interface StravaActivity {
-  id: number;
-  name: string;
-  start_date: string;
-  type: string;
-  distance: number;
-  moving_time: number;
-  elapsed_time: number;
-  elevation_gain: number;
-  segment_efforts: SegmentEffort[];
-}
-
-export interface SegmentEffort {
-  id: number;
-  elapsed_time: number;
-  moving_time: number;
-  start_index: number;
-  end_index: number;
-  pr_achieved: boolean;
-  segment: {
-    id: number;
-    name: string;
-    distance: number;
-    average_grade: number;
-  };
-}
+export { type StravaActivity, type SegmentEffort };
 
 /**
  * Result of webhook processing
