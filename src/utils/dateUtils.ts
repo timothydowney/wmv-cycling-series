@@ -158,3 +158,18 @@ export function formatUtcIsoDateTime(
     hour12: true
   }).format(date);
 }
+
+/**
+ * Format a duration in seconds to a short string (e.g., "22s", "5m12s")
+ * @param seconds Duration in seconds
+ * @returns Formatted string
+ */
+export function formatDurationShort(seconds: number): string {
+  const absSeconds = Math.abs(seconds);
+  if (absSeconds < 60) {
+    return `${absSeconds}s`;
+  }
+  const minutes = Math.floor(absSeconds / 60);
+  const remainingSeconds = absSeconds % 60;
+  return `${minutes}m${remainingSeconds}s`;
+}

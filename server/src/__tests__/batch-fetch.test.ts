@@ -19,6 +19,7 @@ import {
   createWeek,
   createParticipant
 } from './testDataHelpers';
+import { result, activity, segmentEffort } from '../db/schema';
 import { createFetchRouter } from '../routes/admin/fetch';
 import * as stravaClient from '../stravaClient';
 import { reloadConfig } from '../config';
@@ -128,7 +129,6 @@ describe('Batch Fetch - POST /admin/weeks/:id/fetch-results', () => {
     // We should probably NOT call clearAllData(drizzleDb) in beforeEach if we rely on beforeAll setup.
     // Or move setup to beforeEach.
     // For now, I'll just delete results/activities manually to keep it simple and fast.
-    const { result, activity, segmentEffort } = require('../db/schema');
     drizzleDb.delete(result).run();
     drizzleDb.delete(segmentEffort).run();
     drizzleDb.delete(activity).run();

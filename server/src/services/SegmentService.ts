@@ -58,7 +58,7 @@ class SegmentService {
       }
 
       // Get valid access token (auto-refreshes if needed)
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const strava = require('strava-v3');
       const stravaClient = {
         refreshAccessToken: async (rt: string) => {

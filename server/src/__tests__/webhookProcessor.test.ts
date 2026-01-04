@@ -6,16 +6,11 @@
  * This makes tests focused, fast, and easy to understand.
  */
 
+import { createWebhookProcessor } from '../webhooks/processor';
+
 describe('Webhook Processor', () => {
-  let createWebhookProcessor;
   let mockLogger;
   let mockService;
-
-  beforeAll(() => {
-    // Import processor after all mocking is set up
-    const { createWebhookProcessor: cwp } = require('../webhooks/processor');
-    createWebhookProcessor = cwp;
-  });
 
   beforeEach(() => {
     // Setup mock logger

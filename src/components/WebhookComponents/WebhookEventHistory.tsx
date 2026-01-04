@@ -17,11 +17,7 @@ interface WebhookPayload {
   updates?: Record<string, unknown>;
 }
 
-interface Props {
-  // No props required for now
-}
-
-const WebhookEventHistory: React.FC<Props> = () => {
+const WebhookEventHistory: React.FC = () => {
   const [pagination, setPagination] = useState({ limit: 50, offset: 0 });
   const [filters, setFilters] = useState({ status: 'all', since: 604800 }); // Default to 7 days
   const [message, setMessage] = useState<string | null>(null);

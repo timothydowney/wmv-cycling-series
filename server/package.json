@@ -25,6 +25,7 @@
     "node": ">=24 <25"
   },
   "dependencies": {
+    "@trpc/server": "^11.7.2",
     "better-sqlite3": "^12.5.0",
     "better-sqlite3-session-store": "^0.1.0",
     "cors": "^2.8.5",
@@ -32,7 +33,6 @@
     "drizzle-orm": "^0.45.1",
     "express": "^4.22.1",
     "express-session": "^1.18.2",
-    "@trpc/server": "^11.7.2",
     "strava-v3": "^3.1.0",
     "zod": "^4.3.4"
   },
@@ -44,8 +44,8 @@
     "@types/jest": "^29.5.8",
     "@types/node": "^20.19.25",
     "@types/supertest": "^6.0.3",
-    "@typescript-eslint/eslint-plugin": "^6.21.0",
-    "@typescript-eslint/parser": "^6.21.0",
+    "@typescript-eslint/eslint-plugin": "^8.51.0",
+    "@typescript-eslint/parser": "^8.51.0",
     "drizzle-kit": "^0.31.8",
     "eslint": "^8.45.0",
     "jest": "^30.2.0",

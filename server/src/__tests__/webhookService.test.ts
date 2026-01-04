@@ -83,11 +83,7 @@ describe('Webhook Service', () => {
       );
     `);
 
-    // Import and create service
-    const { createWebhookProcessor } = require('../webhooks/processor');
-    // Get the createDefaultService by creating processor and inspecting
-    // Actually, we need to extract the service creation logic
-    // For now, we'll recreate the service inline (we'll refactor after tests pass)
+    // Service creation logic is recreated inline below for testing
   });
 
   afterEach(() => {
