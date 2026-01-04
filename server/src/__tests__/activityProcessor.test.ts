@@ -15,6 +15,7 @@ jest.mock('../stravaClient', () => ({
   listAthleteActivities: jest.fn()
 }));
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const stravaClient = require('../stravaClient');
 
 describe('Activity Processor', () => {

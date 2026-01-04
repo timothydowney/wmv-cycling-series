@@ -125,7 +125,7 @@ app.use(
 // Test mode: Load session injection middleware
 if (isTestMode()) {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const testMiddlewareModule = require('./__tests__/testMiddleware');
     const registerTestMiddleware = testMiddlewareModule.default || testMiddlewareModule;
     if (typeof registerTestMiddleware === 'function') {
@@ -171,7 +171,7 @@ try {
     try {
       const countResult = db.prepare(`SELECT COUNT(*) as cnt FROM ${tableName}`).get() as { cnt: number };
       console.log(`[DB]   ${tableName}: ${countResult.cnt} rows`);
-    } catch (e) {
+    } catch {
       // Table might not exist, skip
     }
   }

@@ -16,7 +16,7 @@ export default async () => {
       if (fs.existsSync(dbPath)) {
         try {
           fs.unlinkSync(dbPath);
-        } catch (err) {
+        } catch {
           // Ignore - file may be locked
         }
       }

@@ -132,7 +132,7 @@ export function teardownTestDb(db: Database.Database) {
       DELETE FROM participant;
       DELETE FROM sessions;
     `);
-  } catch (error) {
+  } catch {
     // Silently ignore cleanup errors - the database is going away anyway
     // This prevents test suite exit code failures
   } finally {

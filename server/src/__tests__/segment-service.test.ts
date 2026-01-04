@@ -10,6 +10,8 @@ import { SegmentService } from '../services/SegmentService';
 import { setupTestDb, teardownTestDb, createParticipant, createSegment, clearAllData } from './testDataHelpers';
 import { segment } from '../db/schema';
 import { eq, sql } from 'drizzle-orm';
+import * as stravaClientMock from '../stravaClient';
+import * as tokenManagerMock from '../tokenManager';
 
 // Mock strava-v3 and stravaClient
 jest.mock('strava-v3', () => ({
@@ -139,7 +141,7 @@ describe('SegmentService', () => {
       });
 
       // Mock API failure
-      const { getSegment } = require('../stravaClient');
+      const { getSegment } = stravaClientMock;
       getSegment.mockRejectedValueOnce(new Error('Strava API error'));
 
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
@@ -191,7 +193,7 @@ describe('SegmentService', () => {
         expiresAt: Math.floor(Date.now() / 1000) + 3600
       });
 
-      const { getSegment } = require('../stravaClient');
+      const { getSegment } = stravaClientMock;
       getSegment.mockRejectedValueOnce(new Error('Segment not found'));
 
       const logMessages: Array<[string, string]> = [];
@@ -240,7 +242,7 @@ describe('SegmentService', () => {
         expiresAt: Math.floor(Date.now() / 1000) - 3600 // Expired
       });
 
-      const { getValidAccessToken } = require('../tokenManager');
+      const { getValidAccessToken } = tokenManagerMock;
 
       // Action: Fetch segment
       await service.fetchAndStoreSegmentMetadata(TEST_SEGMENT_ID, 'test-context');
@@ -335,8 +337,8 @@ describe('SegmentService', () => {
         expiresAt: Math.floor(Date.now() / 1000) + 3600
       });
 
-      const { getSegment } = require('../stravaClient');
-      getSegment.mockResolvedValueOnce({
+      const { getSegment } = stravaClientMock;
+      (getSegment as jest.Mock).mockResolvedValueOnce({
         name: 'Minimal Segment',
         distance: null,
         total_elevation_gain: null,
@@ -367,8 +369,8 @@ describe('SegmentService', () => {
         expiresAt: Math.floor(Date.now() / 1000) + 3600
       });
 
-      const { getSegment } = require('../stravaClient');
-      getSegment.mockRejectedValueOnce(new Error('API error'));
+      const { getSegment } = stravaClientMock;
+      (getSegment as jest.Mock).mockRejectedValueOnce(new Error('API error'));
 
       // Action: Try to fetch (will fail but placeholder exists)
       const result = await service.fetchAndStoreSegmentMetadata(TEST_SEGMENT_ID, 'test-context');

@@ -27,6 +27,8 @@ import {
 } from './testDataHelpers';
 import { MockStravaClient, ActivityScenarios } from '../services/MockStravaClient';
 import { isoToUnix } from '../dateUtils';
+import { participantToken, participant, activity } from '../db/schema';
+import { eq } from 'drizzle-orm';
 
 // Mock strava-v3 to prevent real API calls
 jest.mock('strava-v3', () => ({
@@ -256,8 +258,6 @@ describe('Webhook Integration Tests', () => {
 
       // Verify tokens exist using drizzleDb directly
       // Need to import participantToken
-      const { participantToken, participant } = require('../db/schema');
-      const { eq } = require('drizzle-orm');
       
       let token = drizzleDb
         .select()
@@ -334,8 +334,6 @@ describe('Webhook Integration Tests', () => {
       expect(activity2).toBeDefined();
 
       // Simulate activity deletion cascade
-      const { activity } = require('../db/schema');
-      const { eq } = require('drizzle-orm');
       
       const delActivity = drizzleDb
         .delete(activity)

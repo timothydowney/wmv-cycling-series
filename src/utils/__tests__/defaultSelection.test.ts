@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
+import { describe, it, expect, afterEach, jest } from '@jest/globals';
 import { getDefaultSeason, getDefaultWeek } from '../defaultSelection';
 import { Season, Week } from '../../types';
 
@@ -31,8 +31,6 @@ describe('Default Selection Logic', () => {
     { id: 201, seasonId: 2, weekName: "Week 1", date: "2026-03-03", segmentId: 456, requiredLaps: 1, startTime: "2026-03-03T00:00:00Z", endTime: "2026-03-03T23:59:59Z" },
     { id: 202, seasonId: 2, weekName: "Week 2", date: "2026-03-10", segmentId: 456, requiredLaps: 1, startTime: "2026-03-10T00:00:00Z", endTime: "2026-03-10T23:59:59Z" }
   ];
-
-  const allWeeks = [...fallWeeks, ...springWeeks];
 
   // Helper to mock system time
   const mockDate = (isoDate: string) => {
