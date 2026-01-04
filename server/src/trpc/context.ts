@@ -42,7 +42,7 @@ export const createContext = ({
     drizzleDb: drizzleDbOverride || ormOverride || drizzleDb, // Use injected Drizzle db or default
     orm: ormOverride || drizzleDbOverride || drizzleDb, // Canonical alias for Drizzle (same instance)
     session: req.session as Session & Partial<CustomSession>,
-    userId: sess?.stravaAthleteId,
+    userId: sess?.stravaAthleteId ? String(sess.stravaAthleteId) : undefined,
     isAdmin: sess?.isAdmin || false,
   };
 };

@@ -123,7 +123,7 @@ export default (services: AuthServices): Router => {
       console.log('[AUTH] Session ID:', req.sessionID);
       console.log('[AUTH] Session object keys:', Object.keys(sess));
       console.log('[AUTH] Full session object:', JSON.stringify(sess, null, 2).substring(0, 500));
-      const athleteId = sess.stravaAthleteId;
+      const athleteId = sess.stravaAthleteId ? String(sess.stravaAthleteId) : undefined;
       console.log('[AUTH] athleteId from session:', athleteId, 'type:', typeof athleteId);
       
       if (!athleteId) {
@@ -153,7 +153,7 @@ export default (services: AuthServices): Router => {
     const sess = req.session as Session & {
       stravaAthleteId?: string;
     };
-    const athleteId = sess.stravaAthleteId;
+    const athleteId = sess.stravaAthleteId ? String(sess.stravaAthleteId) : undefined;
     if (!athleteId) {
       res.status(401).json({ error: 'Not authenticated' });
       return;

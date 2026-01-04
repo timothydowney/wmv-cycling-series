@@ -108,9 +108,46 @@ interface StravaClientInstance {
 
 /**
  * Helper to create a typed Strava client instance.
+ * The strava-v3 library's client() method configures an object with the athletes, activities, etc.
+ * We call it on a new object to create a configured client with the given token.
  */
 function createStravaClient(accessToken: string): StravaClientInstance {
-  return new (strava.client as any)(accessToken);
+  const clientObj = {} as any;
+  strava.client.call(clientObj, accessToken);
+  return clientObj as StravaClientInstance;
+}
+
+/**
+ * Get athlete profile by ID using the Strava API
+ * 
+ * While the strava-v3 library's Athletes class only officially exposes stats(),
+ * the underlying httpClient supports any endpoint. We access it through the
+ * athletes instance to fetch the full /athletes/{id} profile, which includes
+ * the profile picture URL. This is better than making a direct axios call because:
+ * 1. Uses the library's already-configured HTTP client with auth headers
+ * 2. Consistent error handling and timeout behavior
+ * 3. Respects the library's rate limiting configuration
+ * 
+ * @param athleteId - Strava athlete ID to fetch
+ * @param accessToken - Valid Strava access token
+ * @returns Athlete profile data including profile_medium and profile URLs
+ * @throws {Error} If athlete fetch fails
+ */
+async function getAthleteProfile(athleteId: string, accessToken: string): Promise<any> {
+  try {
+    const client = createStravaClient(accessToken);
+    
+    // Access the httpClient through the athletes instance to call /athletes/{id}
+    // The httpClient.getEndpoint() method is the foundation of all strava-v3 API calls
+    const result = await (client.athletes as any).client.getEndpoint(
+      `athletes/${athleteId}`
+    );
+    
+    return result;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to fetch athlete profile: ${message}`);
+  }
 }
 
 /**
@@ -409,6 +446,7 @@ export {
   getActivity,
   listAthleteActivities,
   getSegment,
+  getAthleteProfile,
   mapStravaSegmentToSegmentRow,
   createStravaClient,
   type OAuthTokenData,

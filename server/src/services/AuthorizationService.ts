@@ -108,7 +108,7 @@ class AuthorizationService {
   createRequireAdminMiddleware() {
     return (req: Request, res: Response, next: NextFunction): void => {
       const authCheck = this.checkAuthorization(
-        req.session?.stravaAthleteId,
+        req.session?.stravaAthleteId ? String(req.session.stravaAthleteId) : undefined,
         true
       );
 
