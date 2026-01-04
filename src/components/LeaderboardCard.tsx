@@ -4,6 +4,7 @@ import { Week, LeaderboardEntry } from '../types';
 import './Card.css'; // Shared card styles
 import './WeeklyLeaderboard.css'; // Keeping for now if it has other needed styles, but Card styles are moved.
 import StravaAthleteBadge from './StravaAthleteBadge';
+import { GhostBadge } from './GhostBadge';
 
 interface Props {
     entry: LeaderboardEntry;
@@ -88,8 +89,15 @@ export const LeaderboardCard: React.FC<Props> = ({
 
                 {/* 4. Right Side: Time, Chevron */}
                 <div className="card-right-side">
-                    <div className="card-time">
+                    <div className="card-time" style={{ display: 'flex', alignItems: 'center' }}>
                         {entry.time_hhmmss}
+                        {entry.ghost_comparison && (
+                            <GhostBadge
+                                timeDiffSeconds={entry.ghost_comparison.time_diff_seconds}
+                                previousWeekName={entry.ghost_comparison.previous_week_name}
+                                stravaActivityId={entry.ghost_comparison.strava_activity_id}
+                            />
+                        )}
                     </div>
 
                     <div className="card-chevron" style={{

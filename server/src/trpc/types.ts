@@ -33,4 +33,9 @@ export interface LeaderboardEntryWithDetails {
   }> | null;
   strava_effort_id?: string;
   device_name?: string | null;
+  ghost_comparison?: {
+    previous_time_seconds: number;
+    previous_week_name: string;
+    time_diff_seconds: number;
+  } | null;
 }

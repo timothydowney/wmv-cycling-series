@@ -4,6 +4,7 @@ import { week, result, participant, activity, segmentEffort, segment } from '../
 import { eq } from 'drizzle-orm';
 import { calculateWeekScoringDrizzle } from '../services/ScoringServiceDrizzle';
 import { getAthleteProfilePictures } from '../services/StravaProfileService';
+import { GhostService } from '../services/GhostService';
 import { LeaderboardEntryWithDetails } from './types';
 
 // Helper to format seconds into HH:MM:SS or MM:SS
@@ -98,6 +99,14 @@ export const leaderboardRouter = router({
           drizzleDb
         );
 
+        // Fetch Ghost Data (Previous attempts on same segment)
+        const ghostService = new GhostService(drizzleDb);
+        const ghostDataMap = await ghostService.getGhostData(
+          input.weekId,
+          weekData.strava_segment_id,
+          weekData.required_laps
+        );
+
         const leaderboardEntries: LeaderboardEntryWithDetails[] = await Promise.all(
           rawResults.map(async (rawResult, index) => {
             // Calculate Rank and Points with multiplier applied
@@ -140,6 +149,18 @@ export const leaderboardRouter = router({
             const subtotal = basePoints + participationBonus + prBonusPoints;
             const totalPoints = subtotal * weekData.multiplier;
 
+            // Ghost Comparison
+            let ghostComparison = null;
+            const ghostData = ghostDataMap.get(rawResult.participant_id);
+            if (ghostData && rawResult.total_time_seconds) {
+              ghostComparison = {
+                previous_time_seconds: ghostData.previous_time_seconds,
+                previous_week_name: ghostData.previous_week_name,
+                time_diff_seconds: rawResult.total_time_seconds - ghostData.previous_time_seconds,
+                strava_activity_id: ghostData.strava_activity_id,
+              };
+            }
+
             return {
               rank: rank,
               participant_id: rawResult.participant_id,
@@ -165,6 +186,7 @@ export const leaderboardRouter = router({
               // Only show effort breakdown if more than 1 lap required
               effort_breakdown: weekData.required_laps > 1 && effortBreakdown.length > 0 ? effortBreakdown : null,
               device_name: rawResult.device_name,
+              ghost_comparison: ghostComparison,
             };
           })
         );
