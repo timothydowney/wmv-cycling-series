@@ -1,5 +1,6 @@
 import React from 'react';
 import { formatDurationShort } from '../utils/dateUtils';
+import './GhostBadge.css';
 
 interface GhostBadgeProps {
     timeDiffSeconds: number;
@@ -9,23 +10,7 @@ interface GhostBadgeProps {
 
 export const GhostBadge: React.FC<GhostBadgeProps> = ({ timeDiffSeconds, previousWeekName, stravaActivityId }) => {
     const isFaster = timeDiffSeconds < 0;
-    const color = isFaster ? '#16a34a' : '#dc2626'; // Green if faster, Red if slower
-    const backgroundColor = isFaster ? '#dcfce7' : '#fee2e2';
-
-    const style: React.CSSProperties = {
-        display: 'inline-flex',
-        alignItems: 'center',
-        marginLeft: '8px',
-        fontSize: '0.75rem',
-        fontWeight: 600,
-        color,
-        backgroundColor,
-        padding: '2px 6px',
-        borderRadius: '12px',
-        whiteSpace: 'nowrap',
-        textDecoration: 'none', // For the link
-        cursor: stravaActivityId ? 'pointer' : 'default'
-    };
+    const className = `ghost-badge ${isFaster ? 'faster' : 'slower'} ${stravaActivityId ? 'clickable' : ''}`;
 
     const content = (
         <>
@@ -49,7 +34,7 @@ export const GhostBadge: React.FC<GhostBadgeProps> = ({ timeDiffSeconds, previou
                 target="_blank"
                 rel="noopener noreferrer"
                 title={`vs ${previousWeekName} (Click to view activity)`}
-                style={style}
+                className={className}
                 onClick={(e) => e.stopPropagation()}
             >
                 {content}
@@ -60,7 +45,7 @@ export const GhostBadge: React.FC<GhostBadgeProps> = ({ timeDiffSeconds, previou
     return (
         <div
             title={`vs ${previousWeekName}`}
-            style={style}
+            className={className}
         >
             {content}
         </div>
