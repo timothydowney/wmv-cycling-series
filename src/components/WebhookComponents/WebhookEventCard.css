@@ -16,7 +16,7 @@
 }
 
 /* Card Header */
-.card-header {
+.webhook-card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -198,7 +198,7 @@
 
 /* Responsive */
 @media (max-width: 768px) {
-  .card-header {
+  .webhook-card-header {
     flex-direction: column;
     align-items: flex-start;
   }
