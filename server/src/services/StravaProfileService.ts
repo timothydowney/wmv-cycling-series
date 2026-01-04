@@ -9,7 +9,8 @@
 
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { getValidAccessToken } from '../tokenManager';
-import * as stravaClientLib from '../stravaClient';
+import { getAthleteProfile } from '../stravaClient';
+import * as stravaClientModule from '../stravaClient';
 import { participantToken } from '../db/schema';
 import { desc } from 'drizzle-orm';
 
@@ -65,17 +66,13 @@ async function getAthleteProfilePicture(athleteId: string, accessToken: string):
     }
 
     // Use strava client library to fetch athlete profile
-    const client = stravaClientLib.createStravaClient(accessToken);
-
-    // Wrap the API call with a timeout to prevent hanging on slow/unreachable Strava API
-    // Note: strava-v3 v3.1.0 uses axios internally, but we still use this wrapper for safety
     const athleteData = await withTimeout(
-      client.athletes.get({ athlete_id: athleteId }),
+      getAthleteProfile(athleteId, accessToken),
       PROFILE_FETCH_TIMEOUT_MS,
       `Strava profile fetch for athlete ${athleteId}`
     );
 
-    const profileUrl = athleteData?.athlete?.profile || null;
+    const profileUrl = athleteData?.profile || null;
 
     // Cache the result
     profileCache.set(athleteId, {
@@ -129,7 +126,7 @@ async function getAthleteProfilePictures(
   for (const athleteId of uncachedIds) {
     try {
       // Use getValidAccessToken to ensure token is refreshed if expiring soon
-      const validToken = await getValidAccessToken(db, stravaClientLib, athleteId);
+      const validToken = await getValidAccessToken(db, stravaClientModule, athleteId);
       if (validToken) {
         athleteTokens.set(athleteId, validToken);
         console.log(`[Profile] Retrieved and refreshed token for athlete ${athleteId}`);
@@ -155,7 +152,7 @@ async function getAthleteProfilePictures(
         .get();
 
       if (anyParticipant) {
-        const validToken = await getValidAccessToken(db, stravaClientLib, anyParticipant.strava_athlete_id);
+        const validToken = await getValidAccessToken(db, stravaClientModule, anyParticipant.strava_athlete_id);
         if (validToken) {
           fallbackToken = validToken;
           console.log('[Profile] Using fallback token (refreshed) for profile fetches');

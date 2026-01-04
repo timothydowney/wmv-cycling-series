@@ -218,7 +218,10 @@ const participantService = new ParticipantService(drizzleDb);
 
 // Export checkAuthorization for testing
 const checkAuthorization = (req: any, adminRequired = false) => {
-  return authorizationService.checkAuthorization(req.session?.stravaAthleteId, adminRequired);
+  return authorizationService.checkAuthorization(
+    req.session?.stravaAthleteId ? String(req.session.stravaAthleteId) : undefined,
+    adminRequired
+  );
 };
 // ========================================
 

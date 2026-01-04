@@ -72,7 +72,7 @@ export function createFetchRouter(_sqliteDb: Database, drizzleDb: BetterSQLite3D
       // Refresh segment metadata before fetching results
       sendLog('section', `Refreshing segment metadata for: ${week.segment_name}`);
       const segmentService = new SegmentService(drizzleDb);
-      const adminAthleteId = (req.session as any)?.stravaAthleteId;
+      const adminAthleteId = (req.session as any)?.stravaAthleteId ? String((req.session as any).stravaAthleteId) : undefined;
       await segmentService.fetchAndStoreSegmentMetadata(
         week.strava_segment_id,
         'fetch-results',

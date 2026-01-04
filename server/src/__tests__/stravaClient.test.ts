@@ -10,21 +10,46 @@ import { isoToUnix } from '../dateUtils';
 import * as stravaClient from '../stravaClient';
 
 // Mock strava-v3 before requiring stravaClient
-jest.mock('strava-v3', () => ({
-  oauth: {
-    getToken: jest.fn(),
-    refreshToken: jest.fn()
-  },
-  client: jest.fn(() => ({
-    activities: {
-      get: jest.fn(),
-      listAthleteActivities: jest.fn()
-    },
-    segments: {
-      get: jest.fn()
+jest.mock('strava-v3', () => {
+  // Track the last mock client set for getSegment/etc tests
+  let lastMockClient: any = null;
+
+  // Create a client function that works with .call()
+  const clientFunc = function(this: any, token: string) {
+    // If a mock client was set via mockReturnValue, use it
+    if (lastMockClient) {
+      Object.assign(this, lastMockClient);
+    } else {
+      // Otherwise set up default mocks
+      this.athlete = {
+        get: jest.fn()
+      };
+      this.activities = {
+        get: jest.fn(),
+        listAthleteActivities: jest.fn()
+      };
+      this.segments = {
+        get: jest.fn()
+      };
+      this.athletes = {
+        stats: jest.fn()
+      };
     }
-  }))
-}));
+  };
+
+  // Add mockReturnValue to support tests that set up mock clients
+  (clientFunc as any).mockReturnValue = jest.fn().mockImplementation((mockClient: any) => {
+    lastMockClient = mockClient;
+  });
+
+  return {
+    oauth: {
+      getToken: jest.fn(),
+      refreshToken: jest.fn()
+    },
+    client: clientFunc
+  };
+});
 
 import strava from 'strava-v3';
 const mockStrava = strava as any;
