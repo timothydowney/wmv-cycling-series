@@ -46,13 +46,14 @@
     display: flex;
     flex-direction: row;
     align-items: center;
-    padding: 12px 12px;
-    min-height: 56px;
+    padding: 8px 4px;
+    min-height: 48px;
     background-color: var(--wmv-white);
     position: relative;
     z-index: 2;
     flex-wrap: nowrap;
     width: 100%;
+    gap: 8px;
 }
 
 .card-rank {
@@ -61,7 +62,7 @@
     width: 14px;
     text-align: left;
     color: var(--wmv-text-dark);
-    margin-right: 2px;
+    margin-right: 0px;
     flex-shrink: 0;
 }
 
@@ -108,11 +109,11 @@
 .card-right-side {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
     flex-shrink: 0;
     margin-left: auto;
     color: var(--wmv-text-dark);
-    padding-left: 4px;
+    padding-left: 0px;
 }
 
 .card-time {
@@ -177,9 +178,9 @@
         display: flex;
         flex-direction: row;
         align-items: center;
-        padding: 8px 10px;
-        min-height: 48px;
-        gap: 4px;
+        padding: 2px 2px;
+        min-height: 36px;
+        gap: 1px;
     }
 
     .card-rank {
@@ -217,7 +218,7 @@
         line-height: 1.2;
         min-width: 0;
         flex: 0 1 auto;
-        max-width: 75px;
+        max-width: 120px;
     }
 
     .card-points-row {
