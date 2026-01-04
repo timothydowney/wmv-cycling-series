@@ -41,7 +41,7 @@ const WebhookEventCard: React.FC<WebhookEventCardProps> = ({
   return (
     <div className={cssClass}>
       {/* Card Header */}
-      <div className="card-header">
+      <div className="webhook-card-header">
         <div className="header-left">
           <span className="header-created">Created</span>
           <span className="header-timestamp">{formatUtcIsoDateTime(event.created_at)}</span>

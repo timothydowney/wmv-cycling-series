@@ -56,3 +56,11 @@
     transform: scale(1);
   }
 }
+
+@media (max-width: 600px) {
+  .ghost-badge {
+    margin-left: 6px;
+    padding: 1px 5px;
+    font-size: 0.7rem;
+  }
+}

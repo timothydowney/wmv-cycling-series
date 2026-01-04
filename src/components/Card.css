@@ -170,3 +170,91 @@
         transform: translateY(0);
     }
 }
+
+/* Responsive adjustments for mobile */
+@media (max-width: 600px) {
+    .card-header {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        padding: 8px 10px;
+        min-height: 48px;
+        gap: 4px;
+    }
+
+    .card-rank {
+        font-size: 1rem;
+        font-weight: 700;
+        width: 18px;
+        margin: 0;
+        flex-shrink: 0;
+        text-align: center;
+    }
+
+    .card-avatar {
+        margin: 0;
+        flex-shrink: 0;
+        display: flex;
+    }
+
+    .card-main-info {
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 4px;
+        margin: 0;
+        min-width: 0;
+    }
+
+    .card-name {
+        font-size: 0.85rem;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin: 0;
+        line-height: 1.2;
+        min-width: 0;
+        flex: 0 1 auto;
+        max-width: 75px;
+    }
+
+    .card-points-row {
+        font-size: 0.7rem;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        margin: 0;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+
+    .card-right-side {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 3px;
+        margin: 0 0 0 auto;
+        padding: 0;
+        flex-shrink: 0;
+    }
+
+    .card-time {
+        font-size: 0.8rem;
+        font-weight: 500;
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+    }
+
+    .card-chevron {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+    }
+}
