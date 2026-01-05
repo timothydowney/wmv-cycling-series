@@ -225,6 +225,7 @@ function AppContent() {
               <ScheduleTable weeks={weeks as Week[]} season={selectedSeason || undefined} />
             )}
 
+            <div className="bottom-nav-spacer" />
             <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
           </>
         )}
