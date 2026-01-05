@@ -6,6 +6,7 @@ import { calculateWeekScoringDrizzle } from '../services/ScoringServiceDrizzle';
 import { getAthleteProfilePictures } from '../services/StravaProfileService';
 import { GhostService } from '../services/GhostService';
 import { LeaderboardEntryWithDetails } from './types';
+import { HydrationService } from '../services/HydrationService';
 
 // Helper to format seconds into HH:MM:SS or MM:SS
 function formatSecondsToHHMMSS(totalSeconds: number | null): string {
@@ -124,6 +125,11 @@ export const leaderboardRouter = router({
                 time_seconds: segmentEffort.elapsed_seconds,
                 pr_achieved: segmentEffort.pr_achieved,
                 strava_effort_id: segmentEffort.strava_effort_id,
+                average_watts: segmentEffort.average_watts,
+                average_heartrate: segmentEffort.average_heartrate,
+                max_heartrate: segmentEffort.max_heartrate,
+                average_cadence: segmentEffort.average_cadence,
+                device_watts: segmentEffort.device_watts,
               })
                 .from(segmentEffort)
                 .where(eq(segmentEffort.activity_id, rawResult.activity_id))
@@ -141,7 +147,12 @@ export const leaderboardRouter = router({
                 time_seconds: e.time_seconds,
                 time_hhmmss: formatSecondsToHHMMSS(e.time_seconds),
                 is_pr: e.pr_achieved === 1,
-                strava_effort_id: e.strava_effort_id || undefined
+                strava_effort_id: e.strava_effort_id || undefined,
+                average_watts: e.average_watts,
+                average_heartrate: e.average_heartrate,
+                max_heartrate: e.max_heartrate,
+                average_cadence: e.average_cadence,
+                device_watts: e.device_watts,
               }));
             }
 
@@ -183,8 +194,8 @@ export const leaderboardRouter = router({
                   day: 'numeric',
                 })
                 : '',
-              // Only show effort breakdown if more than 1 lap required
-              effort_breakdown: weekData.required_laps > 1 && effortBreakdown.length > 0 ? effortBreakdown : null,
+              // Always show effort breakdown if we have efforts
+              effort_breakdown: effortBreakdown.length > 0 ? effortBreakdown : null,
               device_name: rawResult.device_name,
               ghost_comparison: ghostComparison,
             };
@@ -297,5 +308,58 @@ export const leaderboardRouter = router({
         strava_athlete_id: res.participantId, // Aliasing for frontend compat if needed
         profile_picture_url: profilePictures.get(res.participantId) || null
       }));
+    }),
+
+  hydrateEffortDetails: publicProcedure
+    .input(z.object({
+      stravaActivityId: z.string(),
+      stravaAthleteId: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const { orm: drizzleDb } = ctx;
+        const hydrationService = new HydrationService(drizzleDb);
+        
+        const res = await hydrationService.hydrateByStravaId(input.stravaActivityId);
+        
+        if (!res.success) {
+          return { success: false, message: res.message };
+        }
+
+        // Fetch updated efforts to return to UI
+        const dbActivity = await drizzleDb.select()
+          .from(activity)
+          .where(eq(activity.strava_activity_id, input.stravaActivityId))
+          .get();
+
+        if (!dbActivity) {
+          return { success: false, message: 'Activity not found after hydration' };
+        }
+
+        const updatedEfforts = await drizzleDb.select()
+          .from(segmentEffort)
+          .where(eq(segmentEffort.activity_id, dbActivity.id))
+          .orderBy(segmentEffort.effort_index)
+          .all();
+
+        return {
+          success: true,
+          updatedCount: res.updatedCount,
+          efforts: updatedEfforts.map(e => ({
+            lap: e.effort_index + 1,
+            average_watts: e.average_watts,
+            average_heartrate: e.average_heartrate,
+            max_heartrate: e.max_heartrate,
+            average_cadence: e.average_cadence,
+            device_watts: e.device_watts,
+          }))
+        };
+      } catch (error) {
+        console.error('Error hydrating effort details:', error);
+        return {
+          success: false,
+          message: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
     }),
 });

@@ -42,6 +42,59 @@ interface BestActivity {
 }
 
 /**
+ * Find the best (fastest) consecutive window of segment efforts
+ * 
+ * @param matchingEfforts - List of segment efforts for the target segment
+ * @param requiredLaps - Number of consecutive laps required
+ * @returns The best window or null if insufficient efforts
+ */
+export function findBestConsecutiveWindow(
+  matchingEfforts: SegmentEffortResponse[],
+  requiredLaps: number
+): {
+  efforts: SegmentEffortResponse[];
+  totalTime: number;
+  startIndex: number;
+  lapIndices: number[];
+} | null {
+  if (matchingEfforts.length < requiredLaps) {
+    return null;
+  }
+
+  if (matchingEfforts.length === requiredLaps) {
+    return {
+      efforts: matchingEfforts,
+      totalTime: matchingEfforts.reduce((sum, e) => sum + e.elapsed_time, 0),
+      startIndex: 0,
+      lapIndices: Array.from({ length: requiredLaps }, (_, i) => i)
+    };
+  }
+
+  const windows: Array<{
+    startIndex: number;
+    efforts: SegmentEffortResponse[];
+    totalTime: number;
+    lapIndices: number[];
+  }> = [];
+
+  for (let i = 0; i <= matchingEfforts.length - requiredLaps; i++) {
+    const window = matchingEfforts.slice(i, i + requiredLaps);
+    const windowTotalTime = window.reduce((sum, e) => sum + e.elapsed_time, 0);
+    const lapIndices = Array.from({ length: requiredLaps }, (_, idx) => i + idx);
+    windows.push({
+      startIndex: i,
+      efforts: window,
+      totalTime: windowTotalTime,
+      lapIndices
+    });
+  }
+
+  return windows.reduce((best, current) =>
+    current.totalTime < (best?.totalTime ?? Infinity) ? current : best
+  );
+}
+
+/**
  * Find the best qualifying activity among a list
  *
  * Criteria:
@@ -165,7 +218,7 @@ async function findBestQualifyingActivity(
 
       // Filter to segment efforts matching our target segment
       const matchingEfforts = fullActivity.segment_efforts.filter(
-        (effort) => effort.segment?.id === targetSegmentId
+        (effort) => effort.segment?.id !== undefined && String(effort.segment.id) === String(targetSegmentId)
       );
 
       // Log what segments we found vs what we were looking for
@@ -212,118 +265,70 @@ async function findBestQualifyingActivity(
       }
 
       // Check if this activity qualifies
-      if (matchingEfforts.length < requiredLaps) {
+      const bestWindow = findBestConsecutiveWindow(matchingEfforts, requiredLaps);
+
+      if (!bestWindow) {
         console.log(
           `  ✗ Insufficient repetitions: found ${matchingEfforts.length}, need ${requiredLaps}`
         );
         continue;
       }
 
-      // Find the best consecutive window of requiredLaps efforts
-      // When an athlete rides a segment multiple times, we want the fastest
-      // consecutive set (their best effort of the day), not scattered efforts
-      
-      let selectedEfforts: typeof matchingEfforts = [];
-      let selectedTotalTime = Infinity;
-      let selectedWindowIndex = -1;
-      let selectedLapIndices: number[] = []; // Track which lap indices were selected
-
-      if (matchingEfforts.length === requiredLaps) {
-        // Exact number of efforts - use them all (they're already in order)
-        selectedEfforts = matchingEfforts;
-        selectedTotalTime = matchingEfforts.reduce((sum, e) => sum + e.elapsed_time, 0);
-        selectedWindowIndex = 0;
-        selectedLapIndices = Array.from({ length: requiredLaps }, (_, i) => i); // [0, 1, 2, ...]
-        console.log(
-          `  ℹ Exact match: ${requiredLaps} efforts found, using all of them`
-        );
-        if (onLog) {
-          onLog(LogLevel.Success, `✓ Perfect match: all ${requiredLaps} laps will be used`);
-        }
-      } else if (matchingEfforts.length > requiredLaps) {
-        // More efforts than required - find the best consecutive window
+      // Log window analysis if there were multiple options
+      if (matchingEfforts.length > requiredLaps) {
         console.log(
           `  ℹ Multiple attempts: ${matchingEfforts.length} efforts found, finding best consecutive ${requiredLaps}-lap window`
         );
         if (onLog) {
           onLog(LogLevel.Info, `Multiple laps found (${matchingEfforts.length}), selecting best consecutive ${requiredLaps}-lap window...`);
         }
-        
-        const windows: Array<{
-          index: number;
-          efforts: typeof matchingEfforts;
-          totalTime: number;
-          lapIndices: number[];
-        }> = [];
 
-        // Evaluate all possible consecutive windows
+        // Log all windows for debugging
         for (let i = 0; i <= matchingEfforts.length - requiredLaps; i++) {
           const window = matchingEfforts.slice(i, i + requiredLaps);
           const windowTotalTime = window.reduce((sum, e) => sum + e.elapsed_time, 0);
-          const lapIndices = Array.from({ length: requiredLaps }, (_, idx) => i + idx); // [i, i+1, i+2, ...]
-          windows.push({
-            index: i,
-            efforts: window,
-            totalTime: windowTotalTime,
-            lapIndices
-          });
-        }
-
-        // Log all windows for debugging (both console and UI logs)
-        console.log(`    Analyzing ${windows.length} possible consecutive windows:`);
-        windows.forEach((window) => {
-          const effortTimes = window.efforts.map(e => {
+          const effortTimes = window.map(e => {
             const m = Math.floor(e.elapsed_time / 60);
             const s = e.elapsed_time % 60;
             return `${m}:${s.toString().padStart(2, '0')}`;
           }).join(' + ');
-          const totalMinutes = Math.floor(window.totalTime / 60);
-          const totalSeconds = window.totalTime % 60;
+          const totalMinutes = Math.floor(windowTotalTime / 60);
+          const totalSeconds = windowTotalTime % 60;
           const totalTimeStr = `${totalMinutes}:${totalSeconds.toString().padStart(2, '0')}`;
-          console.log(`      Window ${window.index + 1}: ${effortTimes} = ${totalTimeStr}`);
-        });
-        
-        // Log to UI with window analysis
-        if (onLog) {
-          onLog(LogLevel.Info, `Analyzing ${windows.length} possible consecutive windows:`);
-          windows.forEach((window) => {
-            const effortTimes = window.efforts.map(e => {
-              const m = Math.floor(e.elapsed_time / 60);
-              const s = e.elapsed_time % 60;
-              return `${m}:${s.toString().padStart(2, '0')}`;
-            }).join(' + ');
-            const totalMinutes = Math.floor(window.totalTime / 60);
-            const totalSeconds = window.totalTime % 60;
-            const totalTimeStr = `${totalMinutes}:${totalSeconds.toString().padStart(2, '0')}`;
-            const lapNums = window.lapIndices.map(idx => idx + 1).join(', ');
-            const effortLinks = window.efforts.map(effort => ({
+          console.log(`      Window ${i + 1}: ${effortTimes} = ${totalTimeStr}`);
+          
+          if (onLog) {
+            const lapNums = Array.from({ length: requiredLaps }, (_, idx) => i + idx + 1).join(', ');
+            const effortLinks = window.map(effort => ({
               effortId: String(effort.id),
               activityId: fullActivity.id
             }));
-            onLog(LogLevel.Info, `  Window ${window.index + 1} (laps ${lapNums}): ${effortTimes} = ${totalTimeStr}`, undefined, effortLinks);
-          });
+            onLog(LogLevel.Info, `  Window ${i + 1} (laps ${lapNums}): ${effortTimes} = ${totalTimeStr}`, undefined, effortLinks);
+          }
         }
-
-        // Find the best (fastest) window
-        const bestWindow = windows.reduce((best, current) =>
-          current.totalTime < best.totalTime ? current : best
-        );
-
-        selectedEfforts = bestWindow.efforts;
-        selectedTotalTime = bestWindow.totalTime;
-        selectedWindowIndex = bestWindow.index;
-        selectedLapIndices = bestWindow.lapIndices;
-
+      } else {
         console.log(
-          `    ★ Best window: #${selectedWindowIndex + 1} with total time ${Math.round(selectedTotalTime / 60)} min (${selectedTotalTime}s)`
+          `  ℹ Exact match: ${requiredLaps} efforts found, using all of them`
         );
         if (onLog) {
-          const bestMinutes = Math.floor(bestWindow.totalTime / 60);
-          const bestSeconds = bestWindow.totalTime % 60;
-          const bestTimeStr = `${bestMinutes}:${bestSeconds.toString().padStart(2, '0')}`;
-          const lapNums = bestWindow.lapIndices.map(idx => idx + 1).join(', ');
-          onLog(LogLevel.Success, `✓ Matched! ${bestTimeStr} (laps ${lapNums} of ${matchingEfforts.length})`);
+          onLog(LogLevel.Success, `✓ Perfect match: all ${requiredLaps} laps will be used`);
         }
+      }
+
+      const selectedEfforts = bestWindow.efforts;
+      const selectedTotalTime = bestWindow.totalTime;
+      const selectedWindowIndex = bestWindow.startIndex;
+      const selectedLapIndices = bestWindow.lapIndices;
+
+      console.log(
+        `    ★ Best window: #${selectedWindowIndex + 1} with total time ${Math.round(selectedTotalTime / 60)} min (${selectedTotalTime}s)`
+      );
+      if (onLog) {
+        const bestMinutes = Math.floor(selectedTotalTime / 60);
+        const bestSeconds = selectedTotalTime % 60;
+        const bestTimeStr = `${bestMinutes}:${bestSeconds.toString().padStart(2, '0')}`;
+        const lapNums = selectedLapIndices.map(idx => idx + 1).join(', ');
+        onLog(LogLevel.Success, `✓ Matched! ${bestTimeStr} (laps ${lapNums} of ${matchingEfforts.length})`);
       }
 
       const totalTime = selectedTotalTime;

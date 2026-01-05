@@ -134,7 +134,12 @@ function storeActivityAndEfforts(
         effort_index: i,
         elapsed_seconds: effort.elapsed_time,
         start_at: effortStartUnix || 0,
-        pr_achieved: prAchieved
+        pr_achieved: prAchieved,
+        average_watts: effort.average_watts || null,
+        average_heartrate: effort.average_heartrate || null,
+        max_heartrate: effort.max_heartrate || null,
+        average_cadence: effort.average_cadence || null,
+        device_watts: effort.device_watts ?? null
       }).run();
     }
 

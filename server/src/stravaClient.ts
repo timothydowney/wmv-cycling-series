@@ -56,6 +56,11 @@ interface SegmentEffort {
   elapsed_time: number;
   start_date: string;
   pr_rank?: number | null;
+  average_watts?: number;
+  average_heartrate?: number;
+  max_heartrate?: number;
+  average_cadence?: number;
+  device_watts?: boolean;
   [key: string]: unknown;
 }
 

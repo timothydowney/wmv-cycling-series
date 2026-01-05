@@ -67,6 +67,11 @@ export const segmentEffort = sqliteTable('segment_effort', {
   elapsed_seconds: integer('elapsed_seconds').notNull(),
   start_at: integer('start_at').notNull(),
   pr_achieved: integer('pr_achieved'),
+  average_watts: real('average_watts'),
+  average_heartrate: real('average_heartrate'),
+  max_heartrate: real('max_heartrate'),
+  average_cadence: real('average_cadence'),
+  device_watts: integer('device_watts', { mode: 'boolean' }),
 },
 (t) => [
   index('idx_segment_effort_activity').on(t.activity_id),
