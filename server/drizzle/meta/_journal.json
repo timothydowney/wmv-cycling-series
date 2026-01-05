@@ -29,6 +29,13 @@
       "when": 1767318126739,
       "tag": "0003_lucky_franklin_richards",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1767624566905,
+      "tag": "0004_chief_skaar",
+      "breakpoints": true
     }
   ]
 }

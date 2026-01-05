@@ -23,6 +23,7 @@ import WeekService from './services/WeekService';
 import SeasonService from './services/SeasonService';
 import ParticipantService from './services/ParticipantService';
 import { AuthorizationService } from './services/AuthorizationService';
+import { HydrationService } from './services/HydrationService';
 import authRouter from './routes/auth';
 import publicRouter from './routes/public';
 import fallbackRouter from './routes/fallback';
@@ -313,6 +314,13 @@ if (!isTestMode()) {
     // Start automatic webhook subscription renewal service
     const webhookRenewalService = new WebhookRenewalService(drizzleDb);
     webhookRenewalService.start();
+
+    // Start background hydration sweep for missing performance metrics
+    // This runs once at startup to "seed" any data that was scraped without metrics
+    const hydrationService = new HydrationService(drizzleDb);
+    hydrationService.sweepAndHydrate(50).catch(err => {
+      console.error('[Hydration] Background sweep failed:', err);
+    });
     
     // ===== TIMEZONE DIAGNOSTICS =====
     const utcString = new Date().toISOString(); // Using standard JS for now

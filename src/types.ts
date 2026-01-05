@@ -80,7 +80,18 @@ export interface LeaderboardEntry {
   activity_url: string;
   activity_date: string;
   profile_picture_url?: string | null;
-  effort_breakdown?: any[] | null;
+  effort_breakdown?: {
+    lap: number;
+    time_seconds: number;
+    time_hhmmss: string;
+    is_pr?: boolean;
+    strava_effort_id?: string;
+    average_watts?: number | null;
+    average_heartrate?: number | null;
+    max_heartrate?: number | null;
+    average_cadence?: number | null;
+    device_watts?: boolean | null;
+  }[] | null;
   strava_effort_id?: string;
   device_name?: string | null;
   ghost_comparison?: {

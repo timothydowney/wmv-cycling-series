@@ -30,6 +30,11 @@ export interface LeaderboardEntryWithDetails {
     time_hhmmss: string;
     is_pr?: boolean;
     strava_effort_id?: string;
+    average_watts?: number | null;
+    average_heartrate?: number | null;
+    max_heartrate?: number | null;
+    average_cadence?: number | null;
+    device_watts?: boolean | null;
   }> | null;
   strava_effort_id?: string;
   device_name?: string | null;

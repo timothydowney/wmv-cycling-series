@@ -463,4 +463,51 @@ describe('Activity Processor', () => {
       expect(result.id).toBe('1');
     });
   });
+
+  describe('findBestConsecutiveWindow', () => {
+    test('returns null if insufficient efforts', () => {
+      const efforts = [{ elapsed_time: 100 }];
+      const result = activityProcessor.findBestConsecutiveWindow(efforts, 2);
+      expect(result).toBeNull();
+    });
+
+    test('returns all efforts if count matches required laps', () => {
+      const efforts = [
+        { elapsed_time: 100 },
+        { elapsed_time: 200 }
+      ];
+      const result = activityProcessor.findBestConsecutiveWindow(efforts, 2);
+      expect(result.efforts).toHaveLength(2);
+      expect(result.totalTime).toBe(300);
+      expect(result.startIndex).toBe(0);
+      expect(result.lapIndices).toEqual([0, 1]);
+    });
+
+    test('selects the fastest consecutive window', () => {
+      const efforts = [
+        { elapsed_time: 100 }, // Window 1: 100+200=300
+        { elapsed_time: 200 }, // Window 2: 200+50=250  <-- Best
+        { elapsed_time: 50 },  // Window 3: 50+300=350
+        { elapsed_time: 300 }
+      ];
+      const result = activityProcessor.findBestConsecutiveWindow(efforts, 2);
+      expect(result.startIndex).toBe(1);
+      expect(result.totalTime).toBe(250);
+      expect(result.lapIndices).toEqual([1, 2]);
+      expect(result.efforts[0].elapsed_time).toBe(200);
+      expect(result.efforts[1].elapsed_time).toBe(50);
+    });
+
+    test('handles single lap requirement', () => {
+      const efforts = [
+        { elapsed_time: 100 },
+        { elapsed_time: 50 },
+        { elapsed_time: 200 }
+      ];
+      const result = activityProcessor.findBestConsecutiveWindow(efforts, 1);
+      expect(result.startIndex).toBe(1);
+      expect(result.totalTime).toBe(50);
+      expect(result.lapIndices).toEqual([1]);
+    });
+  });
 });
