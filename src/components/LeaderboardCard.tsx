@@ -5,6 +5,8 @@ import './Card.css'; // Shared card styles
 import './WeeklyLeaderboard.css'; // Keeping for now if it has other needed styles, but Card styles are moved.
 import StravaAthleteBadge from './StravaAthleteBadge';
 import { GhostBadge } from './GhostBadge';
+import { trpc } from '../utils/trpc';
+import { BoltIcon, HeartIcon, ArrowPathIcon, ClockIcon } from '@heroicons/react/24/outline';
 
 interface Props {
     entry: LeaderboardEntry;
@@ -23,6 +25,13 @@ export const LeaderboardCard: React.FC<Props> = ({
     onToggle,
     isCurrentUser
 }) => {
+    const utils = trpc.useUtils();
+    const hydrateMutation = trpc.leaderboard.hydrateEffortDetails.useMutation({
+        onSuccess: () => {
+            utils.leaderboard.getWeekLeaderboard.invalidate();
+        }
+    });
+
     // Logic for display
     const multiplier = week?.multiplier || 1;
     const baseTotal = entry.points / multiplier;
@@ -33,6 +42,47 @@ export const LeaderboardCard: React.FC<Props> = ({
 
     // Extract activity ID from URL for linking
     const activityId = entry.activity_url?.match(/activities\/(\d+)/)?.[1];
+
+    // Calculate performance metrics early so they can be used in useEffect
+    const efforts = entry.effort_breakdown || [];
+    const hasPerformanceData = efforts.some(e => e.average_watts != null || e.average_heartrate != null || e.average_cadence != null);
+
+    React.useEffect(() => {
+        if (isExpanded && !hasPerformanceData && activityId && !hydrateMutation.isPending && !hydrateMutation.isError && !hydrateMutation.isSuccess) {
+            hydrateMutation.mutate({ 
+                stravaActivityId: activityId,
+                stravaAthleteId: entry.participant_id
+            });
+        }
+    }, [isExpanded, hasPerformanceData, activityId, hydrateMutation, entry.participant_id]);
+
+    // Calculate averages for the pills
+    const effortsWithWatts = efforts.filter(e => e.average_watts != null);
+    const avgWatts = effortsWithWatts.length > 0
+        ? Math.round(effortsWithWatts.reduce((acc, e) => acc + (e.average_watts || 0), 0) / effortsWithWatts.length)
+        : null;
+
+    const effortsWithHR = efforts.filter(e => e.average_heartrate != null);
+    const avgHR = effortsWithHR.length > 0
+        ? Math.round(effortsWithHR.reduce((acc, e) => acc + (e.average_heartrate || 0), 0) / effortsWithHR.length)
+        : null;
+
+    const effortsWithCadence = efforts.filter(e => e.average_cadence != null);
+    const avgCadence = effortsWithCadence.length > 0
+        ? Math.round(effortsWithCadence.reduce((acc, e) => acc + (e.average_cadence || 0), 0) / effortsWithCadence.length)
+        : null;
+
+    const avgLapTimeSeconds = efforts.length > 1
+        ? Math.round(efforts.reduce((acc, e) => acc + (e.time_seconds || 0), 0) / efforts.length)
+        : null;
+
+    const formatTime = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    const isEstimatedWatts = efforts.some(e => e.average_watts != null && e.device_watts !== true);
 
     return (
         <div
@@ -91,13 +141,6 @@ export const LeaderboardCard: React.FC<Props> = ({
                 <div className="card-right-side">
                     <div className="card-time" style={{ display: 'flex', alignItems: 'center' }}>
                         {entry.time_hhmmss}
-                        {entry.ghost_comparison && (
-                            <GhostBadge
-                                timeDiffSeconds={entry.ghost_comparison.time_diff_seconds}
-                                previousWeekName={entry.ghost_comparison.previous_week_name}
-                                stravaActivityId={entry.ghost_comparison.strava_activity_id}
-                            />
-                        )}
                     </div>
 
                     <div className="card-chevron" style={{
@@ -158,35 +201,65 @@ export const LeaderboardCard: React.FC<Props> = ({
                                             fontWeight: 500,
                                             paddingLeft: '8px',
                                             display: 'flex',
-                                            justifyContent: 'flex-end',
-                                            alignItems: 'center',
-                                            gap: '6px'
+                                            flexDirection: 'column',
+                                            alignItems: 'flex-end',
+                                            gap: '2px'
                                         }}>
-                                            {effort.is_pr && (
-                                                <span title="PR on this lap" style={{ display: 'flex', alignItems: 'center' }}>
-                                                    <svg
-                                                        xmlns="http://www.w3.org/2000/svg"
-                                                        viewBox="0 0 24 24"
-                                                        fill="currentColor"
-                                                        width="12"
-                                                        height="12"
-                                                        style={{ color: 'var(--wmv-orange)' }}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                {effort.is_pr && (
+                                                    <span title="PR on this lap" style={{ display: 'flex', alignItems: 'center' }}>
+                                                        <svg
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                            viewBox="0 0 24 24"
+                                                            fill="currentColor"
+                                                            width="12"
+                                                            height="12"
+                                                            style={{ color: 'var(--wmv-orange)' }}
+                                                        >
+                                                            <path fillRule="evenodd" d="M5.166 2.621v.858c-1.035.148-2.059.33-3.052.543a.5.5 0 0 0-.378.641l1.721 5.91c.273.938.927 1.655 1.71 1.991A5.797 5.797 0 0 0 9 13.917v.28c0 2.207 1.76 4.02 3.969 4.28l.204.023a8.216 8.216 0 0 1-4.706 1.1c-.815 0-1.187.975-.54 1.545 2.14 1.884 5.378 1.884 7.518 0 .647-.57-.375-1.545-.54-1.545a8.218 8.218 0 0 1-4.706-1.1l.204-.023c2.209-.26 3.969-2.073 3.969-4.28v-.28a5.795 5.795 0 0 0 3.834-1.353c.783-.336 1.437-1.052 1.71-1.991l1.721-5.91a.5.5 0 0 0-.378-.641 9.94 9.94 0 0 0-3.052-.543V2.62a.75.75 0 0 0-.75-.75h-13.5a.75.75 0 0 0-.75.75Zm12.636 1.738a8.436 8.436 0 0 1 2.502.5.501.501 0 0 1 .184.148l-1.042 3.575a4.34 4.34 0 0 1-.803.951 7.277 7.277 0 0 0 1.93-4.665 8.169 8.169 0 0 1-2.771-.51ZM5.38 5.174l-1.042 3.575a.502.502 0 0 0 .185.148 8.437 8.437 0 0 0 2.502-.5 8.17 8.17 0 0 0-2.772.509 7.278 7.278 0 0 1 1.93 4.665 4.341 4.341 0 0 0-.803-.951Z" clipRule="evenodd" />
+                                                        </svg>
+                                                    </span>
+                                                )}
+                                                {effort.strava_effort_id && activityId ? (
+                                                    <a
+                                                        href={`https://www.strava.com/activities/${activityId}/segments/${effort.strava_effort_id}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        style={{ color: 'var(--wmv-text-dark)', textDecoration: 'none' }}
+                                                        onClick={(e) => e.stopPropagation()}
                                                     >
-                                                        <path fillRule="evenodd" d="M5.166 2.621v.858c-1.035.148-2.059.33-3.052.543a.5.5 0 0 0-.378.641l1.721 5.91c.273.938.927 1.655 1.71 1.991A5.797 5.797 0 0 0 9 13.917v.28c0 2.207 1.76 4.02 3.969 4.28l.204.023a8.216 8.216 0 0 1-4.706 1.1c-.815 0-1.187.975-.54 1.545 2.14 1.884 5.378 1.884 7.518 0 .647-.57-.375-1.545-.54-1.545a8.218 8.218 0 0 1-4.706-1.1l.204-.023c2.209-.26 3.969-2.073 3.969-4.28v-.28a5.795 5.795 0 0 0 3.834-1.353c.783-.336 1.437-1.052 1.71-1.991l1.721-5.91a.5.5 0 0 0-.378-.641 9.94 9.94 0 0 0-3.052-.543V2.62a.75.75 0 0 0-.75-.75h-13.5a.75.75 0 0 0-.75.75Zm12.636 1.738a8.436 8.436 0 0 1 2.502.5.501.501 0 0 1 .184.148l-1.042 3.575a4.34 4.34 0 0 1-.803.951 7.277 7.277 0 0 0 1.93-4.665 8.169 8.169 0 0 1-2.771-.51ZM5.38 5.174l-1.042 3.575a.502.502 0 0 0 .185.148 8.437 8.437 0 0 0 2.502-.5 8.17 8.17 0 0 0-2.772.509 7.278 7.278 0 0 1 1.93 4.665 4.341 4.341 0 0 0-.803-.951Z" clipRule="evenodd" />
-                                                    </svg>
-                                                </span>
+                                                        {effort.time_hhmmss}
+                                                    </a>
+                                                ) : effort.time_hhmmss}
+                                            </div>
+                                            {(effort.average_watts || effort.average_heartrate || effort.average_cadence) && (
+                                                <div style={{
+                                                    display: 'flex',
+                                                    gap: '4px',
+                                                    marginTop: '4px',
+                                                    flexWrap: 'wrap',
+                                                    justifyContent: 'flex-end'
+                                                }}>
+                                                    {effort.average_watts && (
+                                                        <div className="week-header-chip" style={{ padding: '2px 8px', fontSize: '0.7rem', borderRadius: '12px' }} title={effort.device_watts ? "Measured Power" : "Estimated Power"}>
+                                                            <BoltIcon className="week-header-chip-icon" style={{ width: '10px', height: '10px', marginRight: '4px' }} />
+                                                            {Math.round(effort.average_watts)}W{effort.device_watts ? '' : ' (est)'}
+                                                        </div>
+                                                    )}
+                                                    {effort.average_heartrate && (
+                                                        <div className="week-header-chip" style={{ padding: '2px 8px', fontSize: '0.7rem', borderRadius: '12px' }} title="Average Heart Rate">
+                                                            <HeartIcon className="week-header-chip-icon" style={{ width: '10px', height: '10px', marginRight: '4px' }} />
+                                                            {Math.round(effort.average_heartrate)} bpm
+                                                        </div>
+                                                    )}
+                                                    {effort.average_cadence && (
+                                                        <div className="week-header-chip" style={{ padding: '2px 8px', fontSize: '0.7rem', borderRadius: '12px' }} title="Average Cadence">
+                                                            <ArrowPathIcon className="week-header-chip-icon" style={{ width: '10px', height: '10px', marginRight: '4px' }} />
+                                                            {Math.round(effort.average_cadence)} rpm
+                                                        </div>
+                                                    )}
+                                                </div>
                                             )}
-                                            {effort.strava_effort_id && activityId ? (
-                                                <a
-                                                    href={`https://www.strava.com/activities/${activityId}/segments/${effort.strava_effort_id}`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    style={{ color: 'var(--wmv-text-dark)', textDecoration: 'none' }}
-                                                    onClick={(e) => e.stopPropagation()}
-                                                >
-                                                    {effort.time_hhmmss}
-                                                </a>
-                                            ) : effort.time_hhmmss}
                                         </div>
                                     </React.Fragment>
                                 ))}
@@ -243,6 +316,83 @@ export const LeaderboardCard: React.FC<Props> = ({
                                 {' = '}
                                 <strong>{entry.points} points total</strong>
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Performance Metrics */}
+                    <div style={{ marginBottom: '16px' }}>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            color: 'var(--wmv-text-light)',
+                            fontSize: '0.85rem',
+                            fontWeight: 600,
+                            marginBottom: '8px',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px'
+                        }}>
+                            <BoltIcon width={14} height={14} />
+                            Performance Metrics
+                        </div>
+
+                        <div style={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: '8px',
+                            backgroundColor: 'white',
+                            padding: '10px',
+                            borderRadius: '8px',
+                            border: '1px solid #eee',
+                            minHeight: '42px',
+                            alignItems: 'center'
+                        }}>
+                            {hasPerformanceData || avgLapTimeSeconds ? (
+                                <>
+                                    {avgLapTimeSeconds !== null && (
+                                        <div className="week-header-chip" title="Average Lap Time">
+                                            <ClockIcon className="week-header-chip-icon" />
+                                            {formatTime(avgLapTimeSeconds)} avg
+                                        </div>
+                                    )}
+                                    {avgWatts !== null && (
+                                        <div className="week-header-chip" title={isEstimatedWatts ? "Estimated Average Power" : "Average Power"}>
+                                            <BoltIcon className="week-header-chip-icon" />
+                                            {avgWatts}W{isEstimatedWatts ? ' (est)' : ''}
+                                        </div>
+                                    )}
+                                    {avgHR !== null && (
+                                        <div className="week-header-chip" title="Average Heart Rate">
+                                            <HeartIcon className="week-header-chip-icon" />
+                                            {avgHR} bpm
+                                        </div>
+                                    )}
+                                    {avgCadence !== null && (
+                                        <div className="week-header-chip" title="Average Cadence">
+                                            <ArrowPathIcon className="week-header-chip-icon" />
+                                            {avgCadence} rpm
+                                        </div>
+                                    )}
+                                    {entry.ghost_comparison && (
+                                        <GhostBadge
+                                            timeDiffSeconds={entry.ghost_comparison.time_diff_seconds}
+                                            previousWeekName={entry.ghost_comparison.previous_week_name}
+                                            stravaActivityId={entry.ghost_comparison.strava_activity_id}
+                                        />
+                                    )}
+                                </>
+                            ) : (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                                    <span style={{ fontSize: '0.8rem', color: 'var(--wmv-text-light)', fontStyle: 'italic' }}>
+                                        No performance data available
+                                    </span>
+                                    {activityId && (
+                                        <span style={{ fontSize: '0.75rem', color: 'var(--wmv-text-light)', fontStyle: 'italic' }}>
+                                            {hydrateMutation.isPending ? 'Loading performance metrics...' : ''}
+                                        </span>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
 
