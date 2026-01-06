@@ -3,6 +3,7 @@ import { Week, Season } from '../types';
 import { formatUnixDate } from '../utils/dateUtils';
 import { NotesDisplay } from './NotesDisplay';
 import { WeeklyHeader } from './WeeklyHeader';
+import { CollapsibleSegmentProfile } from './CollapsibleSegmentProfile';
 import './ScheduleTable.css';
 
 interface Props {
@@ -88,20 +89,27 @@ const ScheduleTable: React.FC<Props> = ({ weeks, season }) => {
                   paddingTop: '32px', // Extra padding to clear the overlap
                   animation: 'slideDown 0.2s ease-out'
                 }}>
-                  <h4 style={{
-                    margin: '0 0 12px 0',
-                    fontSize: '0.9rem',
-                    textTransform: 'uppercase',
-                    color: 'var(--wmv-text-light)',
-                    letterSpacing: '0.05em'
-                  }}>
-                    Week Notes
-                  </h4>
-                  {week.notes ? (
-                    <NotesDisplay markdown={week.notes} />
-                  ) : (
-                    <div style={{ color: 'var(--wmv-text-light)', fontStyle: 'italic', padding: '12px 0' }}>
-                      No notes for this week.
+                  {week.notes && (
+                    <div style={{ marginBottom: week.strava_segment_id ? '24px' : '0' }}>
+                      <h4 style={{
+                        margin: '0 0 12px 0',
+                        fontSize: '0.9rem',
+                        textTransform: 'uppercase',
+                        color: 'var(--wmv-text-light)',
+                        letterSpacing: '0.05em'
+                      }}>
+                        Week Notes
+                      </h4>
+                      <NotesDisplay markdown={week.notes} />
+                    </div>
+                  )}
+
+                  {week.strava_segment_id && (
+                    <div style={{ marginTop: week.notes ? '24px' : '0' }}>
+                      <CollapsibleSegmentProfile 
+                        segmentId={week.strava_segment_id} 
+                        defaultExpanded={true} 
+                      />
                     </div>
                   )}
                 </div>
