@@ -6,7 +6,7 @@ import { config } from '../config';
 
 export const participantRouter = router({
   getAuthStatus: publicProcedure.query(async ({ ctx }) => {
-    const athleteId = ctx.session?.stravaAthleteId;
+    const athleteId = ctx.userId;
     const loginService = new LoginService(ctx.orm, () => config.adminAthleteIds);
     return loginService.getAuthStatus(athleteId);
   }),
