@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Week, Season } from '../types';
 import { formatUnixDate } from '../utils/dateUtils';
 import { NotesDisplay } from './NotesDisplay';
@@ -112,6 +113,26 @@ const ScheduleTable: React.FC<Props> = ({ weeks, season }) => {
                       />
                     </div>
                   )}
+
+                  <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'center' }}>
+                    <Link 
+                      to={`/leaderboard/${week.season_id}/weekly/${week.id}`}
+                      className="view-results-button"
+                      style={{
+                        backgroundColor: 'var(--wmv-purple)',
+                        color: 'white',
+                        padding: '10px 20px',
+                        borderRadius: '12px',
+                        textDecoration: 'none',
+                        fontWeight: 'bold',
+                        fontSize: '0.9rem',
+                        transition: 'transform 0.2s',
+                        display: 'inline-block'
+                      }}
+                    >
+                      View Points & Leaderboard
+                    </Link>
+                  </div>
                 </div>
               )}
             </div>
