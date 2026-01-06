@@ -26,6 +26,7 @@ import { WebhookLogger } from './logger';
 import { getWebhookConfig } from '../config';
 import * as stravaClient from '../stravaClient';
 import { getValidAccessToken } from '../tokenManager';
+import { isoToUnix } from '../dateUtils';
 import { findBestQualifyingActivity } from '../activityProcessor';
 import { storeActivityAndEfforts } from '../activityStorage';
 import ActivityValidationServiceDrizzle from '../services/ActivityValidationServiceDrizzle';
@@ -213,26 +214,60 @@ async function processActivityEvent(
   // Get valid token (auto-refreshes if needed)
   const accessToken = await getValidAccessToken(db, stravaClient, athleteId);
 
-  // 2. Fetch full activity details
-  console.log(
-    `[Webhook:Processor] Fetching activity details for ID: ${activityId}`
-  );
-  const activityData = await stravaClient.getActivity(activityId, accessToken);
+  // 2. Fetch full activity details with retry logic
+  // Strava webhooks often arrive before segment efforts are processed.
+  // We retry up to 4 times with increasing delays (total ~4 minutes).
+  let activityData;
+  let attempts = 0;
+  const maxAttempts = 4;
+  const backoffMs = [15000, 45000, 90000]; // 15s, 45s, 90s (plus original fetch)
 
-  if (!activityData.segment_efforts || activityData.segment_efforts.length === 0) {
+  while (attempts < maxAttempts) {
     console.log(
-      `[Webhook:Processor] Activity ${activityId} has no segment efforts, skipping`
+      `[Webhook:Processor] Fetching activity details for ID: ${activityId} (attempt ${attempts + 1}/${maxAttempts})`
+    );
+    activityData = await stravaClient.getActivity(activityId, accessToken);
+
+    // If it's not a ride or virtual ride, it might not have segments we care about, 
+    // but we still check for segment efforts.
+    if (activityData.segment_efforts && activityData.segment_efforts.length > 0) {
+      console.log(`[Webhook:Processor] ✓ Found ${activityData.segment_efforts.length} segment efforts for activity ${activityId}`);
+      break;
+    }
+
+    // If no segment efforts found and we have more attempts, wait and retry
+    if (attempts < maxAttempts - 1) {
+      const waitTime = backoffMs[attempts];
+      console.log(
+        `[Webhook:Processor] Activity ${activityId} has no segment efforts yet, retrying in ${waitTime / 1000}s...`
+      );
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
+    }
+    attempts++;
+  }
+
+  if (!activityData || !activityData.segment_efforts || activityData.segment_efforts.length === 0) {
+    console.log(
+      `[Webhook:Processor] Activity ${activityId} has no segment efforts after ${maxAttempts} attempts, skipping`
     );
     return;
   }
 
   // 3. Find all active seasons that contain this activity's timestamp
-  const activityUnix = Math.floor(new Date(activityData.start_date as any).getTime() / 1000);
+  const activityUnix = isoToUnix(activityData.start_date);
+
+  if (!activityUnix) {
+    console.log(
+      `[Webhook:Processor] Activity ${activityId} has invalid start date "${activityData.start_date}", skipping`
+    );
+    return;
+  }
+
   const seasons = validator.getAllActiveSeasonsContainingTimestamp(activityUnix);
 
   if (seasons.length === 0) {
     console.log(
-      `[Webhook:Processor] Activity ${activityId} timestamp not in any active season, skipping`
+      `[Webhook:Processor] Activity ${activityId} timestamp ${activityUnix} not in any active season, skipping`
     );
     return;
   }
