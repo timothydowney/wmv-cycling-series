@@ -4,6 +4,7 @@ import { useCurrentUser } from '../hooks/useCurrentUser';
 import { NotesDisplay } from './NotesDisplay';
 import { WeeklyHeader } from './WeeklyHeader';
 import { LeaderboardCard } from './LeaderboardCard';
+import { CollapsibleSegmentProfile } from './CollapsibleSegmentProfile';
 import './WeeklyLeaderboard.css';
 
 interface Props {
@@ -21,10 +22,10 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard, weekNumber }) =
   // Reset expansion when week changes
   useEffect(() => {
     setExpandedCardId(null);
-    // Default to expanded if the week has notes
-    setIsNotesExpanded(!!week?.notes);
+    // Weekly leaderboard is now collapsed by default to keep UI clean
+    setIsNotesExpanded(false);
     hasAutoExpanded.current = false; // Reset auto-expansion flag when week changes
-  }, [week?.id, week?.notes]);
+  }, [week?.id, week?.notes, week?.strava_segment_id]);
 
   // Auto-expand the first place winner on load, but only once
   useEffect(() => {
@@ -84,11 +85,13 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard, weekNumber }) =
             position: 'relative',
             zIndex: 0
           }}>
-            {week.notes ? (
+            {week.notes && (
               <NotesDisplay markdown={week.notes} />
-            ) : (
-              <div style={{ color: 'var(--wmv-text-light)', fontStyle: 'italic', textAlign: 'center', padding: '12px' }}>
-                No notes for this week.
+            )}
+
+            {week.strava_segment_id && (
+              <div style={{ marginTop: week.notes ? '24px' : '0' }}>
+                <CollapsibleSegmentProfile segmentId={week.strava_segment_id} />
               </div>
             )}
           </div>
