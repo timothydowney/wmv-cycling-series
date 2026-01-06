@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { Routes, Route, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import './App.css';
 import WeeklyLeaderboard from './components/WeeklyLeaderboard';
 import SeasonLeaderboard from './components/SeasonLeaderboard';
@@ -13,30 +14,30 @@ import SeasonManager from './components/SeasonManager';
 import WebhookManagementPanel from './components/WebhookManagementPanel';
 import StravaConnectInfoBox from './components/StravaConnectInfoBox';
 import AboutPage from './components/AboutPage';
-import { useCurrentUser } from './hooks/useCurrentUser';
 import { UnitProvider } from './context/UnitContext';
 import { getDefaultSeason, getDefaultWeek } from './utils/defaultSelection';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { httpBatchLink } from '@trpc/client';
 import { trpc } from './utils/trpc';
-import { Week } from './types'; // Import shared types
+import { Season, Week } from './types'; // Import shared types
 
 type ViewMode = 'leaderboard' | 'admin' | 'participants' | 'segments' | 'seasons' | 'webhooks' | 'about';
 
-function AppContent() {
-  const utils = trpc.useUtils();
-  const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(null);
-  const [selectedWeekId, setSelectedWeekId] = useState<number | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('leaderboard');
-  const [activeTab, setActiveTab] = useState<TabType>('weekly');
-  const userAthleteId = useCurrentUser();
+interface LeaderboardViewProps {
+  seasons: Season[];
+  userAthleteId: string | null;
+}
+
+const LeaderboardView: React.FC<LeaderboardViewProps> = ({ seasons, userAthleteId }) => {
+  const { seasonId: paramSeasonId, tab: paramTab, weekId: paramWeekId } = useParams();
+  const navigate = useNavigate();
+
+  const selectedSeasonId = useMemo(() => paramSeasonId ? parseInt(paramSeasonId) : null, [paramSeasonId]);
+  const activeTab = useMemo(() => (paramTab as TabType) || 'weekly', [paramTab]);
+  const selectedWeekId = useMemo(() => paramWeekId ? parseInt(paramWeekId) : null, [paramWeekId]);
 
   // tRPC Queries
-  const seasonsQuery = trpc.season.getAll.useQuery(undefined, {
-    refetchOnWindowFocus: false,
-  });
-
   const weeksQuery = trpc.week.getAll.useQuery(
     { seasonId: selectedSeasonId!, includeParticipantCount: true },
     { 
@@ -53,55 +54,133 @@ function AppContent() {
     }
   );
 
-  const seasons = useMemo(() => seasonsQuery.data || [], [seasonsQuery.data]);
   const weeks = useMemo(() => weeksQuery.data || [], [weeksQuery.data]);
-  const selectedSeason = seasons.find(s => s.id === selectedSeasonId) || null;
-  
-  // Extract week and leaderboard data from tRPC query result
-  // We cast the week from tRPC to match our frontend Week type which might have legacy fields
+  const selectedSeason = useMemo(() => seasons.find(s => s.id === selectedSeasonId) || null, [seasons, selectedSeasonId]);
   const selectedWeek = weekLeaderboardQuery.data?.week ? (weekLeaderboardQuery.data.week as unknown as Week) : null;
   const weekLeaderboard = weekLeaderboardQuery.data?.leaderboard || [];
 
-  const isLoading = seasonsQuery.isLoading || (!!selectedSeasonId && weeksQuery.isLoading) || (!!selectedWeekId && weekLeaderboardQuery.isLoading);
-  const error = seasonsQuery.error || weeksQuery.error || weekLeaderboardQuery.error;
+  const isLoading = (!!selectedSeasonId && weeksQuery.isLoading) || (!!selectedWeekId && weekLeaderboardQuery.isLoading);
 
-  // Effect: Select default season when seasons load
+  // Effect: Select default season if none in URL
   useEffect(() => {
-    if (seasons.length > 0 && selectedSeasonId === null) {
+    if (seasons.length > 0 && !selectedSeasonId) {
       const now = Math.floor(Date.now() / 1000);
       const defaultSeason = getDefaultSeason(seasons, now);
       if (defaultSeason) {
-        setSelectedSeasonId(defaultSeason.id);
+        navigate(`/leaderboard/${defaultSeason.id}`, { replace: true });
       }
     }
-  }, [seasons, selectedSeasonId]);
+  }, [seasons, selectedSeasonId, navigate]);
 
-  // Effect: Select default week when weeks load (or when season changes)
+  // Effect: Select default week if none in URL
   useEffect(() => {
-    if (weeks.length > 0) {
-      // If no week selected OR the selected week is not in the current weeks list (season changed)
-      const isSelectedWeekInList = selectedWeekId && weeks.some(w => w.id === selectedWeekId);
-      
-      if (!selectedWeekId || !isSelectedWeekInList) {
-        const now = Math.floor(Date.now() / 1000);
-        const defaultWeek = getDefaultWeek(weeks, now);
-        if (defaultWeek) {
-          setSelectedWeekId(defaultWeek.id);
-        }
+    if (weeks.length > 0 && selectedSeasonId && !selectedWeekId && activeTab === 'weekly') {
+      const now = Math.floor(Date.now() / 1000);
+      const defaultWeek = getDefaultWeek(weeks, now);
+      if (defaultWeek) {
+        navigate(`/leaderboard/${selectedSeasonId}/weekly/${defaultWeek.id}`, { replace: true });
       }
-    } else if (weeksQuery.isFetched && weeks.length === 0) {
-        setSelectedWeekId(null);
     }
-  }, [weeks, weeksQuery.isFetched, selectedWeekId]);
+  }, [weeks, selectedSeasonId, selectedWeekId, activeTab, navigate]);
 
-  // Handler for when results are fetched - refresh leaderboard
-  const handleFetchResults = () => {
-    if (selectedWeekId !== null) {
-      weekLeaderboardQuery.refetch();
+  if (isLoading && !weeks.length) {
+    return <p>Loading...</p>;
+  }
+
+  return (
+    <>
+      <StravaConnectInfoBox show={userAthleteId === null} />
+      <SeasonWeekSelectors
+        seasons={seasons}
+        selectedSeasonId={selectedSeasonId}
+        weeks={weeks as Week[]} 
+        selectedWeekId={selectedWeekId}
+        showWeekSelector={activeTab === 'weekly'}
+        activeTab={activeTab}
+      />
+
+      {activeTab === 'weekly' && (() => {
+        // Calculate week number for display
+        let weekNumber = undefined;
+        if (selectedWeek && weeks.length > 0) {
+          const originalWeekIndex = weeks.findIndex(w => w.id === selectedWeek.id);
+          if (originalWeekIndex !== -1) {
+            const weeksInSelectedSeason = weeks.filter(w => w.season_id === selectedWeek.season_id);
+            const sortedWeeksInSeason = [...weeksInSelectedSeason].sort((a, b) => a.start_at - b.start_at);
+            const weekIndexInSeason = sortedWeeksInSeason.findIndex(w => w.id === selectedWeek.id);
+            if (weekIndexInSeason !== -1) {
+              weekNumber = weekIndexInSeason + 1;
+            }
+          }
+        }
+        return (
+          <WeeklyLeaderboard 
+            week={selectedWeek}
+            leaderboard={weekLeaderboard}
+            weekNumber={weekNumber}
+          />
+        );
+      })()}
+
+      {activeTab === 'season' && selectedSeason && (
+        <SeasonLeaderboard season={selectedSeason} />
+      )}
+
+      {activeTab === 'schedule' && (
+        <ScheduleTable weeks={weeks as Week[]} season={selectedSeason || undefined} />
+      )}
+
+      <div className="bottom-nav-spacer" />
+      <BottomNav activeTab={activeTab} />
+    </>
+  );
+};
+
+function AppContent() {
+  const utils = trpc.useUtils();
+  const location = useLocation();
+  
+  const [adminSeasonId, setAdminSeasonId] = useState<number | null>(null);
+  
+  // tRPC Queries
+  const authStatusQuery = trpc.participant.getAuthStatus.useQuery();
+  const seasonsQuery = trpc.season.getAll.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+  });
+
+  const seasons = useMemo(() => seasonsQuery.data || [], [seasonsQuery.data]);
+  const isAdmin = authStatusQuery.data?.is_admin ?? false;
+  const isConnected = !!authStatusQuery.data?.participant;
+  const athleteInfo = authStatusQuery.data?.participant ? {
+    firstname: authStatusQuery.data.participant.name.split(' ')[0] || '',
+    lastname: authStatusQuery.data.participant.name.split(' ').slice(1).join(' ') || '',
+    profile: authStatusQuery.data.participant.profile_picture_url || undefined
+  } : null;
+  const userAthleteId = authStatusQuery.data?.participant?.strava_athlete_id || null;
+
+  // Sync default admin season
+  useEffect(() => {
+    if (seasons.length > 0 && adminSeasonId === null) {
+      const now = Math.floor(Date.now() / 1000);
+      const defaultSeason = getDefaultSeason(seasons, now);
+      if (defaultSeason) {
+        setAdminSeasonId(defaultSeason.id);
+      }
     }
-  };
+  }, [seasons, adminSeasonId]);
 
-  // Handler for when seasons are changed in SeasonManager - refresh seasons list
+  // viewMode is now derived from the URL path
+  const viewMode = useMemo((): ViewMode => {
+    const path = location.pathname;
+    if (path.startsWith('/admin')) return 'admin';
+    if (path.startsWith('/participants')) return 'participants';
+    if (path.startsWith('/segments')) return 'segments';
+    if (path.startsWith('/seasons')) return 'seasons';
+    if (path.startsWith('/webhooks')) return 'webhooks';
+    if (path.startsWith('/about')) return 'about';
+    return 'leaderboard';
+  }, [location.pathname]);
+
   const handleSeasonsChanged = () => {
     utils.season.getAll.invalidate();
   };
@@ -120,7 +199,21 @@ function AppContent() {
     }
   };
 
-  if (isLoading && !seasons.length) {
+  const getPageLink = (mode: ViewMode) => {
+    switch (mode) {
+      case 'admin': return '/admin';
+      case 'participants': return '/participants';
+      case 'segments': return '/segments';
+      case 'seasons': return '/seasons';
+      case 'webhooks': return '/webhooks';
+      case 'about': return '/about';
+      case 'leaderboard':
+      default:
+        return '/leaderboard';
+    }
+  };
+
+  if (seasonsQuery.isLoading || authStatusQuery.isLoading) {
     return (
       <div className="app app-content">
         <p>Loading...</p>
@@ -128,10 +221,10 @@ function AppContent() {
     );
   }
 
-  if (error) {
+  if (seasonsQuery.error) {
     return (
       <div className="app app-content">
-        <div className="error">{error.message}</div>
+        <div className="error">{seasonsQuery.error.message}</div>
       </div>
     );
   }
@@ -140,95 +233,36 @@ function AppContent() {
     <UnitProvider>
       <NavBar 
         title={getPageTitle(viewMode)}
-        onAdminPanelToggle={() => setViewMode(viewMode === 'admin' ? 'leaderboard' : 'admin')} 
-        isAdminPanelOpen={viewMode === 'admin'}
-        onParticipantsClick={() => setViewMode('participants')}
-        onLeaderboardClick={() => setViewMode('leaderboard')}
-        onManageSeasonsClick={() => setViewMode('seasons')}
-        onWebhooksClick={() => setViewMode('webhooks')}
-        onAboutClick={() => setViewMode('about')}
+        titleLink={getPageLink(viewMode)}
+        isAdmin={isAdmin}
+        isConnected={isConnected}
+        athleteInfo={athleteInfo}
       />
       
       <div className="app app-content">
-        {viewMode === 'admin' ? (
-          <>
+        <Routes>
+          <Route path="/admin" element={
             <AdminPanel 
-              onFetchResults={handleFetchResults}
+              onFetchResults={() => utils.leaderboard.getWeekLeaderboard.invalidate()}
               seasons={seasons}
-              selectedSeasonId={selectedSeasonId}
-              onSeasonChange={setSelectedSeasonId}
+              selectedSeasonId={adminSeasonId}
+              onSeasonChange={setAdminSeasonId}
             />
-          </>
-        ) : viewMode === 'participants' ? (
-          <>
-            <ParticipantStatus />
-          </>
-        ) : viewMode === 'segments' ? (
-          <>
-            <ManageSegments />
-          </>
-        ) : viewMode === 'seasons' ? (
-          <>
-            <SeasonManager onSeasonsChanged={handleSeasonsChanged} />
-          </>
-        ) : viewMode === 'webhooks' ? (
-          <>
-            <WebhookManagementPanel />
-          </>
-        ) : viewMode === 'about' ? (
-          <AboutPage />
-        ) : (
-          <>
-            <StravaConnectInfoBox show={userAthleteId === null} />
-            <SeasonWeekSelectors
-              seasons={seasons}
-              selectedSeasonId={selectedSeasonId}
-              setSelectedSeasonId={setSelectedSeasonId}
-              weeks={weeks as Week[]} // Cast to compatible Week type
-              selectedWeekId={selectedWeekId}
-              setSelectedWeekId={setSelectedWeekId}
-              showWeekSelector={activeTab === 'weekly'}
-            />
-
-            {activeTab === 'weekly' && (() => {
-              // Calculate week number for display
-              let weekNumber = undefined;
-              if (selectedWeek && weeks.length > 0) {
-                // Find the original index of the selected week in the full weeks list
-                const originalWeekIndex = weeks.findIndex(w => w.id === selectedWeek.id);
-                if (originalWeekIndex !== -1) {
-                  // Get all weeks that have the same season_id as the selectedWeek
-                  const weeksInSelectedSeason = weeks.filter(w => w.season_id === selectedWeek.season_id);
-                  // Sort these weeks by start_at to determine the correct week number within the season
-                  const sortedWeeksInSeason = [...weeksInSelectedSeason].sort((a, b) => a.start_at - b.start_at);
-                  // Find the index of the selected week within this sorted list
-                  const weekIndexInSeason = sortedWeeksInSeason.findIndex(w => w.id === selectedWeek.id);
-                  if (weekIndexInSeason !== -1) {
-                    weekNumber = weekIndexInSeason + 1;
-                  }
-                }
-              }
-              return (
-                <WeeklyLeaderboard 
-                  week={selectedWeek}
-                  leaderboard={weekLeaderboard}
-                  weekNumber={weekNumber}
-                />
-              );
-            })()}
-
-            {activeTab === 'season' && selectedSeason && (
-              <SeasonLeaderboard season={selectedSeason} />
-            )}
-
-            {activeTab === 'schedule' && (
-              <ScheduleTable weeks={weeks as Week[]} season={selectedSeason || undefined} />
-            )}
-
-            <div className="bottom-nav-spacer" />
-            <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
-          </>
-        )}
+          } />
+          <Route path="/participants" element={<ParticipantStatus />} />
+          <Route path="/segments" element={<ManageSegments />} />
+          <Route path="/seasons" element={<SeasonManager onSeasonsChanged={handleSeasonsChanged} />} />
+          <Route path="/webhooks" element={<WebhookManagementPanel />} />
+          <Route path="/about" element={<AboutPage />} />
+          
+          <Route path="/leaderboard/:seasonId/weekly/:weekId" element={<LeaderboardView seasons={seasons} userAthleteId={userAthleteId} />} />
+          <Route path="/leaderboard/:seasonId/:tab" element={<LeaderboardView seasons={seasons} userAthleteId={userAthleteId} />} />
+          <Route path="/leaderboard/:seasonId" element={<LeaderboardView seasons={seasons} userAthleteId={userAthleteId} />} />
+          <Route path="/leaderboard" element={<LeaderboardView seasons={seasons} userAthleteId={userAthleteId} />} />
+          
+          <Route path="/" element={<Navigate to="/leaderboard" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </div>
     </UnitProvider>
   );

@@ -1,19 +1,24 @@
 import React from 'react';
+import { NavLink, useParams } from 'react-router-dom';
 import './BottomNav.css';
 
 export type TabType = 'weekly' | 'season' | 'schedule';
 
 interface BottomNavProps {
   activeTab: TabType;
-  onTabChange: (tab: TabType) => void;
 }
 
-const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) => {
+export const BottomNav: React.FC<BottomNavProps> = ({ activeTab }) => {
+  const { seasonId, weekId } = useParams();
+  
+  // Base path for the current season
+  const seasonPath = `/leaderboard/${seasonId}`;
+
   return (
     <div className="bottom-nav">
-      <button 
-        className={`bottom-nav-item ${activeTab === 'weekly' ? 'active' : ''}`}
-        onClick={() => onTabChange('weekly')}
+      <NavLink 
+        to={weekId ? `${seasonPath}/weekly/${weekId}` : `${seasonPath}/weekly`}
+        className={({ isActive }) => `bottom-nav-item ${isActive || activeTab === 'weekly' ? 'active' : ''}`}
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
@@ -22,11 +27,11 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) => {
           <line x1="3" y1="10" x2="21" y2="10"></line>
         </svg>
         <span>Weekly</span>
-      </button>
+      </NavLink>
       
-      <button 
-        className={`bottom-nav-item ${activeTab === 'season' ? 'active' : ''}`}
-        onClick={() => onTabChange('season')}
+      <NavLink 
+        to={`${seasonPath}/season`}
+        className={({ isActive }) => `bottom-nav-item ${isActive ? 'active' : ''}`}
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
@@ -37,11 +42,11 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) => {
           <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path>
         </svg>
         <span>Season</span>
-      </button>
+      </NavLink>
       
-      <button 
-        className={`bottom-nav-item ${activeTab === 'schedule' ? 'active' : ''}`}
-        onClick={() => onTabChange('schedule')}
+      <NavLink 
+        to={`${seasonPath}/schedule`}
+        className={({ isActive }) => `bottom-nav-item ${isActive ? 'active' : ''}`}
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
@@ -56,7 +61,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) => {
           <path d="M16 18h.01"></path>
         </svg>
         <span>Schedule</span>
-      </button>
+      </NavLink>
     </div>
   );
 };

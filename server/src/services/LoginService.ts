@@ -10,14 +10,14 @@ import { encryptToken, decryptToken } from '../encryption';
 import * as stravaClient from '../stravaClient';
 import { getAthleteProfilePicture } from './StravaProfileService';
 
-interface ParticipantData {
+export interface ParticipantData {
   strava_athlete_id: string;
   name: string;
   is_connected: boolean;
   profile_picture_url?: string | null;
 }
 
-interface AuthStatus {
+export interface AuthStatus {
   authenticated: boolean;
   participant: ParticipantData | null;
   is_admin: boolean;

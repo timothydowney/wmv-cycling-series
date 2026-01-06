@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Season, Week } from '../types';
 import SeasonSelector from './SeasonSelector';
 import WeekSelector from './WeekSelector';
@@ -7,22 +8,32 @@ import './SeasonWeekSelectors.css';
 interface Props {
   seasons: Season[];
   selectedSeasonId: number | null;
-  setSelectedSeasonId: (id: number) => void;
   weeks: Week[];
   selectedWeekId: number | null;
-  setSelectedWeekId: (id: number) => void;
   showWeekSelector?: boolean;
+  activeTab: 'weekly' | 'season' | 'schedule';
 }
 
 const SeasonWeekSelectors: React.FC<Props> = ({
   seasons,
   selectedSeasonId,
-  setSelectedSeasonId,
   weeks,
   selectedWeekId,
-  setSelectedWeekId,
-  showWeekSelector = true
+  showWeekSelector = true,
+  activeTab
 }) => {
+  const navigate = useNavigate();
+
+  const handleSeasonChange = (id: number) => {
+    navigate(`/leaderboard/${id}/${activeTab}`);
+  };
+
+  const handleWeekChange = (id: number) => {
+    if (selectedSeasonId) {
+      navigate(`/leaderboard/${selectedSeasonId}/weekly/${id}`);
+    }
+  };
+
   // Show empty state if no seasons
   if (seasons.length === 0) {
     return (
@@ -41,7 +52,7 @@ const SeasonWeekSelectors: React.FC<Props> = ({
         <SeasonSelector
           seasons={seasons}
           selectedSeasonId={selectedSeasonId}
-          setSelectedSeasonId={setSelectedSeasonId}
+          setSelectedSeasonId={handleSeasonChange}
         />
         <div className="week-selector-empty-container">
           <div className="week-selector-empty-box">
@@ -58,13 +69,13 @@ const SeasonWeekSelectors: React.FC<Props> = ({
       <SeasonSelector
         seasons={seasons}
         selectedSeasonId={selectedSeasonId}
-        setSelectedSeasonId={setSelectedSeasonId}
+        setSelectedSeasonId={handleSeasonChange}
       />
       {showWeekSelector && (
         <WeekSelector
           weeks={weeks}
           selectedWeekId={selectedWeekId}
-          setSelectedWeekId={setSelectedWeekId}
+          setSelectedWeekId={handleWeekChange}
         />
       )}
     </div>
