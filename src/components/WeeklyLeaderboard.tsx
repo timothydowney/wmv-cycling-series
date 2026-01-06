@@ -115,6 +115,7 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard, weekNumber }) =
               isExpanded={expandedCardId === entry.participant_id}
               onToggle={() => handleCardToggle(entry.participant_id)}
               isCurrentUser={userAthleteId === entry.participant_id}
+              isLast={entry.rank === leaderboard.length}
             />
           ))
         )}

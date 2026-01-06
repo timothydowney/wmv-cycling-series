@@ -2,6 +2,8 @@ import React from 'react';
 import StravaAthleteBadge from './StravaAthleteBadge';
 import './Card.css'; // Shared card styles
 import { CalendarDaysIcon } from '@heroicons/react/24/outline';
+import { JerseyIcon } from './JerseyIcon';
+import { JerseyType } from '../utils/jerseyUtils';
 
 interface Props {
     rank: number;
@@ -11,6 +13,7 @@ interface Props {
     weeksCompleted: number;
     isCurrentUser: boolean;
     stravaAthleteId: string;
+    jerseyTypes?: JerseyType[];
 }
 
 export const SeasonCard: React.FC<Props> = ({
@@ -20,11 +23,29 @@ export const SeasonCard: React.FC<Props> = ({
     totalPoints,
     weeksCompleted,
     isCurrentUser,
-    stravaAthleteId
+    stravaAthleteId,
+    jerseyTypes = []
 }) => {
     return (
         <div className={`leaderboard-card ${isCurrentUser ? 'current-user' : ''}`}>
             <div className="card-header">
+                {/* Jersey Icons (on the left like weekly) */}
+                <div className="card-jersey" style={{ 
+                    display: 'flex', 
+                    gap: '2px',
+                    minWidth: jerseyTypes.length > 0 ? (jerseyTypes.length * 24) : '28px' 
+                }}>
+                    {jerseyTypes.map(type => (
+                        <div key={type} title={
+                            type === 'yellow' ? 'Overall Leader' :
+                            type === 'polkadot' ? 'King of the Mountains' :
+                            'Lanterne Rouge'
+                        }>
+                            <JerseyIcon type={type} size={28} />
+                        </div>
+                    ))}
+                </div>
+
                 {/* Rank */}
                 <div className="card-rank">
                     {rank}
@@ -44,7 +65,7 @@ export const SeasonCard: React.FC<Props> = ({
 
                 {/* Name & Details */}
                 <div className="card-main-info" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '4px', overflow: 'hidden' }}>
-                    <div className="card-name" style={{ fontSize: '1.0rem', marginBottom: '0' }}>
+                    <div className="card-name" style={{ fontSize: '1.0rem', marginBottom: '0', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         {participantName}
                     </div>
 
@@ -66,7 +87,10 @@ export const SeasonCard: React.FC<Props> = ({
 
                 {/* Right Side: Total Points */}
                 <div className="card-right-side">
-                    <div className="card-points-row" style={{ marginTop: 0, color: 'inherit' }}>
+                    <div className="card-points-row" style={{ 
+                        marginTop: 0, 
+                        color: isCurrentUser ? 'white' : 'inherit' 
+                    }}>
                         <span style={{ fontWeight: 500, fontSize: '1.1rem' }}>
                             {totalPoints}
                         </span>
