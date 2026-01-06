@@ -126,6 +126,12 @@
   gap: 16px;
 }
 
+.card-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
 .view-toggle-btn {
   padding: 6px 12px;
   background-color: #3498db;
@@ -136,13 +142,37 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  align-self: flex-start;
 }
 
 .view-toggle-btn:hover {
   background-color: #2980b9;
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(52, 152, 219, 0.3);
+}
+
+.replay-btn {
+  padding: 6px 12px;
+  background-color: #2ecc71;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.replay-btn:hover {
+  background-color: #27ae60;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(46, 204, 113, 0.3);
+}
+
+.replay-btn:disabled {
+  background-color: #bdc3c7;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 /* Raw JSON Section */

@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { adminProcedure, router } from '../init';
 import { WebhookSubscriptionService } from '../../services/WebhookSubscriptionService';
 import { StorageMonitor } from '../../webhooks/storageMonitor';
+import { WebhookLogger } from '../../webhooks/logger';
+import { createWebhookProcessor } from '../../webhooks/processor';
 import { config } from '../../config'; // For databasePath
 import * as stravaClientModule from '../../stravaClient'; // Import entire module as namespace
 import { getValidAccessToken } from '../../tokenManager';
@@ -389,6 +391,45 @@ export const webhookAdminRouter = router({
       }
 
       return response;
+    }),
+
+  replayEvent: adminProcedure
+    .input(z.object({
+      id: z.number().int(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { orm } = ctx;
+      const { id } = input;
+
+      const eventData = orm
+        .select()
+        .from(webhookEvent)
+        .where(eq(webhookEvent.id, id))
+        .get();
+
+      if (!eventData) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: `Webhook event ${id} not found`,
+        });
+      }
+
+      const payload = JSON.parse(eventData.payload);
+      const logger = new WebhookLogger(orm);
+      // createWebhookProcessor expects Drizzle instance
+      const processEvent = createWebhookProcessor(orm);
+
+      try {
+        // Run with logger so it marks success/failure in the DB
+        await processEvent(payload as any, logger);
+        return { success: true };
+      } catch (error) {
+        console.error(`[Replay] Failed to replay event ${id}:`, error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error instanceof Error ? error.message : 'Failed to replay event',
+        });
+      }
     }),
 
   clearEvents: adminProcedure

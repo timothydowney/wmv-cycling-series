@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import './WebhookEventCard.css';
 import { formatUtcIsoDateTime } from '../../utils/dateUtils';
+import { trpc } from '../../utils/trpc';
 
 export interface WebhookPayload {
   aspect_type: 'create' | 'update' | 'delete';
@@ -37,6 +38,25 @@ const WebhookEventCard: React.FC<WebhookEventCardProps> = ({
 }) => {
   const [showRawJson, setShowRawJson] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(true);
+  const utils = trpc.useUtils();
+
+  const replayMutation = trpc.webhookAdmin.replayEvent.useMutation({
+    onSuccess: () => {
+      utils.webhookAdmin.getEvents.invalidate();
+    },
+  });
+
+  const handleReplay = async () => {
+    if (window.confirm('Replay this event? This will re-run the matching logic using the stored payload.')) {
+      try {
+        await replayMutation.mutateAsync({ id: event.id });
+        alert('Event replayed successfully.');
+      } catch (error: any) {
+        console.error('Failed to replay event:', error);
+        alert(`Failed to replay event: ${error.message || 'Unknown error'}`);
+      }
+    }
+  };
 
   return (
     <div className={cssClass}>
@@ -66,9 +86,18 @@ const WebhookEventCard: React.FC<WebhookEventCardProps> = ({
       {/* Card Body - Hidden when collapsed */}
       {!isCollapsed && (
         <div className="card-body">
-          <button className="view-toggle-btn" onClick={() => setShowRawJson(!showRawJson)}>
-            {showRawJson ? 'Formatted' : 'Raw JSON'}
-          </button>
+          <div className="card-controls">
+            <button className="view-toggle-btn" onClick={() => setShowRawJson(!showRawJson)}>
+              {showRawJson ? 'Formatted' : 'Raw JSON'}
+            </button>
+            <button 
+              className="replay-btn" 
+              onClick={handleReplay}
+              disabled={replayMutation.isPending}
+            >
+              {replayMutation.isPending ? 'Replaying...' : 'Replay'}
+            </button>
+          </div>
           {showRawJson ? (
             // Raw Webhook Event Data
             <section className="section raw-json-section">
