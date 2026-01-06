@@ -101,3 +101,13 @@ export interface LeaderboardEntry {
     strava_activity_id?: string;
   } | null;
 }
+
+export interface SeasonStanding {
+  rank: number;
+  strava_athlete_id: string;
+  name: string;
+  profile_picture_url?: string | null;
+  totalPoints: number;
+  weeksCompleted: number;
+  polkadotWins: number;
+}

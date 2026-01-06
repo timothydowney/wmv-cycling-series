@@ -5,6 +5,8 @@ import './Card.css'; // Shared card styles
 import './WeeklyLeaderboard.css'; // Keeping for now if it has other needed styles, but Card styles are moved.
 import StravaAthleteBadge from './StravaAthleteBadge';
 import { GhostBadge } from './GhostBadge';
+import { JerseyIcon } from './JerseyIcon';
+import { JerseyService } from '../utils/jerseyUtils';
 import { trpc } from '../utils/trpc';
 import { BoltIcon, HeartIcon, ArrowPathIcon, ClockIcon } from '@heroicons/react/24/outline';
 
@@ -15,6 +17,7 @@ interface Props {
     isExpanded: boolean;
     onToggle: () => void;
     isCurrentUser: boolean;
+    isLast: boolean;
 }
 
 export const LeaderboardCard: React.FC<Props> = ({
@@ -23,7 +26,8 @@ export const LeaderboardCard: React.FC<Props> = ({
     rank,
     isExpanded,
     onToggle,
-    isCurrentUser
+    isCurrentUser,
+    isLast
 }) => {
     const utils = trpc.useUtils();
     const hydrateMutation = trpc.leaderboard.hydrateEffortDetails.useMutation({
@@ -84,6 +88,10 @@ export const LeaderboardCard: React.FC<Props> = ({
 
     const isEstimatedWatts = efforts.some(e => e.average_watts != null && e.device_watts !== true);
 
+    // Jersey logic using centralized service
+    const avgGrade = week?.segment_average_grade || 0;
+    const jerseyType = JerseyService.getWeeklyJersey(rank, isLast, avgGrade);
+
     return (
         <div
             onClick={onToggle}
@@ -91,6 +99,11 @@ export const LeaderboardCard: React.FC<Props> = ({
         >
             {/* Top Row: Collapsed State */}
             <div className="card-header">
+
+                {/* Jersey Icon (only for 1st and last) */}
+                <div className="card-jersey">
+                    {jerseyType && <JerseyIcon type={jerseyType} size={28} />}
+                </div>
 
                 {/* 1. Rank */}
                 <div className="card-rank">

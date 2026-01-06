@@ -258,24 +258,38 @@ export const leaderboardRouter = router({
         name: string;
         totalPoints: number;
         weeksCompleted: number;
+        polkadotWins: number;
       }> = new Map();
 
       for (const w of weeks) {
+        // We need the week's average grade to determine if it's a polkadot-eligible win
+        const weekData = await drizzleDb.select({
+          average_grade: segment.average_grade
+        })
+          .from(week)
+          .leftJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
+          .where(eq(week.id, w.id))
+          .get();
+        
+        const isPolkadotEligible = (weekData?.average_grade || 0) > 2;
         const weekResults = await calculateWeekScoringDrizzle(drizzleDb, w.id); // Pass drizzleDb
 
         for (const res of weekResults.results) {
+          const isWinner = res.rank === 1;
           const existing = participantTotals.get(res.participantId);
           if (existing) {
             participantTotals.set(res.participantId, {
               name: existing.name,
               totalPoints: existing.totalPoints + res.totalPoints,
-              weeksCompleted: existing.weeksCompleted + 1
+              weeksCompleted: existing.weeksCompleted + 1,
+              polkadotWins: existing.polkadotWins + (isWinner && isPolkadotEligible ? 1 : 0)
             });
           } else {
             participantTotals.set(res.participantId, {
               name: res.participantName,
               totalPoints: res.totalPoints,
-              weeksCompleted: 1
+              weeksCompleted: 1,
+              polkadotWins: isWinner && isPolkadotEligible ? 1 : 0
             });
           }
         }
@@ -287,7 +301,8 @@ export const leaderboardRouter = router({
           participantId,
           name: data.name,
           totalPoints: data.totalPoints,
-          weeksCompleted: data.weeksCompleted
+          weeksCompleted: data.weeksCompleted,
+          polkadotWins: data.polkadotWins
         }))
         .sort((a, b) => b.totalPoints - a.totalPoints);
 
@@ -303,6 +318,7 @@ export const leaderboardRouter = router({
         name: res.name,
         totalPoints: res.totalPoints,
         weeksCompleted: res.weeksCompleted,
+        polkadotWins: res.polkadotWins,
         // Add missing fields expected by SeasonStanding interface if any
         // For now, matching the shape returned previously
         strava_athlete_id: res.participantId, // Aliasing for frontend compat if needed

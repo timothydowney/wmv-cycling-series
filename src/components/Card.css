@@ -56,6 +56,15 @@
     gap: 8px;
 }
 
+.card-jersey {
+    min-width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
 .card-rank {
     font-size: 1.1rem;
     font-weight: 700;

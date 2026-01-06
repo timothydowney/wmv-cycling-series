@@ -1,8 +1,9 @@
-import React from 'react'; // Removed useState, useEffect
+import React, { useMemo } from 'react'; // Added useMemo
 import { useCurrentUser } from '../hooks/useCurrentUser';
 import { SeasonCard } from './SeasonCard';
-import { Season } from '../types'; // Still need Season type for props
-import { trpc } from '../utils/trpc'; // Import trpc
+import { Season } from '../types'; 
+import { trpc } from '../utils/trpc'; 
+import { JerseyService } from '../utils/jerseyUtils'; // Import JerseyService
 
 interface Props {
   season?: Season;
@@ -14,10 +15,13 @@ const SeasonLeaderboard: React.FC<Props> = ({ season }) => {
   const { data: standings = [], isLoading, isError, error } = trpc.leaderboard.getSeasonLeaderboard.useQuery(
     { seasonId: season?.id ?? 0 },
     {
-      enabled: season?.id !== undefined && season?.id !== null, // Only run if season ID is available
-      refetchOnWindowFocus: false, // Prevent refetching on window focus
+      enabled: season?.id !== undefined && season?.id !== null, 
+      refetchOnWindowFocus: false, 
     }
   );
+
+  // Calculate jerseys for the whole leaderboard
+  const jerseys = useMemo(() => JerseyService.getSeasonJerseys(standings), [standings]);
 
   if (isLoading) {
     return <div>Loading season standings...</div>;
@@ -43,6 +47,7 @@ const SeasonLeaderboard: React.FC<Props> = ({ season }) => {
         ) : (
           standings.map((standing) => {
             const isCurrentUser = userAthleteId !== null && userAthleteId === standing.strava_athlete_id;
+            const jerseyTypes = jerseys.get(standing.strava_athlete_id) || [];
 
             return (
               <SeasonCard
@@ -54,6 +59,7 @@ const SeasonLeaderboard: React.FC<Props> = ({ season }) => {
                 weeksCompleted={standing.weeksCompleted}
                 isCurrentUser={isCurrentUser}
                 stravaAthleteId={standing.strava_athlete_id}
+                jerseyTypes={jerseyTypes}
               />
             );
           })
