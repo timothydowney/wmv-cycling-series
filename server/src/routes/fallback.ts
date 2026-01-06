@@ -19,15 +19,16 @@ export default (): Router => {
    */
   router.get('*', (_req: Request, res: Response): void => {
     // Serve index.html from the compiled frontend build
-    // __dirname is /app/server/dist (compiled location)
+    // __dirname is /app/server/dist/routes (compiled location)
     // We need to go up to /app and then into dist
-    const indexPath = path.resolve(__dirname, '../../dist/index.html');
+    const indexPath = path.resolve(__dirname, '../../../dist/index.html');
     
     // Only send the file if it exists
     if (fs.existsSync(indexPath)) {
       res.sendFile(indexPath);
     } else {
       // If index.html doesn't exist, return 404 instead of trying to stat a non-existent file
+      console.warn(`[SPA Fallback] index.html not found at: ${indexPath}`);
       res.status(404).json({ error: 'Frontend not built. Please run: npm run build' });
     }
   });
