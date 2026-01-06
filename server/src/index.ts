@@ -4,6 +4,7 @@ import { config, logConfigOnStartup, logEnvironmentVariables, isTestMode } from 
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 
 import { db, drizzleDb } from './db';
 import * as trpcExpress from '@trpc/server/adapters/express';
@@ -255,7 +256,12 @@ const webhookLogger = new WebhookLogger(drizzleDb);
 // ========================================
 
 // Serve built frontend from dist/ directory
-app.use(express.static(path.join(__dirname, '../../dist')));
+const frontendDistPath = path.resolve(__dirname, '../../dist');
+console.log(`[Static] Serving frontend from: ${frontendDistPath}`);
+if (!fs.existsSync(path.join(frontendDistPath, 'index.html'))) {
+  console.warn(`[Static] WARNING: index.html not found in ${frontendDistPath}`);
+}
+app.use(express.static(frontendDistPath));
 
 // ===== ROUTE REGISTRATION =====
 // Register modular route handlers

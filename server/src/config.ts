@@ -101,10 +101,12 @@ function getConfig(): Config {
     frontendUrl = process.env.FRONTEND_URL;
     backendUrl = process.env.BACKEND_URL || 'http://localhost:3001';
     isSplitStack = true;
-  } else if (process.env.APP_BASE_URL) {
+  } else if (process.env.APP_BASE_URL || process.env.CLIENT_BASE_URL) {
     // Priority 2: Single app base URL (production or unified local)
-    frontendUrl = process.env.APP_BASE_URL;
-    backendUrl = process.env.APP_BASE_URL;
+    // Support CLIENT_BASE_URL for legacy configuration compatibility
+    const baseUrl = (process.env.APP_BASE_URL || process.env.CLIENT_BASE_URL)!;
+    frontendUrl = baseUrl;
+    backendUrl = baseUrl;
     isSplitStack = false;
   } else {
     // Fallback: Default local development
