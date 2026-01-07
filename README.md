@@ -2,6 +2,18 @@
 
 Western Mass Velo's weekly Zwift/Strava hill climb & time trial series. React + TypeScript frontend, Express + SQLite backend. Simple to run locally; designed for small clubs.
 
+## 📖 User Documentation
+
+**New to WMV Cycling Series?** Check out the [**Athlete & Admin Documentation Site**](https://timothydowney.github.io/wmv-cycling-series/)!
+
+- 🚴 **Athlete guides:** Getting started, connecting Strava, understanding leaderboards & PR bonuses
+- 👥 **Admin guides:** Creating weeks, fetching results, managing segments, troubleshooting
+- 📚 **Learning:** How scoring works, project overview, and more
+
+All documentation is written for end users (no technical jargon required).
+
+---
+
 ## Quick Start
 
 **Get running in 5 minutes:**
@@ -12,7 +24,7 @@ npm run dev:all         # Start both servers
 # Visit http://localhost:5173
 ```
 
-See [Quick Start Guide](./docs/QUICK_START.md) for details.
+See [Quick Start Guide](./docs/QUICK_START.md) for developer setup details.
 
 ## Requirements
 
