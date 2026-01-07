@@ -1,0 +1,27 @@
+{
+  "name": "wmv-docs-site",
+  "version": "1.0.0",
+  "description": "WMV Cycling Series documentation site powered by VitePress",
+  "type": "module",
+  "scripts": {
+    "docs:dev": "vitepress dev",
+    "docs:build": "vitepress build",
+    "docs:preview": "vitepress preview",
+    "screenshots": "playwright test --project=chromium --headed",
+    "screenshots:headless": "playwright test --project=chromium"
+  },
+  "keywords": [
+    "wmv-cycling",
+    "strava",
+    "leaderboard",
+    "documentation",
+    "vitepress"
+  ],
+  "author": "Western Mass Velo",
+  "license": "MIT",
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "vitepress": "^1.0.0",
+    "vue": "^3.3.0"
+  }
+}
