@@ -256,7 +256,7 @@ Common issues and how to fix them.
 ## Getting More Help
 
 **For technical issues:**
-1. Check the [Learning](/learn) section for scoring and how things work
+1. Check the [Scoring Rules](/learn/scoring) and [Project Overview](/learn/about)
 2. Ask a team member who's used the system before
 3. Contact the technical lead or app developer
 4. Check the [GitHub repository](https://github.com/timothydowney/wmv-cycling-series) for known issues
