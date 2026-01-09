@@ -101,3 +101,131 @@
   color: #999;
   font-size: 0.9rem;
 }
+
+/* New Grid Layouts */
+
+/* Scoring Grid - 2 Columns */
+.scoring-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+@media (min-width: 600px) {
+  .scoring-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.scoring-card {
+  background: #fdfdfd;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.scoring-card h3 {
+  margin-top: 0;
+  color: var(--wmv-purple);
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+  margin-bottom: 15px;
+}
+
+.scoring-list {
+  padding-left: 20px;
+  margin: 0;
+}
+
+.scoring-list li {
+  margin-bottom: 8px;
+  font-size: 0.95rem;
+}
+
+/* Jerseys Grid - 3 Columns */
+.jerseys-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+@media (min-width: 700px) {
+  .jerseys-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.jersey-card {
+  background: white;
+  border: 1px solid #eee;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s, box-shadow 0.2s;
+  align-items: center; /* Center content in card */
+  text-align: center;
+}
+
+.jersey-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  border-color: #e0e0e0;
+}
+
+.jersey-icon-wrapper {
+  margin-bottom: 15px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.jersey-card h4 {
+  margin: 0 0 15px 0;
+  font-size: 1.1rem;
+  color: #333;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #f0f0f0;
+  width: 100%;
+}
+
+.jersey-definitions {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  width: 100%;
+}
+
+.jersey-def {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.jersey-label {
+  display: block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 700;
+  color: #999;
+}
+
+.label-season {
+  color: #d97706; /* Amber-600 */
+}
+
+.label-weekly {
+  color: #4f46e5; /* Indigo-600 */
+}
+
+.jersey-desc {
+  font-size: 0.9rem;
+  line-height: 1.4;
+  margin: 0;
+  color: #555;
+}

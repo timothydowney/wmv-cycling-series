@@ -1,17 +1,115 @@
 import React from 'react';
 import './AboutPage.css';
+import { JerseyIcon } from './JerseyIcon';
 
 const AboutPage: React.FC = () => {
   const currentYear = new Date().getFullYear();
 
   return (
     <div className="about-page">
+      <div className="about-header">
+        <h1 className="about-title">WMV Cycling Series</h1>
+        <div className="about-subtitle">Virtual Hill Climbs & Time Trials</div>
+      </div>
+
       <div className="about-section">
         <h2>About the Series</h2>
         <p>
           This series tracks weekly hill climb and time trial efforts on Zwift. 
           Participants compete on designated segments each week, earning points based on their performance and participation.
         </p>
+      </div>
+
+      <div className="about-section">
+        <h2>How Scoring Works</h2>
+        
+        <div className="scoring-grid">
+          <div className="scoring-card">
+            <h3>Weekly Scoring</h3>
+            <ul className="scoring-list">
+              <li><strong>Beat competitors</strong> &rarr; Points equal to riders defeated</li>
+              <li><strong>Participate</strong> &rarr; +1 point for completing the event</li>
+              <li><strong>Set a PR</strong> &rarr; +1 bonus point for a personal record</li>
+            </ul>
+            <p style={{ marginTop: '1rem', fontSize: '0.9rem', color: '#666', borderTop: '1px solid #f0f0f0', paddingTop: '10px' }}>
+              <em>Example: Finish 3rd out of 10 with a PR<br/>
+              (10-3) + 1 + 1 = <strong>9 points</strong></em>
+            </p>
+          </div>
+
+          <div className="scoring-card">
+            <h3>Seasonal Scoring</h3>
+            <p style={{ marginBottom: '15px' }}>
+              Points accumulate across all weeks in the championship season.
+            </p>
+            <ul className="scoring-list">
+              <li>Consistency is key to winning the overall</li>
+              <li>Missing a week means 0 points for that round</li>
+              <li>The rider with the most total points at the end wins</li>
+            </ul>
+          </div>
+        </div>
+
+        <h3 style={{ marginTop: '40px', color: '#333' }}>The Jerseys</h3>
+        <p style={{ fontSize: '0.95rem', color: '#666', marginBottom: '1rem' }}>
+          Distinct honors for leaders on both the seasonal and weekly leaderboards.
+        </p>
+
+        <div className="jerseys-grid">
+          {/* Yellow Jersey Card */}
+          <div className="jersey-card">
+            <div className="jersey-icon-wrapper">
+              <JerseyIcon type="yellow" size={64} />
+            </div>
+            <h4>Yellow Jersey</h4>
+            <div className="jersey-definitions">
+              <div className="jersey-def">
+                <span className="jersey-label label-season">Season Leaderboard</span>
+                <p className="jersey-desc">Held by the rider with the most total points overall.</p>
+              </div>
+              <div className="jersey-def">
+                <span className="jersey-label label-weekly">Weekly Leaderboard</span>
+                <p className="jersey-desc">Awarded to the fastest rider on non-climb events.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Polka Dot Jersey Card */}
+          <div className="jersey-card">
+            <div className="jersey-icon-wrapper">
+              <JerseyIcon type="polkadot" size={64} />
+            </div>
+            <h4>Polka Dot Jersey</h4>
+            <div className="jersey-definitions">
+              <div className="jersey-def">
+                <span className="jersey-label label-season">Season Leaderboard</span>
+                <p className="jersey-desc">Held by the rider with the most weekly hill climb wins.</p>
+              </div>
+              <div className="jersey-def">
+                <span className="jersey-label label-weekly">Weekly Leaderboard</span>
+                <p className="jersey-desc">Awarded to the fastest rider on hill climb events.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Lantern Rouge Card */}
+          <div className="jersey-card">
+            <div className="jersey-icon-wrapper">
+              <JerseyIcon type="lantern" size={64} />
+            </div>
+            <h4>Lantern Rouge</h4>
+            <div className="jersey-definitions">
+              <div className="jersey-def">
+                <span className="jersey-label label-season">Season Leaderboard</span>
+                <p className="jersey-desc">Held by the rider with the lowest total points.</p>
+              </div>
+              <div className="jersey-def">
+                <span className="jersey-label label-weekly">Weekly Leaderboard</span>
+                <p className="jersey-desc">Given to the last place finisher who completes the event.</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="about-section">
