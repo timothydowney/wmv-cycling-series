@@ -67,6 +67,7 @@ export const JerseyIcon: React.FC<JerseyIconProps> = ({ type, className, size = 
       <img
         src={imageSrc}
         alt="Lanterne Rouge - Final Rider"
+        title="Lanterne Rouge - Final Rider"
         width={size}
         height={adjustedHeight}
         className={className}
