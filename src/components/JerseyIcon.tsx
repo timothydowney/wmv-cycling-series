@@ -5,7 +5,7 @@ import React from 'react';
  * 
  * Yellow (TdF): Overall leader on flat/rolling tracks (Avg Gradient <= 2%)
  * Polkadot (TdF): King of the Mountains leader (Avg Gradient > 2%)
- * Lantern Rouge: Symbolic last rider (Red lantern jersey)
+ * Lantern Rouge: Symbolic last rider (Red lantern icon - from historic race tradition)
  */
 
 interface JerseyIconProps {
@@ -51,24 +51,27 @@ export const JerseyIcon: React.FC<JerseyIconProps> = ({ type, className, size = 
   }
 
   if (type === 'lantern') {
+    // Select appropriate resolution based on requested size
+    let imageSrc = '/assets/lanternerouge-64.png';
+    if (typeof size === 'number' && size > 64) {
+      imageSrc = '/assets/lanternerouge-128.png';
+    }
+    if (typeof size === 'number' && size > 128) {
+      imageSrc = '/assets/lanternerouge-256.png';
+    }
+    
+    // Adjust height to match jersey aspect ratio (1.25:1 = size : size*0.8)
+    const adjustedHeight = typeof size === 'number' ? size * 0.8 : size;
+    
     return (
-      <svg width={size} height={size} viewBox="0 0 250 200" className={className} style={style} xmlns="http://www.w3.org/2000/svg">
-        <title>Lanterne Rouge - Final Rider</title>
-        {/* Red Jersey Body */}
-        <path fill="#dc2626" stroke="#000" d={jerseyPath} strokeWidth="3"/>
-        
-        {/* Simple Lantern Icon in the middle */}
-        <g transform="translate(100, 50) scale(1.6)">
-            {/* The Lantern handle/top */}
-            <path d="M12 2L8 6H16L12 2Z" fill="#78350f" stroke="#000" strokeWidth="1"/>
-            {/* Lantern frame */}
-            <path d="M6 7H18V18C18 19.1 17.1 20 16 20H8C6.9 20 6 19.1 6 18V7Z" fill="#fbbf24" stroke="#000" strokeWidth="1"/>
-            {/* Glass/Light area */}
-            <rect x="9" y="10" width="6" height="7" fill="#f59e0b" />
-            {/* Inner flame/glow */}
-            <circle cx="12" cy="13.5" r="2" fill="#ef4444" />
-        </g>
-      </svg>
+      <img
+        src={imageSrc}
+        alt="Lanterne Rouge - Final Rider"
+        width={size}
+        height={adjustedHeight}
+        className={className}
+        style={style}
+      />
     );
   }
 
