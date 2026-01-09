@@ -56,7 +56,7 @@ export class JerseyService {
       addJersey(leader.strava_athlete_id, 'yellow');
     }
 
-    // 2. Last Place (Lantern Rouge)
+    // 2. Last Place (Lanterne Rouge)
     const maxRank = Math.max(...standings.map(s => s.rank));
     const lastPlace = standings.find(s => s.rank === maxRank);
     if (lastPlace && lastPlace.rank !== 1) {

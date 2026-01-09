@@ -72,7 +72,7 @@ We celebrate the top performers with iconic cycling honors:
 - 🔴 **Polka Dot Jersey**
   - **Season:** Held by the rider with the most weekly hill climb wins.
   - **Weekly:** Awarded to the fastest rider on hill climb events.
-- 🏮 **Lantern Rouge**
+- 🏮 **Lanterne Rouge**
   - **Season:** Held by the rider with the lowest total points overall.
   - **Weekly:** Given to the last place finisher who completes the event.
 

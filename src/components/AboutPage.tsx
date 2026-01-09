@@ -92,12 +92,12 @@ const AboutPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Lantern Rouge Card */}
+          {/* Lanterne Rouge Card */}
           <div className="jersey-card">
             <div className="jersey-icon-wrapper">
               <JerseyIcon type="lantern" size={64} />
             </div>
-            <h4>Lantern Rouge</h4>
+            <h4>Lanterne Rouge</h4>
             <div className="jersey-definitions">
               <div className="jersey-def">
                 <span className="jersey-label label-season">Season Leaderboard</span>
