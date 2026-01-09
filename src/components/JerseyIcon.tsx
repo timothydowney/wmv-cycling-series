@@ -5,7 +5,7 @@ import React from 'react';
  * 
  * Yellow (TdF): Overall leader on flat/rolling tracks (Avg Gradient <= 2%)
  * Polkadot (TdF): King of the Mountains leader (Avg Gradient > 2%)
- * Lantern Rouge: Symbolic last rider (Red lantern icon - from historic race tradition)
+ * Lanterne Rouge: Symbolic last rider (Red lantern icon - from historic race tradition)
  */
 
 interface JerseyIconProps {
