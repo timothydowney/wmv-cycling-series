@@ -48,7 +48,35 @@ All leaderboards are public to club members. See how you rank, what times matter
 ### 📱 Works Everywhere
 No app to install. Just a website that works on phones, tablets, and computers.
 
-## Built with ❤️ for Cyclists
+## Understanding Scoring & Jerseys
+
+### How Points Work
+
+**Weekly Scoring:**
+- **Beat competitors** → Earn points equal to how many riders you defeated
+- **Participate** → +1 point for completing the event
+- **Set a PR** → +1 bonus point if you achieve a personal record
+
+Example: If 10 riders compete and you finish 3rd with a PR, you earn `(10-3) + 1 + 1 = 9 points`.
+
+**Seasonal Scoring:**
+Points accumulate across all weeks. The rider with the most total points at season's end wins the championship.
+
+### The Jerseys
+
+We celebrate the top performers with iconic cycling honors:
+
+- 🟡 **Yellow Jersey**
+  - **Season:** Held by the rider with the most total points overall.
+  - **Weekly:** Awarded to the fastest rider on non-climb events.
+- 🔴 **Polka Dot Jersey**
+  - **Season:** Held by the rider with the most weekly hill climb wins.
+  - **Weekly:** Awarded to the fastest rider on hill climb events.
+- 🏮 **Lantern Rouge**
+  - **Season:** Held by the rider with the lowest total points overall.
+  - **Weekly:** Given to the last place finisher who completes the event.
+
+These are honorary titles that celebrate different kinds of excellence—from pure speed to consistency.
 
 WMV Cycling Series was created to solve a specific problem: how to organize fair, fun, and transparent cycling competitions for a community.
 
