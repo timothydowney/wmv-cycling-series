@@ -5,6 +5,7 @@ import { segmentRouter } from './segment';
 import { participantRouter } from './participant';
 import { leaderboardRouter } from '../trpc/leaderboardRouter'; // Import the new leaderboardRouter
 import { webhookAdminRouter } from '../trpc/routers/webhookAdminRouter'; // Import the new webhookAdminRouter
+import { clubRouter } from './club';
 
 export const appRouter = router({
   health: publicProcedure.query(() => 'ok'),
@@ -14,6 +15,7 @@ export const appRouter = router({
   participant: participantRouter,
   leaderboard: leaderboardRouter, // Add the leaderboardRouter to the appRouter
   webhookAdmin: webhookAdminRouter, // Add the webhookAdminRouter
+  club: clubRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -52,6 +52,7 @@ interface Config {
   stravaClientId: string | undefined;
   stravaClientSecret: string | undefined;
   stravaWebhookApiUrl: string; // Only used for webhook subscription endpoints
+  stravaClubId: string; // Strava club to track membership for
   // Database
   databasePath: string;
   maxDatabaseSize: number; // Maximum database size in MB (default: 256)
@@ -127,6 +128,7 @@ function getConfig(): Config {
     stravaClientId: process.env.STRAVA_CLIENT_ID,
     stravaClientSecret: process.env.STRAVA_CLIENT_SECRET,
     stravaWebhookApiUrl: process.env.STRAVA_WEBHOOK_API_URL || 'https://www.strava.com',
+    stravaClubId: process.env.STRAVA_CLUB_ID || '1495648',
     // Database
     databasePath: process.env.DATABASE_PATH || path.join(__dirname, '..', 'data', 'wmv.db'),
     maxDatabaseSize,
