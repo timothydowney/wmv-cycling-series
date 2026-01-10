@@ -69,7 +69,7 @@ export const useClubMembership = (options: UseClubMembershipOptions = {}) => {
     error: error?.message,
     isSessionDismissed,
     hasDeclinedPermanently: hasDeclinedPermanently(),
-    shouldShow: !!athleteId && !isMember && !isSessionDismissed && !hasDeclinedPermanently(),
+    shouldShow: !!athleteId && !isMember && !isSessionDismissed && !hasDeclinedPermanently() && !isLoading,
     notInterested,
     remindMeLater,
     clearDecline, // for testing
