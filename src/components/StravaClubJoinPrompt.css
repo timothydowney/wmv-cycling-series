@@ -1,0 +1,136 @@
+/* Match StravaConnectInfoBox styling */
+.strava-club-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: linear-gradient(135deg, #fcf0e8 0%, #fff5f0 100%);
+  border: 2px solid #FC5200;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.club-prompt-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  flex: 1;
+}
+
+.club-prompt-text {
+  flex: 1;
+}
+
+.club-prompt-text h3 {
+  margin: 0 0 8px 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--wmv-purple);
+}
+
+.club-prompt-text p {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #555;
+  line-height: 1.5;
+}
+
+.club-join-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #FC5200;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 16px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background-color 0.2s ease;
+}
+
+.club-join-button:hover {
+  background-color: #d83d00;
+}
+
+.club-join-button:active {
+  transform: scale(0.98);
+}
+
+.club-prompt-footer {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+.club-remind-later,
+.club-not-interested {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.club-remind-later:hover,
+.club-not-interested:hover {
+  border-color: #FC5200;
+  color: #FC5200;
+}
+
+.club-remind-later:active,
+.club-not-interested:active {
+  transform: scale(0.98);
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .strava-club-prompt {
+    flex-direction: column;
+    align-items: flex-start;
+    padding-bottom: 20px;
+  }
+
+  .club-prompt-content {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .club-join-button {
+    width: 100%;
+  }
+
+  .club-prompt-text h3 {
+    font-size: 1rem;
+  }
+
+  .club-prompt-text p {
+    font-size: 0.9rem;
+  }
+
+  .club-prompt-footer {
+    position: static;
+    flex-direction: column;
+    width: 100%;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .club-remind-later,
+  .club-not-interested {
+    width: 100%;
+  }
+
+  .club-prompt-dismiss {
+    position: absolute;
+  }
+}

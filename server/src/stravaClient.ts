@@ -81,6 +81,24 @@ interface StravaApiSegment {
 }
 
 /**
+ * Club member data from Strava API
+ */
+interface ClubMember {
+  id: string;
+  username: string;
+  firstname: string;
+  lastname: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  profile_medium?: string;
+  profile?: string;
+  friend?: boolean;
+  follower?: boolean;
+  [key: string]: unknown;
+}
+
+/**
  * Internal interface for the Strava client instance to avoid 'as any' at call sites.
  * The strava-v3 library's own types are currently incomplete for these methods.
  */
@@ -152,6 +170,29 @@ async function getAthleteProfile(athleteId: string, accessToken: string): Promis
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`Failed to fetch athlete profile: ${message}`);
+  }
+}
+
+/**
+ * Get the logged-in athlete's profile data
+ * Includes clubs array showing all clubs the athlete belongs to
+ * 
+ * @param accessToken - Valid Strava access token for authenticated athlete
+ * @returns Athlete profile data including clubs array
+ * @throws {Error} If fetch fails
+ */
+async function getLoggedInAthlete(accessToken: string): Promise<any> {
+  try {
+    const client = createStravaClient(accessToken);
+    
+    // Call the /athlete endpoint to get logged-in athlete's data
+    // This returns the athlete object with clubs array
+    const result = await (client.athlete as any).client?.getEndpoint?.('athlete');
+    
+    return result;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to fetch logged-in athlete: ${message}`);
   }
 }
 
@@ -445,6 +486,57 @@ function mapStravaSegmentToSegmentRow(
   };
 }
 
+/**
+ * Club Members: Fetch list of members in a club
+ * Handles pagination to get all members.
+ *
+ * @param clubId - Strava club ID
+ * @param accessToken - Valid Strava access token (must be from club member)
+ * @param options - Optional pagination settings
+ * @returns Array of club members
+ * @throws {Error} If fetch fails
+ */
+interface ListClubMembersOptions {
+  page?: number;
+  per_page?: number;
+}
+
+async function getClubMembers(
+  clubId: string,
+  options: ListClubMembersOptions = {},
+  accessToken: string
+): Promise<ClubMember[]> {
+  try {
+    const client = createStravaClient(accessToken);
+    const page = options.page || 1;
+    const per_page = options.per_page || 50; // Strava default is 50
+
+    console.log(`[Strava API] getClubMembers: clubId=${clubId}, page=${page}, per_page=${per_page}`);
+
+    // Use the clubs.listMembers method from strava-v3
+    const members = await (client as any).clubs.listMembers({
+      id: clubId,
+      page,
+      per_page,
+    });
+
+    console.log(`[Strava API] getClubMembers: fetched ${members?.length || 0} members`);
+    return members || [];
+  } catch (error) {
+    const err = error as Record<string, unknown>;
+    const statusCode = (err as any).statusCode;
+    
+    if (statusCode === 404) {
+      throw new Error('Club not found on Strava');
+    } else if (statusCode === 401) {
+      throw new Error('Invalid or expired Strava token');
+    }
+    
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to fetch club members: ${message}`);
+  }
+}
+
 export {
   exchangeAuthorizationCode,
   refreshAccessToken,
@@ -452,6 +544,8 @@ export {
   listAthleteActivities,
   getSegment,
   getAthleteProfile,
+  getClubMembers,
+  getLoggedInAthlete,
   mapStravaSegmentToSegmentRow,
   createStravaClient,
   type OAuthTokenData,
@@ -459,6 +553,8 @@ export {
   type Activity,
   type SegmentEffort,
   type StravaApiSegment,
+  type ClubMember,
   type ListActivitiesOptions,
+  type ListClubMembersOptions,
   type StravaClientInstance
 };
