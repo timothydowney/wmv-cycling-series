@@ -25,8 +25,8 @@ const StravaConnectInfoBox: React.FC<StravaConnectInfoBoxProps> = ({ show }) => 
     <div className="strava-connect-infobox">
       <div className="infobox-content">
         <div className="infobox-text">
-          <h3>Want to see your results?</h3>
-          <p>Connect your Strava account to see your own results on the leaderboard and track your performance throughout the season.</p>
+          <h3>Want to see your results?  Logged out?</h3>
+          <p>Sign in with your Strava account to view your results on the leaderboard and track your performance throughout the season.</p>
         </div>
         <button className="strava-connect-button-infobox" onClick={handleConnect}>
           <img src="/assets/strava/btn_strava_connectwith_orange.svg" alt="Connect with Strava" />
