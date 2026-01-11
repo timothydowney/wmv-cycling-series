@@ -7,20 +7,28 @@
 
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { and, desc, eq, gt, sql } from 'drizzle-orm';
-import { activity, participant, webhookEvent } from '../db/schema';
+import { webhookEvent } from '../db/schema';
 import { WebhookSubscriptionService } from './WebhookSubscriptionService';
+import ParticipantService from './ParticipantService';
+import { ActivityService } from './ActivityService';
 import { StorageMonitor } from '../webhooks/storageMonitor';
 import { config } from '../config';
 import { createWebhookProcessor } from '../webhooks/processor';
 import { WebhookLogger } from '../webhooks/logger';
+import * as stravaClient from '../stravaClient';
+import { getValidAccessToken } from '../tokenManager';
 
 export class WebhookAdminService {
   private subscriptionService: WebhookSubscriptionService;
+  private participantService: ParticipantService;
+  private activityService: ActivityService;
   private storageMonitor: StorageMonitor;
   private logger: WebhookLogger;
 
   constructor(private db: BetterSQLite3Database) {
     this.subscriptionService = new WebhookSubscriptionService(db);
+    this.participantService = new ParticipantService(db);
+    this.activityService = new ActivityService(db);
     this.storageMonitor = new StorageMonitor(db, config.databasePath);
     this.logger = new WebhookLogger(db);
   }
@@ -154,37 +162,145 @@ export class WebhookAdminService {
     if (!eventRow) throw new Error('Event not found');
 
     const payload = JSON.parse(eventRow.payload);
-    const enrichment: any = {
-      object_type: payload.object_type,
-      aspect_type: payload.aspect_type,
-      object_id: payload.object_id,
-      owner_id: payload.owner_id
-    };
-
-    if (payload.object_type === 'activity') {
-      const activityData = this.db.select().from(activity).where(eq(activity.strava_activity_id, payload.object_id.toString())).get();
-      if (activityData) {
-        const p = this.db.select({ name: participant.name }).from(participant).where(eq(participant.strava_athlete_id, activityData.strava_athlete_id)).get();
-        enrichment.activity = {
-          ...activityData,
-          participantName: p?.name
-        };
-      }
-    } else if (payload.object_type === 'athlete') {
-      const athleteData = this.db.select().from(participant).where(eq(participant.strava_athlete_id, payload.owner_id.toString())).get();
-      if (athleteData) {
-        enrichment.athlete = athleteData;
-      }
-    }
-
-    return {
+    const response: any = {
       id: eventRow.id,
       created_at: eventRow.created_at,
       processed: eventRow.processed === 1,
       error_message: eventRow.error_message,
-      payload: payload,
-      enrichment
+      payload: payload
     };
+
+    const objectType = payload.object_type;
+    const objectId = payload.object_id ? String(payload.object_id) : null;
+    const ownerId = payload.owner_id ? String(payload.owner_id) : null;
+
+    if (objectType === 'athlete') {
+      const athleteId = ownerId || objectId;
+      const participantRecord = this.participantService.getParticipantByStravaAthleteId(athleteId!);
+
+      response.enrichment = {
+        athlete: {
+          athlete_id: athleteId,
+          name: participantRecord?.name || `Unknown (${athleteId})`
+        }
+      };
+    } else if (objectType === 'activity') {
+      const athleteId = ownerId;
+      const activityId = objectId;
+
+      // Get participant from our database
+      const participantRecord = this.participantService.getParticipantByStravaAthleteId(athleteId!);
+
+      // Initialize enrichment object
+      const enrichment: any = {
+        athlete: {
+          athlete_id: athleteId,
+          name: participantRecord?.name || `Unknown (${athleteId})`
+        },
+        strava_data: null,
+        matching_seasons: [],
+        summary: {
+          status: 'not_processed',
+          message: '',
+          total_weeks_matched: 0,
+          total_seasons: 0
+        }
+      };
+
+      // Try to fetch activity details from Strava
+      try {
+        if (participantRecord && activityId) {
+          console.log(`[WebhookAdmin] Fetching Strava activity details for activity ${activityId}`);
+          const token = await getValidAccessToken(this.db, stravaClient, participantRecord.strava_athlete_id);
+          const activityData = await stravaClient.getActivity(activityId, token);
+          
+          enrichment.strava_data = {
+            activity_id: String(activityData.id),
+            name: activityData.name,
+            type: activityData.type,
+            distance_m: activityData.distance,
+            moving_time_sec: activityData.moving_time,
+            elevation_gain_m: activityData.elevation_gain,
+            start_date_iso: activityData.start_date,
+            device_name: activityData.device_name || null,
+            segment_effort_count: activityData.segment_efforts?.length || 0,
+            visibility: activityData.visibility || null
+          };
+        }
+      } catch (error) {
+        console.warn(`[WebhookAdmin] Activity fetch from Strava failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+
+      // If not processed, return early
+      if (eventRow.processed === 0 && !eventRow.error_message) {
+        enrichment.summary = {
+          status: 'pending',
+          message: 'Webhook is still being processed or has not been processed yet',
+          total_weeks_matched: 0,
+          total_seasons: 0
+        };
+        response.enrichment = enrichment;
+        return response;
+      }
+
+      // If failed with error
+      if (eventRow.error_message) {
+        enrichment.summary = {
+          status: 'error',
+          message: eventRow.error_message,
+          total_weeks_matched: 0,
+          total_seasons: 0
+        };
+        response.enrichment = enrichment;
+        return response;
+      }
+
+      // Activity was processed successfully - query what was stored
+      if (activityId) {
+        const storedActivities = await this.activityService.getStoredActivityMatches(activityId);
+
+        if (storedActivities.length === 0) {
+          enrichment.summary = {
+            status: 'no_match',
+            message: 'Webhook was processed but activity does not match any active season/week combinations',
+            total_weeks_matched: 0,
+            total_seasons: 0
+          };
+        } else {
+          // Group by season for display
+          const seasonMap = new Map<number, any>();
+          for (const sa of storedActivities) {
+            const seasonId = sa.season_id;
+            if (!seasonMap.has(seasonId)) {
+              seasonMap.set(seasonId, {
+                season_id: seasonId,
+                season_name: sa.season_name,
+                matched_weeks: []
+              });
+            }
+
+            seasonMap.get(seasonId)!.matched_weeks.push({
+              week_id: sa.week_id,
+              week_name: sa.week_name,
+              segment_effort_count: sa.segment_effort_count || 0,
+              total_time_seconds: sa.total_time_seconds
+            });
+          }
+
+          enrichment.matching_seasons = Array.from(seasonMap.values());
+          enrichment.summary = {
+            status: 'qualified',
+            message: `Activity was processed and stored for ${storedActivities.length} week(s) across ${seasonMap.size} season(s)`,
+            total_weeks_matched: storedActivities.length,
+            total_seasons: seasonMap.size
+          };
+        }
+      }
+
+      response.enrichment = enrichment;
+    }
+
+    return response;
   }
 
   async clearEvents() {

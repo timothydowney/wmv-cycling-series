@@ -8,7 +8,7 @@ import { eq } from 'drizzle-orm';
 import { participant, participantToken } from '../db/schema';
 import { encryptToken, decryptToken } from '../encryption';
 import * as stravaClient from '../stravaClient';
-import { getAthleteProfilePicture } from './StravaProfileService';
+import { getAthleteProfilePicture, seedProfileCache } from './StravaProfileService';
 
 export interface ParticipantData {
   strava_athlete_id: string;
@@ -45,6 +45,12 @@ class LoginService {
     const athlete = tokenData.athlete as Record<string, unknown>;
     const athleteId = String(athlete.id);
     const athleteName = `${athlete.firstname} ${athlete.lastname}`;
+    const profileUrl = (athlete.profile || athlete.profile_medium) as string | undefined;
+
+    // Seed profile cache with image from login response
+    if (profileUrl) {
+      seedProfileCache(athleteId, profileUrl);
+    }
 
     // Find or create participant using Drizzle
     const existingParticipant = this.drizzleDb

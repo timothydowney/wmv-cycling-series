@@ -22,31 +22,19 @@ interface CachedProfile {
 }
 const profileCache = new Map<string, CachedProfile>();
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
-const PROFILE_FETCH_TIMEOUT_MS = 5000; // 5 second timeout for Strava API calls
 
 /**
- * Wrap a promise with a timeout
- * Rejects with a timeout error if the promise doesn't resolve within the timeout
- * 
- * TODO: Remove this wrapper function once strava-v3 client is upgraded or replaced.
- * The strava-v3 library uses the deprecated `request` package and doesn't support
- * configurable timeouts. This wrapper is a workaround for intermittent Strava API
- * connectivity issues (ETIMEDOUT errors). Once we migrate to a modern HTTP client
- * (e.g., axios, fetch, or an updated Strava SDK), we can set timeouts directly
- * on the client configuration and remove this utility.
+ * Seed the profile cache with an already-known profile URL
+ * Used during login to save an extra API call
  */
-async function withTimeout<T>(
-  promise: Promise<T>,
-  timeoutMs: number,
-  timeoutMsg: string
-): Promise<T> {
-  const timeoutPromise = new Promise<T>((_, reject) => {
-    setTimeout(() => {
-      reject(new Error(`${timeoutMsg} (timeout after ${timeoutMs}ms)`));
-    }, timeoutMs);
-  });
-
-  return Promise.race([promise, timeoutPromise]);
+export function seedProfileCache(athleteId: string, profileUrl: string | null): void {
+  if (athleteId) {
+    profileCache.set(athleteId, {
+      profile: profileUrl,
+      timestamp: Date.now()
+    });
+    console.log(`[Profile] Cache seeded for athlete ${athleteId}`);
+  }
 }
 
 /**
@@ -66,13 +54,9 @@ async function getAthleteProfilePicture(athleteId: string, accessToken: string):
     }
 
     // Use strava client library to fetch athlete profile
-    const athleteData = await withTimeout(
-      getAthleteProfile(athleteId, accessToken),
-      PROFILE_FETCH_TIMEOUT_MS,
-      `Strava profile fetch for athlete ${athleteId}`
-    );
+    const athleteData = await getAthleteProfile(athleteId, accessToken);
 
-    const profileUrl = athleteData?.profile || null;
+    const profileUrl = athleteData?.profile || athleteData?.profile_medium || null;
 
     // Cache the result
     profileCache.set(athleteId, {
