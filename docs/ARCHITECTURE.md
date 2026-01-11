@@ -48,13 +48,16 @@ Express app on http://localhost:3001
   - `segmentRouter` - Segment management (list, create, validate)
   - `participantRouter` - Participant information and connection status
   - `seasonRouter` - Season management
+  - `webhookAdminRouter` - Admin monitoring and management of Strava webhooks
 - **REST endpoints** (legacy, being phased out):
   - `/auth/strava`, `/auth/strava/callback`, `/auth/status`, `/POST auth/disconnect`
   - `/admin/weeks/:id/fetch-results` - Batch fetch activities
   - `/webhooks/*` - Strava webhook events
 
 **tRPC Usage:**
-All tRPC procedures use **Dependency Injection** pattern - services receive `drizzleDb` instance in constructor. This enables:
+The project follows a **thin router, fat service** pattern. tRPC routers handle input validation and procedure orchestration, while all business logic is encapsulated in standalone services.
+
+All tRPC procedures use **Dependency Injection** pattern - services receive a `drizzleDb` instance in their constructor. This enables:
 - Type-safe queries with automatic inference
 - Easy testing with in-memory databases
 - Consistent error handling across routers
@@ -483,7 +486,8 @@ Builds frontend and ensures backend deps installed
 **API Performance:**
 - Leaderboard queries: <10ms
 - Activity fetch: Limited by Strava API rate limits (not your bottleneck)
-- No caching needed (traffic is minimal)
+- **Profile Caching:** In-memory caching for athlete profile pictures (1-hour TTL) to stay within Strava API limits
+- No complex database caching needed (traffic is minimal)
 
 **If you scale beyond 100 participants:**
 - Migrate to PostgreSQL (same SQL, one-click on Railway)
