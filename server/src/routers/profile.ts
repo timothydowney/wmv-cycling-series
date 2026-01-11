@@ -13,6 +13,7 @@ export interface ProfileSeasonStats {
   totalPoints: number;
   weeksParticipated: number;
   seasonRank: number;
+  totalSeasonParticipants: number;
   yellowJerseyWon: boolean;
   polkaDotJerseyWon: boolean;
   polkaDotWins: number;
@@ -48,166 +49,108 @@ async function getMyProfile(
   // Get all seasons
   const seasons = await drizzleDb.select().from(season).orderBy(season.id).all();
 
-  const jerseyService = new JerseyService(drizzleDb);
   const seasonStats: ProfileSeasonStats[] = [];
 
   for (const s of seasons) {
-    // Get all results for participant in this season
-    const results = await drizzleDb
-      .select({
-        week_id: result.week_id,
-        activity_id: result.activity_id,
-        total_time_seconds: result.total_time_seconds,
-      })
-      .from(result)
-      .where(eq(result.strava_athlete_id, athleteId))
+    const jerseyService = new JerseyService(drizzleDb);
+    
+    // Calculate season ranking by getting all weeks and computing points for all participants
+    const seasonWeeks = await drizzleDb
+      .select()
+      .from(week)
+      .where(eq(week.season_id, s.id))
       .all();
 
-    // Filter to only this season's results
-    const seasonResults = [];
-    for (const res of results) {
-      if (res.week_id) {
-        const w = await drizzleDb
-          .select({ season_id: week.season_id })
-          .from(week)
-          .where(eq(week.id, res.week_id))
-          .get();
-        
-        if (w && w.season_id === s.id) {
-          seasonResults.push(res);
-        }
-      }
+    if (seasonWeeks.length === 0) {
+      continue; // No weeks in season, skip
     }
 
-    let totalPoints = 0;
-    for (const res of seasonResults) {
-      if (res.week_id) {
-        // Calculate points for this week using the same logic as leaderboard
-        const weekResults = await drizzleDb
-          .select({
-            strava_athlete_id: result.strava_athlete_id,
-            total_time_seconds: result.total_time_seconds,
-          })
-          .from(result)
-          .where(eq(result.week_id, res.week_id))
-          .orderBy(result.total_time_seconds)
-          .all();
-
-        const participantCount = weekResults.length;
-        const rankIndex = weekResults.findIndex(r => r.strava_athlete_id === athleteId);
-        const rank = rankIndex + 1;
-
-        if (rankIndex >= 0) {
-          const basePoints = participantCount - rank;
-          const participationBonus = 1;
-
-          // Check for PR bonus
-          let prBonusPoints = 0;
-          if (res.activity_id) {
-            const effortWithPr = await drizzleDb
-              .select()
-              .from(segmentEffort)
-              .where(eq(segmentEffort.activity_id, res.activity_id))
-              .all();
-
-            prBonusPoints = effortWithPr.some(e => e.pr_achieved) ? 1 : 0;
-          }
-
-          totalPoints += basePoints + participationBonus + prBonusPoints;
-        }
-      }
-    }
-
-    // Calculate season ranking (only for closed seasons)
-    let seasonRank = 0;
-    let yellowJerseyWon = false;
-    let polkaDotJerseyWon = false;
-
-    if (!s.is_active) {
-      // Get all participants' points for this season to rank
-      const allParticipants = await drizzleDb
-        .select({ strava_athlete_id: result.strava_athlete_id })
+    const seasonLeaderboard = new Map<string, number>();
+    const weeksParticipatedMap = new Map<string, number>();
+    
+    // For each week, calculate all participant points
+    for (const w of seasonWeeks) {
+      const weekResults = await drizzleDb
+        .select()
         .from(result)
-        .where(eq(result.strava_athlete_id, athleteId))
+        .where(eq(result.week_id, w.id))
+        .orderBy(result.total_time_seconds)
         .all();
-      if (allParticipants.length > 0) {
-        // Calculate season ranking by getting all weeks and computing points for all participants
-        const seasonWeeks = await drizzleDb
-          .select()
-          .from(week)
-          .where(eq(week.season_id, s.id))
-          .all();
 
-        const seasonLeaderboard = new Map<string, number>();
+      const participantCount = weekResults.length;
+      const weekMultiplier = w.multiplier ?? 1;
+      
+      for (let i = 0; i < weekResults.length; i++) {
+        const res = weekResults[i];
+        const rank = i + 1;
+        const athleteIdInRes = res.strava_athlete_id;
+        const basePoints = participantCount - rank;
+        const participationBonus = 1;
         
-        // For each week, calculate all participant points
-        for (const w of seasonWeeks) {
-          const weekResults = await drizzleDb
+        // Check for PR bonus
+        let prBonusPoints = 0;
+        if (res.activity_id) {
+          const effortWithPr = await drizzleDb
             .select()
-            .from(result)
-            .where(eq(result.week_id, w.id))
-            .orderBy(result.total_time_seconds)
+            .from(segmentEffort)
+            .where(eq(segmentEffort.activity_id, res.activity_id))
             .all();
-
-          const participantCount = weekResults.length;
-          
-          for (let i = 0; i < weekResults.length; i++) {
-            const res = weekResults[i];
-            const rank = i + 1;
-            const basePoints = participantCount - rank;
-            const participationBonus = 1;
-            
-            // Check for PR bonus
-            let prBonusPoints = 0;
-            if (res.activity_id) {
-              const effortWithPr = await drizzleDb
-                .select()
-                .from(segmentEffort)
-                .where(eq(segmentEffort.activity_id, res.activity_id))
-                .all();
-              prBonusPoints = effortWithPr.some(e => e.pr_achieved) ? 1 : 0;
-            }
-            
-            const weekPoints = basePoints + participationBonus + prBonusPoints;
-            const currentPoints = seasonLeaderboard.get(res.strava_athlete_id) || 0;
-            seasonLeaderboard.set(res.strava_athlete_id, currentPoints + weekPoints);
-          }
+          prBonusPoints = effortWithPr.some(e => e.pr_achieved) ? 1 : 0;
         }
-
-        // Sort to get ranking
-        const sorted = Array.from(seasonLeaderboard.entries())
-          .sort((a, b) => b[1] - a[1]);
-
-        seasonRank = sorted.findIndex(([id]) => id === athleteId) + 1;
+        
+        const weekPoints = (basePoints + participationBonus + prBonusPoints) * weekMultiplier;
+        
+        seasonLeaderboard.set(athleteIdInRes, (seasonLeaderboard.get(athleteIdInRes) || 0) + weekPoints);
+        weeksParticipatedMap.set(athleteIdInRes, (weeksParticipatedMap.get(athleteIdInRes) || 0) + 1);
       }
-
-      // Check for yellow jersey win
-      const yellowWinner = await jerseyService.getYellowJerseyWinner(s.id);
-      yellowJerseyWon = yellowWinner?.strava_athlete_id === athleteId;
-
-      // Check for polka dot jersey win
-      const polkaDotWinner = await jerseyService.getPolkaDotWinner(s.id);
-      polkaDotJerseyWon = polkaDotWinner?.strava_athlete_id === athleteId;
     }
 
-    // Get polka dot wins for this season (only for closed seasons)
-    const polkaDotWins = !s.is_active ? await jerseyService.getParticipantPolkaDotWins(s.id, athleteId) : 0;
+    // Capture the target athlete's stats for this season
+    const totalPoints = seasonLeaderboard.get(athleteId) || 0;
+    const weeksParticipated = weeksParticipatedMap.get(athleteId) || 0;
 
-    // Get time trial wins for this season (only for closed seasons)
-    const timeTrialWins = !s.is_active ? await jerseyService.getParticipantTimeTrialWins(s.id, athleteId) : 0;
+    // Only include season if the athlete participated
+    if (weeksParticipated > 0) {
+      // Sort to get ranking
+      const sorted = Array.from(seasonLeaderboard.entries())
+        .sort((a, b) => b[1] - a[1]);
 
-    seasonStats.push({
-      seasonId: s.id,
-      seasonName: s.name,
-      isActive: s.is_active,
-      totalPoints,
-      weeksParticipated: seasonResults.length,
-      seasonRank,
-      yellowJerseyWon,
-      polkaDotJerseyWon,
-      polkaDotWins,
-      timeTrialWins,
-    });
+      const totalSeasonParticipants = sorted.length;
+      const seasonRank = sorted.findIndex(([id]) => id === athleteId) + 1;
+
+      let yellowJerseyWon = false;
+      let polkaDotJerseyWon = false;
+
+      if (!s.is_active) {
+        // Check for yellow jersey win
+        const yellowWinner = await jerseyService.getYellowJerseyWinner(s.id);
+        yellowJerseyWon = yellowWinner?.strava_athlete_id === athleteId;
+
+        // Check for polka dot jersey win
+        const polkaDotWinner = await jerseyService.getPolkaDotWinner(s.id);
+        polkaDotJerseyWon = polkaDotWinner?.strava_athlete_id === athleteId;
+      }
+
+      // Get polka dot wins for this season (only for closed seasons)
+      const polkaDotWins = !s.is_active ? await jerseyService.getParticipantPolkaDotWins(s.id, athleteId) : 0;
+
+      // Get time trial wins for this season (only for closed seasons)
+      const timeTrialWins = !s.is_active ? await jerseyService.getParticipantTimeTrialWins(s.id, athleteId) : 0;
+
+      seasonStats.push({
+        seasonId: s.id,
+        seasonName: s.name,
+        isActive: s.is_active,
+        totalPoints,
+        weeksParticipated,
+        seasonRank,
+        totalSeasonParticipants,
+        yellowJerseyWon,
+        polkaDotJerseyWon,
+        polkaDotWins,
+        timeTrialWins,
+      });
+    }
   }
 
   // Get profile picture from service

@@ -81,7 +81,9 @@ const MyProfilePage: React.FC = () => {
                     </Link>
                   </h3>
                   {season.seasonRank > 0 && (
-                    <span className="rank-badge current">Current: #{season.seasonRank}</span>
+                    <span className="rank-badge current">
+                      Current: #{season.seasonRank} / {season.totalSeasonParticipants}
+                    </span>
                   )}
                 </div>
                 
@@ -116,7 +118,7 @@ const MyProfilePage: React.FC = () => {
                   </h3>
                   <div className="jersey-achievements">
                     {season.seasonRank > 0 && (
-                      <span className="rank-badge">#{season.seasonRank}</span>
+                      <span className="rank-badge">#{season.seasonRank} / {season.totalSeasonParticipants}</span>
                     )}
                     {season.yellowJerseyWon && (
                       <div className="mini-jersey-badge" title="Overall Season Winner">
