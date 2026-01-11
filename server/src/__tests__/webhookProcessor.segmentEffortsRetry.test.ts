@@ -20,7 +20,7 @@ import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { setupTestDb } from './setupTestDb';
 import { WebhookLogger } from '../webhooks/logger';
 import { createWebhookProcessor } from '../webhooks/processor';
-import ActivityValidationServiceDrizzle from '../services/ActivityValidationServiceDrizzle';
+import ActivityValidationService from '../services/ActivityValidationService';
 import {
   createParticipant,
   createSeason,

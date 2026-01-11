@@ -8,16 +8,20 @@
 
 import ClubService from '../services/ClubService';
 import * as stravaClientModule from '../stravaClient';
+import { setupTestDb } from './setupTestDb';
 
 jest.mock('../stravaClient');
 const mockStravaClient = stravaClientModule as jest.Mocked<typeof stravaClientModule>;
 
 describe('ClubService - Minimal Tests', () => {
   let service: ClubService;
+  let drizzleDb: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new ClubService();
+    const testDb = setupTestDb();
+    drizzleDb = testDb.drizzleDb;
+    service = new ClubService(drizzleDb);
   });
 
   it('should create a new instance', () => {

@@ -22,6 +22,9 @@
  */
 
 import { getLoggedInAthlete } from '../stravaClient';
+import { getValidAccessToken } from '../tokenManager';
+import * as stravaClient from '../stravaClient';
+import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
 interface AthleteClub {
   id: number;
@@ -30,19 +33,40 @@ interface AthleteClub {
   [key: string]: any;
 }
 
-class ClubService {
+export class ClubService {
+  constructor(private db: BetterSQLite3Database) {}
 
   /**
-   * Check if the logged-in athlete is a member of a club.
+   * Check if a specific athlete is a member of the club.
+   * Handles token retrieval, API call, and graceful error handling.
    * 
-   * Calls getLoggedInAthlete() which returns the athlete's profile including
-   * their clubs array. We then check if the target club is in that array.
+   * @param athleteId - Strava athlete ID of the participant
+   * @param clubId - Target club ID to check membership in
+   * @returns true if athlete is a member, false if not or on error
+   */
+  async checkMember(athleteId: string, clubId: string): Promise<boolean> {
+    try {
+      // Get valid access token
+      const accessToken = await getValidAccessToken(this.db, stravaClient, athleteId);
+      
+      if (!accessToken) {
+        console.warn(`[Club] No access token for athlete ${athleteId}`);
+        return false;
+      }
+
+      return await this.isMemberOfClub(clubId, accessToken);
+    } catch (error) {
+      console.error(`[Club] Error checking membership for athlete ${athleteId}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Internal method to check if the athlete is a member of a club using a token.
    * 
    * @param clubId - Target club ID to check membership in
    * @param accessToken - Valid Strava access token for authenticated athlete
    * @returns true if athlete is a member of the club, false otherwise
-   * 
-   * @throws {Error} If API call fails (will be caught by router)
    */
   async isMemberOfClub(
     clubId: string,
@@ -76,8 +100,5 @@ class ClubService {
     }
   }
 }
-
-// Export singleton instance
-export const clubService = new ClubService();
 
 export default ClubService;

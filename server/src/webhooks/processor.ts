@@ -29,7 +29,7 @@ import { getValidAccessToken } from '../tokenManager';
 import { isoToUnix } from '../dateUtils';
 import { findBestQualifyingActivity } from '../activityProcessor';
 import { storeActivityAndEfforts } from '../activityStorage';
-import ActivityValidationServiceDrizzle from '../services/ActivityValidationServiceDrizzle';
+import ActivityValidationService from '../services/ActivityValidationService';
 import { Week } from '../db/schema'; // Import Drizzle Week type
 
 /**
@@ -99,7 +99,7 @@ function createDefaultService(db: BetterSQLite3Database): WebhookService {
  */
 export function createWebhookProcessor(db: BetterSQLite3Database, service?: WebhookService) {
   const svc = service || createDefaultService(db);
-  const validationService = new ActivityValidationServiceDrizzle(db);
+  const validationService = new ActivityValidationService(db);
 
   return async function processWebhookEvent(
     event: WebhookEvent,
@@ -182,10 +182,10 @@ async function processActivityEvent(
   event: ActivityWebhookEvent,
   _logger: WebhookLogger,
   db: BetterSQLite3Database,
-  validationService?: ActivityValidationServiceDrizzle
+  validationService?: ActivityValidationService
 ): Promise<void> {
   // Initialize validation service if not provided (for direct calls)
-  const validator = validationService || new ActivityValidationServiceDrizzle(db);
+  const validator = validationService || new ActivityValidationService(db);
   const activityId = String(event.object_id);
   const athleteId = String(event.owner_id);
 

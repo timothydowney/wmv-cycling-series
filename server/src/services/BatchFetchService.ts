@@ -10,7 +10,7 @@ import * as stravaClient from '../stravaClient';
 import { findBestQualifyingActivity } from '../activityProcessor';
 import { storeActivityAndEfforts } from '../activityStorage';
 import { LogLevel, LoggerCallback, StructuredLogger } from '../types/Logger';
-import ActivityValidationServiceDrizzle from './ActivityValidationServiceDrizzle';
+import ActivityValidationService from './ActivityValidationService';
 
 interface FetchResult {
   participant_id: string;
@@ -32,7 +32,7 @@ interface FetchWeekResultsResponse {
 }
 
 class BatchFetchService {
-  private validationService: ActivityValidationServiceDrizzle;
+  private validationService: ActivityValidationService;
 
   constructor(
     private db: BetterSQLite3Database,
@@ -42,7 +42,7 @@ class BatchFetchService {
       forceRefresh?: boolean
     ) => Promise<string>
   ) {
-    this.validationService = new ActivityValidationServiceDrizzle(db);
+    this.validationService = new ActivityValidationService(db);
   }
 
   /**
