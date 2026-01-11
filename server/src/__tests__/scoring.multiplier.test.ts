@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import { calculateWeekScoringDrizzle } from '../services/ScoringServiceDrizzle';
+import { calculateWeekScoring } from '../services/ScoringService';
 import { setupTestDb } from './setupTestDb';
 import { week, participant, activity, result, segmentEffort, segment } from '../db/schema';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
@@ -150,7 +150,7 @@ describe('Scoring Multiplier Feature', () => {
         .run();
 
       // Calculate scores
-      const scores = await calculateWeekScoringDrizzle(drizzleDb, testWeek.id);
+      const scores = await calculateWeekScoring(drizzleDb, testWeek.id);
 
       // Verify results
       expect(scores.results).toHaveLength(3);
@@ -254,7 +254,7 @@ describe('Scoring Multiplier Feature', () => {
         .run();
 
       // Calculate scores
-      const scores = await calculateWeekScoringDrizzle(drizzleDb, testWeek.id);
+      const scores = await calculateWeekScoring(drizzleDb, testWeek.id);
 
       // Verify: Only 1 participant, so base = 1 - 1 = 0
       // participation = 1
@@ -370,7 +370,7 @@ describe('Scoring Multiplier Feature', () => {
         .run();
 
       // Calculate scores
-      const scores = await calculateWeekScoringDrizzle(drizzleDb, testWeek.id);
+      const scores = await calculateWeekScoring(drizzleDb, testWeek.id);
 
       // Verify: Multiplier = 1 should not change the calculation
       // 1st place: base=1, participation=1, pr=0, total = 2 × 1 = 2
@@ -440,7 +440,7 @@ describe('Scoring Multiplier Feature', () => {
         .run();
 
       // Calculate scores
-      const scores = await calculateWeekScoringDrizzle(drizzleDb, testWeek.id);
+      const scores = await calculateWeekScoring(drizzleDb, testWeek.id);
 
       // Verify: 1 participant with PR
       // base=0, participation=1, pr=1, total = 2 × 5 = 10
@@ -468,7 +468,7 @@ describe('Scoring Multiplier Feature', () => {
         .get();
 
       // Calculate scores
-      const scores = await calculateWeekScoringDrizzle(drizzleDb, testWeek.id);
+      const scores = await calculateWeekScoring(drizzleDb, testWeek.id);
 
       // Verify: Empty results
       expect(scores.results).toHaveLength(0);
@@ -585,8 +585,8 @@ describe('Scoring Multiplier Feature', () => {
         .run();
 
       // Calculate scores for both weeks
-      const scoresA = await calculateWeekScoringDrizzle(drizzleDb, testWeekA.id);
-      const scoresB = await calculateWeekScoringDrizzle(drizzleDb, testWeekB.id);
+      const scoresA = await calculateWeekScoring(drizzleDb, testWeekA.id);
+      const scoresB = await calculateWeekScoring(drizzleDb, testWeekB.id);
 
       // Verify: Week A has multiplier = 1, Week B has multiplier = 2
       expect(scoresA.results[0].multiplier).toBe(1);

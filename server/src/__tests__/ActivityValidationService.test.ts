@@ -33,9 +33,9 @@ describe('ActivityValidationService', () => {
     // Season 1: Currently active (started in past, ends in future)
     createSeason(orm, 'Active Season', true, { startAt: now - 86400 * 30, endAt: now + 86400 * 30 });
     // Season 2: Closed (ended in past)
-    createSeason(orm, 'Closed Season', false, { startAt: now - 86400 * 60, endAt: now - 86400 * 30 });
+    createSeason(orm, 'Closed Season', true, { startAt: now - 86400 * 60, endAt: now - 86400 * 30 });
     // Season 3: Not started yet
-    createSeason(orm, 'Future Season', false, { startAt: now + 86400 * 30, endAt: now + 86400 * 60 });
+    createSeason(orm, 'Future Season', true, { startAt: now + 86400 * 30, endAt: now + 86400 * 60 });
   });
 
   describe('isSeasonClosed()', () => {

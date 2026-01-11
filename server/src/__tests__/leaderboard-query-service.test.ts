@@ -26,21 +26,21 @@ describe('LeaderboardQueryService', () => {
   });
 
   describe('getWeekLeaderboard', () => {
-    it('should throw error for non-existent week', () => {
-      expect(() => service.getWeekLeaderboard(999)).toThrow('Week 999 not found');
+    it('should throw error for non-existent week', async () => {
+      await expect(service.getWeekLeaderboard(999)).rejects.toThrow('Week 999 not found');
     });
 
-    it('should return week leaderboard with no results', () => {
+    it('should return week leaderboard with no results', async () => {
       const week = createWeek(drizzleDb, { weekName: 'Week 1' });
 
-      const leaderboard = service.getWeekLeaderboard(week.id);
+      const leaderboard = await service.getWeekLeaderboard(week.id);
 
       expect(leaderboard.weekId).toBe(week.id);
       expect(leaderboard.weekName).toBe('Week 1');
       expect(leaderboard.results).toHaveLength(0);
     });
 
-    it('should return week leaderboard with results', () => {
+    it('should return week leaderboard with results', async () => {
       const week = createWeek(drizzleDb, { weekName: 'Week 1' });
       const participant = createParticipant(drizzleDb, '12345', 'Alice');
       const activity = createActivity(drizzleDb, {
@@ -55,18 +55,16 @@ describe('LeaderboardQueryService', () => {
         activityId: activity.id,
       });
 
-      const leaderboard = service.getWeekLeaderboard(week.id);
+      const leaderboard = await service.getWeekLeaderboard(week.id);
 
       expect(leaderboard.results).toHaveLength(1);
       expect(leaderboard.results[0]).toMatchObject({
-        resultId: expect.any(Number),
-        weekId: week.id,
         participantId: participant.strava_athlete_id,
         participantName: 'Alice',
       });
     });
 
-    it('should return results ordered by rank', () => {
+    it('should return results ordered by rank', async () => {
       const week = createWeek(drizzleDb, { weekName: 'Week 1' });
       const alice = createParticipant(drizzleDb, '12345', 'Alice');
       const bob = createParticipant(drizzleDb, '67890', 'Bob');
@@ -93,7 +91,7 @@ describe('LeaderboardQueryService', () => {
         activityId: activity2.id,
       });
 
-      const leaderboard = service.getWeekLeaderboard(week.id);
+      const leaderboard = await service.getWeekLeaderboard(week.id);
 
       expect(leaderboard.results[0].participantName).toBe('Alice');
       expect(leaderboard.results[1].participantName).toBe('Bob');
@@ -201,14 +199,14 @@ describe('LeaderboardQueryService', () => {
   });
 
   describe('getParticipantActivityHistory', () => {
-    it('should throw error for non-existent participant', () => {
-      expect(() => service.getParticipantActivityHistory('999')).toThrow('Participant 999 not found');
+    it('should throw error for non-existent participant', async () => {
+      await expect(service.getParticipantActivityHistory('999')).rejects.toThrow('Participant 999 not found');
     });
 
-    it('should return empty history for participant with no activities', () => {
+    it('should return empty history for participant with no activities', async () => {
       const participant = createParticipant(drizzleDb, '12345', 'Alice');
 
-      const history = service.getParticipantActivityHistory(participant.strava_athlete_id);
+      const history = await service.getParticipantActivityHistory(participant.strava_athlete_id);
 
       expect(history.participantId).toBe(participant.strava_athlete_id);
       expect(history.participantName).toBe('Alice');
@@ -217,7 +215,7 @@ describe('LeaderboardQueryService', () => {
       expect(history.weeksCompleted).toBe(0);
     });
 
-    it('should return participant activity history', () => {
+    it('should return participant activity history', async () => {
       const participant = createParticipant(drizzleDb, '12345', 'Alice');
       const week1 = createWeek(drizzleDb, { weekName: 'Week 1' });
       const activity = createActivity(drizzleDb, {
@@ -232,7 +230,7 @@ describe('LeaderboardQueryService', () => {
         activityId: activity.id,
       });
 
-      const history = service.getParticipantActivityHistory(participant.strava_athlete_id);
+      const history = await service.getParticipantActivityHistory(participant.strava_athlete_id);
 
       expect(history.activities).toHaveLength(1);
       expect(history.totalPoints).toBe(1);
@@ -241,7 +239,7 @@ describe('LeaderboardQueryService', () => {
       expect(history.activities[0].points).toBe(1);
     });
 
-    it('should sum points across multiple weeks', () => {
+    it('should sum points across multiple weeks', async () => {
       const alice = createParticipant(drizzleDb, '12345', 'Alice');
       const week1 = createWeek(drizzleDb, { weekName: 'Week 1' });
       const week2 = createWeek(drizzleDb, { weekName: 'Week 2' });
@@ -290,7 +288,7 @@ describe('LeaderboardQueryService', () => {
       createResult(drizzleDb, { weekId: week2.id, stravaAthleteId: p3.strava_athlete_id, activityId: act2P3.id, totalTimeSeconds: 1100 });
       createResult(drizzleDb, { weekId: week2.id, stravaAthleteId: p4.strava_athlete_id, activityId: act2P4.id, totalTimeSeconds: 1200 });
 
-      const history = service.getParticipantActivityHistory(alice.strava_athlete_id);
+      const history = await service.getParticipantActivityHistory(alice.strava_athlete_id);
 
       expect(history.weeksCompleted).toBe(2);
       expect(history.totalPoints).toBe(6); // 2 + 4

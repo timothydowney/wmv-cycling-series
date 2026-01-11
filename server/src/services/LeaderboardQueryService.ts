@@ -8,6 +8,7 @@
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { activity, participant, result, segmentEffort, week, webhookEvent } from '../db/schema';
+import { ScoringService } from './ScoringService';
 
 export interface ActivitySummary {
   activityId: number;
@@ -102,7 +103,7 @@ export class LeaderboardQueryService {
   /**
    * Get complete leaderboard for a week with scoring details
    */
-  getWeekLeaderboard(weekId: number): WeekLeaderboard {
+  async getWeekLeaderboard(weekId: number): Promise<WeekLeaderboard> {
     const weekRow = this.db
       .select({ id: week.id, week_name: week.week_name })
       .from(week)
@@ -113,54 +114,22 @@ export class LeaderboardQueryService {
       throw new Error(`Week ${weekId} not found`);
     }
 
-    const baseRows = this.db
-      .select({
-        id: result.id,
-        week_id: result.week_id,
-        participant_id: result.strava_athlete_id,
-        activity_id: result.activity_id,
-        participant_name: participant.name,
-        total_time_seconds: result.total_time_seconds,
-        pr_count: sql<number>`(SELECT COUNT(*) FROM segment_effort WHERE segment_effort.activity_id = ${result.activity_id} AND segment_effort.pr_achieved = 1)`
-      })
-      .from(result)
-      .leftJoin(participant, eq(participant.strava_athlete_id, result.strava_athlete_id))
-      .where(eq(result.week_id, weekId))
-      .orderBy(result.total_time_seconds, participant.name)
-      .all();
-
-    const n = baseRows.length;
-    const results = baseRows.map((r, idx) => {
-      const rank = idx + 1;
-      const basePoints = (n - rank) + 1;
-      const prBonus = (r.pr_count && r.pr_count > 0) ? 1 : 0;
-      const totalPoints = basePoints + prBonus;
-      return {
-        id: r.id,
-        week_id: r.week_id,
-        participant_id: r.participant_id,
-        participant_name: r.participant_name,
-        total_time_seconds: r.total_time_seconds,
-        rank,
-        base_points: basePoints,
-        pr_bonus_points: prBonus,
-        total_points: totalPoints
-      };
-    });
+    const scoringService = new ScoringService(this.db);
+    const scoringRes = await scoringService.calculateWeekScoring(weekId);
 
     return {
       weekId,
       weekName: weekRow.week_name,
-      results: results.map((r) => ({
-        resultId: r.id,
-        weekId: r.week_id,
-        participantId: r.participant_id,
-        participantName: r.participant_name ?? 'Unknown',
-        totalTimeSeconds: r.total_time_seconds,
+      results: scoringRes.results.map((r: any) => ({
+        resultId: 0, // Not available from service, but not critical for summary
+        weekId: weekId,
+        participantId: r.participantId,
+        participantName: r.participantName,
+        totalTimeSeconds: r.totalTimeSeconds,
         rank: r.rank,
-        basePoints: r.base_points,
-        prBonusPoints: r.pr_bonus_points,
-        totalPoints: r.total_points
+        basePoints: r.basePoints,
+        prBonusPoints: r.prBonus,
+        totalPoints: r.totalPoints
       }))
     };
   }
@@ -236,9 +205,9 @@ export class LeaderboardQueryService {
   /**
    * Get participant's activity history
    */
-  getParticipantActivityHistory(
+  async getParticipantActivityHistory(
     participantId: string
-  ): ParticipantActivityHistory {
+  ): Promise<ParticipantActivityHistory> {
     const participantRow = this.db
       .select({ id: participant.strava_athlete_id, name: participant.name })
       .from(participant)
@@ -265,30 +234,20 @@ export class LeaderboardQueryService {
       .orderBy(desc(week.id))
       .all();
 
-    // Compute points per week: base points (beats + 1) + PR bonus
-    const computePointsForWeek = (weekId: number | null, activityId: number, totalTimeSeconds: number | null): number => {
-      if (!weekId) return 0;
-      // If no segment efforts, fallback to result.total_time_seconds for this activity
-      const effectiveTime = (totalTimeSeconds === null || totalTimeSeconds === 0)
-        ? this.getResultTotalTimeByActivity(activityId) ?? 0
-        : totalTimeSeconds;
+    const scoringService = new ScoringService(this.db);
 
-      const rows = this.getWeekResultTimes(weekId);
-      if (!rows || rows.length === 0) return 0;
-      const n = rows.length;
-      const rankIdx = rows.findIndex(r => r === effectiveTime);
-      const rank = (rankIdx >= 0 ? rankIdx + 1 : n);
-      const basePoints = (n - rank) + 1;
-      const prCount = this.getPrCount(activityId);
-      const prBonus = prCount > 0 ? 1 : 0;
-      return basePoints + prBonus;
-    };
-
-    const activities = activitiesBase.map((a) => {
+    const activities = await Promise.all(activitiesBase.map(async (a) => {
       const totalTime = (a.totalTimeSeconds === null || a.totalTimeSeconds === 0)
         ? this.getResultTotalTimeByActivity(a.activityId) ?? 0
         : a.totalTimeSeconds;
-      const points = computePointsForWeek(a.weekId, a.activityId, totalTime);
+      
+      let points = 0;
+      if (a.weekId) {
+        const scoring = await scoringService.calculateWeekScoring(a.weekId);
+        const myResult = scoring.results.find((r: any) => r.participantId === participantId);
+        points = myResult?.totalPoints ?? 0;
+      }
+
       return {
         weekId: a.weekId ?? 0,
         weekName: a.weekName ?? 'Unknown',
@@ -299,7 +258,7 @@ export class LeaderboardQueryService {
         prCount: a.prCount ?? 0,
         points
       };
-    });
+    }));
 
     const totalPoints = activities.reduce((sum, a) => sum + (a.points || 0), 0);
     const weeksCompleted = activities.length;

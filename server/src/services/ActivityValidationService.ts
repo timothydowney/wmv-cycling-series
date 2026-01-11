@@ -9,7 +9,7 @@
  */
 
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { and, desc, asc, lte, gte, eq } from 'drizzle-orm';
+import { and, desc, asc, lte, gte, eq, or, isNull } from 'drizzle-orm';
 import { season as seasonTable, week as weekTable, type Season } from '../db/schema';
 import { type Activity as ActivityWithTimestamp } from '../stravaClient';
 import { isoToUnix } from '../dateUtils';
@@ -57,6 +57,15 @@ class ActivityValidationService {
   isSeasonClosed(season: Season): { isClosed: boolean; reason?: string; end_at?: number } {
     const now = Math.floor(Date.now() / 1000); // Current Unix time
 
+    // Explicitly check for manual closure
+    if (season.is_active === 0) {
+      return {
+        isClosed: true,
+        reason: 'Season is manually closed by administrator',
+        end_at: season.end_at
+      };
+    }
+
     if (season.end_at && now > season.end_at) {
       const endDate = new Date(season.end_at * 1000).toISOString();
       return {
@@ -75,6 +84,7 @@ class ActivityValidationService {
    * A season is open if:
    * - Current time >= season.start_at
    * - Current time <= season.end_at (or end_at is null)
+   * - is_active is 1
    * 
    * Used by: Webhook processor (business logic check)
    * 
@@ -83,6 +93,16 @@ class ActivityValidationService {
    */
   isSeasonOpen(season: Season): SeasonStatusResult {
     const now = Math.floor(Date.now() / 1000);
+
+    // Check manual closure
+    if (season.is_active === 0) {
+      return {
+        isOpen: false,
+        isClosed: true,
+        reason: 'Season is manually closed by administrator',
+        end_at: season.end_at
+      };
+    }
 
     // Check if season has started
     if (season.start_at && now < season.start_at) {
@@ -199,7 +219,12 @@ class ActivityValidationService {
     const rows = this.orm
       .select()
       .from(seasonTable)
-      .where(and(lte(seasonTable.start_at, unixTimestamp), gte(seasonTable.end_at, unixTimestamp)))
+      .where(
+        and(
+          lte(seasonTable.start_at, unixTimestamp),
+          or(isNull(seasonTable.end_at), gte(seasonTable.end_at, unixTimestamp))
+        )
+      )
       .orderBy(desc(seasonTable.start_at), desc(seasonTable.id))
       .limit(1)
       .all();
@@ -222,7 +247,12 @@ class ActivityValidationService {
     const seasons = this.orm
       .select()
       .from(seasonTable)
-      .where(and(lte(seasonTable.start_at, unixTimestamp), gte(seasonTable.end_at, unixTimestamp)))
+      .where(
+        and(
+          lte(seasonTable.start_at, unixTimestamp),
+          or(isNull(seasonTable.end_at), gte(seasonTable.end_at, unixTimestamp))
+        )
+      )
       .orderBy(desc(seasonTable.start_at), desc(seasonTable.id))
       .all();
 

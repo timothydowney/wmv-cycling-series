@@ -11,6 +11,7 @@
     "predev": "node check-node.js",
     "dev": "vite",
     "dev:server": "cd server && npm run dev",
+    "dev:prod": "ENV_FILE=.env.prod concurrently -n \"backend,frontend\" -c \"blue,green\" \"npm:dev:server\" \"npm:dev\"",
     "dev:all": "concurrently -n \"backend,frontend\" -c \"blue,green\" \"npm:dev:server\" \"npm:dev\"",
     "dev:start": "node scripts/dev-server.cjs start",
     "dev:stop": "node scripts/dev-server.cjs stop",
@@ -40,6 +41,7 @@
     "webhook:emit": "tsx scripts/webhook-emitter.ts",
     "mock:strava": "cd mock-strava && npm run dev",
     "mock:strava:kill": "pkill -f 'cd mock-strava' || pkill -f 'mock-strava' || true",
+    "db:fetch-prod": "bash scripts/fetch-prod-db.sh",
     "preview": "vite preview",
     "postinstall": "cd server && npm install",
     "prepare": "node scripts/install-hooks.cjs"

@@ -38,7 +38,8 @@ import path from 'path';
 
 // CRITICAL: Load .env file FIRST, before anything else
 // This ensures all environment variables are available when getConfig() runs
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+const envFile = process.env.ENV_FILE || '.env';
+dotenv.config({ path: path.resolve(__dirname, '../../', envFile) });
 
 interface Config {
   frontendUrl: string;

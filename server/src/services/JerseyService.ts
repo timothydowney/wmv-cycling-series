@@ -16,7 +16,7 @@
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { eq } from 'drizzle-orm';
 import { week, segment, result } from '../db/schema';
-import { calculateWeekScoringDrizzle } from './ScoringServiceDrizzle';
+import { calculateWeekScoring } from './ScoringService';
 
 export class JerseyService {
   constructor(private db: BetterSQLite3Database) {}
@@ -76,10 +76,10 @@ export class JerseyService {
     // For each hill climb week, find the winner
     for (const hcWeek of hillClimbWeeks) {
       // Calculate week scoring to get rank 1
-      const weekScoring = await calculateWeekScoringDrizzle(this.db, hcWeek.week_id);
+      const weekScoring = await calculateWeekScoring(this.db, hcWeek.week_id);
 
       if (weekScoring.results.length > 0) {
-        // First result is rank 1 (already sorted by time in calculateWeekScoringDrizzle)
+        // First result is rank 1 (already sorted by time in calculateWeekScoring)
         const winner = weekScoring.results[0];
         const existing = polkaDotStats.get(winner.participantId);
 
@@ -148,7 +148,7 @@ export class JerseyService {
 
     // For each hill climb week, check if participant is rank 1
     for (const hcWeek of hillClimbWeeks) {
-      const weekScoring = await calculateWeekScoringDrizzle(this.db, hcWeek.week_id);
+      const weekScoring = await calculateWeekScoring(this.db, hcWeek.week_id);
 
       // Check if this participant is rank 1
       if (weekScoring.results.length > 0) {
@@ -196,11 +196,11 @@ export class JerseyService {
       return null; // No results in this season
     }
 
-    // Sum points per participant using calculateWeekScoringDrizzle
+    // Sum points per participant using calculateWeekScoring
     const pointsByParticipant = new Map<string, { name: string; total_points: number }>();
 
     for (const weekId of weekIds) {
-      const weekScoring = await calculateWeekScoringDrizzle(this.db, weekId);
+      const weekScoring = await calculateWeekScoring(this.db, weekId);
       
       for (const result of weekScoring.results) {
         const athleteId = result.participantId;
@@ -299,7 +299,7 @@ export class JerseyService {
 
     // For each TT week, check if participant is rank 1
     for (const ttWeek of timeTrialWeeks) {
-      const weekScoring = await calculateWeekScoringDrizzle(this.db, ttWeek.week_id);
+      const weekScoring = await calculateWeekScoring(this.db, ttWeek.week_id);
 
       // Check if this participant is rank 1
       if (weekScoring.results.length > 0) {
