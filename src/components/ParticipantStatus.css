@@ -56,6 +56,18 @@
   background: #fff3e0;
 }
 
+.athlete-id-link {
+  color: var(--wmv-purple);
+  text-decoration: none;
+  font-family: monospace;
+  font-weight: 500;
+}
+
+.athlete-id-link:hover {
+  text-decoration: underline;
+  color: #FC5200; /* Strava orange */
+}
+
 .participants-table tbody tr:hover {
   opacity: 0.9;
 }

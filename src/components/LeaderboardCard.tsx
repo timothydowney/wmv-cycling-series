@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Week, LeaderboardEntry } from '../types';
 import './Card.css'; // Shared card styles
 import './WeeklyLeaderboard.css'; // Keeping for now if it has other needed styles, but Card styles are moved.
@@ -125,7 +126,13 @@ export const LeaderboardCard: React.FC<Props> = ({
                 {/* 3. Name & Points */}
                 <div className="card-main-info">
                     <div className="card-name">
-                        {entry.name}
+                        <Link 
+                            to={`/profile/${entry.participant_id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            style={{ color: 'inherit', textDecoration: 'none' }}
+                        >
+                            {entry.name}
+                        </Link>
                     </div>
                     <div className="card-points-row">
                         <span>{entry.points} pts</span>

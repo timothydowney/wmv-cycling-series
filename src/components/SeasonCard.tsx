@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import StravaAthleteBadge from './StravaAthleteBadge';
 import './Card.css'; // Shared card styles
 import { CalendarDaysIcon } from '@heroicons/react/24/outline';
@@ -66,7 +67,12 @@ export const SeasonCard: React.FC<Props> = ({
                 {/* Name & Details */}
                 <div className="card-main-info" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '4px', overflow: 'hidden' }}>
                     <div className="card-name" style={{ fontSize: '1.0rem', marginBottom: '0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {participantName}
+                        <Link 
+                            to={`/profile/${stravaAthleteId}`}
+                            style={{ color: 'inherit', textDecoration: 'none' }}
+                        >
+                            {participantName}
+                        </Link>
                     </div>
 
                     <div style={{

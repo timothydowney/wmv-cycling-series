@@ -7,6 +7,7 @@ import { getAthleteProfilePictures } from '../services/StravaProfileService';
 import { GhostService } from '../services/GhostService';
 import { LeaderboardEntryWithDetails } from './types';
 import { HydrationService } from '../services/HydrationService';
+import { JerseyService } from '../services/JerseyService';
 
 // Helper to format seconds into HH:MM:SS or MM:SS
 function formatSecondsToHHMMSS(totalSeconds: number | null): string {
@@ -253,6 +254,8 @@ export const leaderboardRouter = router({
         return [];
       }
 
+      const jerseyService = new JerseyService(drizzleDb);
+
       // Calculate scoring for each week and sum by participant
       const participantTotals: Map<string, {
         name: string;
@@ -262,34 +265,29 @@ export const leaderboardRouter = router({
       }> = new Map();
 
       for (const w of weeks) {
-        // We need the week's average grade to determine if it's a polkadot-eligible win
-        const weekData = await drizzleDb.select({
-          average_grade: segment.average_grade
-        })
-          .from(week)
-          .leftJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
-          .where(eq(week.id, w.id))
-          .get();
-        
-        const isPolkadotEligible = (weekData?.average_grade || 0) > 2;
         const weekResults = await calculateWeekScoringDrizzle(drizzleDb, w.id); // Pass drizzleDb
 
         for (const res of weekResults.results) {
-          const isWinner = res.rank === 1;
+          // Get polka dot wins for this participant (includes this week if applicable)
+          const polkadotWins = await jerseyService.getParticipantPolkaDotWins(
+            input.seasonId,
+            res.participantId
+          );
+
           const existing = participantTotals.get(res.participantId);
           if (existing) {
             participantTotals.set(res.participantId, {
               name: existing.name,
               totalPoints: existing.totalPoints + res.totalPoints,
               weeksCompleted: existing.weeksCompleted + 1,
-              polkadotWins: existing.polkadotWins + (isWinner && isPolkadotEligible ? 1 : 0)
+              polkadotWins: polkadotWins
             });
           } else {
             participantTotals.set(res.participantId, {
               name: res.participantName,
               totalPoints: res.totalPoints,
               weeksCompleted: 1,
-              polkadotWins: isWinner && isPolkadotEligible ? 1 : 0
+              polkadotWins: polkadotWins
             });
           }
         }
