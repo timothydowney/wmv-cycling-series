@@ -1,7 +1,7 @@
 # API reference
 
 **NOTE: The project is migrating to tRPC. The REST endpoints below are legacy or specific to Auth/Webhooks.**
-**For all data fetching (Week, Season, Leaderboard, Segments, Participants), refer to the tRPC routers in `server/src/routers`.**
+**For all data fetching (Week, Season, Leaderboard, Segments, Participants, Webhook Admin), refer to the tRPC routers in `server/src/routers`.**
 
 Base URL (dev): http://localhost:3001
 
@@ -181,6 +181,14 @@ GET /admin/segments/{strava_segment_id}/validate
 ### Participant management
 
 - GET /admin/participants — list all participants with connection status and token expiration
+
+## Webhook Admin (tRPC)
+
+The `webhookAdminRouter` provides procedures for monitoring and managing Strava webhooks. These are only available to admins.
+
+- `trpc.webhookAdmin.getStatus` — Returns current webhook subscription status and statistics.
+- `trpc.webhookAdmin.getEvents` — Returns a paginated list of recently logged webhook events.
+- `trpc.webhookAdmin.getEnrichedEventDetails` — Returns detailed metadata for a specific activity mentioned in a webhook event (uses `ActivityService` for summary and classification).
 
 ## Error responses
 

@@ -377,6 +377,33 @@ Use the webhook emulator to rapidly test webhook event processing without runnin
 
 The webhook emulator comes with 8 pre-configured test scenarios:
 
+---
+
+## Admin Monitoring & Management
+
+The **Webhook Admin** dashboard (Admin Panel → Webhooks) provides tools for monitoring and managing the webhook system.
+
+### Features
+
+- **System Status:** Real-time visibility into the Strava subscription status and health metrics.
+- **Event Log:** Paginated history of all received webhook events, including metadata (object ID, type, aspect, time).
+- **Processing Results:** Indication of whether each event was successfully processed or failed.
+- **Event Enrichment:** Detailed analysis of specific events, linking them to Strava activities and providing a human-readable summary of the activity classification (e.g., "Matched Week 4", "Wrong Segment", "Missing Laps").
+
+### Implementation
+
+The monitoring system is built on:
+- **`webhook_event` Table:** Persistent audit log of all Strava notifications.
+- **`WebhookAdminRouter` (tRPC):** Provides type-safe access to system status and event history.
+- **`WebhookAdminService`:** Aggregates database statistics and handles activity enrichment for event analysis.
+
+### Troubleshooting with the Monitor
+
+If an expected activity doesn't appear on the leaderboard:
+1. Check **Events** tab to confirm the webhook notification was received.
+2. If received but not processed, check for a "Processing Error" in the event list.
+3. Click "Analyze" on the event to see exactly why the activity was filtered (e.g., date outside window, segment ID mismatch, or didn't meet lap requirements).
+
 ```bash
 # Activity created (happy path)
 npm run webhook:emit -- --event create
