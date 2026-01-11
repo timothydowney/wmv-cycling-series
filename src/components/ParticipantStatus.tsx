@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import './ParticipantStatus.css';
 import { getAuthStatus } from '../api';
 import { trpc } from '../utils/trpc';
@@ -86,7 +87,11 @@ function ParticipantStatus() {
                   profilePictureUrl={participant.profile_picture_url}
                 />
               </td>
-              <td>{participant.strava_athlete_id}</td>
+              <td>
+                <Link to={`/profile/${participant.strava_athlete_id}`} className="athlete-id-link">
+                  {participant.strava_athlete_id}
+                </Link>
+              </td>
               <td>
                 <span className={`status-badge ${participant.has_token ? 'connected' : 'disconnected'}`}>
                   {participant.has_token ? '✓ Connected' : '✗ Not Connected'}

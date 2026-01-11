@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 interface Props {
   athleteId: string;
@@ -12,7 +13,7 @@ interface Props {
 /**
  * StravaAthleteBadge
  * 
- * Displays athlete profile picture and name, linked to their Strava profile.
+ * Displays athlete profile picture and name, linked to their internal profile.
  * Shows their actual Strava badge/avatar image to the left of their name.
  */
 const StravaAthleteBadge: React.FC<Props> = ({
@@ -31,10 +32,8 @@ const StravaAthleteBadge: React.FC<Props> = ({
   }, [profilePictureUrl]);
 
   return (
-    <a
-      href={`https://www.strava.com/athletes/${athleteId}`}
-      target="_blank"
-      rel="noopener noreferrer"
+    <Link
+      to={`/profile/${athleteId}`}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -58,7 +57,7 @@ const StravaAthleteBadge: React.FC<Props> = ({
           (e.currentTarget as HTMLAnchorElement).style.color = 'var(--wmv-purple)';
         }
       }}
-      title={`View ${name} on Strava`}
+      title={`View ${name}'s Profile`}
     >
       {/* Strava profile picture */}
       {profilePictureUrl && profilePictureUrl !== 'avatar/athlete/large.png' && !imageError ? (
@@ -102,7 +101,7 @@ const StravaAthleteBadge: React.FC<Props> = ({
 
       {/* Athlete name */}
       {showName && <span>{name}</span>}
-    </a>
+    </Link>
   );
 };
 

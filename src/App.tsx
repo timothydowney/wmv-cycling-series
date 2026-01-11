@@ -15,6 +15,7 @@ import WebhookManagementPanel from './components/WebhookManagementPanel';
 import StravaConnectInfoBox from './components/StravaConnectInfoBox';
 import StravaClubJoinPrompt from './components/StravaClubJoinPrompt';
 import AboutPage from './components/AboutPage';
+import MyProfilePage from './components/MyProfilePage';
 import { UnitProvider } from './context/UnitContext';
 import { getDefaultSeason, getDefaultWeek } from './utils/defaultSelection';
 import { useClubMembership } from './hooks/useClubMembership';
@@ -24,7 +25,7 @@ import { httpBatchLink } from '@trpc/client';
 import { trpc } from './utils/trpc';
 import { Season, Week } from './types'; // Import shared types
 
-type ViewMode = 'leaderboard' | 'admin' | 'participants' | 'segments' | 'seasons' | 'webhooks' | 'about';
+type ViewMode = 'leaderboard' | 'admin' | 'participants' | 'segments' | 'seasons' | 'webhooks' | 'about' | 'profile';
 
 interface LeaderboardViewProps {
   seasons: Season[];
@@ -188,6 +189,7 @@ function AppContent() {
     if (path.startsWith('/seasons')) return 'seasons';
     if (path.startsWith('/webhooks')) return 'webhooks';
     if (path.startsWith('/about')) return 'about';
+    if (path.startsWith('/profile')) return 'profile';
     return 'leaderboard';
   }, [location.pathname]);
 
@@ -203,6 +205,7 @@ function AppContent() {
       case 'seasons': return 'Manage Seasons';
       case 'webhooks': return 'Manage Webhooks';
       case 'about': return 'About';
+      case 'profile': return 'My Profile';
       case 'leaderboard':
       default:
         return 'Leaderboard';
@@ -217,6 +220,7 @@ function AppContent() {
       case 'seasons': return '/seasons';
       case 'webhooks': return '/webhooks';
       case 'about': return '/about';
+      case 'profile': return userAthleteId ? `/profile/${userAthleteId}` : '/profile';
       case 'leaderboard':
       default:
         return '/leaderboard';
@@ -247,6 +251,7 @@ function AppContent() {
         isAdmin={isAdmin}
         isConnected={isConnected}
         athleteInfo={athleteInfo}
+        userAthleteId={userAthleteId}
       />
       
       <div className="app app-content">
@@ -264,6 +269,8 @@ function AppContent() {
           <Route path="/seasons" element={<SeasonManager onSeasonsChanged={handleSeasonsChanged} />} />
           <Route path="/webhooks" element={<WebhookManagementPanel />} />
           <Route path="/about" element={<AboutPage />} />
+          <Route path="/profile/:athleteId" element={<MyProfilePage />} />
+          <Route path="/profile" element={isConnected && userAthleteId ? <Navigate to={`/profile/${userAthleteId}`} replace /> : <Navigate to="/leaderboard" replace />} />
           
           <Route path="/leaderboard/:seasonId/weekly/:weekId" element={<LeaderboardView seasons={seasons} userAthleteId={userAthleteId} />} />
           <Route path="/leaderboard/:seasonId/:tab" element={<LeaderboardView seasons={seasons} userAthleteId={userAthleteId} />} />
