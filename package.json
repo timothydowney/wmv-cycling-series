@@ -20,6 +20,7 @@
     "build": "npm run build:server && npm run build:frontend",
     "build:frontend": "vite build",
     "build:server": "cd server && npm run build",
+    "start:prod": "npm --prefix server start",
     "test": "cd server && npm test",
     "test:watch": "cd server && npm run test:watch",
     "test:e2e": "ENV_FILE=e2e/.env.e2e playwright test --reporter=list",
