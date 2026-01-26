@@ -95,7 +95,9 @@ export const WeeklyHeader: React.FC<Props> = ({
                         </a>
 
                         {week.multiplier > 1 && (
-                            <span style={{
+                            <span 
+                                data-testid="multiplier-badge"
+                                style={{
                                 backgroundColor: 'var(--wmv-orange)',
                                 color: 'white',
                                 padding: '4px 10px',
@@ -165,7 +167,9 @@ export const WeeklyHeader: React.FC<Props> = ({
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' }}>
 
 
-                <div style={{
+                <div 
+                    data-testid="lap-count"
+                    style={{
                     backgroundColor: 'var(--wmv-bg-light)',
                     color: 'var(--wmv-text-light)',
                     padding: '4px 12px',
@@ -179,7 +183,7 @@ export const WeeklyHeader: React.FC<Props> = ({
 
                 {/* Participant Count: Always show if count exists */}
                 {participantCount !== undefined && (
-                    <div className="week-header-chip" title="Participants">
+                    <div className="week-header-chip" title="Participants" data-testid="participant-count">
                         <UsersIcon className="week-header-chip-icon" />
                         {participantCount}
                     </div>

@@ -28,7 +28,10 @@ export const SeasonCard: React.FC<Props> = ({
     jerseyTypes = []
 }) => {
     return (
-        <div className={`leaderboard-card ${isCurrentUser ? 'current-user' : ''}`}>
+        <div 
+            className={`leaderboard-card ${isCurrentUser ? 'current-user' : ''}`}
+            data-testid={`season-card-${stravaAthleteId}`}
+        >
             <div className="card-header">
                 {/* Jersey Icons (on the left like weekly) */}
                 <div className="card-jersey" style={{ 
@@ -37,18 +40,22 @@ export const SeasonCard: React.FC<Props> = ({
                     minWidth: jerseyTypes.length > 0 ? (jerseyTypes.length * 24) : '28px' 
                 }}>
                     {jerseyTypes.map(type => (
-                        <div key={type} title={
-                            type === 'yellow' ? 'Overall Leader' :
-                            type === 'polkadot' ? 'King of the Mountains' :
-                            'Lanterne Rouge'
-                        }>
+                        <div 
+                            key={type} 
+                            title={
+                                type === 'yellow' ? 'Overall Leader' :
+                                type === 'polkadot' ? 'King of the Mountains' :
+                                'Lanterne Rouge'
+                            }
+                            data-testid={`jersey-${type}`}
+                        >
                             <JerseyIcon type={type} size={28} />
                         </div>
                     ))}
                 </div>
 
                 {/* Rank */}
-                <div className="card-rank">
+                <div className="card-rank" data-testid="rank" data-rank={rank}>
                     {rank}
                 </div>
 
@@ -85,7 +92,9 @@ export const SeasonCard: React.FC<Props> = ({
                         color: isCurrentUser ? 'white' : 'var(--wmv-text-light)',
                         fontWeight: 500,
                         gap: '4px'
-                    }}>
+                    }}
+                    data-testid="weeks-completed"
+                    >
                         <CalendarDaysIcon style={{ width: '12px', height: '12px' }} />
                         <span>{weeksCompleted} wks</span>
                     </div>
@@ -96,7 +105,9 @@ export const SeasonCard: React.FC<Props> = ({
                     <div className="card-points-row" style={{ 
                         marginTop: 0, 
                         color: isCurrentUser ? 'white' : 'inherit' 
-                    }}>
+                    }}
+                    data-testid="total-points"
+                    >
                         <span style={{ fontWeight: 500, fontSize: '1.1rem' }}>
                             {totalPoints}
                         </span>
