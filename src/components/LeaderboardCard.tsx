@@ -143,7 +143,7 @@ export const LeaderboardCard: React.FC<Props> = ({
 
                         {/* PR Badge - Trophy Icon */}
                         {hasPR && (
-                            <div style={{ marginLeft: '4px', display: 'flex', alignItems: 'center' }} title="Personal Record set!">
+                            <div style={{ marginLeft: '4px', display: 'flex', alignItems: 'center' }} title="Personal Record set!" data-testid="pr-trophy">
                                 <svg
                                     xmlns="http://www.w3.org/2000/svg"
                                     viewBox="0 0 24 24"
@@ -175,7 +175,9 @@ export const LeaderboardCard: React.FC<Props> = ({
                         width: '24px',
                         height: '24px',
                         cursor: 'pointer' // Explicit cursor
-                    }}>
+                    }}
+                    data-testid="expand-toggle"
+                    >
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" width="20" height="20">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
                         </svg>
@@ -185,9 +187,9 @@ export const LeaderboardCard: React.FC<Props> = ({
 
             {/* Expanded Details */}
             {isExpanded && (
-                <div className="card-expanded-details">
+                <div className="card-expanded-details" data-testid="expanded-details">
                     {/* Time Breakdown */}
-                    <div style={{ marginBottom: '16px' }}>
+                    <div style={{ marginBottom: '16px' }} data-testid="time-section">
                         <div style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -218,7 +220,7 @@ export const LeaderboardCard: React.FC<Props> = ({
                             }}>
                                 {entry.effort_breakdown.map((effort, i) => (
                                     <React.Fragment key={i}>
-                                        <div style={{ color: 'var(--wmv-text-light)', paddingRight: '12px' }}>Lap {effort.lap}</div>
+                                        <div style={{ color: 'var(--wmv-text-light)', paddingRight: '12px' }} data-testid={`lap-${effort.lap}-label`}>Lap {effort.lap}</div>
                                         <div style={{ borderBottom: '1px dotted #e0e0e0', position: 'relative', top: '-6px' }} />
                                         <div style={{
                                             textAlign: 'right',
@@ -231,7 +233,7 @@ export const LeaderboardCard: React.FC<Props> = ({
                                         }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                 {effort.is_pr && (
-                                                    <span title="PR on this lap" style={{ display: 'flex', alignItems: 'center' }}>
+                                                    <span title="PR on this lap" style={{ display: 'flex', alignItems: 'center' }} data-testid={`lap-${effort.lap}-pr-trophy`}>
                                                         <svg
                                                             xmlns="http://www.w3.org/2000/svg"
                                                             viewBox="0 0 24 24"
@@ -251,10 +253,11 @@ export const LeaderboardCard: React.FC<Props> = ({
                                                         rel="noopener noreferrer"
                                                         style={{ color: 'var(--wmv-text-dark)', textDecoration: 'none' }}
                                                         onClick={(e) => e.stopPropagation()}
+                                                        data-testid={`lap-${effort.lap}-time`}
                                                     >
                                                         {effort.time_hhmmss}
                                                     </a>
-                                                ) : effort.time_hhmmss}
+                                                ) : <span data-testid={`lap-${effort.lap}-time`}>{effort.time_hhmmss}</span>}
                                             </div>
                                             {(effort.average_watts || effort.average_heartrate || effort.average_cadence) && (
                                                 <div style={{
@@ -290,7 +293,7 @@ export const LeaderboardCard: React.FC<Props> = ({
                                 <div style={{ gridColumn: '1 / -1', height: '1px', backgroundColor: '#e0e0e0', margin: '4px 0' }}></div>
                                 <div style={{ fontWeight: 600 }}>Total</div>
                                 <div></div>
-                                <div style={{ textAlign: 'right', fontWeight: 700 }}>
+                                <div style={{ textAlign: 'right', fontWeight: 700 }} data-testid="total-time">
                                     {entry.time_hhmmss}
                                 </div>
                             </div>
@@ -307,7 +310,7 @@ export const LeaderboardCard: React.FC<Props> = ({
                                 border: '1px solid #eee'
                             }}>
                                 <span style={{ fontWeight: 600 }}>Total</span>
-                                <span style={{ fontWeight: 700 }}>
+                                <span style={{ fontWeight: 700 }} data-testid="total-time">
                                     {entry.time_hhmmss}
                                 </span>
                             </div>
@@ -315,7 +318,7 @@ export const LeaderboardCard: React.FC<Props> = ({
                     </div>
 
                     {/* Points Logic */}
-                    <div style={{ marginBottom: '16px' }}>
+                    <div style={{ marginBottom: '16px' }} data-testid="points-section">
                         <div style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -333,7 +336,7 @@ export const LeaderboardCard: React.FC<Props> = ({
                             Points Calculation
                         </div>
                         <div style={{ fontSize: '0.85rem', color: 'var(--wmv-text-light)', lineHeight: 1.6, backgroundColor: 'white', padding: '10px', borderRadius: '8px', border: '1px solid #eee' }}>
-                            <div>
+                            <div data-testid="points-calculation">
                                 {`Beat ${beaten} + ${participation} participation`}
                                 {hasPR && ` + ${prBonus} PR`}
                                 {multiplier > 1 && ` * ${multiplier}X`}
@@ -344,7 +347,7 @@ export const LeaderboardCard: React.FC<Props> = ({
                     </div>
 
                     {/* Performance Metrics */}
-                    <div style={{ marginBottom: '16px' }}>
+                    <div style={{ marginBottom: '16px' }} data-testid="performance-section">
                         <div style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -380,19 +383,19 @@ export const LeaderboardCard: React.FC<Props> = ({
                                         </div>
                                     )}
                                     {avgWatts !== null && (
-                                        <div className="week-header-chip" title={isEstimatedWatts ? "Estimated Average Power" : "Average Power"}>
+                                        <div className="week-header-chip" title={isEstimatedWatts ? "Estimated Average Power" : "Average Power"} data-testid="avg-power">
                                             <BoltIcon className="week-header-chip-icon" />
                                             {avgWatts}W{isEstimatedWatts ? ' (est)' : ''}
                                         </div>
                                     )}
                                     {avgHR !== null && (
-                                        <div className="week-header-chip" title="Average Heart Rate">
+                                        <div className="week-header-chip" title="Average Heart Rate" data-testid="avg-hr">
                                             <HeartIcon className="week-header-chip-icon" />
                                             {avgHR} bpm
                                         </div>
                                     )}
                                     {avgCadence !== null && (
-                                        <div className="week-header-chip" title="Average Cadence">
+                                        <div className="week-header-chip" title="Average Cadence" data-testid="avg-cadence">
                                             <ArrowPathIcon className="week-header-chip-icon" />
                                             {avgCadence} rpm
                                         </div>

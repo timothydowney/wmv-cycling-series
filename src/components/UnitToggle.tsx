@@ -39,6 +39,7 @@ export const UnitToggle: React.FC<UnitToggleProps> = ({ units, setUnits }) => {
 
   return (
     <div
+      data-testid="unit-toggle"
       className={`unit-toggle-switch ${units}`}
       onClick={handleToggle}
       onKeyDown={handleKeyDown}
@@ -49,7 +50,7 @@ export const UnitToggle: React.FC<UnitToggleProps> = ({ units, setUnits }) => {
       title="Click to toggle between metric and imperial units"
     >
       {/* Sliding button showing current active unit */}
-      <div className="unit-toggle-button">
+      <div className="unit-toggle-button" data-testid="unit-toggle-button">
         {units === 'imperial' ? 'mi' : 'km'}
       </div>
     </div>

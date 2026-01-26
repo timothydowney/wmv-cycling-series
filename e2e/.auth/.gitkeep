@@ -1,0 +1,3 @@
+# This directory stores authenticated browser state for E2E tests
+# The .gitkeep file ensures the directory exists in git
+# Actual auth files (user.json) are gitignored

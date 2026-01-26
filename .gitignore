@@ -38,9 +38,9 @@ server/coverage/
 test-results/
 playwright-report/
 
-# Playwright
-test-results/
-playwright-report/
+# Playwright authentication state (contains session tokens)
+e2e/.auth/*.json
+!e2e/.auth/.gitkeep
 
 # Environment variables
 .env
