@@ -187,21 +187,21 @@ export const WeeklyHeader: React.FC<Props> = ({
 
                 {/* Segment Stats */}
                 {week.segment_distance && (
-                    <div className="week-header-chip" title="Distance">
+                    <div className="week-header-chip" title="Distance" data-testid="segment-distance-chip">
                         <ArrowsRightLeftIcon className="week-header-chip-icon" />
                         {formatDistance(week.segment_distance, units)}
                     </div>
                 )}
 
                 {week.segment_total_elevation_gain && (
-                    <div className="week-header-chip" title="Elevation Gain">
+                    <div className="week-header-chip" title="Elevation Gain" data-testid="segment-elevation-chip">
                         <ArrowTrendingUpIcon className="week-header-chip-icon" />
                         {formatElevation(week.segment_total_elevation_gain, units)}
                     </div>
                 )}
 
                 {week.segment_average_grade !== undefined && week.segment_average_grade !== null && (
-                    <div className="week-header-chip" title="Average Grade">
+                    <div className="week-header-chip" title="Average Grade" data-testid="segment-grade-chip">
                         <ChartBarIcon className="week-header-chip-icon" />
                         {week.segment_average_grade}%
                     </div>

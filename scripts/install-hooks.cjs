@@ -14,7 +14,7 @@ set -e
 
 echo "Running pre-commit checks..."
 npm run typecheck
-npm run lint:all
+npm run lint
 
 echo "✓ All checks passed!"
 exit 0

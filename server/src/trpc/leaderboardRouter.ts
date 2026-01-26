@@ -14,12 +14,23 @@ export const leaderboardRouter = router({
         const leaderboardService = new LeaderboardService(drizzleDb);
         const result = await leaderboardService.getWeekLeaderboard(input.weekId);
 
+        // Flatten segment data for frontend compatibility
+        const weekWithFlattenedSegment = {
+          ...result.week,
+          segment_id: result.week.strava_segment_id,
+          segment_name: result.week.segment?.name,
+          segment_distance: result.week.segment?.distance,
+          segment_total_elevation_gain: result.week.segment?.total_elevation_gain,
+          segment_average_grade: result.week.segment?.average_grade,
+          segment_climb_category: result.week.segment?.climb_category,
+          segment_city: result.week.segment?.city,
+          segment_state: result.week.segment?.state,
+          segment_country: result.week.segment?.country,
+          participants_count: result.leaderboard.length
+        };
+
         return {
-          week: {
-            ...result.week,
-            segment_id: result.week.strava_segment_id, // Add compatibility field
-            participants_count: result.leaderboard.length
-          },
+          week: weekWithFlattenedSegment,
           leaderboard: result.leaderboard
         };
       } catch (error) {

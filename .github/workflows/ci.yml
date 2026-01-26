@@ -28,19 +28,16 @@ jobs:
       - name: Audit dependencies (backend)
         run: cd server && npm audit || true
 
-      - name: Typecheck (frontend)
+      - name: Typecheck (frontend + server)
         run: npm run typecheck
 
-      - name: Lint (frontend)
+      - name: Lint (frontend + server)
         run: npm run lint
 
-      - name: Lint (backend)
-        run: cd server && npm run lint
-
-      - name: Build
+      - name: Build (frontend + server)
         run: npm run build
 
-      - name: Test (backend)
+      - name: Test (server)
         run: npm test
 
       - name: Build Docker image

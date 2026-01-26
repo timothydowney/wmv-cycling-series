@@ -44,7 +44,7 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard, weekNumber }) =
 
   if (!week) {
     return (
-      <div className="weekly-leaderboard-container">
+      <div className="weekly-leaderboard-container" data-testid="weekly-leaderboard">
         <h2 style={{ textAlign: 'center', color: 'var(--wmv-text-light)' }}>
           Select a week to view results
         </h2>
@@ -55,7 +55,7 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard, weekNumber }) =
 
 
   return (
-    <div className="weekly-leaderboard-container">
+    <div className="weekly-leaderboard-container" data-testid="weekly-leaderboard">
       <div style={{ position: 'relative', marginBottom: isNotesExpanded ? '16px' : '24px' }}>
         <WeeklyHeader
           week={week}
