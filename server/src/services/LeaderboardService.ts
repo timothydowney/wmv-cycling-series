@@ -50,7 +50,7 @@ export class LeaderboardService {
    */
   async getWeekLeaderboard(weekId: number): Promise<HydratedLeaderboard> {
     // 1. Get week and segment details
-    const weekData = await this.db.select({
+    const rawWeekData = await this.db.select({
       id: week.id,
       season_id: week.season_id,
       week_name: week.week_name,
@@ -60,24 +60,39 @@ export class LeaderboardService {
       end_at: week.end_at,
       notes: week.notes,
       multiplier: week.multiplier,
-      // Joined Segment Fields
-      segment_name: segment.name,
-      segment_distance: segment.distance,
-      segment_total_elevation_gain: segment.total_elevation_gain,
-      segment_average_grade: segment.average_grade,
-      segment_climb_category: segment.climb_category,
-      segment_city: segment.city,
-      segment_state: segment.state,
-      segment_country: segment.country,
+      // Include the full segment object for JOIN support
+      segment: {
+        name: segment.name,
+        distance: segment.distance,
+        total_elevation_gain: segment.total_elevation_gain,
+        average_grade: segment.average_grade,
+        climb_category: segment.climb_category,
+        city: segment.city,
+        state: segment.state,
+        country: segment.country,
+      },
     })
       .from(week)
       .leftJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
       .where(eq(week.id, weekId))
       .get();
 
-    if (!weekData) {
+    if (!rawWeekData) {
       throw new Error(`Week ${weekId} not found`);
     }
+
+    // 2. Flatten segment fields into the week object for frontend compatibility
+    const weekData = {
+      ...rawWeekData,
+      segment_name: rawWeekData.segment?.name,
+      segment_distance: rawWeekData.segment?.distance,
+      segment_total_elevation_gain: rawWeekData.segment?.total_elevation_gain,
+      segment_average_grade: rawWeekData.segment?.average_grade,
+      segment_climb_category: rawWeekData.segment?.climb_category,
+      segment_city: rawWeekData.segment?.city,
+      segment_state: rawWeekData.segment?.state,
+      segment_country: rawWeekData.segment?.country,
+    };
 
     // 2. Get scored results
     const { results: scoredResults } = await this.scoringService.calculateWeekScoring(weekId);

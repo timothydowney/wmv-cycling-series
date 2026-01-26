@@ -97,6 +97,10 @@ export const LeaderboardCard: React.FC<Props> = ({
         <div
             onClick={onToggle}
             className={`leaderboard-card ${isCurrentUser ? 'current-user' : ''}`}
+            data-testid={`leaderboard-card-${entry.participant_id}`}
+            data-participant-name={entry.name}
+            data-rank={rank}
+            data-jersey-type={jerseyType || 'none'}
         >
             {/* Top Row: Collapsed State */}
             <div className="card-header">

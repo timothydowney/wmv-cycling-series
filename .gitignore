@@ -34,6 +34,14 @@ server/data/
 coverage/
 server/coverage/
 
+# Playwright test artifacts
+test-results/
+playwright-report/
+
+# Playwright
+test-results/
+playwright-report/
+
 # Environment variables
 .env
 .env.local
