@@ -200,29 +200,30 @@ test.describe('LeaderboardCard Component', () => {
       await expect(perfSection).toBeVisible();
     });
 
-    test('shows average power when available', async ({ page }) => {
+    test('shows average power when present in data', async ({ page }) => {
       await page.getByRole('combobox', { name: 'Week:' }).selectOption('8. Alpe du Zwift (Dec 16, 2025)');
       await page.waitForLoadState('networkidle');
       
       await page.waitForSelector('[data-testid^="leaderboard-card-"]');
       
       const firstCard = page.locator('[data-testid^="leaderboard-card-"]').first();
-      await firstCard.getByTestId('expand-toggle').click();
       
-      // Check if power metric exists (might not be available for all activities)
+      // Expand if not already expanded
+      const expandedDetails = firstCard.getByTestId('expanded-details');
+      const isExpanded = await expandedDetails.isVisible().catch(() => false);
+      if (!isExpanded) {
+        await firstCard.getByTestId('expand-toggle').click();
+      }
+      
+      // Power metric may or may not be present depending on device
       const avgPower = firstCard.getByTestId('avg-power');
       const powerCount = await avgPower.count();
-      
       if (powerCount > 0) {
-        await expect(avgPower).toBeVisible();
-        const powerText = await avgPower.textContent();
-        
-        // Should show watts with 'W' unit
-        expect(powerText).toContain('W');
+        await expect(avgPower).toContainText('W');
       }
     });
 
-    test('shows average cadence when available', async ({ page }) => {
+    test('shows average cadence when present in data', async ({ page }) => {
       await page.getByRole('combobox', { name: 'Week:' }).selectOption('8. Alpe du Zwift (Dec 16, 2025)');
       await page.waitForLoadState('networkidle');
       
@@ -231,20 +232,15 @@ test.describe('LeaderboardCard Component', () => {
       const firstCard = page.locator('[data-testid^="leaderboard-card-"]').first();
       await firstCard.getByTestId('expand-toggle').click();
       
-      // Check if cadence metric exists
+      // Cadence metric may or may not be present
       const avgCadence = firstCard.getByTestId('avg-cadence');
       const cadenceCount = await avgCadence.count();
-      
       if (cadenceCount > 0) {
-        await expect(avgCadence).toBeVisible();
-        const cadenceText = await avgCadence.textContent();
-        
-        // Should show rpm unit
-        expect(cadenceText).toContain('rpm');
+        await expect(avgCadence).toContainText('rpm');
       }
     });
 
-    test('shows average heart rate when available', async ({ page }) => {
+    test('shows average heart rate when present in data', async ({ page }) => {
       await page.getByRole('combobox', { name: 'Week:' }).selectOption('8. Alpe du Zwift (Dec 16, 2025)');
       await page.waitForLoadState('networkidle');
       
@@ -253,16 +249,11 @@ test.describe('LeaderboardCard Component', () => {
       const firstCard = page.locator('[data-testid^="leaderboard-card-"]').first();
       await firstCard.getByTestId('expand-toggle').click();
       
-      // Check if HR metric exists
+      // HR metric may or may not be present
       const avgHR = firstCard.getByTestId('avg-hr');
       const hrCount = await avgHR.count();
-      
       if (hrCount > 0) {
-        await expect(avgHR).toBeVisible();
-        const hrText = await avgHR.textContent();
-        
-        // Should show bpm unit
-        expect(hrText).toContain('bpm');
+        await expect(avgHR).toContainText('bpm');
       }
     });
   });
@@ -280,24 +271,18 @@ test.describe('LeaderboardCard Component', () => {
         has: page.getByTestId('pr-trophy')
       }).first();
       
-      const prTrophyCount = await cardWithPR.count();
       
-      if (prTrophyCount > 0) {
-        // PR trophy should be visible in collapsed state
-        await expect(cardWithPR.getByTestId('pr-trophy')).toBeVisible();
-        
-        // Expand and check if PR is mentioned in points calculation
-        await cardWithPR.getByTestId('expand-toggle').click();
-        
-        const pointsCalc = cardWithPR.getByTestId('points-calculation');
-        const calcText = await pointsCalc.textContent();
-        
-        // Should show PR in calculation
-        expect(calcText).toContain('PR');
-      }
+      // PR trophy should be visible in collapsed state
+      await expect(cardWithPR.getByTestId('pr-trophy')).toBeVisible();
+      
+      // Expand and check if PR is mentioned in points calculation
+      await cardWithPR.getByTestId('expand-toggle').click();
+      
+      const pointsCalc = cardWithPR.getByTestId('points-calculation');
+      await expect(pointsCalc).toContainText('PR');
     });
 
-    test('shows PR trophy on individual laps in multi-lap weeks', async ({ page }) => {
+    test('multi-lap week shows lap times structure', async ({ page }) => {
       // Navigate to Week 2 (Champs-Élysées - multi-lap)
       await page.getByRole('combobox', { name: 'Week:' }).selectOption('2. Champs-Élysées (Nov 4, 2025)');
       await page.waitForLoadState('networkidle');
@@ -305,23 +290,43 @@ test.describe('LeaderboardCard Component', () => {
       await page.waitForSelector('[data-testid^="leaderboard-card-"]');
       
       const firstCard = page.locator('[data-testid^="leaderboard-card-"]').first();
-      await firstCard.getByTestId('expand-toggle').click();
       
-      // Check if any lap has PR trophy
-      const lap1PR = firstCard.getByTestId('lap-1-pr-trophy');
-      const lap2PR = firstCard.getByTestId('lap-2-pr-trophy');
-      
-      const lap1PRCount = await lap1PR.count();
-      const lap2PRCount = await lap2PR.count();
-      
-      // At least verify the test structure works (PR trophies may or may not exist)
-      if (lap1PRCount > 0) {
-        await expect(lap1PR).toBeVisible();
+      // Expand if not already expanded
+      const expandedDetails = firstCard.getByTestId('expanded-details');
+      const isExpanded = await expandedDetails.isVisible().catch(() => false);
+      if (!isExpanded) {
+        await firstCard.getByTestId('expand-toggle').click();
       }
       
-      if (lap2PRCount > 0) {
-        await expect(lap2PR).toBeVisible();
+      // Verify lap labels are rendered (structure test)
+      await expect(firstCard.getByTestId('lap-1-label')).toBeVisible();
+      await expect(firstCard.getByTestId('lap-2-label')).toBeVisible();
+    });
+
+    test('shows time difference indicator for repeat segment', async ({ page }) => {
+      // Navigate to Winter 2026 season
+      await page.goto('/leaderboard');
+      await page.getByRole('combobox', { name: 'Season:' }).selectOption('Winter 2026 Zwift Hill Climb/Time Trial');
+      await page.waitForLoadState('networkidle');
+      
+      // Navigate to Week 1 (same segment as Fall 2025 Week 1)
+      await page.getByRole('combobox', { name: 'Week:' }).selectOption({ index: 0 });
+      await page.waitForLoadState('networkidle');
+      
+      // Find Tim Downey's card
+      const timCard = page.locator('[data-testid^="leaderboard-card-"]', { hasText: 'Tim Downey' }).first();
+      await expect(timCard).toBeVisible();
+      
+      // Expand the card
+      const expandedDetails = timCard.getByTestId('expanded-details');
+      const isExpanded = await expandedDetails.isVisible().catch(() => false);
+      if (!isExpanded) {
+        await timCard.getByTestId('expand-toggle').click();
       }
+      
+      // Verify the ghost badge (time difference indicator) is present
+      const ghostBadge = timCard.getByTestId('ghost-badge');
+      await expect(ghostBadge).toBeVisible();
     });
   });
 });
