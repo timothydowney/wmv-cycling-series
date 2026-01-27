@@ -30,6 +30,7 @@ export const GhostBadge: React.FC<GhostBadgeProps> = ({ timeDiffSeconds, previou
     if (stravaActivityId) {
         return (
             <a
+                data-testid="ghost-badge"
                 href={`https://www.strava.com/activities/${stravaActivityId}`}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -44,6 +45,7 @@ export const GhostBadge: React.FC<GhostBadgeProps> = ({ timeDiffSeconds, previou
 
     return (
         <div
+            data-testid="ghost-badge"
             title={`vs ${previousWeekName}`}
             className={className}
         >
