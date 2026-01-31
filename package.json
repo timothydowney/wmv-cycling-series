@@ -41,6 +41,7 @@
     "prepare": "node scripts/install-hooks.cjs"
   },
   "dependencies": {
+    "@floating-ui/dom": "^1.7.5",
     "@heroicons/react": "^2.2.0",
     "@tanstack/react-query": "^5.90.16",
     "@tiptap/extension-character-count": "^3.14.0",
