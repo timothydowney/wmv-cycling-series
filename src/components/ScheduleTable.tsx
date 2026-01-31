@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Week, Season } from '../types';
-import { formatUnixDate } from '../utils/dateUtils';
+import { Week } from '../types';
 import { NotesDisplay } from './NotesDisplay';
 import { WeeklyHeader } from './WeeklyHeader';
 import { CollapsibleSegmentProfile } from './CollapsibleSegmentProfile';
@@ -9,30 +8,43 @@ import './ScheduleTable.css';
 
 interface Props {
   weeks: Week[];
-  season?: Season;
 }
 
-const ScheduleTable: React.FC<Props> = ({ weeks, season }) => {
+const ScheduleTable: React.FC<Props> = ({ weeks }) => {
   const [expandedWeekId, setExpandedWeekId] = useState<number | null>(null);
+  const cardRefs = useRef<{ [key: number]: HTMLDivElement | null }>({});
+  const hasScrolledRef = useRef(false);
 
   // Sort weeks by start_at date
   const sortedWeeks = [...weeks].sort((a, b) => a.start_at - b.start_at);
 
-  // Get season start and end dates
-  let seasonStart = '';
-  let seasonEnd = '';
-
-  if (season) {
-    seasonStart = formatUnixDate(season.start_at);
-    seasonEnd = formatUnixDate(season.end_at);
-  } else if (sortedWeeks.length > 0) {
-    seasonStart = formatUnixDate(sortedWeeks[0].start_at);
-    seasonEnd = formatUnixDate(sortedWeeks[sortedWeeks.length - 1].start_at);
-  }
-
   // Find the next week that will happen (first week that hasn't ended yet)
   const now = Math.floor(Date.now() / 1000);
   const nextWeek = sortedWeeks.find(week => week.end_at >= now);
+
+  useEffect(() => {
+    // Only scroll to next week once on mount/data load
+    if (nextWeek && !hasScrolledRef.current) {
+      setExpandedWeekId(nextWeek.id);
+      hasScrolledRef.current = true;
+      
+      // Small timeout to ensure DOM is ready and expansion has started
+      setTimeout(() => {
+        const element = cardRefs.current[nextWeek.id];
+        if (element) {
+          // Manual scroll calculation to account for the fixed navbar (60px) + spacing
+          const headerOffset = 85; 
+          const elementPosition = element.getBoundingClientRect().top;
+          const offsetPosition = elementPosition + window.scrollY - headerOffset;
+          
+          window.scrollTo({
+            top: offsetPosition,
+            behavior: 'smooth'
+          });
+        }
+      }, 300);
+    }
+  }, [nextWeek]);
 
   const toggleWeek = (weekId: number) => {
     setExpandedWeekId(expandedWeekId === weekId ? null : weekId);
@@ -40,15 +52,6 @@ const ScheduleTable: React.FC<Props> = ({ weeks, season }) => {
 
   return (
     <div className="season-schedule-container" style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
-      <div style={{ marginBottom: '12px', textAlign: 'center' }}>
-        <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--wmv-purple)', marginTop: 0 }}>
-          Schedule
-        </h2>
-        <p style={{ color: 'var(--wmv-text-light)', marginTop: '4px' }}>
-          {season?.name || 'Unknown Season'} • {seasonStart} to {seasonEnd}
-        </p>
-      </div>
-
       <div className="schedule-list" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         {sortedWeeks.map((week, index) => {
           const isExpanded = expandedWeekId === week.id;
@@ -56,7 +59,12 @@ const ScheduleTable: React.FC<Props> = ({ weeks, season }) => {
 
 
           return (
-            <div key={week.id} className={`schedule-card-wrapper ${isNextUp ? 'upcoming-week' : ''}`} style={{ position: 'relative' }}>
+            <div 
+              key={week.id} 
+              ref={el => { cardRefs.current[week.id] = el; }}
+              className={`schedule-card-wrapper ${isNextUp ? 'upcoming-week' : ''}`} 
+              style={{ position: 'relative' }}
+            >
 
               {/* Next Up Badge */}
               {isNextUp && (
