@@ -138,45 +138,28 @@ test.describe('Setup Verification', () => {
     expect(gradeText).toMatch(/\d+\.?\d*%/);
   });
 
-  test('jersey type matches week terrain (polkadot for climbs, yellow for flat)', async ({ page }) => {
+  test('first place shows polkadot jersey for climb weeks', async ({ page }) => {
     await setupStravaInterception(page);
     await setAuthCookie(page, '70001');
 
-    // Test Week 1: Box Hill KOM (climb - 4.4% grade) -> should show polkadot
+    // Week 1: Box Hill KOM (climb) -> should show polkadot
     await page.goto('/leaderboard/1/weekly/1');
     await waitForLeaderboardLoad(page);
     
-    const week1GradeChip = page.locator('[data-testid="segment-grade-chip"]');
-    const week1GradeText = await week1GradeChip.textContent();
-    const week1GradeMatch = week1GradeText?.match(/(\d+\.?\d*)/);
-    
-    if (week1GradeMatch) {
-      const week1Grade = parseFloat(week1GradeMatch[1]);
-      const week1FirstPlace = page.locator('[data-rank="1"]').first();
-      const week1JerseyType = await week1FirstPlace.getAttribute('data-jersey-type');
-      
-      if (week1Grade >= 2) {
-        expect(week1JerseyType).toBe('polkadot');
-      }
-    }
+    const firstPlace = page.locator('[data-rank="1"]').first();
+    await expect(firstPlace).toHaveAttribute('data-jersey-type', 'polkadot');
+  });
 
-    // Test Week 2: Champs-Élysées (flat - <2% grade) -> should show yellow
+  test('first place shows yellow jersey for flat weeks', async ({ page }) => {
+    await setupStravaInterception(page);
+    await setAuthCookie(page, '70001');
+
+    // Week 2: Champs-Élysées (flat) -> should show yellow
     await page.goto('/leaderboard/1/weekly/2');
     await waitForLeaderboardLoad(page);
 
-    const week2GradeChip = page.locator('[data-testid="segment-grade-chip"]');
-    const week2GradeText = await week2GradeChip.textContent();
-    const week2GradeMatch = week2GradeText?.match(/(\d+\.?\d*)/);
-    
-    if (week2GradeMatch) {
-      const week2Grade = parseFloat(week2GradeMatch[1]);
-      const week2FirstPlace = page.locator('[data-rank="1"]').first();
-      const week2JerseyType = await week2FirstPlace.getAttribute('data-jersey-type');
-
-      if (week2Grade < 2) {
-        expect(week2JerseyType).toBe('yellow');
-      }
-    }
+    const firstPlace = page.locator('[data-rank="1"]').first();
+    await expect(firstPlace).toHaveAttribute('data-jersey-type', 'yellow');
   });
 
   test('last place shows lanterne rouge jersey', async ({ page }) => {
@@ -190,14 +173,11 @@ test.describe('Setup Verification', () => {
     const allCards = page.locator('[data-testid^="leaderboard-card-"]');
     const count = await allCards.count();
     
-    if (count > 0) {
-      // Get the last place card (highest rank number)
-      const lastPlaceCard = page.locator(`[data-rank="${count}"]`).first();
-      await expect(lastPlaceCard).toBeVisible();
-      
-      // Verify it has lanterne rouge jersey
-      const jerseyType = await lastPlaceCard.getAttribute('data-jersey-type');
-      expect(jerseyType).toBe('lantern');
-    }
+    // Get the last place card (highest rank number)
+    const lastPlaceCard = page.locator(`[data-rank="${count}"]`).first();
+    await expect(lastPlaceCard).toBeVisible();
+    
+    // Verify it has lanterne rouge jersey
+    await expect(lastPlaceCard).toHaveAttribute('data-jersey-type', 'lantern');
   });
 });

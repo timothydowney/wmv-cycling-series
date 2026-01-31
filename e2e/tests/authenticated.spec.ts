@@ -85,3 +85,42 @@ test.describe('Authenticated User Features', () => {
     await expect(page).toHaveURL(/\/about/);
   });
 });
+
+test.describe('Authenticated User - Leaderboard Highlighting', () => {
+  test('current user card is highlighted on season leaderboard', async ({ page }) => {
+    // Navigate to Fall 2025 season leaderboard
+    await page.goto('/leaderboard');
+    await page.getByLabel('Season:').selectOption('1'); // Fall 2025
+    await page.getByRole('link', { name: 'Season' }).click();
+    
+    // Find the current user's card (Tim Downey, athlete ID 366880)
+    const currentUserCard = page.getByTestId('season-card-366880');
+    await expect(currentUserCard).toBeVisible();
+    
+    // Verify it has the current-user class (which applies orange highlighting)
+    await expect(currentUserCard).toHaveClass(/current-user/);
+  });
+
+  test('current user card is highlighted on weekly leaderboard', async ({ page }) => {
+    // Navigate to Fall 2025 Week 1 (Box Hill)
+    await page.goto('/leaderboard');
+    await page.getByLabel('Season:').selectOption('1'); // Fall 2025
+    
+    // Wait for week selector to be enabled and populated
+    await page.waitForSelector('select#week-select:not([disabled])');
+    await page.waitForLoadState('networkidle');
+    
+    // Select Week 1 by index
+    await page.getByLabel('Week:').selectOption({ index: 0 }); // First week
+    
+    // Find the current user's card
+    const currentUserCard = page.locator('.leaderboard-card.current-user').first();
+    await expect(currentUserCard).toBeVisible();
+    
+    // Verify it has the current-user class (which applies orange highlighting)
+    await expect(currentUserCard).toHaveClass(/current-user/);
+    
+    // Verify the name is visible
+    await expect(currentUserCard.getByText('Tim Downey')).toBeVisible();
+  });
+});
