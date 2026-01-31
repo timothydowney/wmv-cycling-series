@@ -20,6 +20,7 @@ export const CollapsibleSegmentProfile: React.FC<CollapsibleSegmentProfileProps>
   return (
     <div className="collapsible-segment-profile">
       <button
+        data-testid="segment-profile-toggle"
         onClick={() => setIsExpanded(!isExpanded)}
         style={{
           display: 'flex',

@@ -29,6 +29,7 @@ export const SegmentEmbed: React.FC<SegmentEmbedProps> = ({
   return (
     <div className="segment-embed-container" style={{ width: '100%', overflow: 'hidden', borderRadius: '8px', border: '1px solid #e5e7eb', backgroundColor: 'white' }}>
       <iframe 
+        data-testid="veloviewer-embed"
         style={{ width: '100%', height: `${actualHeight}px`, display: 'block' }} 
         src={src} 
         frameBorder="0" 

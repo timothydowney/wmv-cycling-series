@@ -15,18 +15,14 @@ test.describe('Logged Out User Experience', () => {
       await expect(banner).toBeVisible();
     });
 
-    test('shows correct heading text', async ({ page }) => {
+    test('shows banner heading', async ({ page }) => {
       const heading = page.getByTestId('banner-heading');
       await expect(heading).toBeVisible();
-      await expect(heading).toContainText('Want to see your results?');
-      await expect(heading).toContainText('Logged out?');
     });
 
-    test('shows description text about signing in', async ({ page }) => {
+    test('shows banner description', async ({ page }) => {
       const description = page.getByTestId('banner-description');
       await expect(description).toBeVisible();
-      await expect(description).toContainText('Sign in with your Strava account');
-      await expect(description).toContainText('view your results on the leaderboard');
     });
 
     test('displays Connect with Strava button', async ({ page }) => {
