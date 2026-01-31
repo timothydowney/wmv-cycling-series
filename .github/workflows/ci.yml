@@ -23,10 +23,10 @@ jobs:
           npm ci
 
       - name: Audit dependencies (frontend)
-        run: npm audit
+        run: npm audit --audit-level critical
 
       - name: Audit dependencies (backend)
-        run: cd server && npm audit || true
+        run: cd server && npm audit --audit-level critical
 
       - name: Typecheck (frontend + server)
         run: npm run typecheck
