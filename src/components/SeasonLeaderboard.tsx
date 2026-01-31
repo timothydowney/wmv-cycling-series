@@ -33,12 +33,6 @@ const SeasonLeaderboard: React.FC<Props> = ({ season }) => {
 
   return (
     <div className="weekly-leaderboard-container">
-      <div style={{ marginBottom: '12px', textAlign: 'center' }}>
-        <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--wmv-purple)', marginTop: 0 }}>
-          Season Leaderboard
-        </h2>
-      </div>
-
       <div className="leaderboard-list">
         {standings.length === 0 ? (
           <div className="no-results">

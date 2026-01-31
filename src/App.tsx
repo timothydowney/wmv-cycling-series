@@ -138,7 +138,7 @@ const LeaderboardView: React.FC<LeaderboardViewProps> = ({ seasons, userAthleteI
       )}
 
       {activeTab === 'schedule' && (
-        <ScheduleTable weeks={weeks as Week[]} season={selectedSeason || undefined} />
+        <ScheduleTable weeks={weeks as Week[]} />
       )}
 
       <div className="bottom-nav-spacer" />
@@ -207,8 +207,12 @@ function AppContent() {
       case 'about': return 'About';
       case 'profile': return 'My Profile';
       case 'leaderboard':
-      default:
-        return 'Leaderboard';
+      default: {
+        const path = location.pathname;
+        if (path.includes('/season')) return 'Season Leaderboard';
+        if (path.includes('/schedule')) return 'Schedule';
+        return 'Weekly Leaderboard';
+      }
     }
   };
 
