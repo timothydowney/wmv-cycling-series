@@ -30,9 +30,9 @@ const ScheduleTable: React.FC<Props> = ({ weeks, season }) => {
     seasonEnd = formatUnixDate(sortedWeeks[sortedWeeks.length - 1].start_at);
   }
 
-  // Find the upcoming week (today or in future)
+  // Find the next week that will happen (first week that hasn't ended yet)
   const now = Math.floor(Date.now() / 1000);
-  const upcomingWeek = sortedWeeks.find(week => week.end_at >= now);
+  const nextWeek = sortedWeeks.find(week => week.end_at >= now);
 
   const toggleWeek = (weekId: number) => {
     setExpandedWeekId(expandedWeekId === weekId ? null : weekId);
@@ -52,14 +52,14 @@ const ScheduleTable: React.FC<Props> = ({ weeks, season }) => {
       <div className="schedule-list" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         {sortedWeeks.map((week, index) => {
           const isExpanded = expandedWeekId === week.id;
-          const isUpcoming = upcomingWeek?.id === week.id;
+          const isNextUp = nextWeek?.id === week.id;
 
 
           return (
-            <div key={week.id} className={`schedule-card-wrapper ${isUpcoming ? 'upcoming-week' : ''}`} style={{ position: 'relative' }}>
+            <div key={week.id} className={`schedule-card-wrapper ${isNextUp ? 'upcoming-week' : ''}`} style={{ position: 'relative' }}>
 
-              {/* Upcoming Label */}
-              {isUpcoming && (
+              {/* Next Up Badge */}
+              {isNextUp && (
                 <div className="next-up-badge">
                   Next Up
                 </div>

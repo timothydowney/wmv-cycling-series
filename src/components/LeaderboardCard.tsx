@@ -101,6 +101,7 @@ export const LeaderboardCard: React.FC<Props> = ({
             data-participant-name={entry.name}
             data-rank={rank}
             data-jersey-type={jerseyType || 'none'}
+            data-expanded={isExpanded}
         >
             {/* Top Row: Collapsed State */}
             <div className="card-header">

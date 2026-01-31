@@ -54,7 +54,7 @@ test.describe('Logged Out User Experience', () => {
 
     test('banner appears on all leaderboard views when logged out', async ({ page }) => {
       // Navigate to Fall 2025
-      await page.getByRole('combobox', { name: 'Season:' }).selectOption('Fall 2025 Zwift Hill Climb/Time Trial');
+      await page.getByTestId('season-select').selectOption('1');
       await page.waitForLoadState('networkidle');
       
       // Check Weekly view

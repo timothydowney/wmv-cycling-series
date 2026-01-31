@@ -6,14 +6,14 @@ test.describe('LeaderboardCard Component', () => {
     await page.waitForLoadState('networkidle');
     
     // Navigate to Fall 2025 season (each test will select its own week)
-    await page.getByRole('combobox', { name: 'Season:' }).selectOption('Fall 2025 Zwift Hill Climb/Time Trial');
+    await page.getByTestId('season-select').selectOption('1');
     await page.waitForLoadState('networkidle');
   });
 
   test.describe('Expandable Details', () => {
     test('card expands and collapses with chevron click', async ({ page }) => {
       // Navigate to a specific week (Week 8: Alpe du Zwift)
-      await page.getByRole('combobox', { name: 'Week:' }).selectOption('8. Alpe du Zwift (Dec 16, 2025)');
+      await page.locator('[data-testid^="timeline-item-"]').filter({ hasText: 'Alpe du Zwift' }).click();
       await page.waitForLoadState('networkidle');
       
       // Wait for leaderboard to load
@@ -51,7 +51,7 @@ test.describe('LeaderboardCard Component', () => {
   test.describe('Time Display', () => {
     test('shows total time in single-lap week', async ({ page }) => {
       // Navigate to Week 8 (Alpe du Zwift - single lap)
-      await page.getByRole('combobox', { name: 'Week:' }).selectOption('8. Alpe du Zwift (Dec 16, 2025)');
+      await page.locator('.timeline-item').filter({ hasText: 'Alpe du Zwift' }).click();
       await page.waitForLoadState('networkidle');
       
       await page.waitForSelector('[data-testid^="leaderboard-card-"]');
@@ -76,24 +76,22 @@ test.describe('LeaderboardCard Component', () => {
 
     test('shows per-lap times in multi-lap week', async ({ page }) => {
       // Navigate to Week 2 (Champs-Élysées - two laps)
-      await page.getByRole('combobox', { name: 'Week:' }).selectOption('2. Champs-Élysées (Nov 4, 2025)');
+      await page.locator('[data-testid^="timeline-item-"]').filter({ hasText: 'Champs-Élysées' }).click();
       await page.waitForLoadState('networkidle');
       
       await page.waitForSelector('[data-testid^="leaderboard-card-"]');
       
       const firstCard = page.locator('[data-testid^="leaderboard-card-"]').first();
       
-      // Expand the card if not already expanded
-      const expandedDetails = firstCard.getByTestId('expanded-details');
-      const isExpanded = await expandedDetails.isVisible().catch(() => false);
+      // Check if already expanded (first card should be expanded by default)
+      const isExpanded = await firstCard.evaluate(el => el.getAttribute('data-expanded') === 'true');
       if (!isExpanded) {
-        await firstCard.getByTestId('expand-toggle').click();
+        await firstCard.click();
       }
       
-      // Should show lap 1 time
-      const lap1Label = firstCard.getByTestId('lap-1-label');
-      await expect(lap1Label).toBeVisible();
-      await expect(lap1Label).toHaveText('Lap 1');
+      // Wait for lap details to appear
+      await expect(firstCard.getByTestId('lap-1-label')).toBeVisible({ timeout: 2000 });
+      await expect(firstCard.getByTestId('lap-1-label')).toHaveText('Lap 1');
       
       const lap1Time = firstCard.getByTestId('lap-1-time');
       await expect(lap1Time).toBeVisible();
@@ -115,18 +113,21 @@ test.describe('LeaderboardCard Component', () => {
   test.describe('Points Calculation', () => {
     test('shows base calculation: Beat X + 1 participation = Y points total', async ({ page }) => {
       // Week 7 has no multiplier, rank 1 has no PR
-      await page.getByRole('combobox', { name: 'Week:' }).selectOption('7. Volcano Circuit (Dec 9, 2025)');
+      await page.locator('[data-testid^="timeline-item-"]').filter({ hasText: 'Volcano Circuit' }).click();
       await page.waitForLoadState('networkidle');
       await page.waitForSelector('[data-testid^="leaderboard-card-"]');
       
       const firstCard = page.locator('[data-testid^="leaderboard-card-"]').first();
-      const expandedDetails = firstCard.getByTestId('expanded-details');
-      const isExpanded = await expandedDetails.isVisible().catch(() => false);
+      
+      // Check if already expanded (first card should be expanded by default)
+      const isExpanded = await firstCard.evaluate(el => el.getAttribute('data-expanded') === 'true');
       if (!isExpanded) {
-        await firstCard.getByTestId('expand-toggle').click();
+        await firstCard.click();
       }
       
+      // Wait for points calculation to appear
       const pointsCalc = firstCard.getByTestId('points-calculation');
+      await expect(pointsCalc).toBeVisible({ timeout: 2000 });
       const calcText = await pointsCalc.textContent();
       
       // Should show base formula
@@ -137,7 +138,7 @@ test.describe('LeaderboardCard Component', () => {
 
     test('shows multiplier: * 2X in calculation', async ({ page }) => {
       // Week 8 has 2X multiplier
-      await page.getByRole('combobox', { name: 'Week:' }).selectOption('8. Alpe du Zwift (Dec 16, 2025)');
+      await page.locator('.timeline-item').filter({ hasText: 'Alpe du Zwift' }).click();
       await page.waitForLoadState('networkidle');
       await page.waitForSelector('[data-testid^="leaderboard-card-"]');
       
@@ -155,7 +156,7 @@ test.describe('LeaderboardCard Component', () => {
 
     test('shows PR bonus: + 1 PR in calculation', async ({ page }) => {
       // Week 8 has PRs
-      await page.getByRole('combobox', { name: 'Week:' }).selectOption('8. Alpe du Zwift (Dec 16, 2025)');
+      await page.locator('.timeline-item').filter({ hasText: 'Alpe du Zwift' }).click();
       await page.waitForLoadState('networkidle');
       await page.waitForSelector('[data-testid^="leaderboard-card-"]');
       
@@ -181,7 +182,7 @@ test.describe('LeaderboardCard Component', () => {
 
   test.describe('Performance Metrics', () => {
     test('shows performance metrics section', async ({ page }) => {
-      await page.getByRole('combobox', { name: 'Week:' }).selectOption('8. Alpe du Zwift (Dec 16, 2025)');
+      await page.locator('.timeline-item').filter({ hasText: 'Alpe du Zwift' }).click();
       await page.waitForLoadState('networkidle');
       
       await page.waitForSelector('[data-testid^="leaderboard-card-"]');
@@ -201,7 +202,7 @@ test.describe('LeaderboardCard Component', () => {
     });
 
     test('shows average power when present in data', async ({ page }) => {
-      await page.getByRole('combobox', { name: 'Week:' }).selectOption('8. Alpe du Zwift (Dec 16, 2025)');
+      await page.locator('.timeline-item').filter({ hasText: 'Alpe du Zwift' }).click();
       await page.waitForLoadState('networkidle');
       
       await page.waitForSelector('[data-testid^="leaderboard-card-"]');
@@ -224,7 +225,7 @@ test.describe('LeaderboardCard Component', () => {
     });
 
     test('shows average cadence when present in data', async ({ page }) => {
-      await page.getByRole('combobox', { name: 'Week:' }).selectOption('8. Alpe du Zwift (Dec 16, 2025)');
+      await page.locator('.timeline-item').filter({ hasText: 'Alpe du Zwift' }).click();
       await page.waitForLoadState('networkidle');
       
       await page.waitForSelector('[data-testid^="leaderboard-card-"]');
@@ -241,7 +242,7 @@ test.describe('LeaderboardCard Component', () => {
     });
 
     test('shows average heart rate when present in data', async ({ page }) => {
-      await page.getByRole('combobox', { name: 'Week:' }).selectOption('8. Alpe du Zwift (Dec 16, 2025)');
+      await page.locator('.timeline-item').filter({ hasText: 'Alpe du Zwift' }).click();
       await page.waitForLoadState('networkidle');
       
       await page.waitForSelector('[data-testid^="leaderboard-card-"]');
@@ -261,7 +262,7 @@ test.describe('LeaderboardCard Component', () => {
   test.describe('PR Trophy Icon', () => {
     test('shows PR trophy when personal record is achieved', async ({ page }) => {
       // Navigate to Week 8 (Alpe du Zwift - has PRs)
-      await page.getByRole('combobox', { name: 'Week:' }).selectOption('8. Alpe du Zwift (Dec 16, 2025)');
+      await page.locator('.timeline-item').filter({ hasText: 'Alpe du Zwift' }).click();
       await page.waitForLoadState('networkidle');
       
       await page.waitForSelector('[data-testid^="leaderboard-card-"]');
@@ -284,45 +285,68 @@ test.describe('LeaderboardCard Component', () => {
 
     test('multi-lap week shows lap times structure', async ({ page }) => {
       // Navigate to Week 2 (Champs-Élysées - multi-lap)
-      await page.getByRole('combobox', { name: 'Week:' }).selectOption('2. Champs-Élysées (Nov 4, 2025)');
+      await page.locator('[data-testid^="timeline-item-"]').filter({ hasText: 'Champs-Élysées' }).click();
       await page.waitForLoadState('networkidle');
       
       await page.waitForSelector('[data-testid^="leaderboard-card-"]');
       
       const firstCard = page.locator('[data-testid^="leaderboard-card-"]').first();
       
-      // Expand if not already expanded
-      const expandedDetails = firstCard.getByTestId('expanded-details');
-      const isExpanded = await expandedDetails.isVisible().catch(() => false);
+      // Check if already expanded (first card should be expanded by default)
+      const isExpanded = await firstCard.evaluate(el => el.getAttribute('data-expanded') === 'true');
       if (!isExpanded) {
-        await firstCard.getByTestId('expand-toggle').click();
+        await firstCard.click();
       }
       
       // Verify lap labels are rendered (structure test)
-      await expect(firstCard.getByTestId('lap-1-label')).toBeVisible();
+      await expect(firstCard.getByTestId('lap-1-label')).toBeVisible({ timeout: 2000 });
       await expect(firstCard.getByTestId('lap-2-label')).toBeVisible();
     });
 
     test('shows time difference indicator for repeat segment', async ({ page }) => {
       // Navigate to Winter 2026 season
       await page.goto('/leaderboard');
-      await page.getByRole('combobox', { name: 'Season:' }).selectOption('Winter 2026 Zwift Hill Climb/Time Trial');
       await page.waitForLoadState('networkidle');
       
+      // Wait for season selector to be visible and get current season info
+      await page.waitForSelector('[data-testid="season-select"]');
+      
+      // Get all season options and find Winter 2026
+      const seasonSelect = page.getByTestId('season-select');
+      const options = await seasonSelect.locator('option').all();
+      let winter2026Value = null;
+      
+      for (const option of options) {
+        const text = await option.textContent();
+        if (text?.includes('Winter 2026')) {
+          winter2026Value = await option.getAttribute('value');
+          break;
+        }
+      }
+      
+      if (!winter2026Value) {
+        throw new Error('Winter 2026 season not found');
+      }
+      
+      await seasonSelect.selectOption(winter2026Value);
+      await page.waitForLoadState('networkidle');
+      
+      // Wait for timeline to update with new season's weeks
+      await page.waitForSelector('[data-testid^="timeline-item-"]');
+      
       // Navigate to Week 1 (same segment as Fall 2025 Week 1)
-      await page.getByRole('combobox', { name: 'Week:' }).selectOption({ index: 0 });
+      await page.locator('[data-testid^="timeline-item-"]').nth(0).click();
       await page.waitForLoadState('networkidle');
       
       // Find Tim Downey's card
       const timCard = page.locator('[data-testid^="leaderboard-card-"]', { hasText: 'Tim Downey' }).first();
       await expect(timCard).toBeVisible();
       
-      // Expand the card
-      const expandedDetails = timCard.getByTestId('expanded-details');
-      const isExpanded = await expandedDetails.isVisible().catch(() => false);
-      if (!isExpanded) {
-        await timCard.getByTestId('expand-toggle').click();
-      }
+      // Click expand toggle
+      await timCard.getByTestId('expand-toggle').click();
+      
+      // Wait for expanded details to appear in DOM
+      await page.waitForSelector('[data-testid="expanded-details"]');
       
       // Verify the ghost badge (time difference indicator) is present
       const ghostBadge = timCard.getByTestId('ghost-badge');

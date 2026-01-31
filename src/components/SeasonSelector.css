@@ -1,49 +1,91 @@
-.season-selector-container {
+.season-selector-card {
+  box-sizing: border-box;
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 16px 20px;
+  background-color: var(--wmv-white, white);
+  border: 1px solid var(--wmv-border, #e5e7eb);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+/* Hover interaction similar to timeline items */
+.season-selector-card:hover {
+  border-color: var(--wmv-purple, #7b3ff2);
+  box-shadow: 0 4px 12px rgba(123, 63, 242, 0.15);
+  transform: translateY(-1px);
+}
+
+.season-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.season-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  color: var(--wmv-text-light, #6b7280);
+}
+
+.season-name {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--wmv-purple, #7b3ff2);
+  line-height: 1.2;
+}
+
+.season-icon {
+  color: var(--wmv-text-light, #9ca3af);
+  transition: color 0.2s ease;
+  flex-shrink: 0;
+  margin-left: 16px;
   display: flex;
   align-items: center;
-  gap: 12px;
 }
 
-.season-selector-label {
-  font-size: var(--font-lg);
-  font-weight: 600;
-  color: var(--wmv-purple);
-  margin: 0;
-  white-space: nowrap;
+.season-selector-card:hover .season-icon {
+  color: var(--wmv-purple, #7b3ff2);
 }
 
-.season-selector-dropdown {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
-  font-size: var(--font-base);
-  color: var(--wmv-text-dark);
-  background-color: white;
-  border: 2px solid var(--wmv-orange);
-  border-radius: 4px;
-  padding: 8px 12px;
-  min-width: 300px;
+/* Utility for icons since Tailwind might not be fully scanning CSS */
+.w-6 { width: 24px; }
+.h-6 { height: 24px; }
+
+/* The Ghost Select - covers the card but is invisible */
+.season-select-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
   cursor: pointer;
-  transition: all 0.2s;
-  font-weight: 500;
+  -webkit-appearance: none;
+  appearance: none;
+  border: none;
+  font-size: 16px; /* prevent zoom on iOS */
+  z-index: 10;
 }
 
-.season-selector-dropdown:hover {
-  border-color: var(--wmv-orange-hover);
-  box-shadow: 0 2px 8px rgba(245, 96, 4, 0.15);
+/* Focus state for accessibility (outline on the card when select is focused) */
+.season-select-overlay:focus + .season-icon {
+  /* We can't target the parent easily with CSS without :has, 
+     but we can ensure outline is managed if needed. 
+     For now rely on browser defaults or :focus-visible on the container via script 
+     or just let the hover state carry it. */
 }
-
-.season-selector-dropdown:focus {
-  outline: none;
-  border-color: var(--wmv-orange-hover);
-  box-shadow: 0 0 0 3px rgba(245, 96, 4, 0.1);
-}
-
-.season-selector-dropdown option {
-  padding: 8px 12px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
-  font-size: var(--font-base);
-  color: var(--wmv-text-dark);
-  background-color: white;
-  font-weight: 500;
+.season-selector-card:focus-within {
+  border-color: var(--wmv-purple, #7b3ff2);
+  box-shadow: 0 0 0 3px rgba(123, 63, 242, 0.2);
 }
 
 /* Empty state info box */
