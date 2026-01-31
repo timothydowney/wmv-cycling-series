@@ -1,5 +1,6 @@
 import React from 'react';
 import { Season } from '../types';
+import { ChevronDownIcon } from '@heroicons/react/24/outline';
 import './SeasonSelector.css';
 
 interface Props {
@@ -19,16 +20,26 @@ const SeasonSelector: React.FC<Props> = ({ seasons, selectedSeasonId, setSelecte
     );
   }
 
+  const selectedSeason = seasons.find(s => s.id === selectedSeasonId) || seasons[0];
+
   return (
-    <div className="season-selector-container">
-      <label htmlFor="season-select" className="season-selector-label">Season:</label>
+    <div className="season-selector-card" data-testid="season-selector-card">
+      <div className="season-info">
+        <span className="season-label">SEASON</span>
+        <h2 className="season-name">{selectedSeason?.name}</h2>
+      </div>
+      
+      <div className="season-icon">
+        <ChevronDownIcon className="w-6 h-6 text-gray-400" />
+      </div>
+
       <select
         id="season-select"
-        className="season-selector-dropdown"
+        className="season-select-overlay"
+        data-testid="season-select"
         value={selectedSeasonId || ''}
         onChange={(e) => {
           const seasonId = parseInt(e.target.value);
-          console.log(`[SeasonSelector] Season changed to: ${seasonId}`);
           setSelectedSeasonId(seasonId);
         }}
       >

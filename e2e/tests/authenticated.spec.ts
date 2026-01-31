@@ -90,7 +90,7 @@ test.describe('Authenticated User - Leaderboard Highlighting', () => {
   test('current user card is highlighted on season leaderboard', async ({ page }) => {
     // Navigate to Fall 2025 season leaderboard
     await page.goto('/leaderboard');
-    await page.getByLabel('Season:').selectOption('1'); // Fall 2025
+    await page.getByTestId('season-select').selectOption('1'); // Fall 2025
     await page.getByRole('link', { name: 'Season' }).click();
     
     // Find the current user's card (Tim Downey, athlete ID 366880)
@@ -104,14 +104,14 @@ test.describe('Authenticated User - Leaderboard Highlighting', () => {
   test('current user card is highlighted on weekly leaderboard', async ({ page }) => {
     // Navigate to Fall 2025 Week 1 (Box Hill)
     await page.goto('/leaderboard');
-    await page.getByLabel('Season:').selectOption('1'); // Fall 2025
+    await page.getByTestId('season-select').selectOption('1'); // Fall 2025
     
-    // Wait for week selector to be enabled and populated
-    await page.waitForSelector('select#week-select:not([disabled])');
+    // Wait for week selector to be visible
+    await page.waitForSelector('[data-testid="timeline-week-selector"]');
     await page.waitForLoadState('networkidle');
     
-    // Select Week 1 by index
-    await page.getByLabel('Week:').selectOption({ index: 0 }); // First week
+    // Select Week 1 (first item in timeline)
+    await page.locator('[data-testid^="timeline-item-"]').first().click();
     
     // Find the current user's card
     const currentUserCard = page.locator('.leaderboard-card.current-user').first();

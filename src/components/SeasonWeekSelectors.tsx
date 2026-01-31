@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Season, Week } from '../types';
 import SeasonSelector from './SeasonSelector';
-import WeekSelector from './WeekSelector';
+import TimelineWeekSelector from './TimelineWeekSelector';
 import './SeasonWeekSelectors.css';
 
 interface Props {
@@ -72,11 +72,13 @@ const SeasonWeekSelectors: React.FC<Props> = ({
         setSelectedSeasonId={handleSeasonChange}
       />
       {showWeekSelector && (
-        <WeekSelector
-          weeks={weeks}
-          selectedWeekId={selectedWeekId}
-          setSelectedWeekId={handleWeekChange}
-        />
+        <div style={{ width: '100%', maxWidth: '100%' }}>
+          <TimelineWeekSelector
+            weeks={weeks}
+            selectedWeekId={selectedWeekId}
+            setSelectedWeekId={handleWeekChange}
+          />
+        </div>
       )}
     </div>
   );

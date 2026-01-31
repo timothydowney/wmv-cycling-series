@@ -1,6 +1,33 @@
 import { Season, Week } from '../types';
 
 const SEASON_GRACE_PERIOD_DAYS = 7;
+const WEEK_ACTIVE_BUFFER_SECONDS = 24 * 3600; // 24 hours after end_at, week stays "active"
+
+/**
+ * Determines if a week is currently "active" (ongoing or recently completed).
+ * A week is active if:
+ * - It has started AND
+ * - It ended less than 24 hours ago
+ */
+export function isWeekActive(week: Week, now: number): boolean {
+  const weekEndWithBuffer = week.end_at + WEEK_ACTIVE_BUFFER_SECONDS;
+  return week.start_at <= now && now <= weekEndWithBuffer;
+}
+
+/**
+ * Determines if a week is in the future (not yet started).
+ */
+export function isWeekFuture(week: Week, now: number): boolean {
+  return week.start_at > now;
+}
+
+/**
+ * Determines if a week is in the past (ended more than 24 hours ago).
+ */
+export function isWeekPast(week: Week, now: number): boolean {
+  const weekEndWithBuffer = week.end_at + WEEK_ACTIVE_BUFFER_SECONDS;
+  return weekEndWithBuffer < now;
+}
 
 /**
  * Determines the default season to display based on current time.
@@ -47,26 +74,24 @@ export function getDefaultSeason(seasons: Season[], now: number): Season | null 
 /**
  * Determines the default week to display based on current time.
  * Priority:
- * 1. Current or most recent past week
- * 2. First upcoming week
+ * 1. Most recently started week (shows results of recent/ongoing event)
+ * 2. First upcoming week (if no weeks have started yet)
  * 3. First week in list (fallback)
  */
 export function getDefaultWeek(weeks: Week[], now: number): Week | null {
   if (weeks.length === 0) return null;
 
-  const today = Math.floor(now / 86400) * 86400;
-
-  // Tier 2a: Is there a week happening today or in the past?
-  const pastOrCurrentWeek = [...weeks]
-    .filter(w => w.start_at <= today)                      // Week started
-    .sort((a, b) => b.start_at - a.start_at)[0];          // Most recent
+  // Tier 2a: Find the most recently started week
+  const mostRecentStarted = weeks
+    .filter(w => w.start_at <= now)
+    .sort((a, b) => b.start_at - a.start_at)[0];
   
-  if (pastOrCurrentWeek) return pastOrCurrentWeek;
+  if (mostRecentStarted) return mostRecentStarted;
 
-  // Tier 2b: No past weeks → show the FIRST upcoming week (not the last!)
-  const upcomingWeek = [...weeks]
-    .filter(w => w.start_at > today)                       // Week in future
-    .sort((a, b) => a.start_at - b.start_at)[0];          // Nearest upcoming
+  // Tier 2b: No started weeks yet → show the FIRST upcoming week
+  const upcomingWeek = weeks
+    .filter(w => w.start_at > now)
+    .sort((a, b) => a.start_at - b.start_at)[0];
   
-  return upcomingWeek || weeks[0];                          // Fallback to first week
+  return upcomingWeek || weeks[0];
 }

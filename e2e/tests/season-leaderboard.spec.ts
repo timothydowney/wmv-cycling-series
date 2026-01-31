@@ -6,7 +6,7 @@ test.describe('Season Leaderboard', () => {
     await page.waitForLoadState('networkidle');
     
     // Navigate to Fall 2025 season
-    await page.getByRole('combobox', { name: 'Season:' }).selectOption('Fall 2025 Zwift Hill Climb/Time Trial');
+    await page.getByTestId('season-select').selectOption('1');
     await page.waitForLoadState('networkidle');
     
     // Navigate to Season tab
