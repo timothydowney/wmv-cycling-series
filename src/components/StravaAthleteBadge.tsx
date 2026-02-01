@@ -8,6 +8,7 @@ interface Props {
   showName?: boolean;
   size?: number;
   inverted?: boolean;
+  noLink?: boolean;
 }
 
 /**
@@ -22,7 +23,8 @@ const StravaAthleteBadge: React.FC<Props> = ({
   profilePictureUrl,
   showName = true,
   size = 32,
-  inverted = false
+  inverted = false,
+  noLink = false
 }) => {
   const [imageError, setImageError] = React.useState(false);
 
@@ -31,34 +33,8 @@ const StravaAthleteBadge: React.FC<Props> = ({
     setImageError(false);
   }, [profilePictureUrl]);
 
-  return (
-    <Link
-      to={`/profile/${athleteId}`}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: showName ? '8px' : '0',
-        margin: 0,
-        padding: 0,
-        lineHeight: 0, // Kill ghost spacing
-        color: inverted ? 'white' : 'var(--wmv-purple)', // Inherit or explicit
-        fontWeight: 600,
-        textDecoration: 'none',
-        transition: 'color 0.2s ease',
-      }}
-      onMouseEnter={(e) => {
-        // Only hover color change if NOT inverted (on highlighted card, keep white)
-        if (!inverted) {
-          (e.currentTarget as HTMLAnchorElement).style.color = 'var(--strava-orange, #FC5200)';
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!inverted) {
-          (e.currentTarget as HTMLAnchorElement).style.color = 'var(--wmv-purple)';
-        }
-      }}
-      title={`View ${name}'s Profile`}
-    >
+  const badgeContent = (
+    <>
       {/* Strava profile picture */}
       {profilePictureUrl && profilePictureUrl !== 'avatar/athlete/large.png' && !imageError ? (
         <img
@@ -101,6 +77,48 @@ const StravaAthleteBadge: React.FC<Props> = ({
 
       {/* Athlete name */}
       {showName && <span>{name}</span>}
+    </>
+  );
+
+  const containerStyle: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: showName ? '8px' : '0',
+    margin: 0,
+    padding: 0,
+    lineHeight: 0, // Kill ghost spacing
+    color: inverted ? 'white' : 'var(--wmv-purple)', // Inherit or explicit
+    fontWeight: 600,
+    textDecoration: 'none',
+    transition: 'color 0.2s ease',
+  };
+
+  if (noLink) {
+    return (
+      <div style={containerStyle}>
+        {badgeContent}
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      to={`/profile/${athleteId}`}
+      style={containerStyle}
+      onMouseEnter={(e) => {
+        // Only hover color change if NOT inverted (on highlighted card, keep white)
+        if (!inverted) {
+          (e.currentTarget as HTMLAnchorElement).style.color = 'var(--strava-orange, #FC5200)';
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!inverted) {
+          (e.currentTarget as HTMLAnchorElement).style.color = 'var(--wmv-purple)';
+        }
+      }}
+      title={`View ${name}'s Profile`}
+    >
+      {badgeContent}
     </Link>
   );
 };

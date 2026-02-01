@@ -125,19 +125,14 @@ export const LeaderboardCard: React.FC<Props> = ({
                         showName={false}
                         size={32}
                         inverted={isCurrentUser}
+                        noLink={true}
                     />
                 </div>
 
                 {/* 3. Name & Points */}
                 <div className="card-main-info">
                     <div className="card-name">
-                        <Link 
-                            to={`/profile/${entry.participant_id}`}
-                            onClick={(e) => e.stopPropagation()}
-                            style={{ color: 'inherit', textDecoration: 'none' }}
-                        >
-                            {entry.name}
-                        </Link>
+                        {entry.name}
                     </div>
                     <div className="card-points-row">
                         <span>{entry.points} pts</span>
@@ -440,15 +435,13 @@ export const LeaderboardCard: React.FC<Props> = ({
                             {entry.device_name ? `Verified via ${entry.device_name}` : 'Verified via Strava'}
                         </div>
 
-                        {/* Strava Link Button */}
-                        {activityId && (
-                            <a
-                                href={`https://www.strava.com/activities/${activityId}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                        {/* Action Buttons */}
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <Link
+                                to={`/profile/${entry.participant_id}`}
                                 onClick={(e) => e.stopPropagation()}
                                 style={{
-                                    backgroundColor: '#fc4c02',
+                                    backgroundColor: 'var(--wmv-purple)',
                                     color: 'white',
                                     textDecoration: 'none',
                                     fontSize: '0.75rem',
@@ -460,12 +453,42 @@ export const LeaderboardCard: React.FC<Props> = ({
                                     gap: '6px',
                                     transition: 'background-color 0.2s',
                                 }}
-                                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#e34402')}
-                                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#fc4c02')}
+                                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--wmv-purple-dark, #4a148c)')}
+                                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--wmv-purple)')}
                             >
-                                View Activity
-                            </a>
-                        )}
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                                    <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clipRule="evenodd" />
+                                </svg>
+                                Athlete Profile
+                            </Link>
+
+                            {/* Strava Link Button */}
+                            {activityId && (
+                                <a
+                                    href={`https://www.strava.com/activities/${activityId}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{
+                                        backgroundColor: '#fc4c02',
+                                        color: 'white',
+                                        textDecoration: 'none',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 700,
+                                        padding: '6px 12px',
+                                        borderRadius: '4px',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        transition: 'background-color 0.2s',
+                                    }}
+                                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#e34402')}
+                                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#fc4c02')}
+                                >
+                                    View Activity
+                                </a>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
