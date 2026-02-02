@@ -216,21 +216,6 @@ function AppContent() {
     }
   };
 
-  const getPageLink = (mode: ViewMode) => {
-    switch (mode) {
-      case 'admin': return '/admin';
-      case 'participants': return '/participants';
-      case 'segments': return '/segments';
-      case 'seasons': return '/seasons';
-      case 'webhooks': return '/webhooks';
-      case 'about': return '/about';
-      case 'profile': return userAthleteId ? `/profile/${userAthleteId}` : '/profile';
-      case 'leaderboard':
-      default:
-        return '/leaderboard';
-    }
-  };
-
   if (seasonsQuery.isLoading || authStatusQuery.isLoading) {
     return (
       <div className="app app-content">
@@ -251,7 +236,6 @@ function AppContent() {
     <UnitProvider>
       <NavBar 
         title={getPageTitle(viewMode)}
-        titleLink={getPageLink(viewMode)}
         isAdmin={isAdmin}
         isConnected={isConnected}
         athleteInfo={athleteInfo}

@@ -20,7 +20,7 @@ interface NavBarProps {
 
 export const NavBar: React.FC<NavBarProps> = ({ 
   title, 
-  titleLink = '/leaderboard',
+  titleLink = '/',
   isAdmin, 
   isConnected, 
   athleteInfo,
