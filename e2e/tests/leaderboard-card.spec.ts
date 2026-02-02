@@ -409,5 +409,37 @@ test.describe('LeaderboardCard Component', () => {
       expect(wkgValue).toBeGreaterThan(2);
       expect(wkgValue).toBeLessThan(10);
     });
+
+    test('w/kg value does not change when unit preference is toggled', async ({ page }) => {
+      // Navigate directly to Winter 2026 Week 9 (has weight data)
+      await page.goto('http://localhost:5173/leaderboard/3/weekly/9');
+      await page.waitForLoadState('networkidle');
+      
+      await page.waitForSelector('[data-testid^="leaderboard-card-"]');
+      
+      const firstCard = page.locator('[data-testid^="leaderboard-card-"]').first();
+      
+      // Expand the card
+      const expandedDetails = firstCard.getByTestId('expanded-details');
+      const isExpanded = await expandedDetails.isVisible().catch(() => false);
+      if (!isExpanded) {
+        await firstCard.getByTestId('expand-toggle').click();
+      }
+      
+      // Capture the w/kg value before unit toggle
+      const wkgMetric = firstCard.getByTestId('avg-wkg');
+      await expect(wkgMetric).toBeVisible();
+      const wkgValueBefore = await wkgMetric.textContent();
+      
+      // Open the menu and toggle unit preference
+      await page.getByRole('button', { name: 'Menu' }).click();
+      const unitToggle = page.getByTestId('unit-toggle');
+      await unitToggle.click();
+      await page.waitForLoadState('networkidle');
+      
+      // Verify w/kg value is unchanged after unit toggle
+      const wkgValueAfter = await wkgMetric.textContent();
+      expect(wkgValueAfter).toBe(wkgValueBefore);
+    });
   });
 });
