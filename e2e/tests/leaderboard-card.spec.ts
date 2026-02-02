@@ -353,4 +353,61 @@ test.describe('LeaderboardCard Component', () => {
       await expect(ghostBadge).toBeVisible();
     });
   });
+
+  test.describe('Watts per Kilogram (w/kg) Metric', () => {
+    test('does not show w/kg metric for weeks without weight data (Fall 2025 Week 1)', async ({ page }) => {
+      // Navigate directly to Fall 2025 Week 1 (no weight data)
+      await page.goto('http://localhost:5173/leaderboard/1/weekly/1');
+      await page.waitForLoadState('networkidle');
+      
+      await page.waitForSelector('[data-testid^="leaderboard-card-"]');
+      
+      const firstCard = page.locator('[data-testid^="leaderboard-card-"]').first();
+      
+      // Expand the card
+      const expandedDetails = firstCard.getByTestId('expanded-details');
+      const isExpanded = await expandedDetails.isVisible().catch(() => false);
+      if (!isExpanded) {
+        await firstCard.getByTestId('expand-toggle').click();
+      }
+      
+      // w/kg metric should NOT be present
+      const wkgMetric = firstCard.getByTestId('avg-wkg');
+      expect(await wkgMetric.count()).toBe(0);
+    });
+
+    test('shows w/kg metric for weeks with weight data (Winter 2026 Week 9)', async ({ page }) => {
+      // Navigate directly to Winter 2026 Week 9 (has weight data)
+      await page.goto('http://localhost:5173/leaderboard/3/weekly/9');
+      await page.waitForLoadState('networkidle');
+      
+      await page.waitForSelector('[data-testid^="leaderboard-card-"]');
+      
+      const firstCard = page.locator('[data-testid^="leaderboard-card-"]').first();
+      
+      // Expand the card
+      const expandedDetails = firstCard.getByTestId('expanded-details');
+      const isExpanded = await expandedDetails.isVisible().catch(() => false);
+      if (!isExpanded) {
+        await firstCard.getByTestId('expand-toggle').click();
+      }
+      
+      // w/kg metric should be present
+      const wkgMetric = firstCard.getByTestId('avg-wkg');
+      await expect(wkgMetric).toBeVisible();
+      
+      // Should display w/kg format (number with decimal and unit)
+      const wkgText = await wkgMetric.textContent();
+      expect(wkgText).toMatch(/\d+\.\d+\s+w\/kg/);
+      
+      // Extract and validate the numeric value
+      const match = wkgText?.match(/(\d+\.\d+)/);
+      expect(match).toBeTruthy();
+      
+      // Value should be reasonable (between 2 and 10 w/kg for cyclists)
+      const wkgValue = parseFloat(match![1]);
+      expect(wkgValue).toBeGreaterThan(2);
+      expect(wkgValue).toBeLessThan(10);
+    });
+  });
 });
