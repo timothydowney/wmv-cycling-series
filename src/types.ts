@@ -91,6 +91,7 @@ export interface LeaderboardEntry {
     max_heartrate?: number | null;
     average_cadence?: number | null;
     device_watts?: boolean | null;
+    athlete_weight?: number | null;  // Weight in kg (Strava API format, for w/kg calculation)
   }[] | null;
   strava_effort_id?: string;
   device_name?: string | null;

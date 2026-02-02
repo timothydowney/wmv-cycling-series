@@ -9,6 +9,7 @@ import { week, season, segment, participant, participantToken } from '../db/sche
 import * as stravaClient from '../stravaClient';
 import { findBestQualifyingActivity } from '../activityProcessor';
 import { storeActivityAndEfforts } from '../activityStorage';
+import { captureAthleteProfile } from './StravaProfileCapture';
 import { LogLevel, LoggerCallback, StructuredLogger } from '../types/Logger';
 import ActivityValidationService from './ActivityValidationService';
 
@@ -269,6 +270,10 @@ class BatchFetchService {
             p.name
           );
 
+          // Capture athlete profile data (updates participant table + returns for activity storage)
+          const profileData = await captureAthleteProfile(this.db, p.strava_athlete_id, accessToken);
+          const athleteWeight = profileData.weight;
+
           // Store activity and efforts using Drizzle
           storeActivityAndEfforts(
             this.db,
@@ -279,7 +284,8 @@ class BatchFetchService {
               start_date: bestActivity.start_date,
               device_name: bestActivity.device_name || undefined,
               segmentEfforts: bestActivity.segmentEfforts as any,
-              totalTime: bestActivity.totalTime
+              totalTime: bestActivity.totalTime,
+              athleteWeight: athleteWeight  // Include weight captured from Strava
             },
             weekData.strava_segment_id
           );

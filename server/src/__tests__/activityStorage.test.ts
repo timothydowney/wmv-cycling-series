@@ -285,5 +285,53 @@ describe('Activity Storage', () => {
         storeActivityAndEfforts(orm, testAthleteId, testWeekId, activityData, testSegmentId);
       }).toThrow();
     });
+
+    it('should store activity with athlete weight', () => {
+      const activityData: ActivityToStore = {
+        id: '9876543210',
+        start_date: '2025-06-01T10:00:00Z',
+        device_name: 'Garmin Edge 530',
+        segmentEfforts: [
+          {
+            id: '1111111111',
+            start_date: '2025-06-01T10:05:00Z',
+            elapsed_time: 720
+          }
+        ],
+        totalTime: 720,
+        athleteWeight: 70.5  // Include weight
+      };
+
+      storeActivityAndEfforts(orm, testAthleteId, testWeekId, activityData, testSegmentId);
+
+      // Verify activity was stored with weight
+      const activities = orm.select().from(activity).all();
+      expect(activities).toHaveLength(1);
+      expect(activities[0].athlete_weight).toBe(70.5);
+    });
+
+    it('should store activity with null weight when not provided', () => {
+      const activityData: ActivityToStore = {
+        id: '9876543210',
+        start_date: '2025-06-01T10:00:00Z',
+        device_name: 'Garmin Edge 530',
+        segmentEfforts: [
+          {
+            id: '1111111111',
+            start_date: '2025-06-01T10:05:00Z',
+            elapsed_time: 720
+          }
+        ],
+        totalTime: 720
+        // No athleteWeight provided
+      };
+
+      storeActivityAndEfforts(orm, testAthleteId, testWeekId, activityData, testSegmentId);
+
+      // Verify activity was stored with null weight
+      const activities = orm.select().from(activity).all();
+      expect(activities).toHaveLength(1);
+      expect(activities[0].athlete_weight).toBeNull();
+    });
   });
 });

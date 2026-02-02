@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'VERSION'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read version
+        id: version
+        run: |
+          VERSION=$(cat VERSION)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check if tag exists
+        id: tag_check
+        run: |
+          if git rev-parse "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "tag_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "tag_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Git tag
+        if: steps.tag_check.outputs.tag_exists == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${{ steps.version.outputs.version }}" -m "Release v${{ steps.version.outputs.version }}"
+          git push origin "v${{ steps.version.outputs.version }}"
+
+      - name: Extract changelog section
+        id: changelog
+        if: steps.tag_check.outputs.tag_exists == 'false'
+        run: |
+          # Extract changelog for this version
+          VERSION="${{ steps.version.outputs.version }}"
+          
+          # Find the section for this version and extract until the next version
+          CHANGELOG_SECTION=$(awk "/## \[$VERSION\]/{flag=1;next} /## \[/{flag=0} flag" CHANGELOG.md)
+          
+          # If we got content, use it; otherwise use a default message
+          if [ -z "$CHANGELOG_SECTION" ]; then
+            CHANGELOG_SECTION="See CHANGELOG.md for details"
+          fi
+          
+          # Save to a temp file (GitHub Actions has a 6000 char limit for output)
+          echo "$CHANGELOG_SECTION" > /tmp/changelog.txt
+
+      - name: Create Release
+        if: steps.tag_check.outputs.tag_exists == 'false'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Release v${{ steps.version.outputs.version }}
+          body_path: /tmp/changelog.txt
+          draft: false
+          prerelease: false

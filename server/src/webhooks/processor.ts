@@ -29,6 +29,7 @@ import { getValidAccessToken } from '../tokenManager';
 import { isoToUnix } from '../dateUtils';
 import { findBestQualifyingActivity } from '../activityProcessor';
 import { storeActivityAndEfforts } from '../activityStorage';
+import { captureAthleteProfile } from '../services/StravaProfileCapture';
 import ActivityValidationService from '../services/ActivityValidationService';
 import { Week } from '../db/schema'; // Import Drizzle Week type
 
@@ -214,6 +215,10 @@ async function processActivityEvent(
   // Get valid token (auto-refreshes if needed)
   const accessToken = await getValidAccessToken(db, stravaClient, athleteId);
 
+  // Capture athlete profile data (updates participant table + returns for activity storage)
+  const profileData = await captureAthleteProfile(db, athleteId, accessToken);
+  const athleteWeight = profileData.weight;
+
   // 2. Fetch full activity details with retry logic
   // Strava webhooks often arrive before segment efforts are processed.
   // We retry up to 4 times with increasing delays (total ~4 minutes).
@@ -353,7 +358,8 @@ async function processActivityEvent(
               start_date: bestActivity.start_date,
               device_name: bestActivity.device_name || undefined,
               segmentEfforts: bestActivity.segmentEfforts as any,
-              totalTime: bestActivity.totalTime
+              totalTime: bestActivity.totalTime,
+              athleteWeight: athleteWeight  // Include weight captured from Strava
             },
             weekRecord.strava_segment_id
           );

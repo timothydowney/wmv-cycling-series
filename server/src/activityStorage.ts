@@ -47,6 +47,7 @@ interface ActivityToStore {
   device_name?: string;
   segmentEfforts: SegmentEffort[];
   totalTime: number;
+  athleteWeight?: number | null;  // Weight in kg (Strava API format, for w/kg calculation)
 }
 
 /**
@@ -105,6 +106,7 @@ function storeActivityAndEfforts(
         strava_activity_id: activityData.id,
         start_at: activityStartUnix || 0, // Fallback to 0 if null, though validation should catch this
         device_name: activityData.device_name || null,
+        athlete_weight: activityData.athleteWeight ?? null,  // Weight in kg (Strava API format)
         validation_status: 'valid'
       })
       .returning({ id: activity.id })
