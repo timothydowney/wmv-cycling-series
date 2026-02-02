@@ -137,6 +137,7 @@ export class LeaderboardService {
             max_heartrate: e.max_heartrate,
             average_cadence: e.average_cadence,
             device_watts: e.device_watts,
+            athlete_weight: res.athleteWeight || null,  // Weight in kg from activity (Strava API format)
           }));
         }
 

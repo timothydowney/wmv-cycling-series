@@ -77,6 +77,12 @@ export const LeaderboardCard: React.FC<Props> = ({
         ? Math.round(effortsWithCadence.reduce((acc, e) => acc + (e.average_cadence || 0), 0) / effortsWithCadence.length)
         : null;
 
+    // Calculate average w/kg for efforts that have both watts and athlete weight
+    const effortsWithWkg = efforts.filter(e => e.average_watts != null && e.athlete_weight != null && e.athlete_weight > 0);
+    const avgWkg = effortsWithWkg.length > 0
+        ? (effortsWithWkg.reduce((acc, e) => acc + ((e.average_watts || 0) / (e.athlete_weight || 1)), 0) / effortsWithWkg.length)
+        : null;
+
     const avgLapTimeSeconds = efforts.length > 1
         ? Math.round(efforts.reduce((acc, e) => acc + (e.time_seconds || 0), 0) / efforts.length)
         : null;
@@ -269,6 +275,14 @@ export const LeaderboardCard: React.FC<Props> = ({
                                                             {Math.round(effort.average_watts)}W{effort.device_watts ? '' : ' (est)'}
                                                         </div>
                                                     )}
+                                                    {(() => {
+                                                        return effort.average_watts && effort.athlete_weight && effort.athlete_weight > 0 && (
+                                                            <div className="week-header-chip" style={{ padding: '2px 8px', fontSize: '0.7rem', borderRadius: '12px' }} title={`Watts per Kilogram${effort.device_watts ? ' (measured power)' : ' (estimated power)'}`}>
+                                                                <BoltIcon className="week-header-chip-icon" style={{ width: '10px', height: '10px', marginRight: '4px' }} />
+                                                                {(effort.average_watts / effort.athlete_weight).toFixed(2)} w/kg
+                                                            </div>
+                                                        );
+                                                    })()}
                                                     {effort.average_heartrate && (
                                                         <div className="week-header-chip" style={{ padding: '2px 8px', fontSize: '0.7rem', borderRadius: '12px' }} title="Average Heart Rate">
                                                             <HeartIcon className="week-header-chip-icon" style={{ width: '10px', height: '10px', marginRight: '4px' }} />
@@ -394,6 +408,12 @@ export const LeaderboardCard: React.FC<Props> = ({
                                         <div className="week-header-chip" title="Average Cadence" data-testid="avg-cadence">
                                             <ArrowPathIcon className="week-header-chip-icon" />
                                             {avgCadence} rpm
+                                        </div>
+                                    )}
+                                    {avgWkg !== null && (
+                                        <div className="week-header-chip" title="Average Watts per Kilogram" data-testid="avg-wkg">
+                                            <BoltIcon className="week-header-chip-icon" />
+                                            {avgWkg.toFixed(2)} w/kg
                                         </div>
                                     )}
                                     {entry.ghost_comparison && (

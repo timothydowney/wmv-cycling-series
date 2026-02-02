@@ -26,6 +26,7 @@ export interface ScoringResult {
   stravaActivityId?: string | null;
   activityStartAt?: number | null;
   deviceName?: string | null;
+  athleteWeight?: number | null;  // Weight in kg from activity (Strava API format)
 }
 
 export interface LeaderboardResult {
@@ -61,6 +62,7 @@ export class ScoringService {
         strava_activity_id: activity.strava_activity_id,
         activity_start_at: activity.start_at,
         device_name: activity.device_name,
+        athlete_weight: activity.athlete_weight,  // Weight in kg (Strava API format)
         pr_achieved: max(sql<number>`case when ${segmentEffort.pr_achieved} = 1 then 1 else 0 end`).as('pr_achieved'),
       })
       .from(result)
@@ -107,6 +109,7 @@ export class ScoringService {
         stravaActivityId: res.strava_activity_id,
         activityStartAt: res.activity_start_at,
         deviceName: res.device_name,
+        athleteWeight: res.athlete_weight,  // Weight in kg from activity (Strava API format)
       };
     });
 

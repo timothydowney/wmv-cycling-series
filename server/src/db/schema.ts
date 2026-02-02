@@ -12,6 +12,8 @@ export const participant = sqliteTable('participant', {
   name: text().notNull(),
   created_at: text('created_at').default('sql`(CURRENT_TIMESTAMP)`'),
   active: integer('active', { mode: 'boolean' }).default(true).notNull(),
+  weight: real('weight'),  // Most recent weight in kg (Strava API format)
+  weight_updated_at: text('weight_updated_at'),  // When weight was last captured
 });
 
 export const season = sqliteTable('season', {
@@ -52,6 +54,7 @@ export const activity = sqliteTable('activity', {
   validation_message: text('validation_message'),
   validated_at: text('validated_at').default('sql`(CURRENT_TIMESTAMP)`'),
   created_at: text('created_at').default('sql`(CURRENT_TIMESTAMP)`'),
+  athlete_weight: real('athlete_weight'),  // Weight in kg at activity time (Strava API format, for w/kg calculation)
 },
 (t) => [
   index('idx_activity_status').on(t.validation_status),
