@@ -5,6 +5,7 @@ import { NotesDisplay } from './NotesDisplay';
 import { WeeklyHeader } from './WeeklyHeader';
 import { LeaderboardCard } from './LeaderboardCard';
 import { CollapsibleSegmentProfile } from './CollapsibleSegmentProfile';
+import { RaceDayBanner } from './RaceDayBanner';
 import './WeeklyLeaderboard.css';
 
 interface Props {
@@ -41,6 +42,15 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard, weekNumber }) =
   const handleCardToggle = (participantId: string) => {
     setExpandedCardId(prev => (prev === participantId ? null : participantId));
   };
+
+  const now = Math.floor(Date.now() / 1000);
+  const isRaceDay = week ? now >= week.start_at && now <= week.end_at : false;
+  const userHasResult = userAthleteId && leaderboard.some(entry => entry.participant_id === userAthleteId);
+  const showRaceDayMessage = userAthleteId && isRaceDay && !userHasResult;
+
+  const raceDayMessage = leaderboard.length > 0
+    ? "Stop scoping the competition and get moving!"
+    : "It’s Race Day!  Why are you here, when you could be there?";
 
   if (!week) {
     return (
@@ -97,6 +107,10 @@ const WeeklyLeaderboard: React.FC<Props> = ({ week, leaderboard, weekNumber }) =
           </div>
         )}
       </div>
+
+      {showRaceDayMessage && (
+        <RaceDayBanner message={raceDayMessage} />
+      )}
 
       <div className="leaderboard-list">
         {leaderboard.length === 0 ? (

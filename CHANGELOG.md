@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-02-03
+
+### Added
+- **Race Day Motivation Banner**: Interactive banner on Weekly Leaderboards that appears for logged-in participants on active race days if they haven't yet posted a result.
+- Animated checkerboard flag graphics and competitive messaging to encourage participation.
+- Clean component-based architecture for the new motivational banner.
+
 ## [0.10.0] - 2026-02-02
 
 ### Added
