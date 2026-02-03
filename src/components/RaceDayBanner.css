@@ -1,0 +1,65 @@
+.race-day-banner {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  background: white;
+  border: 2px solid #FC5200;
+  border-radius: 8px;
+  padding: 20px 32px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  gap: 24px;
+}
+
+.race-day-banner-content {
+  color: var(--wmv-purple);
+  font-weight: 600;
+  font-size: 1.25rem;
+  text-align: center;
+  line-height: 1.4;
+  z-index: 1;
+  max-width: 800px;
+}
+
+.race-day-flag {
+  flex-shrink: 0;
+  width: 80px;
+  height: auto;
+  opacity: 0.9;
+  transform: rotate(5deg);
+}
+
+.race-day-flag.left {
+  transform: scaleX(-1) rotate(5deg);
+}
+
+@media (max-width: 640px) {
+  .race-day-banner {
+    flex-direction: column;
+    padding: 24px;
+    gap: 16px;
+  }
+
+  .race-day-banner-content {
+    font-size: 1.1rem;
+    order: 1;
+  }
+  
+  .race-day-flag {
+    width: 60px;
+    order: 2;
+  }
+
+  /* On mobile, maybe we want them side-by-side below the text? 
+     Or just one on top one on bottom?
+     User said "it could be top and bottom when responsive".
+     Let's try to put the flags around the text or just above/below.
+     
+     If I just use order, I can put one top one bottom.
+  */
+  .race-day-flag.left {
+    order: 0; 
+    transform: scaleX(-1) rotate(-5deg);
+  }
+}
