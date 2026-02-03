@@ -1,8 +1,10 @@
 import React from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import './MyProfilePage.css';
 import { JerseyIcon } from './JerseyIcon';
 import { trpc } from '../utils/trpc';
+import { BoltIcon, ClockIcon, FireIcon, CalendarDaysIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { SeasonStatsCard } from './SeasonStatsCard';
 
 const MyProfilePage: React.FC = () => {
   const { athleteId } = useParams<{ athleteId: string }>();
@@ -28,44 +30,137 @@ const MyProfilePage: React.FC = () => {
     return <div className="profile-page"><p>Profile not found.</p></div>;
   }
 
-  const { name: athleteName, seasonStats, profilePictureUrl } = profileQuery.data;
+  const { name: athleteName, seasonStats, profilePictureUrl, careerStats } = profileQuery.data;
   
   const closedSeasons = seasonStats.filter(s => s.isActive === 0);
   const activeSeasons = seasonStats.filter(s => s.isActive === 1);
+  const totalWeeks = seasonStats.reduce((acc, s) => acc + s.weeksParticipated, 0);
 
   return (
     <div className="profile-container">
-      <div className="profile-header-new">
-        <div className="profile-avatar-container">
+      <div className="profile-header-centered">
+        <div className="profile-avatar-container-center">
           {profilePictureUrl ? (
-            <img src={profilePictureUrl} alt={athleteName} className="profile-avatar-large" />
+            <img src={profilePictureUrl} alt={athleteName} className="profile-avatar-xl" />
           ) : (
-            <div className="profile-avatar-placeholder">{athleteName.charAt(0)}</div>
+            <div className="profile-avatar-placeholder-xl">{athleteName.charAt(0)}</div>
           )}
         </div>
-        <div className="profile-info">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            <a 
-              href={`https://www.strava.com/athletes/${athleteId}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="profile-name-link"
-              title="View on Strava"
-            >
-              <h1>{athleteName}</h1>
-            </a>
-          </div>
-          <div className="profile-stats-summary">
-            <span className="summary-item">
-              <strong>{seasonStats.length}</strong> {seasonStats.length === 1 ? 'Season' : 'Seasons'}
-            </span>
-            <span className="summary-divider">•</span>
-            <span className="summary-item">
-              <strong>{seasonStats.reduce((acc, s) => acc + s.weeksParticipated, 0)}</strong> Weeks
-            </span>
-          </div>
+        <div className="profile-info-center">
+          <a 
+            href={`https://www.strava.com/athletes/${athleteId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="profile-name-link"
+            title="View on Strava"
+          >
+            <h1>{athleteName}</h1>
+          </a>
         </div>
       </div>
+
+      {/* Career Highlights Section */}
+      {careerStats && (
+        <div className="profile-content-section">
+          <h2>Career Highlights</h2>
+          <div className="career-stats-grid">
+            
+            {/* Participation Stats (Moved from Header) */}
+            <div className="career-stat-card">
+              <div className="career-icon-wrapper">
+                <CalendarDaysIcon className="h-6 w-6" />
+              </div>
+              <span className="career-label">Seasons<br/>Active</span>
+              <span className="career-value">{seasonStats.length}</span>
+            </div>
+
+            <div className="career-stat-card">
+              <div className="career-icon-wrapper">
+                <CheckCircleIcon className="h-6 w-6" />
+              </div>
+              <span className="career-label">Weeks<br/>Completed</span>
+              <span className="career-value">{totalWeeks}</span>
+            </div>
+
+            {/* Performance Stats */}
+             <div className="career-stat-card">
+              <div className="career-icon-wrapper">
+                <FireIcon className="h-6 w-6" />
+              </div>
+              <span className="career-label">Longest<br/>Streak</span>
+              <span className="career-value">
+                {careerStats.longestStreak}
+                <span className="unit-label">Weeks</span>
+              </span>
+            </div>
+
+            {careerStats.bestPower !== null && (
+              <div className="career-stat-card">
+                <div className="career-icon-wrapper">
+                  <BoltIcon className="h-6 w-6" />
+                </div>
+                <span className="career-label">Best Power<br/>(Avg)</span>
+                <span className="career-value">
+                  {Math.round(careerStats.bestPower)}
+                  <span className="unit-label">W</span>
+                </span>
+              </div>
+            )}
+
+            <div className="career-stat-card">
+              <div className="career-icon-wrapper">
+                <ClockIcon className="h-6 w-6" />
+              </div>
+              <span className="career-label">Total PRs<br/>(In Comp)</span>
+              <span className="career-value">
+                {careerStats.totalPrs}
+              </span>
+            </div>
+
+            {/* Jersey Achievements */}
+            <div className="career-stat-card">
+              <div className="career-icon-wrapper">
+                <JerseyIcon type="yellow" size={28} />
+              </div>
+              <span className="career-label">Best TT<br/>Weekly Result</span>
+              <span className="career-value">
+                {careerStats.bestTimeTrialWeeklyRank ? `#${careerStats.bestTimeTrialWeeklyRank}` : '-'}
+              </span>
+            </div>
+
+            <div className="career-stat-card">
+              <div className="career-icon-wrapper">
+                <JerseyIcon type="polkadot" size={28} />
+              </div>
+              <span className="career-label">Best HC<br/>Weekly Result</span>
+              <span className="career-value">
+                {careerStats.bestHillClimbWeeklyRank ? `#${careerStats.bestHillClimbWeeklyRank}` : '-'}
+              </span>
+            </div>
+            
+            <div className="career-stat-card">
+              <div className="career-icon-wrapper">
+                <div style={{ opacity: 0.6 }}><JerseyIcon type="yellow" size={28} /></div>
+              </div>
+              <span className="career-label">Best TT<br/>Season Place</span>
+              <span className="career-value">
+                {careerStats.bestTimeTrialSeasonRank ? `#${careerStats.bestTimeTrialSeasonRank}` : '-'}
+              </span>
+            </div>
+
+            <div className="career-stat-card">
+              <div className="career-icon-wrapper">
+                <div style={{ opacity: 0.6 }}><JerseyIcon type="polkadot" size={28} /></div>
+              </div>
+              <span className="career-label">Best HC<br/>Season Place</span>
+              <span className="career-value">
+                {careerStats.bestHillClimbSeasonRank ? `#${careerStats.bestHillClimbSeasonRank}` : '-'}
+              </span>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* Active Seasons Section */}
       {activeSeasons.length > 0 && (
@@ -73,31 +168,7 @@ const MyProfilePage: React.FC = () => {
           <h2>Current Season</h2>
           <div className="profile-grid">
             {activeSeasons.map(season => (
-              <div key={season.seasonId} className="profile-card active-season">
-                <div className="card-header-main">
-                  <h3>
-                    <Link to={`/leaderboard/${season.seasonId}/season`} className="season-link">
-                      {season.seasonName}
-                    </Link>
-                  </h3>
-                  {season.seasonRank > 0 && (
-                    <span className="rank-badge current">
-                      Current: #{season.seasonRank} / {season.totalSeasonParticipants}
-                    </span>
-                  )}
-                </div>
-                
-                <div className="stats-row">
-                  <div className="stat-pill">
-                    <span className="stat-label">Total Points</span>
-                    <span className="stat-value">{season.totalPoints}</span>
-                  </div>
-                  <div className="stat-pill">
-                    <span className="stat-label">Weeks</span>
-                    <span className="stat-value">{season.weeksParticipated}</span>
-                  </div>
-                </div>
-              </div>
+              <SeasonStatsCard key={season.seasonId} season={season} />
             ))}
           </div>
         </div>
@@ -109,62 +180,7 @@ const MyProfilePage: React.FC = () => {
           <h2>Palmarès</h2>
           <div className="profile-grid">
             {closedSeasons.map(season => (
-              <div key={season.seasonId} className="profile-card closed-season">
-                <div className="card-header-main">
-                  <h3>
-                    <Link to={`/leaderboard/${season.seasonId}/season`} className="season-link">
-                      {season.seasonName}
-                    </Link>
-                  </h3>
-                  <div className="jersey-achievements">
-                    {season.seasonRank > 0 && (
-                      <span className="rank-badge">#{season.seasonRank} / {season.totalSeasonParticipants}</span>
-                    )}
-                    {season.yellowJerseyWon && (
-                      <div className="mini-jersey-badge" title="Overall Season Winner">
-                        <JerseyIcon type="yellow" size={18} />
-                      </div>
-                    )}
-                    {season.polkaDotJerseyWon && (
-                      <div className="mini-jersey-badge" title="Hill Climb Winner">
-                        <JerseyIcon type="polkadot" size={18} />
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="stats-row highlight">
-                  <div className="stat-box">
-                    <span className="stat-label">Final Points</span>
-                    <span className="stat-value">{season.totalPoints}</span>
-                  </div>
-                  <div className="stat-box">
-                    <span className="stat-label">Weeks</span>
-                    <span className="stat-value">{season.weeksParticipated}</span>
-                  </div>
-                </div>
-
-                <div className="wins-section">
-                  <div className="win-item">
-                    <div className="win-icon tt">
-                      <JerseyIcon type="yellow" size={24} />
-                    </div>
-                    <div className="win-info">
-                      <span className="win-count">{season.timeTrialWins}</span>
-                      <span className="win-label">Time Trial Wins</span>
-                    </div>
-                  </div>
-                  <div className="win-item">
-                    <div className="win-icon hc">
-                      <JerseyIcon type="polkadot" size={24} />
-                    </div>
-                    <div className="win-info">
-                      <span className="win-count">{season.polkaDotWins}</span>
-                      <span className="win-label">Hill Climb Wins</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <SeasonStatsCard key={season.seasonId} season={season} />
             ))}
           </div>
         </div>
