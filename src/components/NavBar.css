@@ -35,7 +35,7 @@
 }
 
 .navbar-logo {
-  height: 32px;
+  height: 40px;
   width: auto;
   object-fit: contain;
 }
@@ -363,11 +363,11 @@
   }
 
   .navbar-logo {
-    height: 36px;
+    height: 40px;
   }
 
   .navbar-title {
-    font-size: clamp(0.9rem, 2.5vw, 1.1rem);
+    font-size: clamp(1.2rem, 3.5vw, 1.6rem);
   }
 
   .strava-status-icon {
@@ -380,12 +380,13 @@
     height: 18px;
   }
 
-  .menu-button {
-    width: 36px;
-    height: 36px;
+  .profile-menu-button {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
   }
 
-  .menu-button svg {
+  .profile-menu-button svg {
     width: 20px;
     height: 20px;
   }
@@ -405,9 +406,7 @@
   }
 
   .navbar-logo {
-    height: 32px;
-    min-width: 32px;
-    max-width: 32px;
+    height: 40px;
   }
 
   .navbar-title-section {
@@ -417,7 +416,7 @@
   }
 
   .navbar-title {
-    font-size: clamp(0.85rem, 2vw, 1rem);
+    font-size: clamp(1.2rem, 3.5vw, 1.6rem);
     line-height: 1.2;
     margin: 0;
   }
@@ -442,13 +441,13 @@
     height: 16px;
   }
 
-  .menu-button {
-    width: 32px;
-    height: 32px;
+  .profile-menu-button {
+    width: 40px;
+    height: 40px;
     flex-shrink: 0;
   }
 
-  .menu-button svg {
+  .profile-menu-button svg {
     width: 18px;
     height: 18px;
   }
@@ -486,7 +485,7 @@
 @media (max-width: 479px) {
   .navbar {
     padding: 0 4px;
-    height: 48px;
+    height: 56px;
     gap: 4px;
   }
 
@@ -497,15 +496,11 @@
   }
 
   .navbar-home-link {
-    height: 36px;
-    min-width: 36px;
-    max-width: 36px;
+    height: 40px;
   }
 
   .navbar-logo {
-    height: 24px;
-    min-width: 24px;
-    max-width: 24px;
+    height: 40px;
     display: block;
   }
 
@@ -516,7 +511,7 @@
   }
 
   .navbar-title {
-    font-size: clamp(0.8rem, 4vw, 1rem);
+    font-size: clamp(1.1rem, 5vw, 1.5rem);
     line-height: 1.2;
     margin: 0;
     overflow: hidden;
@@ -554,14 +549,16 @@
     height: 13px;
   }
 
-  .menu-button {
-    width: 28px;
-    height: 28px;
+  .profile-menu-button {
+    width: 40px;
+    height: 40px;
     flex-shrink: 0;
-    padding: 2px;
+    padding: 0;
+    border-radius: 50%;
+    overflow: hidden;
   }
 
-  .menu-button svg {
+  .profile-menu-button svg {
     width: 16px;
     height: 16px;
   }
