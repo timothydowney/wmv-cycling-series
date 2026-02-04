@@ -4,6 +4,36 @@ WMV Cycling Series: React 18 + TypeScript frontend with Node.js 24 Express + tRP
 
 ---
 
+## 🚨 CRITICAL: Version & Changelog Requirements
+
+**ALWAYS update these files together when making ANY user-facing changes:**
+
+1. **VERSION file** (`/VERSION`): Update semantic version number
+   - Bug fixes: increment patch (0.11.0 → 0.11.1)
+   - New features: increment minor (0.11.0 → 0.12.0)
+   - Breaking changes: increment major (0.11.0 → 1.0.0)
+
+2. **CHANGELOG.md** (`/CHANGELOG.md`): Add entry under `## [Unreleased]` section
+   - Use `### Added`, `### Changed`, `### Fixed`, or `### Removed`
+   - Be specific about what changed and why it matters to users
+   - When releasing, move `[Unreleased]` to new version section with date
+   - Update comparison links at bottom of file
+
+**Example workflow:**
+```bash
+# After making changes
+echo "0.11.2" > VERSION
+# Edit CHANGELOG.md to add your changes
+git add VERSION CHANGELOG.md <your-changed-files>
+git commit -m "feat: your feature description
+
+Version: 0.11.2"
+```
+
+**This is not optional.** All commits affecting user experience must update both files.
+
+---
+
 ## Quick Start
 
 **Development:**
@@ -270,20 +300,23 @@ npm run test:e2e:ui        # Interactive debugging
 
 ## Pre-Commit Workflow
 
-Before committing:
+**Before committing, ALWAYS:**
 
-```bash
-npm run lint       # Lint both frontend + backend
-npm run typecheck  # Typecheck both
-npm test           # Run unit tests
-npm run build      # Verify production build
-```
+1. **Update VERSION and CHANGELOG.md** (see top of this file)
+2. **Run checks:**
+   ```bash
+   npm run lint       # Lint both frontend + backend
+   npm run typecheck  # Typecheck both
+   npm test           # Run unit tests
+   npm run build      # Verify production build
+   ```
 
 **Git best practices:**
 - Use `git add <specific-files>` (never `git add .`)
 - Review `git status` before committing
 - Delete temporary/debug files before commit
 - Keep git history clean
+- Include version number in commit message for releases
 
 ## CI/CD Pipeline
 
@@ -388,5 +421,5 @@ For detailed information:
 
 ---
 
-**Last Updated:** January 2026  
-**Version:** 2.0 (Simplified & Reorganized)
+**Last Updated:** February 2026  
+**Version:** 3.0 (Added Version & Changelog Requirements)
