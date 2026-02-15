@@ -67,6 +67,12 @@ interface Config {
   webhookPersistEvents: boolean;
   // Admin
   adminAthleteIds: string[];
+  // AI Chat
+  geminiApiKey: string | undefined;
+  geminiModel: string;
+  chatEnabled: boolean;
+  chatRateLimitPerMinute: number;
+  chatRateLimitPerDay: number;
 }
 
 function getConfig(): Config {
@@ -144,7 +150,13 @@ function getConfig(): Config {
     webhookVerifyToken: process.env.WEBHOOK_VERIFY_TOKEN,
     webhookPersistEvents: process.env.WEBHOOK_PERSIST_EVENTS === 'true',
     // Admin
-    adminAthleteIds
+    adminAthleteIds,
+    // AI Chat
+    geminiApiKey: process.env.GEMINI_API_KEY || undefined,
+    geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+    chatEnabled: process.env.CHAT_ENABLED !== 'false', // enabled by default if API key present
+    chatRateLimitPerMinute: parseInt(process.env.CHAT_RATE_LIMIT_PER_MINUTE || '10', 10),
+    chatRateLimitPerDay: parseInt(process.env.CHAT_RATE_LIMIT_PER_DAY || '200', 10),
   };
 }
 

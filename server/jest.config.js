@@ -40,6 +40,10 @@ module.exports = {
     '/server/src/routes/seasons\\.ts$' // Not a test file
   ],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
+  // Transform ESM packages (don't ignore them in node_modules)
+  transformIgnorePatterns: [
+    'node_modules/(?!(@google/genai|p-retry|is-network-error)/)'
+  ],
   // Coverage thresholds intentionally set below current levels while
   // backend expansion is in progress. Raise these as implementation grows.
   coverageThreshold: {

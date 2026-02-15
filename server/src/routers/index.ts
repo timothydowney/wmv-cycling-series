@@ -7,6 +7,7 @@ import { leaderboardRouter } from '../trpc/leaderboardRouter'; // Import the new
 import { webhookAdminRouter } from '../trpc/routers/webhookAdminRouter'; // Import the new webhookAdminRouter
 import { clubRouter } from './club';
 import { profileRouter } from './profile';
+import { chatRouter } from './chat';
 
 export const appRouter = router({
   health: publicProcedure.query(() => 'ok'),
@@ -18,6 +19,7 @@ export const appRouter = router({
   webhookAdmin: webhookAdminRouter, // Add the webhookAdminRouter
   club: clubRouter,
   profile: profileRouter,
+  chat: chatRouter,
 });
 
 export type AppRouter = typeof appRouter;

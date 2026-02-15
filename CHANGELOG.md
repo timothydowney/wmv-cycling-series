@@ -10,6 +10,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-02-15
+
+### Added
+- **AI Chat Assistant**: Ask questions about competition data in natural language. Available to admins from the navigation menu.
+  - Compare athletes, check standings, analyze performance trends, and review season history.
+  - Automatic nickname resolution ("Mike" finds "Michael Bello").
+  - Smart context awareness (knows current season and logged-in user).
+  - Structured analysis with season overviews, head-to-head matchups, and performance insights.
+  - Rate limiting (10 messages/minute, 200/day) to manage API costs.
+  
+### Fixed
+- **Chat responses complete quickly** without timeouts (typically 3-12 seconds).
+- **Markdown tables render properly** in chat responses.
+- **Optimized database queries** to avoid unnecessary Strava API calls during chat operations.
+
 ## [0.11.1] - 2026-02-04
 
 ### Changed
@@ -42,7 +57,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Watts per Kilogram (w/kg) Metric**: Display power-to-weight ratio on leaderboard cards. Captured from Strava API during activity ingestion. Only displays when both watts and weight data are available. Unit-agnostic (always shown in w/kg regardless of imperial/metric preference).
 
-[Unreleased]: https://github.com/tim-downey/strava-ncc-scrape/compare/v0.11.1...HEAD
+[Unreleased]: https://github.com/tim-downey/strava-ncc-scrape/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/tim-downey/strava-ncc-scrape/compare/v0.11.1...v0.12.0
 [0.11.1]: https://github.com/tim-downey/strava-ncc-scrape/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/tim-downey/strava-ncc-scrape/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/tim-downey/strava-ncc-scrape/compare/v0.9.0...v0.10.0

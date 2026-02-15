@@ -32,8 +32,14 @@ export class StandingsService {
 
   /**
    * Get standings for a specific season.
+   * @param options.includeProfilePictures - fetch Strava profile pictures (default: true). 
+   *   Set to false for lightweight queries (e.g. chat tool calls) to avoid Strava token refreshes.
    */
-  async getSeasonStandings(seasonId: number): Promise<StandingsEntry[]> {
+  async getSeasonStandings(
+    seasonId: number,
+    options?: { includeProfilePictures?: boolean }
+  ): Promise<StandingsEntry[]> {
+    const includeProfilePictures = options?.includeProfilePictures ?? true;
     const weeks = await this.db
       .select({ 
         id: week.id,
@@ -81,14 +87,19 @@ export class StandingsService {
       });
     }
 
-    const participantIds = Array.from(standingsMap.keys());
-    const profilePictures = await getAthleteProfilePictures(participantIds, this.db);
+    // Profile pictures require Strava token refreshes for every participant (~1.4s).
+    // Skip when caller doesn't need them (e.g. chat tool calls).
+    let profilePictures: Map<string, string | null> | null = null;
+    if (includeProfilePictures) {
+      const participantIds = Array.from(standingsMap.keys());
+      profilePictures = await getAthleteProfilePictures(participantIds, this.db);
+    }
 
     // Convert map to array and add pictures
     const standingsData = Array.from(standingsMap.values()).map((entry) => {
       return {
         ...entry,
-        profilePictureUrl: profilePictures.get(entry.participantId) || null,
+        profilePictureUrl: profilePictures?.get(entry.participantId) || null,
       };
     });
 

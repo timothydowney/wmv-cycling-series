@@ -25,6 +25,7 @@
     "node": ">=24 <25"
   },
   "dependencies": {
+    "@google/genai": "^1.41.0",
     "@trpc/server": "^11.7.2",
     "better-sqlite3": "^12.5.0",
     "better-sqlite3-session-store": "^0.1.0",
