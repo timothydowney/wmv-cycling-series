@@ -8,6 +8,7 @@
 
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { eq, and, sql, desc } from 'drizzle-orm';
+import Fuse from 'fuse.js';
 import {
   season, week, segment, participant, activity,
   segmentEffort, result, participantToken,
@@ -22,33 +23,57 @@ import * as stravaClient from '../stravaClient';
 import { getValidAccessToken } from '../tokenManager';
 
 /**
- * Common nickname → full name mappings for better fuzzy matching.
- * Maps lowercase nicknames to lowercase canonical first names they could refer to.
+ * Common nickname mappings for fuzzy name matching.
+ * Maps lowercase nickname → array of lowercase full name variations.
+ * 
+ * This is a curated list covering the most common English nicknames.
+ * Add club-specific variations as needed.
  */
 const NICKNAME_MAP: Record<string, string[]> = {
+  // Mike/Michael
   mike: ['michael'],
-  michael: ['mike'],
+  mikey: ['michael'],
+  mick: ['michael'],
+  michael: ['mike', 'mikey'],
+  
+  // Tim/Timothy
   tim: ['timothy'],
-  timothy: ['tim'],
+  timmy: ['timothy'],
+  timothy: ['tim', 'timmy'],
+  
+  // Tom/Thomas
   tom: ['thomas'],
-  thomas: ['tom'],
-  rob: ['robert'],
-  robert: ['rob', 'bob', 'bobby'],
+  tommy: ['thomas'],
+  thomas: ['tom', 'tommy'],
+  
+  // Bob/Robert
   bob: ['robert'],
   bobby: ['robert'],
+  rob: ['robert'],
+  robby: ['robert'],
+  robert: ['bob', 'bobby', 'rob'],
+  
+  // Bill/William
   bill: ['william'],
-  william: ['bill', 'will', 'billy'],
+  billy: ['william'],
   will: ['william'],
+  willy: ['william'],
+  william: ['bill', 'billy', 'will'],
+  
+  // Jim/James
   jim: ['james'],
-  james: ['jim', 'jimmy'],
   jimmy: ['james'],
+  jamie: ['james'],
+  james: ['jim', 'jimmy'],
+  
+  // Add more common nicknames as needed
   joe: ['joseph'],
   joseph: ['joe'],
   dave: ['david'],
   david: ['dave'],
   dan: ['daniel'],
-  daniel: ['dan', 'danny'],
   danny: ['daniel'],
+  daniel: ['dan', 'danny'],
   matt: ['matthew'],
   matthew: ['matt'],
   chris: ['christopher'],
@@ -56,73 +81,68 @@ const NICKNAME_MAP: Record<string, string[]> = {
   steve: ['steven', 'stephen'],
   steven: ['steve'],
   stephen: ['steve'],
-  ed: ['edward', 'edwin'],
-  edward: ['ed', 'eddie'],
   rick: ['richard'],
-  richard: ['rick', 'dick'],
-  dick: ['richard'],
+  richard: ['rick'],
   tony: ['anthony'],
   anthony: ['tony'],
-  nick: ['nicholas'],
-  nicholas: ['nick'],
-  pat: ['patrick', 'patricia'],
-  patrick: ['pat'],
-  greg: ['gregory'],
-  gregory: ['greg'],
-  al: ['alan', 'albert', 'alfred'],
-  ben: ['benjamin'],
-  benjamin: ['ben'],
-  charlie: ['charles'],
-  charles: ['charlie'],
-  sam: ['samuel', 'samantha'],
-  samuel: ['sam'],
   alex: ['alexander', 'alexandra'],
   alexander: ['alex'],
-  jeff: ['jeffrey'],
-  jeffrey: ['jeff'],
-  jon: ['jonathan'],
-  jonathan: ['jon'],
-  ken: ['kenneth'],
-  kenneth: ['ken'],
-  andy: ['andrew'],
-  andrew: ['andy'],
-  larry: ['lawrence'],
-  phil: ['phillip', 'philip'],
-  phillip: ['phil'],
-  ray: ['raymond'],
-  ted: ['theodore', 'edward'],
+  alexandra: ['alex'],
+  ben: ['benjamin'],
+  benjamin: ['ben'],
+  sam: ['samuel', 'samantha'],
+  samuel: ['sam'],
+  samantha: ['sam'],
 };
 
 /**
- * Smart fuzzy match: case-insensitive matching with nickname awareness.
- * 1. Exact full-name match
- * 2. Substring match (name contains search string)
- * 3. Nickname expansion (e.g., "Mike" also matches "Michael")
- * Returns participants matching any of these criteria.
+ * Smart fuzzy match: combines nickname expansion with fuzzy search.
+ * 
+ * Process:
+ * 1. Expand query using NICKNAME_MAP ("Mike" → ["michael", "mike", "mikey"])
+ * 2. Fuzzy search all variations using Fuse.js
+ * 3. Deduplicate and return ranked results
+ * 
+ * Returns participants matching any variation, sorted by relevance score.
  */
 function fuzzyMatchName(
   candidates: { strava_athlete_id: string; name: string }[],
   searchName: string
 ): { strava_athlete_id: string; name: string }[] {
-  const lower = searchName.toLowerCase().trim();
-
-  // Direct substring match
-  const directMatches = candidates.filter(c => c.name.toLowerCase().includes(lower));
-  if (directMatches.length > 0) return directMatches;
-
-  // Nickname expansion: try matching expanded names
-  const searchFirstName = lower.split(' ')[0];
-  const expandedNames = NICKNAME_MAP[searchFirstName] || [];
-
-  if (expandedNames.length > 0) {
-    const nicknameMatches = candidates.filter(c => {
-      const candidateFirst = c.name.toLowerCase().split(' ')[0];
-      return expandedNames.includes(candidateFirst);
-    });
-    if (nicknameMatches.length > 0) return nicknameMatches;
+  const normalized = searchName.trim().toLowerCase();
+  
+  // Extract first name for nickname expansion
+  const firstName = normalized.split(' ')[0];
+  
+  // Expand nicknames: check both the query itself and its mapped variations
+  const variations = new Set<string>([normalized, firstName]);
+  const nicknameVariations = NICKNAME_MAP[firstName] || [];
+  nicknameVariations.forEach(v => variations.add(v));
+  
+  // Configure Fuse.js for name matching
+  const fuse = new Fuse(candidates, {
+    keys: ['name'],
+    threshold: 0.4, // 0 = exact match, 1 = match anything
+    ignoreLocation: true,
+    includeScore: true,
+  });
+  
+  // Search for all variations and collect results
+  const allResults = Array.from(variations).flatMap(variant => fuse.search(variant));
+  
+  // Deduplicate by athlete ID, keeping best score
+  const uniqueResults = new Map<string, typeof allResults[0]>();
+  for (const result of allResults) {
+    const id = result.item.strava_athlete_id;
+    if (!uniqueResults.has(id) || (result.score ?? 1) < (uniqueResults.get(id)!.score ?? 1)) {
+      uniqueResults.set(id, result);
+    }
   }
-
-  return [];
+  
+  // Sort by score (lower is better) and return items
+  return Array.from(uniqueResults.values())
+    .sort((a, b) => (a.score ?? 1) - (b.score ?? 1))
+    .map(r => r.item);
 }
 
 /**
