@@ -10,6 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-02-17
+
+### Added
+- **AI Chat architecture documentation** (`docs/AI_CHAT.md`): Comprehensive doc covering tool inventory, service reuse audit, design decisions, and actionable TODOs including feedback collection, response enrichment, and broader rollout.
+
+### Removed
+- Removed `docs/AI_CHAT_PLAN.md` — superseded by the new architecture doc.
+
 ## [0.12.0] - 2026-02-15
 
 ### Added
@@ -57,7 +65,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Watts per Kilogram (w/kg) Metric**: Display power-to-weight ratio on leaderboard cards. Captured from Strava API during activity ingestion. Only displays when both watts and weight data are available. Unit-agnostic (always shown in w/kg regardless of imperial/metric preference).
 
-[Unreleased]: https://github.com/tim-downey/strava-ncc-scrape/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/tim-downey/strava-ncc-scrape/compare/v0.12.1...HEAD
+[0.12.1]: https://github.com/tim-downey/strava-ncc-scrape/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/tim-downey/strava-ncc-scrape/compare/v0.11.1...v0.12.0
 [0.11.1]: https://github.com/tim-downey/strava-ncc-scrape/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/tim-downey/strava-ncc-scrape/compare/v0.10.0...v0.11.0
