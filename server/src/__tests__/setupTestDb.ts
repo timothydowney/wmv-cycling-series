@@ -118,6 +118,9 @@ export function teardownTestDb(db: Database.Database) {
   try {
     // Clear all tables in correct order (children before parents)
     db.exec(`
+      DELETE FROM chain_wax_activity;
+      DELETE FROM chain_wax_period;
+      DELETE FROM chain_wax_puck;
       DELETE FROM webhook_subscription;
       DELETE FROM webhook_event;
       DELETE FROM participant_token;

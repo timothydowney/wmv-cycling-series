@@ -8,6 +8,7 @@ import { webhookAdminRouter } from '../trpc/routers/webhookAdminRouter'; // Impo
 import { clubRouter } from './club';
 import { profileRouter } from './profile';
 import { chatRouter } from './chat';
+import { chainWaxRouter } from './chainWax';
 
 export const appRouter = router({
   health: publicProcedure.query(() => 'ok'),
@@ -20,6 +21,7 @@ export const appRouter = router({
   club: clubRouter,
   profile: profileRouter,
   chat: chatRouter,
+  chainWax: chainWaxRouter,
 });
 
 export type AppRouter = typeof appRouter;

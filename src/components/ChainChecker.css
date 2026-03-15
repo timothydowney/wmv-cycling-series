@@ -1,0 +1,361 @@
+/* Chain Checker — Admin Chain Wax Tracker Styles */
+
+.chain-checker {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.chain-checker-denied {
+  padding: 2rem;
+  text-align: center;
+}
+
+.chain-checker-denied h2 {
+  color: #e74c3c;
+  margin-bottom: 1rem;
+}
+
+.chain-checker-error {
+  color: #e74c3c;
+  padding: 1rem;
+}
+
+/* Header */
+
+.chain-checker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.chain-checker-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+/* Buttons */
+
+.chain-checker-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.15s;
+}
+
+.chain-checker-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chain-checker-btn-primary {
+  background: var(--wmv-primary, #2563eb);
+  color: white;
+}
+
+.chain-checker-btn-primary:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.chain-checker-btn-secondary {
+  background: var(--wmv-surface, #f1f5f9);
+  color: var(--wmv-text, #1e293b);
+  border: 1px solid var(--wmv-border, #e2e8f0);
+}
+
+.chain-checker-btn-secondary:hover:not(:disabled) {
+  background: var(--wmv-surface-hover, #e2e8f0);
+}
+
+.chain-checker-btn-outline {
+  background: transparent;
+  color: var(--wmv-text-light, #64748b);
+  border: 1px solid var(--wmv-border, #e2e8f0);
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+
+.chain-checker-btn-outline:hover:not(:disabled) {
+  background: var(--wmv-surface, #f1f5f9);
+}
+
+/* Spinner for resync */
+
+.chain-checker-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: chain-checker-spin 0.6s linear infinite;
+}
+
+@keyframes chain-checker-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Resync result */
+
+.chain-checker-resync-result {
+  background: #ecfdf5;
+  color: #065f46;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+/* Sections */
+
+.chain-checker-section {
+  background: var(--wmv-card-bg, white);
+  border: 1px solid var(--wmv-border, #e2e8f0);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.chain-checker-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.chain-checker-section-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--wmv-text-light, #64748b);
+}
+
+/* Puck dots */
+
+.chain-checker-puck-dots {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.chain-checker-puck-dot {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  transition: all 0.2s;
+}
+
+.chain-checker-puck-dot.used {
+  background: #1e293b;
+  color: white;
+}
+
+.chain-checker-puck-dot.unused {
+  background: var(--wmv-surface, #f1f5f9);
+  border: 2px solid var(--wmv-border, #e2e8f0);
+  color: transparent;
+}
+
+.chain-checker-puck-warning {
+  margin-top: 0.75rem;
+  padding: 8px 12px;
+  background: #fef2f2;
+  color: #991b1b;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* Progress bar */
+
+.chain-checker-progress-label {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.chain-checker-distance {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--wmv-text, #1e293b);
+}
+
+.chain-checker-distance.over {
+  color: #dc2626;
+}
+
+.chain-checker-threshold {
+  font-size: 1rem;
+  color: var(--wmv-text-light, #64748b);
+}
+
+.chain-checker-over-badge {
+  margin-left: 8px;
+  background: #dc2626;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.chain-checker-progress-track {
+  width: 100%;
+  height: 12px;
+  background: var(--wmv-surface, #f1f5f9);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.chain-checker-progress-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.5s ease, background-color 0.3s ease;
+}
+
+.chain-checker-progress-fill.green {
+  background: #22c55e;
+}
+
+.chain-checker-progress-fill.yellow {
+  background: #eab308;
+}
+
+.chain-checker-progress-fill.red {
+  background: #ef4444;
+}
+
+.chain-checker-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: var(--wmv-text-light, #94a3b8);
+}
+
+/* Wax button */
+
+.chain-checker-wax-btn {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  background: #1e293b;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-bottom: 1rem;
+  transition: background 0.15s;
+}
+
+.chain-checker-wax-btn:hover {
+  background: #334155;
+}
+
+/* Modal */
+
+.chain-checker-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.chain-checker-modal {
+  background: var(--wmv-card-bg, white);
+  border-radius: 16px;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+}
+
+.chain-checker-modal h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.25rem;
+}
+
+.chain-checker-modal p {
+  color: var(--wmv-text-light, #64748b);
+  font-size: 0.9rem;
+  margin: 0 0 1rem 0;
+}
+
+.chain-checker-datetime-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--wmv-border, #e2e8f0);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  margin-bottom: 1rem;
+  box-sizing: border-box;
+}
+
+.chain-checker-modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* History */
+
+.chain-checker-history h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.chain-checker-history-table-wrapper {
+  overflow-x: auto;
+}
+
+.chain-checker-history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.chain-checker-history-table th {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 2px solid var(--wmv-border, #e2e8f0);
+  color: var(--wmv-text-light, #64748b);
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.chain-checker-history-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--wmv-border, #f1f5f9);
+  color: var(--wmv-text, #1e293b);
+}
+
+.chain-checker-history-table tr:last-child td {
+  border-bottom: none;
+}

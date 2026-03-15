@@ -10,6 +10,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-03-15
+
+### Added
+- **Chain Checker**: Admin-only chain wax tracking page for the shared Tacx Neo 2T trainer.
+  - Tracks combined Zwift virtual ride distance for Tim and Will against an 800km re-wax interval.
+  - Progress bar with color zones: green (< 75%), yellow (75-90%), red (>= 90%).
+  - "Wax Your Chain" button with date/time picker to record wax events and reset the counter.
+  - Wax puck lifespan tracker (8 uses per puck) with visual dots display.
+  - Resync button to pull latest activities from Strava API.
+  - Wax history table showing past wax periods with distance and duration.
+  - Automatic tracking via existing Strava webhooks (VirtualRide activity type).
+  - Deduplication via unique activity ID constraint prevents double-counting.
+  - Respects the existing km/miles unit toggle.
+
 ## [0.12.1] - 2026-02-17
 
 ### Added
