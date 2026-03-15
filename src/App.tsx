@@ -17,6 +17,7 @@ import StravaClubJoinPrompt from './components/StravaClubJoinPrompt';
 import AboutPage from './components/AboutPage';
 import MyProfilePage from './components/MyProfilePage';
 import ChatPanel from './components/ChatPanel';
+import ChainChecker from './components/ChainChecker';
 import { UnitProvider } from './context/UnitContext';
 import { getDefaultSeason, getDefaultWeek } from './utils/defaultSelection';
 import { useClubMembership } from './hooks/useClubMembership';
@@ -26,7 +27,7 @@ import { httpBatchLink } from '@trpc/client';
 import { trpc } from './utils/trpc';
 import { Season, Week } from './types'; // Import shared types
 
-type ViewMode = 'leaderboard' | 'admin' | 'participants' | 'segments' | 'seasons' | 'webhooks' | 'about' | 'profile' | 'chat';
+type ViewMode = 'leaderboard' | 'admin' | 'participants' | 'segments' | 'seasons' | 'webhooks' | 'about' | 'profile' | 'chat' | 'chain-checker';
 
 interface LeaderboardViewProps {
   seasons: Season[];
@@ -192,6 +193,7 @@ function AppContent() {
     if (path.startsWith('/about')) return 'about';
     if (path.startsWith('/profile')) return 'profile';
     if (path.startsWith('/chat')) return 'chat';
+    if (path.startsWith('/chain-checker')) return 'chain-checker';
     return 'leaderboard';
   }, [location.pathname]);
 
@@ -209,6 +211,7 @@ function AppContent() {
       case 'about': return 'About';
       case 'profile': return 'My Profile';
       case 'chat': return 'AI Chat';
+      case 'chain-checker': return 'Chain Checker';
       case 'leaderboard':
       default: {
         const path = location.pathname;
@@ -261,6 +264,7 @@ function AppContent() {
           <Route path="/webhooks" element={<WebhookManagementPanel />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/chat" element={<ChatPanel />} />
+          <Route path="/chain-checker" element={<ChainChecker />} />
           <Route path="/profile/:athleteId" element={<MyProfilePage />} />
           <Route path="/profile" element={isConnected && userAthleteId ? <Navigate to={`/profile/${userAthleteId}`} replace /> : <Navigate to="/leaderboard" replace />} />
           

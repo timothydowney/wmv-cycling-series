@@ -154,7 +154,47 @@ export const webhookSubscription = sqliteTable('webhook_subscription', {
   last_refreshed_at: text('last_refreshed_at'),
 });
 
+// Chain Wax Tracking tables
+export const chainWaxPeriod = sqliteTable('chain_wax_period', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  started_at: integer('started_at').notNull(), // Unix seconds - when chain was waxed
+  ended_at: integer('ended_at'), // Unix seconds - when next wax happened (NULL = current active period)
+  total_distance_meters: real('total_distance_meters').default(0).notNull(), // Cached sum
+  created_at: integer('created_at').notNull(),
+});
+
+export const chainWaxActivity = sqliteTable('chain_wax_activity', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  period_id: integer('period_id').notNull().references(() => chainWaxPeriod.id),
+  strava_activity_id: text('strava_activity_id').notNull().unique(), // Dedup key
+  strava_athlete_id: text('strava_athlete_id').notNull(),
+  distance_meters: real('distance_meters').notNull(),
+  activity_start_at: integer('activity_start_at').notNull(), // Unix seconds
+  created_at: integer('created_at').notNull(),
+},
+(t) => [
+  index('idx_chain_wax_activity_period').on(t.period_id),
+  index('idx_chain_wax_activity_strava_id').on(t.strava_activity_id),
+]);
+
+export const chainWaxPuck = sqliteTable('chain_wax_puck', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  started_at: integer('started_at').notNull(), // Unix seconds
+  wax_count: integer('wax_count').default(0).notNull(),
+  is_current: integer('is_current', { mode: 'boolean' }).default(true).notNull(),
+  created_at: integer('created_at').notNull(),
+});
+
 // Type exports
+export type ChainWaxPeriod = typeof chainWaxPeriod.$inferSelect;
+export type NewChainWaxPeriod = typeof chainWaxPeriod.$inferInsert;
+
+export type ChainWaxActivity = typeof chainWaxActivity.$inferSelect;
+export type NewChainWaxActivity = typeof chainWaxActivity.$inferInsert;
+
+export type ChainWaxPuck = typeof chainWaxPuck.$inferSelect;
+export type NewChainWaxPuck = typeof chainWaxPuck.$inferInsert;
+
 export type Season = typeof season.$inferSelect;
 export type NewSeason = typeof season.$inferInsert;
 

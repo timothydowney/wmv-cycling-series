@@ -43,6 +43,13 @@
       "when": 1770039873446,
       "tag": "0005_powerful_stepford_cuckoos",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1773583200000,
+      "tag": "0006_chain_wax_tracker",
+      "breakpoints": true
     }
   ]
 }

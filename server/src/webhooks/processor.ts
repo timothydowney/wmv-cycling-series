@@ -31,6 +31,7 @@ import { findBestQualifyingActivity } from '../activityProcessor';
 import { storeActivityAndEfforts } from '../activityStorage';
 import { captureAthleteProfile } from '../services/StravaProfileCapture';
 import ActivityValidationService from '../services/ActivityValidationService';
+import { ChainWaxService } from '../services/ChainWaxService';
 import { Week } from '../db/schema'; // Import Drizzle Week type
 
 /**
@@ -114,7 +115,7 @@ export function createWebhookProcessor(db: BetterSQLite3Database, service?: Webh
         if (actEvent.aspect_type === 'create' || actEvent.aspect_type === 'update') {
           await processActivityEvent(actEvent, logger, db, validationService);
         } else if (actEvent.aspect_type === 'delete') {
-          await processActivityDeletion(actEvent, logger, svc);
+          await processActivityDeletion(actEvent, logger, svc, db);
         }
       } else if (event.object_type === 'athlete') {
         const athEvent = event as AthleteWebhookEvent;
@@ -227,28 +228,60 @@ async function processActivityEvent(
   const maxAttempts = 4;
   const backoffMs = [15000, 45000, 90000]; // 15s, 45s, 90s (plus original fetch)
 
-  while (attempts < maxAttempts) {
-    console.log(
-      `[Webhook:Processor] Fetching activity details for ID: ${activityId} (attempt ${attempts + 1}/${maxAttempts})`
-    );
-    activityData = await stravaClient.getActivity(activityId, accessToken);
+  // First fetch to get activity data (needed for chain wax check before retries)
+  console.log(
+    `[Webhook:Processor] Fetching activity details for ID: ${activityId} (attempt 1/${maxAttempts})`
+  );
+  activityData = await stravaClient.getActivity(activityId, accessToken);
 
-    // If it's not a ride or virtual ride, it might not have segments we care about, 
-    // but we still check for segment efforts.
-    if (activityData.segment_efforts && activityData.segment_efforts.length > 0) {
-      console.log(`[Webhook:Processor] ✓ Found ${activityData.segment_efforts.length} segment efforts for activity ${activityId}`);
-      break;
+  // Chain wax tracking: check immediately after first fetch (before segment retry logic)
+  // This ensures VirtualRide activities are tracked even if they have no competition segments.
+  if (activityData && ChainWaxService.isTrackedAthlete(athleteId) && activityData.type === 'VirtualRide') {
+    try {
+      const chainWaxService = new ChainWaxService(db);
+      const activityStartUnix = activityData.start_date
+        ? Math.floor(new Date(activityData.start_date).getTime() / 1000)
+        : Math.floor(Date.now() / 1000);
+      const recorded = chainWaxService.recordActivity(
+        activityId,
+        athleteId,
+        activityData.distance || 0,
+        activityStartUnix
+      );
+      if (recorded) {
+        console.log(`[Webhook:Processor] ✓ Chain wax: recorded VirtualRide ${activityId} (${((activityData.distance || 0) / 1000).toFixed(1)}km) for athlete ${athleteId}`);
+      } else {
+        console.log(`[Webhook:Processor] Chain wax: VirtualRide ${activityId} already tracked or outside current period`);
+      }
+    } catch (error) {
+      // Don't let chain wax errors break competition processing
+      console.error(`[Webhook:Processor] Chain wax tracking error for activity ${activityId}:`, error);
     }
+  }
 
-    // If no segment efforts found and we have more attempts, wait and retry
-    if (attempts < maxAttempts - 1) {
-      const waitTime = backoffMs[attempts];
+  // Now handle segment effort retries for competition processing
+  if (activityData?.segment_efforts && activityData.segment_efforts.length > 0) {
+    console.log(`[Webhook:Processor] ✓ Found ${activityData.segment_efforts.length} segment efforts for activity ${activityId}`);
+  } else {
+    attempts = 1;
+    while (attempts < maxAttempts) {
+      const waitTime = backoffMs[attempts - 1];
       console.log(
         `[Webhook:Processor] Activity ${activityId} has no segment efforts yet, retrying in ${waitTime / 1000}s...`
       );
       await new Promise((resolve) => setTimeout(resolve, waitTime));
+
+      console.log(
+        `[Webhook:Processor] Fetching activity details for ID: ${activityId} (attempt ${attempts + 1}/${maxAttempts})`
+      );
+      activityData = await stravaClient.getActivity(activityId, accessToken);
+
+      if (activityData.segment_efforts && activityData.segment_efforts.length > 0) {
+        console.log(`[Webhook:Processor] ✓ Found ${activityData.segment_efforts.length} segment efforts for activity ${activityId}`);
+        break;
+      }
+      attempts++;
     }
-    attempts++;
   }
 
   if (!activityData || !activityData.segment_efforts || activityData.segment_efforts.length === 0) {
@@ -406,7 +439,8 @@ async function processActivityEvent(
 async function processActivityDeletion(
   event: ActivityWebhookEvent,
   _logger: WebhookLogger,
-  service: WebhookService
+  service: WebhookService,
+  db?: BetterSQLite3Database
 ): Promise<void> {
   const activityId = String(event.object_id);
   const athleteId = String(event.owner_id);
@@ -415,6 +449,19 @@ async function processActivityDeletion(
     activityId,
     athleteId
   });
+
+  // Remove from chain wax tracking if applicable
+  if (db && ChainWaxService.isTrackedAthlete(athleteId)) {
+    try {
+      const chainWaxService = new ChainWaxService(db);
+      const removed = chainWaxService.removeActivity(activityId);
+      if (removed) {
+        console.log(`[Webhook:Processor] ✓ Chain wax: removed deleted activity ${activityId}`);
+      }
+    } catch (error) {
+      console.error(`[Webhook:Processor] Chain wax removal error for activity ${activityId}:`, error);
+    }
+  }
 
   const result = service.deleteActivity(activityId);
 
