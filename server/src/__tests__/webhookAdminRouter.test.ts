@@ -2,6 +2,8 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { appRouter } from '../routers';
 import { createContext } from '../trpc/context';
 import { WebhookAdminService } from '../services/WebhookAdminService';
+import { setupTestDb, teardownTestDb } from './setupTestDb';
+import { clearAllData, createParticipant } from './testDataHelpers';
 
 // Define the mock object with any to bypass strict type checking in tests
 const mockAdminService: any = {
@@ -25,13 +27,16 @@ jest.mock('../services/WebhookAdminService', () => {
 });
 
 describe('webhookAdminRouter', () => {
-  const mockOrm = {} as any;
-  const mockDb = {} as any;
+  const testDb = setupTestDb({ seed: false });
+  const mockOrm = testDb.orm;
+  const mockDb = testDb.db;
   
   // Helper to create an admin caller
   const createAdminCaller = () => {
+    createParticipant(mockOrm, '123', 'Admin User', false, true);
+
     return appRouter.createCaller(createContext({
-      req: { session: { isAdmin: true, stravaAthleteId: '123' } } as any,
+      req: { session: { stravaAthleteId: '123' } } as any,
       res: {} as any,
       ormOverride: mockOrm,
       dbOverride: mockDb
@@ -40,8 +45,10 @@ describe('webhookAdminRouter', () => {
 
   // Helper to create a regular user caller
   const createUserCaller = () => {
+    createParticipant(mockOrm, '456', 'Regular User');
+
     return appRouter.createCaller(createContext({
-      req: { session: { isAdmin: false, stravaAthleteId: '456' } } as any,
+      req: { session: { stravaAthleteId: '456' } } as any,
       res: {} as any,
       ormOverride: mockOrm,
       dbOverride: mockDb
@@ -50,6 +57,11 @@ describe('webhookAdminRouter', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    clearAllData(mockOrm);
+  });
+
+  afterAll(() => {
+    teardownTestDb(mockDb);
   });
 
   describe('Authorization', () => {

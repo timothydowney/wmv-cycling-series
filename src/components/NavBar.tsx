@@ -183,6 +183,7 @@ export const NavBar: React.FC<NavBarProps> = ({
                     
                     {isAdmin && (
                       <>
+                        <div className="menu-section-label">Admin</div>
                         <NavLink 
                           to="/admin" 
                           className={({ isActive }) => `menu-item ${isActive ? 'active' : ''}`}
@@ -194,6 +195,17 @@ export const NavBar: React.FC<NavBarProps> = ({
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                           </svg>
                           Manage Competition
+                        </NavLink>
+                        <NavLink 
+                          to="/roles" 
+                          className={({ isActive }) => `menu-item ${isActive ? 'active' : ''}`}
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="menu-icon">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                              d="M17 20h5v-2a3 3 0 00-4.874-2.346M9 20H4v-2a3 3 0 015.126-2.346M9 20h6M12 8a3 3 0 110-6 3 3 0 010 6zm6 3a2 2 0 11-4 0 2 2 0 014 0zM8 11a2 2 0 11-4 0 2 2 0 014 0z" />
+                          </svg>
+                          Manage Roles
                         </NavLink>
                         <NavLink 
                           to="/seasons" 
@@ -252,6 +264,8 @@ export const NavBar: React.FC<NavBarProps> = ({
                         </NavLink>
                       </>
                     )}
+
+                    {isAdmin && <div className="menu-divider" />}
                     
                     <NavLink 
                       to="/about" 

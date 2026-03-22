@@ -99,5 +99,27 @@ describe('BatchFetchService with Season Validation', () => {
       expect(result.summary.length).toBe(0); // No summary entries for "no participants" case
     });
 
+    it('should allow fetch when season dates are still open', async () => {
+      const activeSeason = createSeason(drizzleDb, 'Deprecated Flag Season', false, {
+        startAt: now - 86400 * 30,
+        endAt: now + 86400 * 30
+      });
+
+      createSegment(drizzleDb, '54321', 'Open Segment', { distance: 2500, averageGrade: 6.5 });
+
+      const week = createWeek(drizzleDb, {
+        seasonId: activeSeason.id,
+        weekName: 'Open Week',
+        stravaSegmentId: '54321',
+        startTime: new Date((now - 86400) * 1000).toISOString(),
+        endTime: new Date(now * 1000).toISOString(),
+        requiredLaps: 1
+      });
+
+      const result = await service.fetchWeekResults(week.id);
+
+      expect(result.message).not.toBe('Season has ended');
+    });
+
   });
 });

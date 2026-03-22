@@ -192,7 +192,7 @@ export function getAdminAthleteIds(): string[] {
 }
 
 // Initialize AuthorizationService with dependencies
-const authorizationService = new AuthorizationService(getAdminAthleteIds);
+const authorizationService = new AuthorizationService(drizzleDb, getAdminAthleteIds);
 
 // Initialize LoginService with dependencies
 const loginService = new LoginService(drizzleDb, getAdminAthleteIds);
@@ -307,7 +307,6 @@ if (!isTestMode()) {
       name: 'Fall 2025',
       start_at: fallStart,
       end_at: fallEnd,
-      is_active: 1, // Assuming this column is still used by old logic somewhere
     }).run();
     console.log('✅ Fall 2025 season created (Oct 1 - Dec 31)');
   }

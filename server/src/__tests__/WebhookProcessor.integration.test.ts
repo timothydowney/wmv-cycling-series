@@ -34,14 +34,14 @@ describe('Webhook Processor with Multiple Season Support', () => {
     it('should find all matching seasons for activity timestamp', () => {
       // Create Fall 2025 season (Sept 1 - Nov 30)
       db.prepare(
-        `INSERT INTO season (name, start_at, end_at, is_active, created_at)
-         VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)`
+        `INSERT INTO season (name, start_at, end_at, created_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)`
       ).run('Fall 2025', now - 86400 * 60, now + 86400 * 30);
 
       // Create Winter 2025 season (Nov 1 - Jan 31, overlaps with Fall)
       db.prepare(
-        `INSERT INTO season (name, start_at, end_at, is_active, created_at)
-         VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)`
+        `INSERT INTO season (name, start_at, end_at, created_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)`
       ).run('Winter 2025', now - 86400 * 10, now + 86400 * 60);
 
       // Activity timestamp is Nov 15 (in both seasons)
@@ -59,14 +59,14 @@ describe('Webhook Processor with Multiple Season Support', () => {
     it('should not process activity for closed seasons', () => {
       // Create a closed season (ended 10 days ago)
       db.prepare(
-        `INSERT INTO season (name, start_at, end_at, is_active, created_at)
-         VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)`
+        `INSERT INTO season (name, start_at, end_at, created_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)`
       ).run('Closed Season', now - 86400 * 60, now - 86400 * 10);
 
       // Create an active season (ends in 30 days)
       db.prepare(
-        `INSERT INTO season (name, start_at, end_at, is_active, created_at)
-         VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)`
+        `INSERT INTO season (name, start_at, end_at, created_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)`
       ).run('Active Season', now - 86400 * 30, now + 86400 * 30);
 
       // Activity timestamp is NOW (today)
@@ -90,14 +90,14 @@ describe('Webhook Processor with Multiple Season Support', () => {
     it('should handle activity in single season only', () => {
       // Create Fall season (Sept 1 - Nov 30)
       db.prepare(
-        `INSERT INTO season (name, start_at, end_at, is_active, created_at)
-         VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)`
+        `INSERT INTO season (name, start_at, end_at, created_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)`
       ).run('Fall 2025', now - 86400 * 60, now + 86400 * 30);
 
       // Create Winter season (Jan 1 - March 31, no overlap with Fall)
       db.prepare(
-        `INSERT INTO season (name, start_at, end_at, is_active, created_at)
-         VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)`
+        `INSERT INTO season (name, start_at, end_at, created_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)`
       ).run('Winter 2025', now + 86400 * 60, now + 86400 * 150);
 
       // Activity timestamp is in Fall only (now)
@@ -114,8 +114,8 @@ describe('Webhook Processor with Multiple Season Support', () => {
     it('should return empty array when activity not in any season', () => {
       // Create Fall season (Sept 1 - Nov 30)
       db.prepare(
-        `INSERT INTO season (name, start_at, end_at, is_active, created_at)
-         VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)`
+        `INSERT INTO season (name, start_at, end_at, created_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)`
       ).run('Fall 2025', now - 86400 * 60, now - 86400 * 40);
 
       // Activity timestamp is in the future (after all seasons)
@@ -131,18 +131,18 @@ describe('Webhook Processor with Multiple Season Support', () => {
     it('should maintain correct order with multiple overlapping seasons', () => {
       // Create three overlapping seasons with different start dates
       db.prepare(
-        `INSERT INTO season (name, start_at, end_at, is_active, created_at)
-         VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)`
+        `INSERT INTO season (name, start_at, end_at, created_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)`
       ).run('Season 1', now - 86400 * 90, now + 86400 * 60);
 
       db.prepare(
-        `INSERT INTO season (name, start_at, end_at, is_active, created_at)
-         VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)`
+        `INSERT INTO season (name, start_at, end_at, created_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)`
       ).run('Season 2', now - 86400 * 60, now + 86400 * 30);
 
       db.prepare(
-        `INSERT INTO season (name, start_at, end_at, is_active, created_at)
-         VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)`
+        `INSERT INTO season (name, start_at, end_at, created_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)`
       ).run('Season 3', now - 86400 * 30, now + 86400 * 5);
 
       // Activity timestamp is now (in all three seasons)

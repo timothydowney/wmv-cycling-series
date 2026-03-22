@@ -4,7 +4,7 @@ import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { week } from '../../db/schema';
 import { appRouter } from '../../routers';
 import { createContext } from '../../trpc/context';
-import { clearAllData, createSeason, createSegment, createWeek, setupTestDb, teardownTestDb } from '../testDataHelpers';
+import { clearAllData, createParticipant, createSeason, createSegment, createWeek, setupTestDb, teardownTestDb } from '../testDataHelpers';
 
 describe('weekRouter', () => {
   let db: Database;
@@ -21,10 +21,13 @@ describe('weekRouter', () => {
   });
 
   const getCaller = (isAdmin: boolean) => {
+    if (isAdmin) {
+      createParticipant(orm, '999001', 'Test Admin', false, true);
+    }
+
     const req = {
       session: {
         stravaAthleteId: isAdmin ? '999001' : undefined,
-        isAdmin,
       },
     } as any;
 

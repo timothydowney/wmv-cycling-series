@@ -33,6 +33,7 @@ class ParticipantService {
       .select({
         strava_athlete_id: participant.strava_athlete_id,
         name: participant.name,
+        is_admin: participant.is_admin,
         has_token: sql<number>`CASE WHEN ${participantToken.strava_athlete_id} IS NOT NULL THEN 1 ELSE 0 END`,
         token_expires_at: participantToken.expires_at
       })
@@ -49,11 +50,26 @@ class ParticipantService {
       id: index + 1, // Generate an id for React keys
       strava_athlete_id: p.strava_athlete_id,
       name: p.name,
+      is_admin: Boolean(p.is_admin),
       is_connected: p.has_token,
       has_token: Boolean(p.has_token),
       token_expires_at: p.token_expires_at ? String(p.token_expires_at) : undefined,
       profile_picture_url: profilePictures.get(p.strava_athlete_id) || null
     }));
+  }
+
+  setParticipantAdminStatus(stravaAthleteId: string, isAdmin: boolean): void {
+    const existingParticipant = this.getParticipantByStravaAthleteId(stravaAthleteId);
+
+    if (!existingParticipant) {
+      throw new Error('Participant not found');
+    }
+
+    this.db
+      .update(participant)
+      .set({ is_admin: isAdmin })
+      .where(eq(participant.strava_athlete_id, stravaAthleteId))
+      .run();
   }
 
   /**

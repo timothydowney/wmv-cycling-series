@@ -2,7 +2,7 @@ import { Database } from 'better-sqlite3';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { appRouter } from '../../routers';
 import { createContext } from '../../trpc/context';
-import { setupTestDb, teardownTestDb, clearAllData, createSeason, createSegment } from '../testDataHelpers';
+import { setupTestDb, teardownTestDb, clearAllData, createSeason, createSegment, createParticipant } from '../testDataHelpers';
 import { season, week } from '../../db/schema';
 import { eq } from 'drizzle-orm';
 
@@ -23,10 +23,13 @@ describe('seasonRouter', () => {
 
   // Helper to create caller with specific auth state
   const getCaller = (isAdmin: boolean) => {
+    if (isAdmin) {
+      createParticipant(drizzleDb, '999001', 'Test Admin', false, true);
+    }
+
     const req = {
       session: {
         stravaAthleteId: isAdmin ? '999001' : undefined,
-        isAdmin
       }
     } as any;
     
@@ -95,6 +98,23 @@ describe('seasonRouter', () => {
       const foundSeason = await drizzleDb.select().from(season).where(eq(season.id, result.id)).get();
       expect(foundSeason).toBeDefined();
       expect(foundSeason?.name).toBe('New Season');
+    });
+
+    it('should not alter an existing overlapping season when creating another', async () => {
+      const caller = getCaller(true);
+      const existingSeason = createSeason(drizzleDb, 'Existing Season', true, { startAt: 1000, endAt: 5000 });
+
+      const createdSeason = await caller.season.create({
+        name: 'Concurrent Season',
+        start_at: 2000,
+        end_at: 6000,
+      });
+
+      const reloadedExisting = await drizzleDb.select().from(season).where(eq(season.id, existingSeason.id)).get();
+      expect(createdSeason.name).toBe('Concurrent Season');
+      expect(reloadedExisting?.name).toBe('Existing Season');
+      expect(reloadedExisting?.start_at).toBe(1000);
+      expect(reloadedExisting?.end_at).toBe(5000);
     });
 
     it('should fail when not admin', async () => {

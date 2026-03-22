@@ -71,7 +71,6 @@ describe('ActivityValidationService', () => {
         name: 'No End Season',
         start_at: now - 86400,
         end_at: null, // Hypothetically null (but schema doesn't allow)
-        is_active: 1,
         created_at: new Date().toISOString()
       };
 
@@ -79,6 +78,7 @@ describe('ActivityValidationService', () => {
 
       expect(result.isClosed).toBe(false);
     });
+
   });
 
   describe('isSeasonOpen()', () => {

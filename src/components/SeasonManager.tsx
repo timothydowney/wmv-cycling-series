@@ -17,6 +17,20 @@ interface Props {
   onSeasonsChanged?: () => void;  // Callback to refresh seasons in parent
 }
 
+function getSeasonState(startAt: number, endAt: number) {
+  const now = Math.floor(Date.now() / 1000);
+
+  if (now < startAt) {
+    return { label: 'Upcoming', className: 'closed' };
+  }
+
+  if (now > endAt) {
+    return { label: 'Ended', className: 'closed' };
+  }
+
+  return { label: 'Open', className: 'active' };
+}
+
 function SeasonManager({ onSeasonsChanged }: Props) {
   const utils = trpc.useUtils();
   const { data: seasons = [] } = trpc.season.getAll.useQuery();
@@ -191,7 +205,6 @@ function SeasonManager({ onSeasonsChanged }: Props) {
         name: formData.name,
         start_at: startUnix,
         end_at: endUnix,
-        is_active: editingSeasonId ? undefined : true // Default to true on create, unless specifically toggled later
       };
 
       if (editingSeasonId) {
@@ -204,10 +217,7 @@ function SeasonManager({ onSeasonsChanged }: Props) {
           }
         });
       } else {
-        await createMutation.mutateAsync({
-          ...submitData,
-          is_active: true
-        });
+        await createMutation.mutateAsync(submitData);
       }
 
       setMessage({
@@ -240,23 +250,6 @@ function SeasonManager({ onSeasonsChanged }: Props) {
     });
     setEditingSeasonId(season.id);
     setIsCreating(true);
-  };
-
-  const handleToggleStatus = async (season: Season) => {
-    const newStatus = season.is_active === 1 ? false : true;
-
-    try {
-      await updateMutation.mutateAsync({
-        id: season.id,
-        data: {
-          is_active: newStatus
-        }
-      });
-      // No message shown on success as requested
-    } catch (err: any) {
-      setMessage({ type: 'error', text: err.message });
-      setTimeout(() => setMessage(null), 5000);
-    }
   };
 
   const handleDelete = async (seasonId: number) => {
@@ -309,13 +302,13 @@ function SeasonManager({ onSeasonsChanged }: Props) {
                 <th>Name</th>
                 <th>Start Date</th>
                 <th>End Date</th>
-                <th>Status</th>
+                <th>Window</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {seasons.map(season => {
-                const isActive = season.is_active === 1;
+                const seasonState = getSeasonState(season.start_at, season.end_at);
 
                 return (
                   <tr key={season.id}>
@@ -323,18 +316,9 @@ function SeasonManager({ onSeasonsChanged }: Props) {
                     <td>{formatUnixDate(season.start_at)}</td>
                     <td>{formatUnixDate(season.end_at)}</td>
                     <td>
-                      <div className="status-toggle-wrapper">
-                        <span className={`status-label-text ${isActive ? 'active' : 'closed'}`}>
-                          {isActive ? 'Active' : 'Closed'}
-                        </span>
-                        <button
-                          className={`season-toggle-switch ${isActive ? 'active' : 'closed'}`}
-                          onClick={() => handleToggleStatus(season)}
-                          title={isActive ? "Click to Close Season" : "Click to Activate Season"}
-                        >
-                          <div className="season-toggle-button" />
-                        </button>
-                      </div>
+                      <span className={`status-label-text ${seasonState.className}`}>
+                        {seasonState.label}
+                      </span>
                     </td>
                     <td>
                       <div className="action-buttons">

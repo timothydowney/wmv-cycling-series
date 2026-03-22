@@ -5,7 +5,7 @@
 
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { week, segment, result, activity, participant, segmentEffort, season } from '../db/schema';
-import { eq, desc, sql, and, inArray } from 'drizzle-orm';
+import { eq, desc, sql, and, inArray, lte, gte } from 'drizzle-orm';
 import { Week } from '../db/schema'; // Import Drizzle Week type
 import { WeekWithDetails } from '../types/custom'; // Import the new custom type
 import {
@@ -279,21 +279,23 @@ class WeekService {
 
     let finalSeasonId = season_id;
     if (!finalSeasonId) {
+      const now = Math.floor(Date.now() / 1000);
       const activeSeason = this.db
         .select()
         .from(season)
-        .where(eq(season.is_active, 1))
+        .where(and(lte(season.start_at, now), gte(season.end_at, now)))
+        .orderBy(desc(season.start_at), desc(season.id))
         .limit(1)
         .get();
       
       if (!activeSeason) {
-        console.error('No active season found');
+        console.error('No open season found');
         throw new Error(
-          'No active season found. Please create an active season first or provide season_id.'
+          'No open season found. Please create a season whose date range includes today or provide season_id.'
         );
       }
       finalSeasonId = activeSeason.id;
-      console.log('Using active season:', finalSeasonId);
+      console.log('Using open season:', finalSeasonId);
     }
 
     // Validate required fields

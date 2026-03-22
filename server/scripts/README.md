@@ -93,8 +93,7 @@ The exported JSON file has this structure:
       "id": 1,
       "name": "Fall 2025",
       "start_date": "2025-11-01",
-      "end_date": "2025-12-31",
-      "is_active": 1
+      "end_date": "2025-12-31"
     }
   ],
   "weeks": [

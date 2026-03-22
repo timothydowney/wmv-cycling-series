@@ -28,7 +28,6 @@ export const seasonRouter = router({
       name: z.string(),
       start_at: z.number(),
       end_at: z.number(),
-      is_active: z.boolean().optional(),
     }))
     .mutation(({ ctx, input }) => {
       const seasonService = new SeasonService(ctx.orm);
@@ -42,7 +41,6 @@ export const seasonRouter = router({
         name: z.string().optional(),
         start_at: z.number().optional(),
         end_at: z.number().optional(),
-        is_active: z.boolean().optional(),
       }),
     }))
     .mutation(({ ctx, input }) => {

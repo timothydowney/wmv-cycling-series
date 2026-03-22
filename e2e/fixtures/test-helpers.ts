@@ -1,5 +1,7 @@
 import { Page } from '@playwright/test';
 
+const E2E_BACKEND_URL = 'http://localhost:3001';
+
 /**
  * Mock Strava API responses
  * Intercepted by Playwright before reaching our backend
@@ -240,6 +242,19 @@ export async function setAuthCookie(
   
   // Note: localStorage not used here - can cause security errors in Playwright
   // Rely on session cookie for auth instead
+}
+
+/**
+ * Establish a real app session for Playwright without manual OAuth.
+ */
+export async function loginAsE2EUser(page: Page, athleteId = '366880') {
+  const response = await page.context().request.post(`${E2E_BACKEND_URL}/auth/e2e-login`, {
+    data: { athleteId },
+  });
+
+  if (!response.ok()) {
+    throw new Error(`Failed to create e2e session for athlete ${athleteId}: ${response.status()} ${await response.text()}`);
+  }
 }
 
 /**

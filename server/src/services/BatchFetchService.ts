@@ -67,7 +67,6 @@ class BatchFetchService {
         season_id_alias: season.id,
         season_start_at: season.start_at,
         season_end_at: season.end_at,
-        season_is_active: season.is_active,
         season_created_at: season.created_at
       })
       .from(week)
@@ -89,7 +88,6 @@ class BatchFetchService {
         name: '', // Not used for validation
         start_at: weekData.season_start_at!,
         end_at: weekData.season_end_at!,
-        is_active: weekData.season_is_active,
         created_at: weekData.season_created_at
       };
 

@@ -228,6 +228,15 @@
   padding: 8px 0;
 }
 
+.menu-section-label {
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 8px 16px 4px;
+  text-transform: uppercase;
+}
+
 .menu-divider {
   height: 1px;
   background: #e0e0e0;

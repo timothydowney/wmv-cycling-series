@@ -51,8 +51,7 @@ Response shape:
     "id": number,
     "name": string,
     "start_date": "YYYY-MM-DD",
-    "end_date": "YYYY-MM-DD",
-    "is_active": 0|1
+    "end_date": "YYYY-MM-DD"
   },
   "leaderboard": [
     {
@@ -75,7 +74,7 @@ Response shape:
 
 ## Admin endpoints
 
-**Note:** All admin endpoints require the user to be authenticated AND have their Strava athlete ID listed in the `ADMIN_ATHLETE_IDS` environment variable.
+**Note:** All admin endpoints require the user to be authenticated and recognized as an admin, either through the `ADMIN_ATHLETE_IDS` environment variable or the database-backed admin role.
 
 ### Season management
 

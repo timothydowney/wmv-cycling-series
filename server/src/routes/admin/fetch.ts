@@ -13,7 +13,7 @@ export function createFetchRouter(_sqliteDb: Database, drizzleDb: BetterSQLite3D
   const router = express.Router();
 
   // Initialize services
-  const authorizationService = new AuthorizationService(() => config.adminAthleteIds);
+  const authorizationService = new AuthorizationService(drizzleDb, () => config.adminAthleteIds);
   const requireAdmin = authorizationService.createRequireAdminMiddleware();
   const weekService = new WeekService(drizzleDb);
 

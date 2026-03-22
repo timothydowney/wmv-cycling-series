@@ -14,7 +14,7 @@ import { getAthleteProfilePictures } from './StravaProfileService';
 export interface ProfileSeasonStats {
   seasonId: number;
   seasonName: string;
-  isActive: number | null;
+  isActive: boolean;
   totalPoints: number;
   weeksParticipated: number;
   seasonRank: number;
@@ -237,6 +237,7 @@ export class ProfileService {
       .all();
 
     const seasonStats: ProfileSeasonStats[] = [];
+    const now = Math.floor(Date.now() / 1000);
 
     for (const s of seasons) {
       const standings = await this.standingsService.getSeasonStandings(s.id);
@@ -248,7 +249,7 @@ export class ProfileService {
         let polkaDotJerseyWon = false;
 
         // Only check "closed" season winners or current season if needed
-        if (!s.is_active) {
+        if (s.end_at < now) {
           const yellowWinner = await this.jerseyService.getYellowJerseyWinner(s.id);
           yellowJerseyWon = yellowWinner?.strava_athlete_id === athleteId;
 
@@ -277,7 +278,7 @@ export class ProfileService {
         seasonStats.push({
           seasonId: s.id,
           seasonName: s.name,
-          isActive: s.is_active,
+          isActive: s.start_at <= now && s.end_at >= now,
           totalPoints: athleteStanding.totalPoints,
           weeksParticipated: athleteStanding.weeksCompleted,
           seasonRank: athleteStanding.rank || 0,

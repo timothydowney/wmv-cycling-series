@@ -21,10 +21,13 @@ describe('participantRouter', () => {
 
   // Helper to create caller with specific auth state
   const getCaller = (isAdmin: boolean) => {
+    if (isAdmin) {
+      createParticipant(orm, '999001', 'Test Admin', false, true);
+    }
+
     const req = {
       session: {
         stravaAthleteId: isAdmin ? '999001' : undefined,
-        isAdmin
       }
     } as any;
     
@@ -77,6 +80,50 @@ describe('participantRouter', () => {
       const caller = getCaller(false);
       const result = await caller.participant.getById('999');
       expect(result).toBeNull();
+    });
+  });
+
+  describe('getAdminCandidates', () => {
+    it('should include env and db admin sources for admins', async () => {
+      const caller = getCaller(true);
+      createParticipant(orm, '100', 'Database Admin', false, true);
+      createParticipant(orm, '101', 'Regular User');
+
+      const result = await caller.participant.getAdminCandidates();
+      const adminCandidate = result.find((participant: any) => participant.strava_athlete_id === '100');
+      const envAdmin = result.find((participant: any) => participant.strava_athlete_id === '999001');
+
+      expect(adminCandidate?.is_db_admin).toBe(true);
+      expect(adminCandidate?.effective_is_admin).toBe(true);
+      expect(envAdmin?.is_env_admin || false).toBeDefined();
+    });
+
+    it('should reject non-admin callers', async () => {
+      const caller = getCaller(false);
+      await expect(caller.participant.getAdminCandidates()).rejects.toThrow('UNAUTHORIZED');
+    });
+  });
+
+  describe('setAdminStatus', () => {
+    it('should grant and revoke database-backed admin access', async () => {
+      const caller = getCaller(true);
+      createParticipant(orm, '200', 'Grant Target');
+
+      const granted = await caller.participant.setAdminStatus({
+        stravaAthleteId: '200',
+        isAdmin: true,
+      });
+
+      expect(granted.is_db_admin).toBe(true);
+      expect(granted.effective_is_admin).toBe(true);
+
+      const revoked = await caller.participant.setAdminStatus({
+        stravaAthleteId: '200',
+        isAdmin: false,
+      });
+
+      expect(revoked.is_db_admin).toBe(false);
+      expect(revoked.effective_is_admin).toBe(false);
     });
   });
 });

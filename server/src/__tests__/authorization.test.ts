@@ -22,7 +22,7 @@ describe('AuthorizationService', () => {
 
 
   beforeEach(() => {
-    service = new AuthorizationService(() => ['12345', '67890']);
+    service = new AuthorizationService(undefined, () => ['12345', '67890']);
   });
 
   describe('isAdmin', () => {
@@ -323,7 +323,7 @@ describe('AuthorizationService', () => {
 
     beforeEach(() => {
 
-      service = new AuthorizationService(() => []);
+      service = new AuthorizationService(undefined, () => []);
 
     });
 

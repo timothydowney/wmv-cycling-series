@@ -73,4 +73,18 @@ test.describe('Logged Out User Experience', () => {
       await expect(page.getByTestId('strava-connect-banner')).toBeVisible();
     });
   });
+
+  test.describe('Public Navigation', () => {
+    test('shows About in the menu without login', async ({ page }) => {
+      await page.getByRole('button', { name: 'Menu' }).click();
+      await expect(page.getByRole('link', { name: 'About' })).toBeVisible();
+    });
+
+    test('allows visiting About without login', async ({ page }) => {
+      await page.getByRole('button', { name: 'Menu' }).click();
+      await page.getByRole('link', { name: 'About' }).click();
+      await expect(page).toHaveURL(/\/about/);
+      await expect(page.getByRole('heading', { name: 'WMV Cycling Series' })).toBeVisible();
+    });
+  });
 });

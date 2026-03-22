@@ -12,6 +12,7 @@ export const participant = sqliteTable('participant', {
   name: text().notNull(),
   created_at: text('created_at').default('sql`(CURRENT_TIMESTAMP)`'),
   active: integer('active', { mode: 'boolean' }).default(true).notNull(),
+  is_admin: integer('is_admin', { mode: 'boolean' }).default(false).notNull(),
   weight: real('weight'),  // Most recent weight in kg (Strava API format)
   weight_updated_at: text('weight_updated_at'),  // When weight was last captured
 });
@@ -21,9 +22,6 @@ export const season = sqliteTable('season', {
   name: text().notNull(),
   start_at: integer('start_at').notNull(),
   end_at: integer('end_at').notNull(),
-  // TODO: Remove is_active column in future - active status is now determined by date range (start_at <= now <= end_at)
-  // This column is kept for backward compatibility but is no longer used
-  is_active: integer('is_active'),
   created_at: text('created_at').default('sql`(CURRENT_TIMESTAMP)`'),
 });
 

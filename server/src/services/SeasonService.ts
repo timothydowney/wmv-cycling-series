@@ -33,30 +33,22 @@ class SeasonService {
 
   /**
    * Create a new season
-   * If is_active is true, deactivates all other seasons first
    */
   createSeason(data: {
     name: string;
     start_at: number;
     end_at: number;
-    is_active?: boolean;
   }): Season {
-    const { name, start_at, end_at, is_active } = data;
+    const { name, start_at, end_at } = data;
 
     if (!name || start_at === undefined || end_at === undefined) {
       throw new Error('Missing required fields: name, start_at, end_at');
-    }
-
-    // If setting as active, deactivate other seasons first
-    if (is_active) {
-      this.db.update(season).set({ is_active: 0 }).run();
     }
 
     const result = this.db.insert(season).values({
       name,
       start_at: start_at,
       end_at: end_at,
-      is_active: is_active ? 1 : 0
     }).returning().get();
 
     return result;
@@ -64,7 +56,6 @@ class SeasonService {
 
   /**
    * Update an existing season
-   * If is_active is true, deactivates all other seasons first
    */
   updateSeason(
     seasonId: number,
@@ -72,7 +63,6 @@ class SeasonService {
       name?: string;
       start_at?: number;
       end_at?: number;
-      is_active?: boolean;
     }
   ): Season {
     // Verify season exists
@@ -82,17 +72,11 @@ class SeasonService {
       throw new Error('Season not found');
     }
 
-    // If setting as active, deactivate other seasons first
-    if (updates.is_active) {
-      this.db.update(season).set({ is_active: 0 }).run();
-    }
-
     // Build update object
     const updateData: any = {};
     if (updates.name !== undefined) updateData.name = updates.name;
     if (updates.start_at !== undefined) updateData.start_at = updates.start_at;
     if (updates.end_at !== undefined) updateData.end_at = updates.end_at;
-    if (updates.is_active !== undefined) updateData.is_active = updates.is_active ? 1 : 0;
 
     if (Object.keys(updateData).length === 0) {
       throw new Error('No fields to update');
@@ -166,12 +150,10 @@ class SeasonService {
     const newEndDate = newStartDate + seasonDuration;
 
     // 4. Create new season
-    // This will handle deactivating other seasons if is_active is true
     const newSeason = this.createSeason({
       name: newName,
       start_at: newStartDate,
-      end_at: newEndDate,
-      is_active: true
+      end_at: newEndDate
     });
 
     // 5. Clone weeks

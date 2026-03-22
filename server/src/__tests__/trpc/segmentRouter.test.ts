@@ -2,7 +2,7 @@ import { Database } from 'better-sqlite3';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { appRouter } from '../../routers';
 import { createContext } from '../../trpc/context';
-import { setupTestDb, teardownTestDb, clearAllData, createSegment } from '../testDataHelpers';
+import { setupTestDb, teardownTestDb, clearAllData, createParticipant, createSegment } from '../testDataHelpers';
 import { segment } from '../../db/schema';
 import { eq } from 'drizzle-orm';
 
@@ -23,10 +23,13 @@ describe('segmentRouter', () => {
 
   // Helper to create caller with specific auth state
   const getCaller = (isAdmin: boolean) => {
+    if (isAdmin) {
+      createParticipant(drizzleDb, '999001', 'Test Admin', false, true);
+    }
+
     const req = {
       session: {
         stravaAthleteId: isAdmin ? '999001' : undefined,
-        isAdmin
       }
     } as any;
     

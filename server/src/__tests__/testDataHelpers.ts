@@ -91,12 +91,19 @@ interface CreateWeekWithResultsOptions {
 /**
  * Create a test participant with optional token
  */
-export function createParticipant(db: TestDb, stravaAthleteId: string, name: string | null = null, withToken: boolean | TokenOptions = false): SelectParticipant {
+export function createParticipant(
+  db: TestDb,
+  stravaAthleteId: string,
+  name: string | null = null,
+  withToken: boolean | TokenOptions = false,
+  isAdmin = false
+): SelectParticipant {
   const participantName = name || `Test User ${stravaAthleteId}`;
   
   const newParticipant: InsertParticipant = {
     strava_athlete_id: stravaAthleteId,
     name: participantName,
+    is_admin: isAdmin,
   };
 
   const insertedParticipant = db.insert(participant).values(newParticipant).returning().get();
@@ -133,7 +140,7 @@ export function createParticipant(db: TestDb, stravaAthleteId: string, name: str
 /**
  * Create a test season
  */
-export function createSeason(db: TestDb, name: string = 'Test Season', isActive: boolean = true, options: CreateSeasonOptions = {}): SelectSeason {
+export function createSeason(db: TestDb, name: string = 'Test Season', _isActive: boolean = true, options: CreateSeasonOptions = {}): SelectSeason {
   const startAt = options.startAt || isoToUnix('2025-01-01T00:00:00Z');
   const endAt = options.endAt || isoToUnix('2025-12-31T23:59:59Z');
   
@@ -142,7 +149,6 @@ export function createSeason(db: TestDb, name: string = 'Test Season', isActive:
     name: name,
     start_at: startAt || 0, // Ensure number
     end_at: endAt || 0,     // Ensure number
-    is_active: isActive ? 1 : 0
   };
   
   const newSeason = db.insert(season).values(newSeasonData).returning().get();

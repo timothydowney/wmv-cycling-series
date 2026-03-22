@@ -1,0 +1,116 @@
+.admin-role-manager {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+}
+
+.admin-role-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.admin-role-header h3 {
+  margin: 0 0 0.35rem;
+}
+
+.admin-role-header p {
+  margin: 0;
+  color: var(--wmv-text-light, #666);
+}
+
+.admin-role-summary {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  color: var(--wmv-text-light, #666);
+  font-size: 0.95rem;
+}
+
+.admin-role-table {
+  width: 100%;
+}
+
+.admin-role-name {
+  font-weight: 600;
+}
+
+.admin-role-link {
+  color: var(--wmv-orange, #f56004);
+  text-decoration: none;
+}
+
+.admin-role-tags {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.admin-role-tag {
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: #e5e7eb;
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.admin-role-tag.env {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.admin-role-tag.db {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.admin-role-status {
+  font-weight: 700;
+}
+
+.admin-role-status.enabled {
+  color: #166534;
+}
+
+.admin-role-status.disabled {
+  color: #64748b;
+}
+
+.admin-role-button {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.5rem 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-role-button.grant {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.admin-role-button.revoke {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.admin-role-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.admin-role-help {
+  margin: 1rem 0 0;
+  color: var(--wmv-text-light, #666);
+}
+
+@media (max-width: 768px) {
+  .admin-role-header {
+    flex-direction: column;
+  }
+}
