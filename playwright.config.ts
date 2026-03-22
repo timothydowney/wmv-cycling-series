@@ -29,14 +29,10 @@ export default defineConfig({
       testIgnore: /.*authenticated.*\.spec\.ts/,
     },
     
-    // Logged-in tests (uses saved authentication state)
-    // Run npm run test:e2e:auth first to create the session file
+    // Logged-in tests establish a session via the e2e auth helper.
     {
       name: 'logged-in',
-      use: { 
-        ...devices['Desktop Chrome'],
-        storageState: 'e2e/.auth/user.json',
-      },
+      use: { ...devices['Desktop Chrome'] },
       testMatch: /.*authenticated.*\.spec\.ts/,
     },
   ],

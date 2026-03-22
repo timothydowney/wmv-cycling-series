@@ -50,6 +50,20 @@
       "when": 1773583200000,
       "tag": "0006_chain_wax_tracker",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1774189000000,
+      "tag": "0007_add_participant_admin",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1774190400000,
+      "tag": "0008_drop_season_is_active",
+      "breakpoints": true
     }
   ]
 }

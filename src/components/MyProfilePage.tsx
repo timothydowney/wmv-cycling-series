@@ -32,8 +32,8 @@ const MyProfilePage: React.FC = () => {
 
   const { name: athleteName, seasonStats, profilePictureUrl, careerStats } = profileQuery.data;
   
-  const closedSeasons = seasonStats.filter(s => s.isActive === 0);
-  const activeSeasons = seasonStats.filter(s => s.isActive === 1);
+  const closedSeasons = seasonStats.filter(s => !s.isActive);
+  const activeSeasons = seasonStats.filter(s => s.isActive);
   const totalWeeks = seasonStats.reduce((acc, s) => acc + s.weeksParticipated, 0);
 
   return (

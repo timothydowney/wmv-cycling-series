@@ -6,7 +6,7 @@ import './MyProfilePage.css';
 export interface SeasonStats {
   seasonId: number;
   seasonName: string;
-  isActive: number | null;
+  isActive: boolean;
   totalPoints: number;
   weeksParticipated: number;
   seasonRank: number;
@@ -24,7 +24,7 @@ interface SeasonStatsCardProps {
 }
 
 export const SeasonStatsCard: React.FC<SeasonStatsCardProps> = ({ season }) => {
-  const isCurrentlyActive = season.isActive === 1;
+  const isCurrentlyActive = season.isActive;
 
   return (
     <div className={`profile-card ${isCurrentlyActive ? 'active-season' : 'closed-season'}`}>

@@ -50,7 +50,6 @@ export function setupTestDb(options?: { seed?: boolean }): { db: Database.Databa
       name: 'Test Season', 
       start_at: Math.floor(new Date('2025-01-01T00:00:00Z').getTime() / 1000), 
       end_at: Math.floor(new Date('2025-12-31T23:59:59Z').getTime() / 1000),   
-      is_active: 1 
     };
     const testSeason = drizzleDb.insert(season).values(s1_data).returning().get();
     

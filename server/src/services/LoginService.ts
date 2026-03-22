@@ -9,6 +9,7 @@ import { participant, participantToken } from '../db/schema';
 import { encryptToken, decryptToken } from '../encryption';
 import * as stravaClient from '../stravaClient';
 import { getAthleteProfilePicture, seedProfileCache } from './StravaProfileService';
+import { AuthorizationService } from './AuthorizationService';
 
 export interface ParticipantData {
   strava_athlete_id: string;
@@ -24,10 +25,14 @@ export interface AuthStatus {
 }
 
 class LoginService {
+  private authorizationService: AuthorizationService;
+
   constructor(
     private drizzleDb: BetterSQLite3Database,
-    private getAdminAthleteIds: () => string[]
-  ) {}
+    getAdminAthleteIds: () => string[]
+  ) {
+    this.authorizationService = new AuthorizationService(drizzleDb, getAdminAthleteIds);
+  }
 
   /**
    * Exchange authorization code for tokens and create session
@@ -100,8 +105,7 @@ class LoginService {
       })
       .run();
 
-    const adminIds = this.getAdminAthleteIds();
-    const isAdmin = adminIds.includes(athleteId);
+    const isAdmin = this.authorizationService.isAdmin(athleteId);
 
     return {
       participantId: athleteId,
@@ -124,7 +128,11 @@ class LoginService {
     }
 
     const participantData = this.drizzleDb
-      .select({ name: participant.name, strava_athlete_id: participant.strava_athlete_id })
+      .select({
+        name: participant.name,
+        strava_athlete_id: participant.strava_athlete_id,
+        is_admin: participant.is_admin
+      })
       .from(participant)
       .where(eq(participant.strava_athlete_id, athleteId))
       .get();
@@ -147,8 +155,7 @@ class LoginService {
       .where(eq(participantToken.strava_athlete_id, athleteId))
       .get();
 
-    const adminIds = this.getAdminAthleteIds();
-    const isAdmin = adminIds.includes(athleteId);
+    const isAdmin = this.authorizationService.isAdmin(athleteId);
 
     let profilePictureUrl: string | null = null;
     if (tokenCheck) {

@@ -3,6 +3,8 @@ import { Request, Response } from 'express';
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { type Database as DatabaseType } from 'better-sqlite3';
 import type { Session } from 'express-session';
+import { config } from '../config';
+import { AuthorizationService } from '../services/AuthorizationService';
 
 interface CustomSession {
   stravaAthleteId?: string;
@@ -35,14 +37,18 @@ export const createContext = ({
   ormOverride?: BetterSQLite3Database;
 }): Context => {
   const sess = req.session as unknown as CustomSession | undefined;
+  const orm = ormOverride || drizzleDbOverride || drizzleDb;
+  const userId = sess?.stravaAthleteId ? String(sess.stravaAthleteId) : undefined;
+  const authorizationService = new AuthorizationService(orm, () => config.adminAthleteIds);
+
   return {
     req,
     res,
     db: (dbOverride || db) as DatabaseType, // Use injected raw db or default
-    drizzleDb: drizzleDbOverride || ormOverride || drizzleDb, // Use injected Drizzle db or default
-    orm: ormOverride || drizzleDbOverride || drizzleDb, // Canonical alias for Drizzle (same instance)
+    drizzleDb: orm, // Use injected Drizzle db or default
+    orm, // Canonical alias for Drizzle (same instance)
     session: req.session as Session & Partial<CustomSession>,
-    userId: sess?.stravaAthleteId ? String(sess.stravaAthleteId) : undefined,
-    isAdmin: sess?.isAdmin || false,
+    userId,
+    isAdmin: authorizationService.isAdmin(userId),
   };
 };

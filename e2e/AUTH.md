@@ -14,29 +14,20 @@ All tests except `*.authenticated.spec.ts` files run without authentication:
 - `unit-toggle.spec.ts` - Unit preference toggle
 
 ### 2. Logged-In Tests (Authenticated)
-Tests matching `*.authenticated.spec.ts` run with saved authentication:
+Tests matching `*.authenticated.spec.ts` create a real app session through the e2e auth helper:
 - `authenticated.spec.ts` - Features requiring login
 
 ## Authentication Setup
 
 ### First Time Setup
 
-1. **Authenticate with Strava** (one-time):
-   ```bash
-   npm run test:e2e:auth
-   ```
+Authenticated tests now work out of the box in the e2e environment by calling a test-only backend helper that sets the session for the configured test athlete.
 
-2. **Follow the prompts**:
-   - Browser will open to the app
-   - Click "Connect with Strava"
-   - Log in to Strava
-   - Authorize the application
-   - Wait for redirect back to app
+Manual Strava authentication is still available if you want to refresh a real browser state for exploratory testing:
 
-3. **Session saved**:
-   - Authentication state saved to `e2e/.auth/user.json`
-   - This file is gitignored (contains your session tokens)
-   - Session will be reused for all authenticated tests
+```bash
+npm run test:e2e:auth
+```
 
 ### Running Tests
 
@@ -56,16 +47,13 @@ npm run test:e2e:auth
 
 ## Session Management
 
-### When to Re-authenticate
+### When to Re-authenticate Manually
 
-Run `npm run test:e2e:auth` if:
-- Session expires (your app should auto-refresh, but may eventually expire)
-- Authenticated tests start failing with "not logged in" errors
-- You cleared the `e2e/.auth/user.json` file
+Run `npm run test:e2e:auth` only if you want an exploratory browser session backed by real Strava OAuth.
 
-### Session Auto-Refresh
+### Automated Test Auth
 
-Your application automatically refreshes OAuth tokens, so saved sessions should remain valid for extended periods. If tests fail due to expired sessions, simply re-run the auth setup.
+The normal Playwright suite no longer depends on `e2e/.auth/user.json`. Authenticated specs create their own server session through a test-only helper route that is available in local development and can also be explicitly enabled with `ENABLE_E2E_TEST_AUTH=true`.
 
 ## Writing Tests
 
@@ -94,11 +82,9 @@ test('admin can create weeks', async ({ page }) => {
 
 ## Troubleshooting
 
-### "storageState: path does not exist"
-- Run `npm run test:e2e:auth` to create the session file
-
 ### Authenticated tests fail with "not logged in"
-- Session expired, re-run `npm run test:e2e:auth`
+- Confirm the backend is running locally in development mode
+- If you are using a custom environment, set `ENABLE_E2E_TEST_AUTH=true`
 
 ### Tests hang during authentication
 - Check that dev servers are running (frontend on :5173, backend on :3001)

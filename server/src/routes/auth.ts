@@ -138,10 +138,63 @@ export default (services: AuthServices): Router => {
 
       // Use LoginService to get full auth status
       const status = await loginService.getAuthStatus(athleteId);
+      sess.isAdmin = status.is_admin;
       res.json(status);
     } catch (error) {
       console.error('Error getting auth status:', error);
       res.status(500).json({ error: 'Failed to get auth status' });
+    }
+  });
+
+  /**
+   * POST /auth/e2e-login
+   * Test-only helper for Playwright to establish a session without manual OAuth.
+   */
+  router.post('/e2e-login', async (req: Request, res: Response): Promise<void> => {
+    if (!config.isDevelopment && process.env.ENABLE_E2E_TEST_AUTH !== 'true') {
+      res.status(404).json({ error: 'Not found' });
+      return;
+    }
+
+    const athleteId = typeof req.body?.athleteId === 'string'
+      ? req.body.athleteId
+      : config.adminAthleteIds[0];
+
+    if (!athleteId) {
+      res.status(400).json({ error: 'Missing athleteId for e2e login' });
+      return;
+    }
+
+    try {
+      const status = await loginService.getAuthStatus(athleteId);
+
+      if (!status.authenticated || !status.participant) {
+        res.status(404).json({ error: `Participant ${athleteId} is not available for e2e login` });
+        return;
+      }
+
+      const sess = req.session as Session & {
+        stravaAthleteId?: string;
+        athleteName?: string;
+        isAdmin?: boolean;
+      };
+
+      sess.stravaAthleteId = athleteId;
+      sess.athleteName = status.participant.name;
+      sess.isAdmin = status.is_admin;
+
+      req.session.save((err: Error | null) => {
+        if (err) {
+          console.error('[AUTH] E2E session save error:', err);
+          res.status(500).json({ error: 'Failed to save e2e session' });
+          return;
+        }
+
+        res.json(status);
+      });
+    } catch (error) {
+      console.error('[AUTH] E2E login failed:', error);
+      res.status(500).json({ error: 'Failed to create e2e session' });
     }
   });
 

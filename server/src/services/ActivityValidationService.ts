@@ -57,15 +57,6 @@ class ActivityValidationService {
   isSeasonClosed(season: Season): { isClosed: boolean; reason?: string; end_at?: number } {
     const now = Math.floor(Date.now() / 1000); // Current Unix time
 
-    // Explicitly check for manual closure
-    if (season.is_active === 0) {
-      return {
-        isClosed: true,
-        reason: 'Season is manually closed by administrator',
-        end_at: season.end_at
-      };
-    }
-
     if (season.end_at && now > season.end_at) {
       const endDate = new Date(season.end_at * 1000).toISOString();
       return {
@@ -84,7 +75,6 @@ class ActivityValidationService {
    * A season is open if:
    * - Current time >= season.start_at
    * - Current time <= season.end_at (or end_at is null)
-   * - is_active is 1
    * 
    * Used by: Webhook processor (business logic check)
    * 
@@ -93,16 +83,6 @@ class ActivityValidationService {
    */
   isSeasonOpen(season: Season): SeasonStatusResult {
     const now = Math.floor(Date.now() / 1000);
-
-    // Check manual closure
-    if (season.is_active === 0) {
-      return {
-        isOpen: false,
-        isClosed: true,
-        reason: 'Season is manually closed by administrator',
-        end_at: season.end_at
-      };
-    }
 
     // Check if season has started
     if (season.start_at && now < season.start_at) {

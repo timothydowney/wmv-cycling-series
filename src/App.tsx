@@ -8,6 +8,7 @@ import SeasonWeekSelectors from './components/SeasonWeekSelectors';
 import NavBar from './components/NavBar';
 import BottomNav, { TabType } from './components/BottomNav';
 import AdminPanel from './components/AdminPanel';
+import AdminRoleManager from './components/AdminRoleManager';
 import ParticipantStatus from './components/ParticipantStatus';
 import ManageSegments from './components/ManageSegments';
 import SeasonManager from './components/SeasonManager';
@@ -27,7 +28,7 @@ import { httpBatchLink } from '@trpc/client';
 import { trpc } from './utils/trpc';
 import { Season, Week } from './types'; // Import shared types
 
-type ViewMode = 'leaderboard' | 'admin' | 'participants' | 'segments' | 'seasons' | 'webhooks' | 'about' | 'profile' | 'chat' | 'chain-checker';
+type ViewMode = 'leaderboard' | 'admin' | 'roles' | 'participants' | 'segments' | 'seasons' | 'webhooks' | 'about' | 'profile' | 'chat' | 'chain-checker';
 
 interface LeaderboardViewProps {
   seasons: Season[];
@@ -186,6 +187,7 @@ function AppContent() {
   const viewMode = useMemo((): ViewMode => {
     const path = location.pathname;
     if (path.startsWith('/admin')) return 'admin';
+    if (path.startsWith('/roles')) return 'roles';
     if (path.startsWith('/participants')) return 'participants';
     if (path.startsWith('/segments')) return 'segments';
     if (path.startsWith('/seasons')) return 'seasons';
@@ -204,6 +206,7 @@ function AppContent() {
   const getPageTitle = (mode: ViewMode) => {
     switch (mode) {
       case 'admin': return 'Manage Competition';
+      case 'roles': return 'Manage Roles';
       case 'participants': return 'Participant Status';
       case 'segments': return 'Manage Segments';
       case 'seasons': return 'Manage Seasons';
@@ -258,6 +261,7 @@ function AppContent() {
               onSeasonChange={setAdminSeasonId}
             />
           } />
+          <Route path="/roles" element={<AdminRoleManager />} />
           <Route path="/participants" element={<ParticipantStatus />} />
           <Route path="/segments" element={<ManageSegments />} />
           <Route path="/seasons" element={<SeasonManager onSeasonsChanged={handleSeasonsChanged} />} />

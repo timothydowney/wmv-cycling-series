@@ -12,12 +12,17 @@ How to configure weeks, manage segments, and collect results.
 
 Admins see the full navigation menu with:
 - Manage Competition (create/edit weeks)
+- Manage Roles (grant/revoke database-backed admin access)
 - Manage Segments (add/update segment metadata)
 - Participant Status (view connected participants)
 
 ### Who is an Admin?
 
-Admins are identified by their **Strava athlete ID**. The app reads a list of admin athlete IDs from the `ADMIN_ATHLETE_IDS` environment variable.
+Admins are identified by their **Strava athlete ID**. The app now supports two admin sources:
+- `ADMIN_ATHLETE_IDS` in the environment for break-glass access
+- A database-backed admin flag managed from the admin UI for participants who have logged in
+
+The env var still wins as the permanent fallback, so an env-backed admin cannot be fully locked out from the UI alone.
 
 **Finding your Strava athlete ID:**
 1. Log in to [Strava.com](https://strava.com)
@@ -29,7 +34,10 @@ Admins are identified by their **Strava athlete ID**. The app reads a list of ad
 
 ### How to Add/Remove Admins
 
-Admins are configured via the `ADMIN_ATHLETE_IDS` environment variable (comma-separated list of athlete IDs).
+Admins can be managed in two ways:
+
+1. **Preferred for day-to-day admin management:** Use the standalone **Manage Roles** page to grant or revoke database-backed admin access for participants who have already logged in.
+2. **Break-glass / bootstrap access:** Use the `ADMIN_ATHLETE_IDS` environment variable (comma-separated list of athlete IDs).
 
 **Development (local):**
 1. Edit `.env`:
@@ -44,7 +52,11 @@ Admins are configured via the `ADMIN_ATHLETE_IDS` environment variable (comma-se
 3. Railway auto-redeploys with new value
 4. Changes take effect immediately for new logins
 
-**Safe default:** If `ADMIN_ATHLETE_IDS` is empty or not set, no one has admin access. This is the default for security.
+**Safe default:** If `ADMIN_ATHLETE_IDS` is empty and no participant has the database admin flag, no one has admin access. This is the default for security.
+
+### Notes on Season Status
+
+Season openness is determined by the season date range. Overlapping seasons can remain open concurrently if their dates overlap.
 
 ### Security Notes
 

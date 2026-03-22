@@ -6,7 +6,6 @@ export interface Season {
   name: string;
   start_at: number;
   end_at: number;
-  is_active: number | null;
 }
 
 export interface Week {
@@ -38,6 +37,10 @@ export interface Participant {
   name: string;
   strava_athlete_id: string;
   is_connected: number; // 0 or 1
+  is_admin?: boolean;
+  is_env_admin?: boolean;
+  is_db_admin?: boolean;
+  effective_is_admin?: boolean;
   profile_picture_url?: string | null;
 }
 

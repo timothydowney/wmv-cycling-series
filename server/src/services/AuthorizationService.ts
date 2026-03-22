@@ -8,6 +8,10 @@
  * - Express middleware creation
  */
 
+import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { eq } from 'drizzle-orm';
+import { participant } from '../db/schema';
+
 /**
  * Authorization check result
  */
@@ -43,13 +47,15 @@ interface Response {
 type NextFunction = () => void;
 
 class AuthorizationService {
+  private orm?: BetterSQLite3Database;
   private getAdminAthleteIds: () => string[];
 
   /**
    * Initialize authorization service with admin athlete ID resolver
    * @param getAdminAthleteIds - Function that returns array of admin athlete IDs
    */
-  constructor(getAdminAthleteIds?: () => string[]) {
+  constructor(orm?: BetterSQLite3Database, getAdminAthleteIds?: () => string[]) {
+    this.orm = orm;
     this.getAdminAthleteIds = getAdminAthleteIds || (() => []);
   }
 
@@ -62,8 +68,23 @@ class AuthorizationService {
     if (!stravaAthleteId) {
       return false;
     }
+
     const adminIds = this.getAdminAthleteIds();
-    return adminIds.includes(stravaAthleteId);
+    if (adminIds.includes(stravaAthleteId)) {
+      return true;
+    }
+
+    if (!this.orm) {
+      return false;
+    }
+
+    const participantRow = this.orm
+      .select({ is_admin: participant.is_admin })
+      .from(participant)
+      .where(eq(participant.strava_athlete_id, stravaAthleteId))
+      .get();
+
+    return Boolean(participantRow?.is_admin);
   }
 
   /**

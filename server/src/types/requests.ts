@@ -61,7 +61,6 @@ export interface CreateSeasonRequest {
   name: string;
   start_at: number;
   end_at: number;
-  is_active?: boolean;
 }
 
 /**
@@ -72,5 +71,4 @@ export interface UpdateSeasonRequest {
   name?: string;
   start_at?: number;
   end_at?: number;
-  is_active?: boolean;
 }
