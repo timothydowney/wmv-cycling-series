@@ -17,10 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Season openness is now treated as date-based in application logic, allowing overlapping seasons to remain open concurrently.
 - Admin authorization now evaluates database-backed admin roles in addition to the `ADMIN_ATHLETE_IDS` env var, which remains the break-glass fallback.
 - The navigation now exposes Manage Roles as its own first-class admin destination and keeps About clearly outside the admin menu grouping.
+- Refreshed a conservative set of core frontend and backend dependencies, including the React/tRPC/query stack and backend session/database libraries.
 
 ### Fixed
 - Creating or editing one season no longer closes another season through the legacy `season.is_active` path.
 - Batch fetch and webhook season validation no longer rely on the removed manual-active flag.
+- Expanded Strava client wrapper coverage for athlete profile, logged-in athlete, and club member calls so dependency updates are exercised by focused tests.
 
 ### Removed
 - Removed the legacy `season.is_active` database column now that season openness is fully date-based.

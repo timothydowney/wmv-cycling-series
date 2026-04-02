@@ -26,17 +26,17 @@
   },
   "dependencies": {
     "@google/genai": "^1.41.0",
-    "@trpc/server": "^11.7.2",
-    "better-sqlite3": "^12.5.0",
+    "@trpc/server": "^11.16.0",
+    "better-sqlite3": "^12.8.0",
     "better-sqlite3-session-store": "^0.1.0",
-    "cors": "^2.8.5",
+    "cors": "^2.8.6",
     "dotenv": "^16.4.5",
-    "drizzle-orm": "^0.45.1",
+    "drizzle-orm": "^0.45.2",
     "express": "^4.22.1",
-    "express-session": "^1.18.2",
+    "express-session": "^1.19.0",
     "fuse.js": "^7.1.0",
     "strava-v3": "^3.1.0",
-    "zod": "^4.3.4"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.8",

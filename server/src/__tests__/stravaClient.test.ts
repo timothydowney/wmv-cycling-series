@@ -22,7 +22,11 @@ jest.mock('strava-v3', () => {
     } else {
       // Otherwise set up default mocks
       this.athlete = {
-        get: jest.fn()
+        get: jest.fn(),
+        listActivities: jest.fn(),
+        client: {
+          getEndpoint: jest.fn()
+        }
       };
       this.activities = {
         get: jest.fn(),
@@ -32,7 +36,14 @@ jest.mock('strava-v3', () => {
         get: jest.fn()
       };
       this.athletes = {
-        stats: jest.fn()
+        get: jest.fn(),
+        stats: jest.fn(),
+        client: {
+          getEndpoint: jest.fn()
+        }
+      };
+      this.clubs = {
+        listMembers: jest.fn()
       };
     }
   };
@@ -248,6 +259,89 @@ describe('Strava Client', () => {
     });
   });
 
+  describe('getAthleteProfile', () => {
+    test('fetches athlete profile through the athletes endpoint client', async () => {
+      const mockProfile = {
+        id: '42',
+        firstname: 'Taylor',
+        lastname: 'Rider',
+        profile_medium: 'https://example.com/profile-medium.jpg'
+      };
+
+      const mockClient = {
+        athletes: {
+          client: {
+            getEndpoint: jest.fn().mockResolvedValue(mockProfile)
+          }
+        }
+      };
+
+      mockStrava.client.mockReturnValue(mockClient);
+
+      const result = await stravaClient.getAthleteProfile('42', 'token123');
+
+      expect(result).toEqual(mockProfile);
+      expect(mockClient.athletes.client.getEndpoint).toHaveBeenCalledWith('athletes/42');
+    });
+
+    test('wraps athlete profile errors with context', async () => {
+      const mockClient = {
+        athletes: {
+          client: {
+            getEndpoint: jest.fn().mockRejectedValue(new Error('boom'))
+          }
+        }
+      };
+
+      mockStrava.client.mockReturnValue(mockClient);
+
+      await expect(
+        stravaClient.getAthleteProfile('42', 'token123')
+      ).rejects.toThrow('Failed to fetch athlete profile: boom');
+    });
+  });
+
+  describe('getLoggedInAthlete', () => {
+    test('fetches the authenticated athlete profile through the athlete endpoint client', async () => {
+      const mockAthlete = {
+        id: '7',
+        firstname: 'Jordan',
+        clubs: [{ id: '101', name: 'WMV' }]
+      };
+
+      const mockClient = {
+        athlete: {
+          client: {
+            getEndpoint: jest.fn().mockResolvedValue(mockAthlete)
+          }
+        }
+      };
+
+      mockStrava.client.mockReturnValue(mockClient);
+
+      const result = await stravaClient.getLoggedInAthlete('token123');
+
+      expect(result).toEqual(mockAthlete);
+      expect(mockClient.athlete.client.getEndpoint).toHaveBeenCalledWith('athlete');
+    });
+
+    test('wraps logged-in athlete fetch errors with context', async () => {
+      const mockClient = {
+        athlete: {
+          client: {
+            getEndpoint: jest.fn().mockRejectedValue(new Error('network down'))
+          }
+        }
+      };
+
+      mockStrava.client.mockReturnValue(mockClient);
+
+      await expect(
+        stravaClient.getLoggedInAthlete('token123')
+      ).rejects.toThrow('Failed to fetch logged-in athlete: network down');
+    });
+  });
+
   describe('getSegment', () => {
     test('fetches segment details from Strava', async () => {
       const mockSegment = {
@@ -283,6 +377,72 @@ describe('Strava Client', () => {
       await expect(
         stravaClient.getSegment('999', 'token123')
       ).rejects.toThrow('Segment not found');
+    });
+  });
+
+  describe('getClubMembers', () => {
+    test('fetches club members with default pagination settings', async () => {
+      const mockMembers = [
+        { id: '1', username: 'rider1', firstname: 'Rider', lastname: 'One' },
+        { id: '2', username: 'rider2', firstname: 'Rider', lastname: 'Two' }
+      ];
+
+      const mockClient = {
+        clubs: {
+          listMembers: jest.fn().mockResolvedValue(mockMembers)
+        }
+      };
+
+      mockStrava.client.mockReturnValue(mockClient);
+
+      const result = await stravaClient.getClubMembers('club-123', {}, 'token123');
+
+      expect(result).toEqual(mockMembers);
+      expect(mockClient.clubs.listMembers).toHaveBeenCalledWith({
+        id: 'club-123',
+        page: 1,
+        per_page: 50
+      });
+    });
+
+    test('passes through custom pagination options', async () => {
+      const mockClient = {
+        clubs: {
+          listMembers: jest.fn().mockResolvedValue([])
+        }
+      };
+
+      mockStrava.client.mockReturnValue(mockClient);
+
+      await stravaClient.getClubMembers(
+        'club-123',
+        { page: 3, per_page: 25 },
+        'token123'
+      );
+
+      expect(mockClient.clubs.listMembers).toHaveBeenCalledWith({
+        id: 'club-123',
+        page: 3,
+        per_page: 25
+      });
+    });
+
+    test.each([
+      [{ statusCode: 404 }, 'Club not found on Strava'],
+      [{ statusCode: 401 }, 'Invalid or expired Strava token']
+    ])('maps Strava club member errors: %p', async (errorShape, message) => {
+      const error = Object.assign(new Error('request failed'), errorShape);
+      const mockClient = {
+        clubs: {
+          listMembers: jest.fn().mockRejectedValue(error)
+        }
+      };
+
+      mockStrava.client.mockReturnValue(mockClient);
+
+      await expect(
+        stravaClient.getClubMembers('club-123', {}, 'token123')
+      ).rejects.toThrow(message);
     });
   });
 });
