@@ -13,7 +13,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy package files
 COPY package*.json ./
+COPY check-node.js ./
 COPY server/package*.json ./server/
+COPY server/check-node.js ./server/
 
 # Copy scripts (needed for npm prepare hook)
 COPY scripts ./scripts

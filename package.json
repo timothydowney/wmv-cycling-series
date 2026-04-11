@@ -32,6 +32,7 @@
     "lint:frontend": "eslint src",
     "lint:server": "npm --prefix server run lint",
     "lint": "npm run lint:frontend && npm run lint:server",
+    "validate:docker": "bash scripts/validate-docker-build.sh",
     "audit": "npm audit --audit-level=high && cd server && npm audit --audit-level=high",
     "typecheck": "tsc -p tsconfig.json --noEmit && cd server && npm run typecheck",
     "webhook:emit": "tsx scripts/webhook-emitter.ts",
