@@ -5,6 +5,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
+import type { Request } from 'express';
 
 import { db, drizzleDb } from './db';
 import * as trpcExpress from '@trpc/server/adapters/express';
@@ -12,6 +13,7 @@ import { createContext } from './trpc/context';
 import { appRouter } from './routers';
 
 import session from 'express-session';
+import type { Session, SessionOptions } from 'express-session';
 import SqliteStore from 'better-sqlite3-session-store';
 import strava from 'strava-v3';
 import * as stravaClient from './stravaClient';
@@ -75,7 +77,11 @@ app.use(cors({
 app.use(express.json());
 
 // Session configuration for OAuth
-const sessionStoreConfig = {
+type AuthSession = Session & {
+  stravaAthleteId?: string | number;
+};
+
+const sessionStoreConfig: SessionOptions = {
   name: 'wmv.sid',
   secret: config.sessionSecret,
   resave: false,
@@ -103,7 +109,7 @@ try {
 if (!isTestMode()) {
   console.log('[SESSION] Setting up SQLite session store using main database');
   const SqliteSessionStore = SqliteStore(session);
-  (sessionStoreConfig as any).store = new SqliteSessionStore({
+  sessionStoreConfig.store = new SqliteSessionStore({
     client: db,
     expired: {
       clear: true,
@@ -114,7 +120,7 @@ if (!isTestMode()) {
   console.log('[SESSION] Using memory session store (test mode)');
 }
 
-app.use(session(sessionStoreConfig as any));
+app.use(session(sessionStoreConfig));
 
 app.use(
   '/trpc',
@@ -133,8 +139,8 @@ if (isTestMode()) {
     if (typeof registerTestMiddleware === 'function') {
       registerTestMiddleware(app);
     }
-  } catch (err: any) {
-    if (err.code !== 'MODULE_NOT_FOUND') {
+  } catch (err) {
+    if (!(err instanceof Error) || !('code' in err) || err.code !== 'MODULE_NOT_FOUND') {
       throw err;
     }
   }
@@ -219,9 +225,10 @@ const participantService = new ParticipantService(drizzleDb);
 // const requireAdmin = authorizationService.createRequireAdminMiddleware();
 
 // Export checkAuthorization for testing
-const checkAuthorization = (req: any, adminRequired = false) => {
+const checkAuthorization = (req: Request, adminRequired = false) => {
+  const sessionData = req.session as AuthSession | undefined;
   return authorizationService.checkAuthorization(
-    req.session?.stravaAthleteId ? String(req.session.stravaAthleteId) : undefined,
+    sessionData?.stravaAthleteId ? String(sessionData.stravaAthleteId) : undefined,
     adminRequired
   );
 };

@@ -174,7 +174,13 @@ export function reloadConfig(): void {
  * Get the runtime mode
  */
 export function getMode(): 'development' | 'test' | 'production' {
-  return (process.env.NODE_ENV as any) || 'development';
+  const nodeEnv = process.env.NODE_ENV;
+
+  if (nodeEnv === 'development' || nodeEnv === 'test' || nodeEnv === 'production') {
+    return nodeEnv;
+  }
+
+  return 'development';
 }
 
 /**
