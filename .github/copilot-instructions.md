@@ -117,6 +117,7 @@ npm run test:e2e:ui       # Playwright UI (interactive debugging)
 npm run lint              # Lint both frontend + backend
 npm run typecheck         # Typecheck both frontend + backend
 npm run audit             # Security audit (both)
+npm run validate:docker   # Validate the production Docker build locally
 ```
 
 ### Helper Tasks (called by main tasks)
@@ -310,6 +311,11 @@ npm run test:e2e:ui        # Interactive debugging
    npm test           # Run unit tests
    npm run build      # Verify production build
    ```
+3. **Run Docker validation for dependency and build-path changes:**
+  ```bash
+  npm run validate:docker
+  ```
+  Required when changing `package.json`, lockfiles, `server/package.json`, `Dockerfile`, install hooks/scripts, Node version checks, dependency versions, or frontend/backend build tooling.
 
 **Git best practices:**
 - Use `git add <specific-files>` (never `git add .`)
