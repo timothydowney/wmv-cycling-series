@@ -1,9 +1,39 @@
 #!/usr/bin/env node
 
+function isWindowsPath(pathValue) {
+  if (!pathValue) {
+    return false;
+  }
+
+  const normalizedPath = pathValue.replace(/\\/g, '/').toLowerCase();
+  return normalizedPath.startsWith('c:/') || normalizedPath.startsWith('/mnt/c/');
+}
+
 const nodeVersion = process.versions.node;
 const majorVersion = parseInt(nodeVersion.split('.')[0]);
+const nodeExecPath = process.execPath;
+const npmExecPath = process.env.npm_execpath || '';
 
 console.log(`Current Node.js version: v${nodeVersion}`);
+console.log(`Node executable: ${nodeExecPath}`);
+
+if (npmExecPath) {
+  console.log(`npm executable: ${npmExecPath}`);
+}
+
+if (process.platform !== 'linux' || isWindowsPath(nodeExecPath) || isWindowsPath(npmExecPath)) {
+  console.error('\n❌ ERROR: Windows Node.js/npm detected inside WSL!');
+  console.error('This repository must use the Linux Node.js 24 install.');
+  console.error(`Node executable: ${nodeExecPath}`);
+  if (npmExecPath) {
+    console.error(`npm executable: ${npmExecPath}`);
+  }
+  console.error('\nExpected Linux Node path to resolve first, for example:');
+  console.error('  /home/linuxbrew/.linuxbrew/opt/node@24/bin/node\n');
+  console.error('To fix this shell:');
+  console.error('  export PATH="/home/linuxbrew/.linuxbrew/opt/node@24/bin:$PATH"');
+  process.exit(1);
+}
 
 if (majorVersion !== 24) {
   console.error('\n❌ ERROR: Wrong Node.js version!');

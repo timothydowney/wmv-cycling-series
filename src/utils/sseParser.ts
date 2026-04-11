@@ -125,7 +125,6 @@ export class SSEParser<T = Record<string, unknown>> {
     let buffer = '';
 
     try {
-      // eslint-disable-next-line no-constant-condition
       while (true) {
         if (this.cancelled) {
           this.log('Stream parsing cancelled');

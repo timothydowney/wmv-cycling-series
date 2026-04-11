@@ -15,8 +15,9 @@ try {
   }
   // Check write permissions
   fs.accessSync(dbDir, fs.constants.W_OK); // Use fs.accessSync and fs.constants
-} catch (err: any) {
-  console.error(`[DB] ✗ Error preparing database directory: ${err.message}`);
+} catch (err) {
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(`[DB] ✗ Error preparing database directory: ${message}`);
   // We let better-sqlite3 fail naturally if it can't write
 }
 
