@@ -5,7 +5,7 @@
  * for exploratory testing.
  * 
  * Usage:
- *   npm run e2e:auth
+ *   npm run test:e2e:auth
  * 
  * You'll need to:
  * 1. Log in to Strava when prompted

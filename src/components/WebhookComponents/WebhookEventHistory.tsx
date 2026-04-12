@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { trpc } from '../../utils/trpc'; // Import trpc
 import WebhookActivityEventCard from './WebhookActivityEventCard';
 import WebhookAthleteEventCard from './WebhookAthleteEventCard';
@@ -20,21 +20,29 @@ interface WebhookPayload {
 const ALL_TIME_RANGE_SECONDS = 999999999;
 const DEFAULT_TIME_RANGE_SECONDS = 604800;
 
+const getSinceTimestamp = (sinceSeconds: number): number => {
+  if (sinceSeconds === ALL_TIME_RANGE_SECONDS) {
+    return 0;
+  }
+
+  return Math.max(0, Math.floor(Date.now() / 1000) - sinceSeconds);
+};
+
 const WebhookEventHistory: React.FC = () => {
   const [pagination, setPagination] = useState({ limit: 50, offset: 0 });
-  const [filters, setFilters] = useState({ status: 'all', sinceSeconds: DEFAULT_TIME_RANGE_SECONDS });
+  const [filters, setFilters] = useState({
+    status: 'all',
+    sinceSeconds: DEFAULT_TIME_RANGE_SECONDS,
+    since: getSinceTimestamp(DEFAULT_TIME_RANGE_SECONDS)
+  });
   const [message, setMessage] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<Record<number, 'raw' | 'formatted'>>({});
-
-  const since = filters.sinceSeconds === ALL_TIME_RANGE_SECONDS
-    ? 0
-    : Math.max(0, Math.floor(Date.now() / 1000) - filters.sinceSeconds);
 
   const { data, isLoading, error: queryError, refetch } = trpc.webhookAdmin.getEvents.useQuery(
     {
       limit: pagination.limit,
       offset: pagination.offset,
-      since,
+      since: filters.since,
       status: filters.status as 'all' | 'success' | 'failed',
     },
     {
@@ -60,11 +68,6 @@ const WebhookEventHistory: React.FC = () => {
     }
     clearEventsMutation.mutate({ confirm: 'yes' });
   }, [data?.total, clearEventsMutation]);
-
-  // Refetch when filters or pagination change
-  useEffect(() => {
-    refetch();
-  }, [pagination, filters, refetch]);
 
 
   const toggleViewMode = (eventId: number) => {
@@ -146,7 +149,7 @@ const WebhookEventHistory: React.FC = () => {
             id="status-filter"
             value={filters.status}
             onChange={(e) => {
-              setFilters({ ...filters, status: e.target.value });
+              setFilters((prev) => ({ ...prev, status: e.target.value }));
               setPagination({ ...pagination, offset: 0 });
             }}
           >
@@ -162,7 +165,12 @@ const WebhookEventHistory: React.FC = () => {
             id="time-filter"
             value={filters.sinceSeconds}
             onChange={(e) => {
-              setFilters({ ...filters, sinceSeconds: parseInt(e.target.value) });
+              const sinceSeconds = parseInt(e.target.value);
+              setFilters((prev) => ({
+                ...prev,
+                sinceSeconds,
+                since: getSinceTimestamp(sinceSeconds)
+              }));
               setPagination({ ...pagination, offset: 0 });
             }}
           >

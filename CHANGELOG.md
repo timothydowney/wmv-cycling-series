@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Repaired the real Strava integration after the `strava-v3` v4 upgrade by constructing authenticated client instances with `new strava.client(...)`, which restores WMV club membership checks and webhook activity enrichment in development.
 - Corrected the webhook admin event-history time filter to send an absolute Unix timestamp to the backend, so the selected 24-hour, 7-day, and 30-day windows now query the intended event range.
+- Stabilized webhook event-history filtering by keeping the computed `since` timestamp fixed until the selected time range changes, preventing redundant refetches in the admin page.
 - Restored WMV club membership detection after the `strava-v3` v4 upgrade by using the supported `athlete.get()` API path and falling back to `athlete.listClubs()` when club data is omitted from the athlete payload.
 - Creating or editing one season no longer closes another season through the legacy `season.is_active` path.
 - Batch fetch and webhook season validation no longer rely on the removed manual-active flag.
