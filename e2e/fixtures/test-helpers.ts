@@ -1,4 +1,4 @@
-import { Page } from '@playwright/test';
+import { Locator, Page } from '@playwright/test';
 
 const E2E_BACKEND_URL = 'http://localhost:3001';
 
@@ -255,6 +255,54 @@ export async function loginAsE2EUser(page: Page, athleteId = '366880') {
   if (!response.ok()) {
     throw new Error(`Failed to create e2e session for athlete ${athleteId}: ${response.status()} ${await response.text()}`);
   }
+}
+
+export async function openAuthenticatedNavbarMenu(
+  page: Page,
+  viewport?: { width: number; height: number }
+): Promise<Locator> {
+  if (viewport) {
+    await page.setViewportSize(viewport);
+  }
+
+  await loginAsE2EUser(page);
+  await page.goto('/leaderboard');
+  await page.getByRole('button', { name: 'Menu' }).click();
+
+  return page.locator('.dropdown-menu');
+}
+
+export async function getDropdownMenuMetrics(page: Page, dropdownMenu: Locator) {
+  const bounds = await dropdownMenu.boundingBox();
+  const viewportSize = page.viewportSize();
+
+  if (!bounds) {
+    throw new Error('Dropdown menu bounding box was not available');
+  }
+
+  if (!viewportSize) {
+    throw new Error('Viewport size was not available');
+  }
+
+  return {
+    bounds,
+    viewportSize,
+    menuBottom: bounds.y + bounds.height,
+  };
+}
+
+export async function getDropdownScrollInfo(dropdownMenu: Locator) {
+  return dropdownMenu.evaluate((element) => ({
+    scrollHeight: element.scrollHeight,
+    clientHeight: element.clientHeight,
+    isScrollable: element.scrollHeight > element.clientHeight,
+  }));
+}
+
+export async function scrollDropdownMenuToBottom(dropdownMenu: Locator) {
+  await dropdownMenu.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
 }
 
 /**
