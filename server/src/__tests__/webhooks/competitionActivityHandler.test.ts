@@ -83,7 +83,7 @@ describe('competitionActivityHandler', () => {
       participantRecord: { strava_athlete_id: '100', name: 'Test Athlete' },
       accessToken: 'token',
       athleteWeight: 72,
-      activityData: {
+      initialActivityData: {
         id: '987654321',
         name: 'Race Day Ride',
         start_date: activityStartIso,
@@ -157,7 +157,7 @@ describe('competitionActivityHandler', () => {
       participantRecord: { strava_athlete_id: '100', name: 'Test Athlete' },
       accessToken: 'token',
       athleteWeight: null,
-      activityData: {
+      initialActivityData: {
         id: '987654321',
         name: 'Late Ride',
         start_date: '2027-06-01T10:00:00Z',

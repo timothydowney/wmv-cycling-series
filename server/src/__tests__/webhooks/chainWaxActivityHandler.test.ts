@@ -39,7 +39,7 @@ function createContext(orm: BetterSQLite3Database): ActivityIngestionContext {
     participantRecord: { strava_athlete_id: '366880', name: 'Tracked Rider' },
     accessToken: 'token',
     athleteWeight: null,
-    activityData: {
+    initialActivityData: {
       id: '987654321',
       name: 'Trainer Ride',
       start_date: new Date().toISOString(),
@@ -95,8 +95,8 @@ describe('chainWaxActivityHandler', () => {
       ...createContext(orm),
       athleteId: '999999',
       participantRecord: { strava_athlete_id: '999999', name: 'Other Rider' },
-      activityData: {
-        ...createContext(orm).activityData,
+      initialActivityData: {
+        ...createContext(orm).initialActivityData,
         type: 'Ride'
       }
     };

@@ -6,26 +6,26 @@ export function createChainWaxActivityHandler(): ActivityWebhookHandler {
     name: 'chain-wax',
     isolateErrors: true,
     async handle(context) {
-      const { athleteId, activityId, activityData, db } = context;
+      const { athleteId, activityId, initialActivityData, db } = context;
 
-      if (!ChainWaxService.isTrackedAthlete(athleteId) || activityData.type !== 'VirtualRide') {
+      if (!ChainWaxService.isTrackedAthlete(athleteId) || initialActivityData.type !== 'VirtualRide') {
         return;
       }
 
       const chainWaxService = new ChainWaxService(db);
-      const activityStartUnix = activityData.start_date
-        ? Math.floor(new Date(activityData.start_date).getTime() / 1000)
+      const activityStartUnix = initialActivityData.start_date
+        ? Math.floor(new Date(initialActivityData.start_date).getTime() / 1000)
         : Math.floor(Date.now() / 1000);
       const recorded = chainWaxService.recordActivity(
         activityId,
         athleteId,
-        activityData.distance || 0,
+        initialActivityData.distance || 0,
         activityStartUnix
       );
 
       if (recorded) {
         console.log(
-          `[Webhook:Processor] ✓ Chain wax: recorded VirtualRide ${activityId} (${((activityData.distance || 0) / 1000).toFixed(1)}km) for athlete ${athleteId}`
+          `[Webhook:Processor] ✓ Chain wax: recorded VirtualRide ${activityId} (${((initialActivityData.distance || 0) / 1000).toFixed(1)}km) for athlete ${athleteId}`
         );
       } else {
         console.log(

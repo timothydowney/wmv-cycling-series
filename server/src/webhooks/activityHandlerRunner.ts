@@ -15,9 +15,9 @@ export async function runActivityHandlers(
       await handler.handle(context);
     } catch (error) {
       if (handler.isolateErrors) {
-        const message = error instanceof Error ? error.message : String(error);
         console.error(
-          `[Webhook:Processor] Handler ${handler.name} failed for activity ${context.activityId}: ${message}`
+          `[Webhook:Processor] Handler ${handler.name} failed for activity ${context.activityId}`,
+          error
         );
         continue;
       }

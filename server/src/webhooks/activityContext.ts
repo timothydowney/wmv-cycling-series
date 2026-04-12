@@ -23,7 +23,7 @@ export interface ActivityIngestionContext {
   participantRecord: ParticipantRecord;
   accessToken: string;
   athleteWeight: number | null;
-  activityData: StravaActivity;
+  initialActivityData: StravaActivity;
   validationService: ActivityValidationService;
   getActivityWithSegmentEfforts: () => Promise<StravaActivity | null>;
 }
@@ -127,7 +127,7 @@ export async function createActivityIngestionContext(
     participantRecord,
     accessToken,
     athleteWeight: profileData.weight,
-    activityData: initialActivityData,
+    initialActivityData,
     validationService,
     getActivityWithSegmentEfforts: () => {
       if (!competitionActivityPromise) {

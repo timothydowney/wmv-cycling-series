@@ -20,7 +20,7 @@ function createContext(): ActivityIngestionContext {
     participantRecord: { strava_athlete_id: '456', name: 'Test Rider' },
     accessToken: 'token',
     athleteWeight: null,
-    activityData: {
+    initialActivityData: {
       id: '123',
       name: 'Test Activity',
       start_date: new Date().toISOString(),
@@ -58,6 +58,7 @@ describe('activityHandlerRunner', () => {
   it('isolates handler errors when configured', async () => {
     const order: string[] = [];
     const context = createContext();
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     const handlers: ActivityWebhookHandler[] = [
       {
         name: 'isolated',
@@ -77,6 +78,11 @@ describe('activityHandlerRunner', () => {
 
     await expect(runActivityHandlers(context, handlers)).resolves.toBeUndefined();
     expect(order).toEqual(['isolated', 'next']);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[Webhook:Processor] Handler isolated failed for activity 123',
+      expect.any(Error)
+    );
+    consoleErrorSpy.mockRestore();
   });
 
   it('stops processing on non-isolated handler failures', async () => {
