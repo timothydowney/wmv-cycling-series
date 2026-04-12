@@ -17,7 +17,7 @@ export default (): Router => {
    * Catch-all route for SPA - serve index.html
    * This allows client-side routing to work
    */
-  router.get('*', (_req: Request, res: Response): void => {
+  router.get(/.*/, (_req: Request, res: Response): void => {
     // Serve index.html from the compiled frontend build
     // __dirname is /app/server/dist/routes (compiled location)
     // We need to go up to /app and then into dist

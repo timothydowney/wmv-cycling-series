@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Admin authorization now evaluates database-backed admin roles in addition to the `ADMIN_ATHLETE_IDS` env var, which remains the break-glass fallback.
 - The navigation now exposes Manage Roles as its own first-class admin destination and keeps About clearly outside the admin menu grouping.
 - Upgraded the frontend runtime and type packages to React 19 (`react`, `react-dom`, `@types/react`, and `@types/react-dom`) as the first major-version migration PR in the dependency modernization set.
+- Upgraded the next safe batch of major dependencies in one pass: Vite 8 + `@vitejs/plugin-react` 6, TypeScript 6 (frontend and backend), Express 5, `strava-v3` 4, and `@types/express` 5.
 
 ### Fixed
 - Creating or editing one season no longer closes another season through the legacy `season.is_active` path.
@@ -25,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refreshed frontend and backend npm dependencies to pick up current patch/minor fixes and reduce known audit issues in the dependency graph.
 - Aligned dependency baselines to the latest stable releases that fit the current React 18, Express 4, and Node 24 stack, including updated backend type packages.
 - Restored Railway-compatible Docker builds after the Node version guards were added by copying those guard files into the image before `npm ci`, and added an explicit local Docker validation command for future dependency/build changes.
+- Updated Strava client typing adapters for `strava-v3` v4 and resolved a CSS syntax issue surfaced by Vite 8's stricter CSS minifier so production builds stay green.
 
 ### Removed
 - Removed the legacy `season.is_active` database column now that season openness is fully date-based.

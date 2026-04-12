@@ -278,8 +278,6 @@
 .career-stat-card.mini .career-value {
   font-size: 1.25rem;
 }
-  gap: 6px;
-}
 
 .rank-value {
   font-size: 1.25rem;
@@ -476,4 +474,3 @@
   color: var(--wmv-text-light);
   margin-left: 2px;
 }
-

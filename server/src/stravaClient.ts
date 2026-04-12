@@ -13,8 +13,7 @@
 
 import strava, { 
   RefreshTokenResponse as StravaRefreshTokenResponse,
-  DetailedActivityResponse,
-  AthleteRouteResponse
+  SummaryAthlete
 } from 'strava-v3';
 import { Segment } from './db/schema'; // Import Drizzle Segment type
 
@@ -25,7 +24,7 @@ interface OAuthTokenData {
   access_token: string;
   refresh_token: string;
   expires_at: number;
-  athlete?: Record<string, unknown>;
+  athlete?: SummaryAthlete;
 }
 
 /**
@@ -38,7 +37,21 @@ type RefreshTokenResponse = Pick<StravaRefreshTokenResponse, 'access_token' | 'r
  * Note: We extend the library's DetailedActivityResponse and add segment_efforts 
  * which is missing from the library's type definition.
  */
-interface Activity extends DetailedActivityResponse {
+interface Activity {
+  id: string | number;
+  name: string;
+  start_date: string;
+  type?: string;
+  sport_type?: string;
+  distance?: number;
+  moving_time?: number;
+  total_elevation_gain?: number;
+  elevation_gain?: number;
+  average_watts?: number;
+  kudos_count?: number;
+  commute?: boolean;
+  trainer?: boolean;
+  visibility?: string;
   segment_efforts?: SegmentEffort[];
   device_name?: string;
   [key: string]: unknown;
@@ -50,8 +63,8 @@ interface Activity extends DetailedActivityResponse {
 interface SegmentEffort {
   id: string;
   segment?: {
-    id: string;
-    [key: string]: unknown;
+    id: string | number;
+    name?: string;
   };
   elapsed_time: number;
   start_date: string;
@@ -116,7 +129,7 @@ interface StravaClientInstance {
     get(args: { id: string }): Promise<StravaApiSegment>;
   };
   athletes: {
-    get(args: { athlete_id: string }): Promise<AthleteRouteResponse>;
+    get(args: { athlete_id: string }): Promise<SummaryAthlete>;
   };
   athlete: {
     listActivities(args: {
