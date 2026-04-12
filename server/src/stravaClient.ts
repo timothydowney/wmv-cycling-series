@@ -205,8 +205,11 @@ async function getLoggedInAthlete(accessToken: string): Promise<any> {
     // Use the public API method provided by strava-v3 v4+.
     const athlete = await client.athlete.get({});
 
-    // If clubs aren't included on /athlete, fetch them explicitly and merge.
-    if (athlete && !Array.isArray((athlete as any).clubs)) {
+    // If clubs are omitted or empty on /athlete, fetch them explicitly and merge.
+    if (
+      athlete &&
+      (!Array.isArray((athlete as any).clubs) || (athlete as any).clubs.length === 0)
+    ) {
       const clubs = await client.athlete.listClubs({});
       return { ...athlete, clubs: Array.isArray(clubs) ? clubs : [] };
     }
