@@ -222,6 +222,9 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   overflow: hidden;
   z-index: 1001;
+  max-height: calc(100vh - 140px - env(safe-area-inset-bottom));
+  overflow-y: auto;
+  padding-bottom: 8px;
 }
 
 .menu-section {
