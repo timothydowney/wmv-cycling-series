@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - A standalone Manage Roles admin screen for granting and revoking database-backed admin access for participants who have logged in.
+- Added an Explorer Seasons schema draft that keeps v1 segment destinations simple while making later place-based destinations and map features easier to add without a schema reset.
+- Added an Explorer Seasons implementation blueprint that breaks the work into schema, matching, admin authoring, athlete read, and rollout phases before implementation begins.
 
 ### Changed
 - Season openness is now treated as date-based in application logic, allowing overlapping seasons to remain open concurrently.
@@ -22,6 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Clarified the Playwright e2e prerequisites and authentication flow in the e2e docs: normal logged-in tests use the backend e2e session helper, while manual Strava OAuth is now documented as optional exploratory setup.
 - Refactored webhook activity ingestion into a shared context plus distinct chain wax and competition handler modules, keeping execution order explicit and Phase 1 Explorer groundwork easier to extend.
 - Updated the Explorer PRD implementation docs to reflect the Phase 1 handler order, shared context contract, and the decision to keep delete and athlete deauthorization adjacent to the processor for now.
+- Updated the Explorer Seasons planning docs to treat destinations as the core product concept, with Strava segments as the first recognition mode, plus future place-based destination support and low-cost, provider-swappable map and geocoding guidance.
+- Updated the Explorer Seasons map-stack guidance to recommend Google Maps Platform as the default managed option for WMV's current scale, while keeping OSM-based services as the fallback if avoiding provider lock-in becomes more important later.
+- Refined the Explorer Seasons planning docs so admin destination setup is explicitly segment-backed for deterministic rider matching, while future endpoint-confidence or place-based matching remains deferred.
+- Updated the Explorer Seasons planning docs to use a hybrid destination presentation model: admin-authored label first, endpoint or place context second, while preserving exact segment-based completion matching.
+- Expanded the Explorer documentation set so the next phase can stay docs-only while working through implementation details in the technical planning artifacts instead of premature code changes.
 
 ### Fixed
 - Repaired the real Strava integration after the `strava-v3` v4 upgrade by constructing authenticated client instances with `new strava.client(...)`, which restores WMV club membership checks and webhook activity enrichment in development.

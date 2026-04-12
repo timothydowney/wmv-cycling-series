@@ -1,8 +1,8 @@
-# WMV Explorer Destinations Technical Specification
+# WMV Explorer Weekly Challenges Technical Specification
 
 ## 1. Purpose
 
-This specification translates the Explorer Destinations PRD into an implementation-oriented design for the current WMV Cycling Series codebase. It preserves the key planning decisions:
+This specification translates the Explorer Weekly Challenges PRD into an implementation-oriented design for the current WMV Cycling Series codebase. It preserves the key planning decisions:
 
 - Explorer is a separate product area from the current race leaderboard.
 - Explorer uses separate week and result storage rather than reusing the current competition week model.

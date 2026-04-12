@@ -1,6 +1,6 @@
-# WMV Explorer Destinations Implementation Phases
+# WMV Explorer Weekly Challenges Implementation Phases
 
-This document captures the current execution sequence for Explorer Destinations. It is intentionally narrower than the PRD and technical spec: it exists to turn the agreed direction into concrete follow-on work.
+This document captures the current execution sequence for Explorer Weekly Challenges. It is intentionally narrower than the PRD and technical spec: it exists to turn the agreed direction into concrete follow-on work.
 
 ## Phase 0: Documentation Baseline
 

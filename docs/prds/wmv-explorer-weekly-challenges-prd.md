@@ -1,14 +1,14 @@
 # Product Requirements Document (PRD)
 
-## WMV Explorer Destinations
+## WMV Explorer Weekly Challenges
 
 | Field | Value |
 | --- | --- |
-| Product Name | WMV Explorer Destinations |
+| Product Name | WMV Explorer Weekly Challenges |
 | Version | 0.1 |
 | Author | GitHub Copilot |
 | Date | 2026-04-12 |
-| Status | Draft |
+| Status | Future Concept |
 
 ## 1. Executive Summary
 
@@ -230,7 +230,11 @@ The v1 release is successful if:
 
 ## 12. Technical Specification
 
-The technical specification for Explorer Destinations is documented in [wmv-explorer-destinations-tech-spec.md](./wmv-explorer-destinations-tech-spec.md), which defines the implementation architecture, schema direction, ingestion pattern, and test strategy.
+The technical specification for Explorer Weekly Challenges is documented in [wmv-explorer-weekly-challenges-tech-spec.md](./wmv-explorer-weekly-challenges-tech-spec.md), which defines the implementation architecture, schema direction, ingestion pattern, and test strategy.
+
+## 12.5 Document Positioning
+
+This document now captures the weekly-challenges Explorer concept rather than the primary v1 plan. The canonical starting point for the simpler implementation path is [wmv-explorer-seasons-prd.md](./wmv-explorer-seasons-prd.md).
 
 ## 13. Success of Implementation
 
