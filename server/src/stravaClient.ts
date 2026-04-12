@@ -111,6 +111,25 @@ interface ClubMember {
   [key: string]: unknown;
 }
 
+interface AthleteClub {
+  id: string | number;
+  name?: string;
+  [key: string]: unknown;
+}
+
+interface LoggedInAthlete {
+  id?: string | number;
+  clubs?: AthleteClub[];
+  [key: string]: unknown;
+}
+
+interface AthleteProfile {
+  profile?: string;
+  profile_medium?: string;
+  weight?: number;
+  [key: string]: unknown;
+}
+
 /**
  * Internal interface for the Strava client instance to avoid 'as any' at call sites.
  * The strava-v3 library's own types are currently incomplete for these methods.
@@ -132,8 +151,8 @@ interface StravaClientInstance {
     get(args: { athlete_id: string }): Promise<SummaryAthlete>;
   };
   athlete: {
-    get(args?: Record<string, never>): Promise<any>;
-    listClubs(args?: { page?: number; per_page?: number }): Promise<any[]>;
+    get(args?: Record<string, never>): Promise<LoggedInAthlete>;
+    listClubs(args?: { page?: number; per_page?: number }): Promise<AthleteClub[]>;
     listActivities(args: {
       after?: number;
       before?: number;
@@ -142,7 +161,7 @@ interface StravaClientInstance {
       include_all_efforts?: boolean;
     }): Promise<Activity[]>;
     client?: {
-      getEndpoint(endpoint: string): Promise<any>;
+      getEndpoint(endpoint: string): Promise<unknown>;
     };
   };
 }
@@ -174,7 +193,7 @@ function createStravaClient(accessToken: string): StravaClientInstance {
  * @returns Athlete profile data including profile_medium and profile URLs
  * @throws {Error} If athlete fetch fails
  */
-async function getAthleteProfile(athleteId: string, accessToken: string): Promise<any> {
+async function getAthleteProfile(athleteId: string, accessToken: string): Promise<AthleteProfile> {
   try {
     const client = createStravaClient(accessToken);
     
@@ -182,7 +201,7 @@ async function getAthleteProfile(athleteId: string, accessToken: string): Promis
     // The httpClient.getEndpoint() method is the foundation of all strava-v3 API calls
     const result = await (client.athletes as any).client.getEndpoint(
       `athletes/${athleteId}`
-    );
+    ) as AthleteProfile;
     
     return result;
   } catch (error) {
@@ -199,30 +218,32 @@ async function getAthleteProfile(athleteId: string, accessToken: string): Promis
  * @returns Athlete profile data including clubs array
  * @throws {Error} If fetch fails
  */
-async function getLoggedInAthlete(accessToken: string): Promise<any> {
+async function getLoggedInAthlete(accessToken: string): Promise<LoggedInAthlete> {
   try {
     const client = createStravaClient(accessToken);
-    let athlete: any;
+    let athlete: LoggedInAthlete | undefined;
     let getAthleteError: unknown;
 
     try {
       if (typeof client.athlete.get === 'function') {
-        athlete = await client.athlete.get({});
+        athlete = await client.athlete.get();
       } else if (typeof client.athlete.client?.getEndpoint === 'function') {
-        athlete = await client.athlete.client.getEndpoint('athlete');
+        athlete = await client.athlete.client.getEndpoint('athlete') as LoggedInAthlete;
+      } else {
+        console.warn('[Strava API] No supported athlete profile method available on client');
       }
     } catch (error) {
       getAthleteError = error;
     }
 
-    if (athlete && Array.isArray(athlete.clubs)) {
+    if (athlete && Array.isArray(athlete.clubs) && athlete.clubs.length > 0) {
       return athlete;
     }
 
     if (typeof client.athlete.listClubs === 'function') {
-      const clubs = await client.athlete.listClubs({});
+      const clubs = await client.athlete.listClubs();
 
-      if (athlete && typeof athlete === 'object') {
+      if (athlete) {
         return { ...athlete, clubs };
       }
 

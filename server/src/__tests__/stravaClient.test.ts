@@ -218,7 +218,7 @@ describe('Strava Client', () => {
       const result = await stravaClient.getLoggedInAthlete('token123');
 
       expect(result).toEqual(mockAthlete);
-      expect(mockClient.athlete.get).toHaveBeenCalledWith({});
+      expect(mockClient.athlete.get).toHaveBeenCalledWith();
       expect(mockClient.athlete.listClubs).not.toHaveBeenCalled();
     });
 
@@ -244,8 +244,35 @@ describe('Strava Client', () => {
         firstname: 'Tim',
         clubs: [{ id: 1495648, name: 'Western Mass Velo' }]
       });
-      expect(mockClient.athlete.get).toHaveBeenCalledWith({});
-      expect(mockClient.athlete.listClubs).toHaveBeenCalledWith({});
+      expect(mockClient.athlete.get).toHaveBeenCalledWith();
+      expect(mockClient.athlete.listClubs).toHaveBeenCalledWith();
+    });
+
+    test('falls back to listClubs when athlete.get returns empty clubs array', async () => {
+      const mockClient = {
+        athlete: {
+          get: jest.fn().mockResolvedValue({
+            id: 123,
+            firstname: 'Tim',
+            clubs: []
+          }),
+          listClubs: jest.fn().mockResolvedValue([
+            { id: 1495648, name: 'Western Mass Velo' }
+          ])
+        }
+      };
+
+      mockStrava.client.mockReturnValue(mockClient);
+
+      const result = await stravaClient.getLoggedInAthlete('token123');
+
+      expect(result).toEqual({
+        id: 123,
+        firstname: 'Tim',
+        clubs: [{ id: 1495648, name: 'Western Mass Velo' }]
+      });
+      expect(mockClient.athlete.get).toHaveBeenCalledWith();
+      expect(mockClient.athlete.listClubs).toHaveBeenCalledWith();
     });
   });
 

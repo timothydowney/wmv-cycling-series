@@ -27,10 +27,10 @@ import * as stravaClient from '../stravaClient';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
 interface AthleteClub {
-  id: number;
+  id: string | number;
   resource_state?: number;
   name?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export class ClubService {
