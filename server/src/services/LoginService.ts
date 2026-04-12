@@ -46,11 +46,15 @@ class LoginService {
   }> {
     // Exchange code for tokens with Strava
     const tokenData = await stravaClient.exchangeAuthorizationCode(code);
-    
-    const athlete = tokenData.athlete as Record<string, unknown>;
+
+    if (!tokenData.athlete) {
+      throw new Error('No athlete data in OAuth response');
+    }
+
+    const athlete = tokenData.athlete;
     const athleteId = String(athlete.id);
     const athleteName = `${athlete.firstname} ${athlete.lastname}`;
-    const profileUrl = (athlete.profile || athlete.profile_medium) as string | undefined;
+    const profileUrl = athlete.profile || athlete.profile_medium;
 
     // Seed profile cache with image from login response
     if (profileUrl) {
