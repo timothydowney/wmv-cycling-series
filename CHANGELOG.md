@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Upgraded the next safe batch of major dependencies in one pass: Vite 8 + `@vitejs/plugin-react` 6, TypeScript 6 (frontend and backend), Express 5, `strava-v3` 4, and `@types/express` 5.
 
 ### Fixed
+- Restored WMV club membership detection after the `strava-v3` v4 upgrade by using the supported `athlete.get()` API path and falling back to `athlete.listClubs()` when club data is omitted from the athlete payload.
 - Creating or editing one season no longer closes another season through the legacy `season.is_active` path.
 - Batch fetch and webhook season validation no longer rely on the removed manual-active flag.
 - Refreshed frontend and backend npm dependencies to pick up current patch/minor fixes and reduce known audit issues in the dependency graph.
