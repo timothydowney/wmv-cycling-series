@@ -57,18 +57,18 @@ test.describe('Logged Out User Experience', () => {
       await page.getByTestId('season-select').selectOption('1');
       await page.waitForLoadState('networkidle');
       
-      // Check Weekly view
-      await page.getByRole('link', { name: 'Weekly' }).click();
+      // Check Weekly view - use exact: true to avoid matching navbar title
+      await page.getByRole('link', { name: 'Weekly', exact: true }).click();
       await page.waitForLoadState('networkidle');
       await expect(page.getByTestId('strava-connect-banner')).toBeVisible();
       
-      // Check Season view
-      await page.getByRole('link', { name: 'Season' }).click();
+      // Check Season view - use exact: true to avoid navbar ambiguity
+      await page.getByRole('link', { name: 'Season', exact: true }).click();
       await page.waitForLoadState('networkidle');
       await expect(page.getByTestId('strava-connect-banner')).toBeVisible();
       
-      // Check Schedule view
-      await page.getByRole('link', { name: 'Schedule' }).click();
+      // Check Schedule view - use exact: true to avoid navbar ambiguity
+      await page.getByRole('link', { name: 'Schedule', exact: true }).click();
       await page.waitForLoadState('networkidle');
       await expect(page.getByTestId('strava-connect-banner')).toBeVisible();
     });
