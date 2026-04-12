@@ -2,8 +2,8 @@
 
 ## WMV Explorer Destinations
 
-|  |  |
-|  |  |
+| Field | Value |
+| --- | --- |
 | Product Name | WMV Explorer Destinations |
 | Version | 0.1 |
 | Author | GitHub Copilot |
@@ -32,8 +32,8 @@ WMV Explorer Destinations addresses these problems by adding a progress-first we
 
 ## 3. Goals & Objectives
 
-|  |  |  |
-|  |  |  |
+| Goal | Description | Success Signal |
+| --- | --- | --- |
 | Inclusive offseason participation | Give riders a way to participate without needing to compete on speed | Riders can engage through weekly destination completion rather than race ranking |
 | Weekly motivation | Provide a clear set of weekly riding goals | Athletes can see a weekly progress bar and destination checklist |
 | Low admin friction | Let admins create a weekly Explorer challenge from Strava segments | Admin can create an Explorer week and configure destinations in one workflow |
@@ -43,8 +43,8 @@ WMV Explorer Destinations addresses these problems by adding a progress-first we
 
 ## 4. Target Audience
 
-|  |  |  |
-|  |  |  |
+| Audience | Description | Primary Need |
+| --- | --- | --- |
 | Existing WMV athlete | Club rider already using the app for seasonal competition | A fun, low-pressure weekly riding goal |
 | Casual or exploratory rider | Rider less interested in racing but motivated by destinations and completion | A checklist-style challenge rather than a ranking system |
 | Indoor or hybrid rider | Athlete who rides on Zwift and outdoors | Weekly destinations that can be either virtual or real-world Strava segments |
@@ -54,8 +54,8 @@ WMV Explorer Destinations addresses these problems by adding a progress-first we
 
 ### 5.1 Athlete Experience
 
-|  |  |  |  |
-|  |  |  |  |
+| ID | User Story | Priority | Acceptance Criteria |
+| --- | --- | --- | --- |
 | US-01 | As an athlete, I want to see the active Explorer week so I know what destinations are available now | Must | Active Explorer week is clearly visible in the Challenges hub |
 | US-02 | As an athlete, I want to see the weekly destination list so I know what segments count | Must | Destination list shows all configured segments for the week |
 | US-03 | As an athlete, I want to see my Explorer progress as a progress bar so I can quickly tell how far along I am | Must | Progress bar shows completed destinations versus total destinations |
@@ -66,15 +66,15 @@ WMV Explorer Destinations addresses these problems by adding a progress-first we
 
 ### 5.2 Club Visibility
 
-|  |  |  |  |
-|  |  |  |  |
+| ID | User Story | Priority | Acceptance Criteria |
+| --- | --- | --- | --- |
 | US-08 | As a club member, I want to know whether anyone completed all destinations this week so the feature feels communal | Must | Weekly view includes a completers summary showing all athlete names who completed the full set |
 | US-09 | As a club member, I do not want the Explorer hub to feel like another race leaderboard | Must | Weekly view emphasizes progress and completion, not rank ordering |
 
 ### 5.3 Admin Experience
 
-|  |  |  |  |
-|  |  |  |  |
+| ID | User Story | Priority | Acceptance Criteria |
+| --- | --- | --- | --- |
 | US-10 | As an admin, I want to create a dedicated Explorer week so the feature can run independently from race weeks | Must | Admin can create Explorer weeks with their own date range |
 | US-11 | As an admin, I want to add destinations from Strava URLs so setup matches the regular admin panel workflow | Must | Admin can paste one Strava segment URL at a time and the system extracts the segment ID |
 | US-12 | As an admin, I want to add labels to destinations so the weekly challenge is presented clearly | Must | Destinations support optional labels in addition to the underlying segment metadata |
@@ -87,8 +87,8 @@ WMV Explorer Destinations addresses these problems by adding a progress-first we
 
 ### Must Have (MVP)
 
-|  |  |  |
-|  |  |  |
+| Item | User Stories | Rationale |
+| --- | --- | --- |
 | Separate Challenges hub | US-01, US-10 | Explorer must feel distinct from race competition |
 | Active Explorer week view | US-01, US-02 | Core weekly experience |
 | Progress bar + checklist UX | US-03, US-04 | Primary interaction model |
@@ -106,8 +106,8 @@ WMV Explorer Destinations addresses these problems by adding a progress-first we
 
 ### Should Have (Enhanced Experience)
 
-|  |  |  |
-|  |  |  |
+| Item | User Stories | Rationale |
+| --- | --- | --- |
 | Destination ordering | US-13 | Better weekly storytelling |
 | Cached destination names | — | Better display stability and admin confidence |
 | Explorer-specific empty states and help text | — | Clarifies how the feature works for first-time users |
@@ -115,16 +115,16 @@ WMV Explorer Destinations addresses these problems by adding a progress-first we
 
 ### Could Have (Delight)
 
-|  |  |  |
-|  |  |  |
+| Item | User Stories | Rationale |
+| --- | --- | --- |
 | Destination categories such as scenic, climb, or event | — | Adds editorial character to weekly Explorer sets |
 | Celebration treatment on full completion | US-07 | Reinforces motivation without adding competition |
 | Destination category chips or themed labels | US-12 | Adds editorial polish without changing core rules |
 
 ### Won't Have (v1.0 — Future Consideration)
 
-|  |  |
-|  |  |
+| Item | Rationale |
+| --- | --- |
 | Rank-ordered Explorer leaderboard | Explorer is progress-first in v1 |
 | Bonus scoring beyond one point per destination | Keep the rules simple first |
 | Season-wide Explorer UI | Depends on weekly history first |
@@ -146,8 +146,8 @@ The Explorer hub should present one weekly challenge at a time, with a progress-
 
 ### 7.2 UX Principles
 
-|  |  |
-|  |  |
+| Principle | Description |
+| --- | --- |
 | Progress over ranking | The page should feel like a challenge checklist, not a leaderboard |
 | Clear weekly framing | Athletes should immediately understand what counts this week |
 | Inclusive destination model | Virtual and outdoor destinations should be presented as equally valid |
@@ -156,8 +156,8 @@ The Explorer hub should present one weekly challenge at a time, with a progress-
 
 ### 7.3 Responsive Behavior
 
-|  |  |
-|  |  |
+| Breakpoint | Behavior |
+| --- | --- |
 | Desktop | Progress summary and checklist visible without excessive scrolling |
 | Tablet | Checklist remains primary content; summary compresses gracefully |
 | Mobile | Progress bar, checklist, and completers summary stack cleanly |
@@ -166,39 +166,39 @@ The Explorer hub should present one weekly challenge at a time, with a progress-
 
 ### 8.1 Performance
 
-|  |  |  |
-|  |  |  |
+| Requirement | Target | Validation |
+| --- | --- | --- |
 | Explorer hub load | Comparable to other existing app views | Manual verification and E2E timing sanity check |
 | Matching idempotency | Reprocessing must not create duplicate destination matches | Automated backend tests |
 | Refresh behavior | Manual refresh path must be safe to rerun | Automated backend tests |
 
 ### 8.2 Data Integrity
 
-|  |  |  |
-|  |  |  |
+| Requirement | Target | Validation |
+| --- | --- | --- |
 | Durable weekly history | Explorer progress remains queryable after the week ends | Automated integration tests |
 | Correct weekly boundaries | Only activities inside the Explorer week count | Backend tests for start and end edge cases |
 | One completion per destination per athlete per week | Multiple visits do not overcount | Backend tests |
 
 ### 8.3 Accessibility
 
-|  |  |  |
-|  |  |  |
+| Requirement | Target | Validation |
+| --- | --- | --- |
 | Progress visibility | Completion state is understandable without color alone | Manual QA |
 | Checklist semantics | Destination completion is screen-reader friendly | Accessibility review |
 | Keyboard navigation | Core Explorer hub interactions are keyboard accessible | Manual QA |
 
 ### 8.4 Compatibility
 
-|  |  |  |
-|  |  |  |
+| Requirement | Target | Validation |
+| --- | --- | --- |
 | Existing WMV app routes | Explorer must coexist with current leaderboard and admin flows | Regression testing |
 | Virtual and outdoor segment ingestion | Both segment types are eligible when configured | Backend matching tests |
 
 ## 9. Risks & Mitigations
 
-|  |  |  |  |
-|  |  |  |  |
+| Risk | Impact | Severity | Mitigation |
+| --- | --- | --- | --- |
 | Webhook processor complexity grows further | Harder to add Explorer safely | High | Refactor to delegated in-process handlers before adding Explorer-specific logic |
 | Strava URLs may be pasted incorrectly or parse to invalid segments | Broken destination configuration | Medium | Validate pasted URLs, extract segment IDs safely, and cache segment metadata where possible |
 | Confusion between Explorer weeks and race weeks | Users or admins may mix the two concepts | Medium | Use distinct naming, routes, and admin sections |
@@ -220,8 +220,8 @@ The v1 release is successful if:
 
 ## 11. Future Considerations (Post v1.0)
 
-|  |  |  |
-|  |  |  |
+| Future Item | Priority | Notes |
+| --- | --- | --- |
 | Season-wide Explorer rollups | Medium | Enabled by stored weekly history |
 | Explorer badges and streaks | Medium | Depends on stable weekly participation data |
 | Themed destination campaigns | Medium | Adds editorial depth to weekly challenges |
@@ -230,14 +230,14 @@ The v1 release is successful if:
 
 ## 12. Technical Specification
 
-A separate technical specification will accompany this PRD and define the implementation architecture, schema direction, ingestion pattern, and test strategy for Explorer Destinations.
+The technical specification for Explorer Destinations is documented in [wmv-explorer-destinations-tech-spec.md](./wmv-explorer-destinations-tech-spec.md), which defines the implementation architecture, schema direction, ingestion pattern, and test strategy.
 
 ## 13. Success of Implementation
 
 ### 13.1 Definition of Done
 
-|  |  |  |
-|  |  |  |
+| Area | Definition | Validation |
+| --- | --- | --- |
 | Feature completeness | All Must Have PRD items are implemented and functional | Manual QA plus automated tests |
 | Architecture compliance | Explorer uses delegated webhook ingestion and separate Explorer data storage | Code review and backend tests |
 | Data integrity | Explorer progress is stored correctly across weeks without duplicate counting | Integration tests |
