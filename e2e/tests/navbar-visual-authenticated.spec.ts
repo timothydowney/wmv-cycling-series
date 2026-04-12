@@ -85,14 +85,14 @@ test.describe('Navbar Menu Visual Testing', () => {
     await page.screenshot({ path: 'test-results/navbar-menu-3-bottom.png' });
     
     // Verify all navigation links are accessible
-    const leaderboardLink = dropdownMenu.getByRole('link', { name: 'Leaderboard' });
-    const profileLink = dropdownMenu.getByRole('link', { name: 'My Profile' });
-    const aboutLink = dropdownMenu.getByRole('link', { name: 'About' });
+    const dropdownLeaderboardLink = dropdownMenu.getByRole('link', { name: 'Leaderboard' });
+    const dropdownProfileLink = dropdownMenu.getByRole('link', { name: 'My Profile' });
+    const dropdownAboutLink = dropdownMenu.getByRole('link', { name: 'About' });
     
     // These should exist in the DOM even if not currently visible in viewport
-    await expect(leaderboardLink).toHaveCount(1);
-    await expect(profileLink).toHaveCount(1);
-    await expect(aboutLink).toHaveCount(1);
+    await expect(dropdownLeaderboardLink).toHaveCount(1);
+    await expect(dropdownProfileLink).toHaveCount(1);
+    await expect(dropdownAboutLink).toHaveCount(1);
     
     console.log('✓ All menu items accessible via scrolling');
   });
