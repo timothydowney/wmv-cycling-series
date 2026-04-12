@@ -153,7 +153,7 @@ async function findBestQualifyingActivity(
       rejectedActivities.push({
         id: activity.id.toString(),
         name: activity.name,
-        start_date: activity.start_date instanceof Date ? activity.start_date.toISOString() : activity.start_date as string,
+        start_date: activity.start_date,
         reason: 'Outside time window'
       });
     }
@@ -195,7 +195,7 @@ async function findBestQualifyingActivity(
     try {
       // Fetch full activity details (includes all segment efforts)
       const fullActivity = await getActivity(
-        activity.id,
+        String(activity.id),
         accessToken
       );
 
@@ -252,7 +252,7 @@ async function findBestQualifyingActivity(
           onLog(LogLevel.Info, `Found ${matchingEfforts.length} ${requiredLaps === 1 ? 'effort' : 'efforts'}:`);
           const effortLinks = matchingEfforts.map(effort => ({
             effortId: String(effort.id),
-            activityId: fullActivity.id
+            activityId: String(fullActivity.id)
           }));
           matchingEfforts.forEach((effort, idx) => {
             const minutes = Math.floor(effort.elapsed_time / 60);
@@ -301,7 +301,7 @@ async function findBestQualifyingActivity(
             const lapNums = Array.from({ length: requiredLaps }, (_, idx) => i + idx + 1).join(', ');
             const effortLinks = window.map(effort => ({
               effortId: String(effort.id),
-              activityId: fullActivity.id
+              activityId: String(fullActivity.id)
             }));
             onLog(LogLevel.Info, `  Window ${i + 1} (laps ${lapNums}): ${effortTimes} = ${totalTimeStr}`, undefined, effortLinks);
           }
@@ -347,7 +347,7 @@ async function findBestQualifyingActivity(
         bestActivity = {
           id: fullActivity.id.toString(),
           name: fullActivity.name,
-          start_date: fullActivity.start_date instanceof Date ? fullActivity.start_date.toISOString() : fullActivity.start_date as string,
+          start_date: fullActivity.start_date,
           totalTime: totalTime,
           segmentEfforts: selectedEfforts as unknown as SegmentEffortResponse[],
           activity_url: `https://www.strava.com/activities/${fullActivity.id}`,
