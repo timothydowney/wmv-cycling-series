@@ -206,10 +206,10 @@ async function getLoggedInAthlete(accessToken: string): Promise<any> {
     const athlete = await client.athlete.get({});
 
     // If clubs are omitted or empty on /athlete, fetch them explicitly and merge.
-    if (
-      athlete &&
-      (!Array.isArray((athlete as any).clubs) || (athlete as any).clubs.length === 0)
-    ) {
+    const athleteClubs = athlete?.['clubs'];
+    const hasClubs = Array.isArray(athleteClubs) && athleteClubs.length > 0;
+
+    if (athlete && !hasClubs) {
       const clubs = await client.athlete.listClubs({});
       return { ...athlete, clubs: Array.isArray(clubs) ? clubs : [] };
     }
