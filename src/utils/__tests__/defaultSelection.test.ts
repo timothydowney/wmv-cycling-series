@@ -110,7 +110,7 @@ describe('Default Selection Logic', () => {
       expect(result?.id).toBe(201); // Week 1 of Spring
     });
 
-    it('Should select active week during the season', () => {
+    it('Should select the most recently started week during the season', () => {
       const result = getDefaultWeek(springWeeks, toUnix('2026-03-05T12:00:00Z'));
       expect(result?.id).toBe(201);
     });
