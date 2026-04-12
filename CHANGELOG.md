@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Upgraded the frontend runtime and type packages to React 19 (`react`, `react-dom`, `@types/react`, and `@types/react-dom`) as the first major-version migration PR in the dependency modernization set.
 - Upgraded the next safe batch of major dependencies in one pass: Vite 8 + `@vitejs/plugin-react` 6, TypeScript 6 (frontend and backend), Express 5, `strava-v3` 4, and `@types/express` 5.
 - Clarified the Playwright e2e prerequisites and authentication flow in the e2e docs: normal logged-in tests use the backend e2e session helper, while manual Strava OAuth is now documented as optional exploratory setup.
+- Refactored webhook activity ingestion into a shared context plus distinct chain wax and competition handler modules, keeping execution order explicit and Phase 1 Explorer groundwork easier to extend.
+- Updated the Explorer PRD implementation docs to reflect the Phase 1 handler order, shared context contract, and the decision to keep delete and athlete deauthorization adjacent to the processor for now.
 
 ### Fixed
 - Repaired the real Strava integration after the `strava-v3` v4 upgrade by constructing authenticated client instances with `new strava.client(...)`, which restores WMV club membership checks and webhook activity enrichment in development.
@@ -33,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Aligned dependency baselines to the latest stable releases that fit the current React 18, Express 4, and Node 24 stack, including updated backend type packages.
 - Restored Railway-compatible Docker builds after the Node version guards were added by copying those guard files into the image before `npm ci`, and added an explicit local Docker validation command for future dependency/build changes.
 - Updated Strava client typing adapters for `strava-v3` v4 and resolved a CSS syntax issue surfaced by Vite 8's stricter CSS minifier so production builds stay green.
+- Added explicit competition-handler regression coverage for week storage and kept chain wax create-delete regression coverage aligned with the new delegated webhook structure.
 
 ### Removed
 - Removed the legacy `season.is_active` database column now that season openness is fully date-based.

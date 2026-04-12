@@ -20,6 +20,9 @@ Goal: refactor webhook processing into a thin orchestrator with delegated in-pro
 Scope:
 
 - Introduce the handler or matcher abstraction for ingested activity contexts
+- Build a shared activity-ingestion context once per activity create or update event
+- Run delegated handlers sequentially in-process
+- Keep initial handler order explicit: chain wax first, then competition
 - Preserve existing competition processing behavior
 - Preserve existing chain wax behavior
 - Establish a reusable seam for Explorer matching and later refresh paths
@@ -29,6 +32,7 @@ Out of scope:
 - Explorer schema
 - Explorer UI
 - Explorer admin setup
+- Forcing activity delete or athlete deauthorization into the same handler abstraction before the activity path is stable
 
 ## Phase 2: Explorer Data Model And Matching
 
