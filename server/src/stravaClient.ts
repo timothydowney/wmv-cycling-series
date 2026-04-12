@@ -132,6 +132,8 @@ interface StravaClientInstance {
     get(args: { athlete_id: string }): Promise<SummaryAthlete>;
   };
   athlete: {
+    get(args?: Record<string, never>): Promise<any>;
+    listClubs(args?: { page?: number; per_page?: number }): Promise<any[]>;
     listActivities(args: {
       after?: number;
       before?: number;
@@ -139,6 +141,9 @@ interface StravaClientInstance {
       per_page?: number;
       include_all_efforts?: boolean;
     }): Promise<Activity[]>;
+    client?: {
+      getEndpoint(endpoint: string): Promise<any>;
+    };
   };
 }
 
@@ -197,12 +202,42 @@ async function getAthleteProfile(athleteId: string, accessToken: string): Promis
 async function getLoggedInAthlete(accessToken: string): Promise<any> {
   try {
     const client = createStravaClient(accessToken);
-    
-    // Call the /athlete endpoint to get logged-in athlete's data
-    // This returns the athlete object with clubs array
-    const result = await (client.athlete as any).client?.getEndpoint?.('athlete');
-    
-    return result;
+    let athlete: any;
+    let getAthleteError: unknown;
+
+    try {
+      if (typeof client.athlete.get === 'function') {
+        athlete = await client.athlete.get({});
+      } else if (typeof client.athlete.client?.getEndpoint === 'function') {
+        athlete = await client.athlete.client.getEndpoint('athlete');
+      }
+    } catch (error) {
+      getAthleteError = error;
+    }
+
+    if (athlete && Array.isArray(athlete.clubs)) {
+      return athlete;
+    }
+
+    if (typeof client.athlete.listClubs === 'function') {
+      const clubs = await client.athlete.listClubs({});
+
+      if (athlete && typeof athlete === 'object') {
+        return { ...athlete, clubs };
+      }
+
+      return { clubs };
+    }
+
+    if (athlete) {
+      return athlete;
+    }
+
+    if (getAthleteError) {
+      throw getAthleteError;
+    }
+
+    throw new Error('No athlete data returned');
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`Failed to fetch logged-in athlete: ${message}`);

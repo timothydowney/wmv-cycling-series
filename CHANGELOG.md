@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Aligned dependency baselines to the latest stable releases that fit the current React 18, Express 4, and Node 24 stack, including updated backend type packages.
 - Restored Railway-compatible Docker builds after the Node version guards were added by copying those guard files into the image before `npm ci`, and added an explicit local Docker validation command for future dependency/build changes.
 - Updated Strava client typing adapters for `strava-v3` v4 and resolved a CSS syntax issue surfaced by Vite 8's stricter CSS minifier so production builds stay green.
+- Restored reliable Strava club membership detection after the `strava-v3` v4 upgrade by using `athlete.get()` and falling back to `athlete.listClubs()` when clubs are not returned in the profile payload.
 
 ### Removed
 - Removed the legacy `season.is_active` database column now that season openness is fully date-based.

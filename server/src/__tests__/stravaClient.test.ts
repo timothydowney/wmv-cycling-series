@@ -22,7 +22,11 @@ jest.mock('strava-v3', () => {
     } else {
       // Otherwise set up default mocks
       this.athlete = {
-        get: jest.fn()
+        get: jest.fn(),
+        listClubs: jest.fn(),
+        client: {
+          getEndpoint: jest.fn()
+        }
       };
       this.activities = {
         get: jest.fn(),
@@ -191,6 +195,57 @@ describe('Strava Client', () => {
         id: '123456',
         include_all_efforts: true
       });
+    });
+  });
+
+  describe('getLoggedInAthlete', () => {
+    test('fetches athlete with clubs via athlete.get', async () => {
+      const mockAthlete = {
+        id: 123,
+        firstname: 'Tim',
+        clubs: [{ id: 1495648, name: 'Western Mass Velo' }]
+      };
+
+      const mockClient = {
+        athlete: {
+          get: jest.fn().mockResolvedValue(mockAthlete),
+          listClubs: jest.fn()
+        }
+      };
+
+      mockStrava.client.mockReturnValue(mockClient);
+
+      const result = await stravaClient.getLoggedInAthlete('token123');
+
+      expect(result).toEqual(mockAthlete);
+      expect(mockClient.athlete.get).toHaveBeenCalledWith({});
+      expect(mockClient.athlete.listClubs).not.toHaveBeenCalled();
+    });
+
+    test('falls back to listClubs when athlete.get has no clubs array', async () => {
+      const mockClient = {
+        athlete: {
+          get: jest.fn().mockResolvedValue({
+            id: 123,
+            firstname: 'Tim'
+          }),
+          listClubs: jest.fn().mockResolvedValue([
+            { id: 1495648, name: 'Western Mass Velo' }
+          ])
+        }
+      };
+
+      mockStrava.client.mockReturnValue(mockClient);
+
+      const result = await stravaClient.getLoggedInAthlete('token123');
+
+      expect(result).toEqual({
+        id: 123,
+        firstname: 'Tim',
+        clubs: [{ id: 1495648, name: 'Western Mass Velo' }]
+      });
+      expect(mockClient.athlete.get).toHaveBeenCalledWith({});
+      expect(mockClient.athlete.listClubs).toHaveBeenCalledWith({});
     });
   });
 
