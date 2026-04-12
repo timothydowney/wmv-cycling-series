@@ -22,7 +22,9 @@
     "build:frontend": "vite build",
     "build:server": "cd server && npm run build",
     "start:prod": "npm --prefix server start",
-    "test": "cd server && npm test",
+    "test": "npm run test:frontend && cd server && npm test",
+    "test:frontend": "vitest run",
+    "test:frontend:watch": "vitest",
     "test:watch": "cd server && npm run test:watch",
     "test:e2e": "ENV_FILE=e2e/.env.e2e playwright test --reporter=list",
     "test:e2e:headed": "ENV_FILE=e2e/.env.e2e playwright test --headed --reporter=list",
@@ -76,6 +78,7 @@
     "globals": "^17.4.0",
     "sharp": "^0.34.5",
     "typescript": "^6.0.2",
-    "vite": "^8.0.8"
+    "vite": "^8.0.8",
+    "vitest": "^4.1.4"
   }
 }

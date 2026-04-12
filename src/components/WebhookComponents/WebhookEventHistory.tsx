@@ -2,6 +2,11 @@ import React, { useState, useCallback } from 'react';
 import { trpc } from '../../utils/trpc'; // Import trpc
 import WebhookActivityEventCard from './WebhookActivityEventCard';
 import WebhookAthleteEventCard from './WebhookAthleteEventCard';
+import {
+  ALL_TIME_RANGE_SECONDS,
+  DEFAULT_TIME_RANGE_SECONDS,
+  getSinceTimestamp,
+} from './webhookEventHistoryFilters';
 import './WebhookEventHistory.css';
 import { keepPreviousData } from '@tanstack/react-query'; // Import keepPreviousData
 import { TRPCClientErrorLike } from '@trpc/client'; // Import TRPCClientErrorLike
@@ -16,17 +21,6 @@ interface WebhookPayload {
   subscription_id: number;
   updates?: Record<string, unknown>;
 }
-
-const ALL_TIME_RANGE_SECONDS = 999999999;
-const DEFAULT_TIME_RANGE_SECONDS = 604800;
-
-const getSinceTimestamp = (sinceSeconds: number): number => {
-  if (sinceSeconds === ALL_TIME_RANGE_SECONDS) {
-    return 0;
-  }
-
-  return Math.max(0, Math.floor(Date.now() / 1000) - sinceSeconds);
-};
 
 const WebhookEventHistory: React.FC = () => {
   const [pagination, setPagination] = useState({ limit: 50, offset: 0 });

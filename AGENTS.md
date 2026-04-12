@@ -20,7 +20,7 @@ When running `npm run dev`:
 ### Testing
 
 ```bash
-npm test             # Run unit tests (backend, in-memory SQLite)
+npm test             # Run frontend Vitest + backend Jest tests
 npm run test:watch   # Watch mode (re-run tests on file changes)
 npm run test:e2e     # Run E2E tests (headless, uses wmv_e2e.db)
 npm run test:e2e:headed  # E2E tests with visible browser
@@ -69,7 +69,7 @@ npm run audit        # Security audit (frontend + backend)
 | Scenario | Command | Database | Why |
 |----------|---------|----------|-----|
 | Local development | `npm run dev` | wmv.db | Interactive frontend + backend |
-| Running unit tests | `npm test` | in-memory | Fast, isolated tests |
+| Running unit tests | `npm test` | frontend: none, backend: in-memory | Fast, isolated tests across frontend + backend |
 | Running E2E tests | `npm run test:e2e` | wmv_e2e.db | Test against prod-like data |
 | Verifying prod build | `npm run build` | (doesn't use) | Ensure TypeScript compiles, Vite builds |
 | Pre-commit checks | `npm run lint` + `npm run typecheck` | (doesn't use) | Catch errors before commit |
@@ -160,7 +160,7 @@ The `.github/workflows/ci.yml` pipeline runs:
 1. Lint (frontend + backend): `npm run lint`
 2. Typecheck (frontend + backend): `npm run typecheck`
 3. Build (frontend + backend): `npm run build`
-4. Test (backend): `npm test`
+4. Test (frontend + backend): `npm test`
 5. Docker build validation
 
 All must pass before merge to main branch.
