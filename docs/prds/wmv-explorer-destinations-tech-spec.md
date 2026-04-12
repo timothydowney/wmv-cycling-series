@@ -63,11 +63,17 @@ Refactor webhook processing into a thin orchestrator that performs the following
 
 Recommended initial handlers:
 
+- Chain wax tracker
 - Competition week matcher
 - Explorer destination matcher
-- Chain wax tracker
 
 This keeps feature fan-out inside the app boundary while avoiding a new worker or CLI-per-event process model.
+
+Phase 1 implementation detail:
+
+- The current delegated activity pipeline uses a shared activity-ingestion context plus sequential in-process handlers.
+- Chain wax runs before competition so tracked VirtualRide events are recorded even when no competition-ready segment efforts ever arrive.
+- Activity delete and athlete deauthorization remain adjacent to the processor in Phase 1 rather than being forced into the same activity-handler abstraction.
 
 ### 4.2 Refresh or backfill model
 
@@ -243,6 +249,7 @@ Add tests for:
 - Strava URL parsing and validation
 - Refresh and webhook parity using the same matching service
 - Regression protection for current competition webhook behavior
+- Regression protection for current chain wax create and delete webhook behavior
 
 ### Frontend
 
