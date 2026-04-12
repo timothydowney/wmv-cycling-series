@@ -30,6 +30,7 @@ Welcome to the WMV Cycling Series documentation. Start with **Getting Started**,
 ### Future Work
 
 - **[Roadmap](./ROADMAP.md)** - Planned features: webhooks, email, season archival, mobile app, analytics
+- **[PRDs](./prds/README.md)** - Product requirements and implementation planning docs for upcoming features
 
 ### Branding & Standards
 
@@ -71,6 +72,7 @@ Welcome to the WMV Cycling Series documentation. Start with **Getting Started**,
 ```
 /docs/
 ├── README.md                   # This file - your entry point
+├── prds/                       # Product and implementation planning docs
 ├── QUICK_START.md              # Get running in 5 minutes
 ├── ARCHITECTURE.md             # System design overview
 ├── API.md                      # Endpoint reference
@@ -104,6 +106,7 @@ Welcome to the WMV Cycling Series documentation. Start with **Getting Started**,
 | **SECURITY_AUDIT.md** | Security review & compliance | You're auditing the codebase or deploying |
 | **DEPLOYMENT.md** | Deploy to production | You're going live |
 | **ROADMAP.md** | Future features & roadmap | You want to know what's planned |
+| **prds/** | Product and implementation planning docs | You're preparing multi-phase feature work |
 | **ADMIN_GUIDE.md** | Manage competitions | You're running events |
 | **STRAVA_BRANDING.md** | Follow brand guidelines | You're adding Strava UI elements |
 
