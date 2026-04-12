@@ -33,17 +33,13 @@ test.describe('Navbar Menu Visual Testing', () => {
     const viewportSize = page.viewportSize();
     console.log('Viewport:', viewportSize);
     
-    // Verify menu doesn't extend beyond viewport
+    expect(bounds).not.toBeNull();
+    expect(viewportSize).not.toBeNull();
     if (bounds && viewportSize) {
       const menuBottom = bounds.y + bounds.height;
       const viewportBottom = viewportSize.height;
       console.log(`Menu bottom: ${menuBottom}, Viewport bottom: ${viewportBottom}`);
-      
-      if (menuBottom > viewportBottom) {
-        console.log(`⚠️  Menu extends ${menuBottom - viewportBottom}px beyond viewport!`);
-      } else {
-        console.log(`✓ Menu fits within viewport (${viewportBottom - menuBottom}px clearance)`);
-      }
+      expect(menuBottom).toBeLessThanOrEqual(viewportBottom);
     }
     
     // Scroll the menu to bottom
@@ -58,11 +54,8 @@ test.describe('Navbar Menu Visual Testing', () => {
     const lastItemBounds = await lastMenuItem.boundingBox();
     console.log('Last menu item bounds:', lastItemBounds);
     
-    // Verify last item is visible
-    if (lastItemBounds) {
-      const isVisible = await lastMenuItem.isVisible();
-      console.log(`Last item visible: ${isVisible}`);
-    }
+    expect(lastItemBounds).not.toBeNull();
+    await expect(lastMenuItem).toBeVisible();
   });
 
   test('menu should scroll independently and access all items', async ({ page }) => {
@@ -75,11 +68,6 @@ test.describe('Navbar Menu Visual Testing', () => {
     
     const dropdownMenu = page.locator('.dropdown-menu');
     
-    // Collect all visible menu items at different scroll positions
-    const items: string[] = [];
-    
-    // Get items at scroll position 0
-    let scrollTop = 0;
     const scrollHeight = await dropdownMenu.evaluate(el => el.scrollHeight);
     const clientHeight = await dropdownMenu.evaluate(el => el.clientHeight);
     
@@ -87,14 +75,7 @@ test.describe('Navbar Menu Visual Testing', () => {
     console.log(`  Total content height: ${scrollHeight}px`);
     console.log(`  Visible area: ${clientHeight}px`);
     
-    // Scroll through the menu and check all items are accessible
-    while (scrollTop <= scrollHeight) {
-      await dropdownMenu.evaluate((el, st) => {
-        el.scrollTop = st;
-      }, scrollTop);
-      
-      scrollTop += 100;
-    }
+    expect(scrollHeight).toBeGreaterThan(clientHeight);
     
     // Final screenshot at bottom
     await dropdownMenu.evaluate(el => {
@@ -104,14 +85,14 @@ test.describe('Navbar Menu Visual Testing', () => {
     await page.screenshot({ path: 'test-results/navbar-menu-3-bottom.png' });
     
     // Verify all navigation links are accessible
-    const leaderboardLink = page.getByRole('link', { name: 'Leaderboard' }).last();
-    const profileLink = page.getByRole('link', { name: 'My Profile' });
-    const aboutLink = page.getByRole('link', { name: 'About' });
+    const leaderboardLink = dropdownMenu.getByRole('link', { name: 'Leaderboard' });
+    const profileLink = dropdownMenu.getByRole('link', { name: 'My Profile' });
+    const aboutLink = dropdownMenu.getByRole('link', { name: 'About' });
     
     // These should exist in the DOM even if not currently visible in viewport
-    await expect(leaderboardLink).toBeTruthy();
-    await expect(profileLink).toBeTruthy();
-    await expect(aboutLink).toBeTruthy();
+    await expect(leaderboardLink).toHaveCount(1);
+    await expect(profileLink).toHaveCount(1);
+    await expect(aboutLink).toHaveCount(1);
     
     console.log('✓ All menu items accessible via scrolling');
   });

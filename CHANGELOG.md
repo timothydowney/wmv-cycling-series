@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Clarified the Playwright e2e prerequisites and authentication flow in the e2e docs: normal logged-in tests use the backend e2e session helper, while manual Strava OAuth is now documented as optional exploratory setup.
 
 ### Fixed
+- Made mobile navbar dropdown overflow protection verifiable with concrete E2E assertions (viewport-fit, scrollability, and reachable menu items), preventing false-positive test passes.
 - Repaired the real Strava integration after the `strava-v3` v4 upgrade by constructing authenticated client instances with `new strava.client(...)`, which restores WMV club membership checks and webhook activity enrichment in development.
 - Corrected the webhook admin event-history time filter to send an absolute Unix timestamp to the backend, so the selected 24-hour, 7-day, and 30-day windows now query the intended event range.
 - Stabilized webhook event-history filtering by keeping the computed `since` timestamp fixed until the selected time range changes, preventing redundant refetches in the admin page.

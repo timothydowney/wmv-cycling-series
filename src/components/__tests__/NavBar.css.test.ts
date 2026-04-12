@@ -5,7 +5,7 @@
  * These tests validate that the scrolling CSS properties are correctly defined.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -48,7 +48,7 @@ describe('NavBar Dropdown Menu - CSS Scrolling Fix', () => {
     it('should have overflow: hidden on the base dropdown-menu', () => {
       // Check that overflow is hidden initially (before the auto fix)
       // This ensures rounded corners work with scrolling
-      expect(cssContent).toMatch(/overflow:\s*hidden/);
+      expect(cssContent).toMatch(/\.dropdown-menu\s*{[\s\S]*?overflow:\s*hidden/);
     });
   });
 
@@ -85,8 +85,3 @@ describe('NavBar Dropdown Menu - CSS Scrolling Fix', () => {
     });
   });
 });
-
-// Function to run before tests
-function beforeAll(fn: () => void) {
-  fn();
-}

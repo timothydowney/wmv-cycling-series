@@ -31,16 +31,13 @@ test.describe('Mobile Navbar Menu', () => {
     console.log('Mobile Menu bounds:', bounds);
     console.log('Mobile Viewport:', viewportSize);
     
+    expect(bounds).not.toBeNull();
+    expect(viewportSize).not.toBeNull();
     if (bounds && viewportSize) {
       const menuBottom = bounds.y + bounds.height;
       const viewportBottom = viewportSize.height;
       console.log(`Menu bottom: ${menuBottom}, Viewport bottom: ${viewportBottom}`);
-      
-      if (menuBottom > viewportBottom) {
-        console.log(`⚠️  Menu extends beyond viewport`);
-      } else {
-        console.log(`✓ Menu fits with ${viewportBottom - menuBottom}px clearance`);
-      }
+      expect(menuBottom).toBeLessThanOrEqual(viewportBottom);
     }
     
     // Scroll to bottom
@@ -52,8 +49,7 @@ test.describe('Mobile Navbar Menu', () => {
     
     // Verify last item is visible
     const lastMenuItem = page.locator('.menu-item').last();
-    const isVisible = await lastMenuItem.isVisible();
-    console.log(`✓ Last menu item visible on mobile: ${isVisible}`);
+    await expect(lastMenuItem).toBeVisible();
   });
 
   test('small phone viewport (360px)', async ({ page }) => {
@@ -78,10 +74,13 @@ test.describe('Mobile Navbar Menu', () => {
     const bounds = await dropdownMenu.boundingBox();
     const viewportSize = page.viewportSize();
     
+    expect(scrollInfo.isScrollable).toBe(true);
+    expect(bounds).not.toBeNull();
+    expect(viewportSize).not.toBeNull();
     if (bounds && viewportSize) {
       const menuBottom = bounds.y + bounds.height;
       const viewportBottom = viewportSize.height;
-      console.log(`✓ Menu clearance: ${viewportBottom - menuBottom}px`);
+      expect(menuBottom).toBeLessThanOrEqual(viewportBottom);
     }
   });
 });
