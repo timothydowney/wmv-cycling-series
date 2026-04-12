@@ -1,17 +1,20 @@
 /**
  * Authentication Setup for E2E Tests
  * 
- * Run this manually to authenticate with Strava and save the session state.
- * The saved session will be reused by all authenticated tests.
+ * Run this manually to authenticate with Strava and save a browser session state
+ * for exploratory testing.
  * 
  * Usage:
- *   npm run e2e:auth
+ *   npm run test:e2e:auth
  * 
  * You'll need to:
  * 1. Log in to Strava when prompted
  * 2. Authorize the application
  * 3. Wait for redirect back to the app
  * 
+ * Normal Playwright regression runs do NOT depend on this file. Authenticated
+ * specs use the backend e2e-login helper instead.
+ *
  * Session state is saved to e2e/.auth/user.json (gitignored)
  */
 
@@ -80,5 +83,5 @@ setup('authenticate with Strava', async ({ page }) => {
   await page.context().storageState({ path: authFile });
   
   console.log(`✅ Authentication complete! Session saved to ${authFile}\n`);
-  console.log('   You can now run authenticated tests with: npm run test:e2e\n');
+  console.log('   This browser state is optional and intended for exploratory testing.\n');
 });

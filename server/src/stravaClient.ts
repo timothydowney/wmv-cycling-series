@@ -150,13 +150,11 @@ interface StravaClientInstance {
 
 /**
  * Helper to create a typed Strava client instance.
- * The strava-v3 library's client() method configures an object with the athletes, activities, etc.
- * We call it on a new object to create a configured client with the given token.
+ * The strava-v3 v4 client is a constructor and must be created with `new`
+ * so the authenticated athlete and activity APIs are attached correctly.
  */
 function createStravaClient(accessToken: string): StravaClientInstance {
-  const clientObj = {} as any;
-  strava.client.call(clientObj, accessToken);
-  return clientObj as StravaClientInstance;
+  return new strava.client(accessToken) as unknown as StravaClientInstance;
 }
 
 /**

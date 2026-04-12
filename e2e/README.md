@@ -8,14 +8,15 @@ End-to-end tests for UI-specific regressions and responsive design. These tests 
 ```bash
 npm install -D @playwright/test
 npx playwright install chromium
+npx playwright install-deps chromium
 ```
 
 **Run E2E tests:**
 ```bash
 npm run test:e2e           # Headless
 npm run test:e2e:headed    # See browser
-npm run test:e2e:debug     # Step-through debugger
 npm run test:e2e:ui        # Interactive UI mode
+npm run test:e2e:auth      # Manual real Strava OAuth for exploratory browser state
 ```
 
 **View test report:**
@@ -35,7 +36,7 @@ npm run test:e2e:report
 
 1. **Mock Strava API calls** at the network level (Playwright route interception)
 2. **Test against isolated database copy** (extracted from dev:prod, prevents interference)
-3. **Mock authentication state** directly (no OAuth bounce needed)
+3. **Use the backend e2e auth helper** for normal authenticated specs (no OAuth bounce needed)
 4. **Sequential execution** in Phase 1 (enable parallelization in Phase 2)
 5. **TypeScript fixtures** for type safety with tRPC types
 
@@ -49,3 +50,10 @@ npm run test:e2e:report
 - [ ] Add npm scripts
 
 See [docs/PLAYWRIGHT_TESTING_PLAN.md](../docs/PLAYWRIGHT_TESTING_PLAN.md) for complete strategy.
+
+## Authentication Notes
+
+- Normal Playwright regression runs do not require a saved browser auth file.
+- Logged-in specs create a session through `POST /auth/e2e-login` via `loginAsE2EUser()`.
+- Run `npm run test:e2e:auth` only when you intentionally want a manual, real Strava OAuth browser session for exploration.
+- On Linux or WSL, missing shared libraries such as `libnspr4.so` mean you need `npx playwright install-deps chromium`, not a new auth session.

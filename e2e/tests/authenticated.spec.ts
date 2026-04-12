@@ -7,6 +7,21 @@
 import { test, expect } from '@playwright/test';
 import { loginAsE2EUser } from '../fixtures/test-helpers';
 
+function extractSinceFromWebhookRequest(urlString: string): number | null {
+  const url = new URL(urlString);
+  const inputParam = url.searchParams.get('input');
+
+  if (!inputParam) {
+    return null;
+  }
+
+  const parsedInput = JSON.parse(inputParam) as Record<string, { since?: number; json?: { since?: number } }>;
+  const firstBatchEntry = Object.values(parsedInput)[0];
+  const since = firstBatchEntry?.since ?? firstBatchEntry?.json?.since;
+
+  return typeof since === 'number' ? since : null;
+}
+
 test.describe('Authenticated User Features', () => {
   test.beforeEach(async ({ page }) => {
     await loginAsE2EUser(page);
@@ -55,6 +70,55 @@ test.describe('Authenticated User Features', () => {
   test('menu shows disconnect from Strava button', async ({ page }) => {
     const disconnectButton = page.getByRole('button', { name: 'Disconnect from Strava' });
     await expect(disconnectButton).toBeVisible();
+  });
+
+  test('admin can open the webhook management page with e2e helper auth', async ({ page }) => {
+    await page.getByRole('link', { name: 'Manage Webhooks' }).click();
+    await expect(page).toHaveURL(/\/webhooks/);
+    await expect(page.getByRole('button', { name: 'Subscription Status' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Event History' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Storage Usage' })).toBeVisible();
+  });
+
+  test('webhook event history sends absolute timestamps for time filters', async ({ page }) => {
+    await page.getByRole('link', { name: 'Manage Webhooks' }).click();
+    await expect(page).toHaveURL(/\/webhooks/);
+
+    const eventHistoryTab = page.getByRole('button', { name: 'Event History' });
+    await eventHistoryTab.click();
+
+    const timeFilter = page.locator('#time-filter');
+    await expect(timeFilter).toBeVisible();
+
+    const allTimeRequest = page.waitForRequest((request) => {
+      if (!request.url().includes('webhookAdmin.getEvents')) {
+        return false;
+      }
+
+      return extractSinceFromWebhookRequest(request.url()) === 0;
+    });
+
+    await timeFilter.selectOption('999999999');
+    await allTimeRequest;
+
+    const expectedSince = Math.floor(Date.now() / 1000) - 604800;
+    const sevenDayRequest = page.waitForRequest((request) => {
+      if (!request.url().includes('webhookAdmin.getEvents')) {
+        return false;
+      }
+
+      const since = extractSinceFromWebhookRequest(request.url());
+      return since !== null && since > 1_000_000_000;
+    });
+
+    await timeFilter.selectOption('604800');
+    const request = await sevenDayRequest;
+    const since = extractSinceFromWebhookRequest(request.url());
+
+    expect(since).not.toBeNull();
+    expect(since).not.toBe(604800);
+    expect(since).toBeGreaterThanOrEqual(expectedSince - 30);
+    expect(since).toBeLessThanOrEqual(expectedSince + 30);
   });
 
   test('menu shows unit toggle', async ({ page }) => {

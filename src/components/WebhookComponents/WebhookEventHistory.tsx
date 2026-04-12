@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { trpc } from '../../utils/trpc'; // Import trpc
 import WebhookActivityEventCard from './WebhookActivityEventCard';
 import WebhookAthleteEventCard from './WebhookAthleteEventCard';
@@ -17,9 +17,24 @@ interface WebhookPayload {
   updates?: Record<string, unknown>;
 }
 
+const ALL_TIME_RANGE_SECONDS = 999999999;
+const DEFAULT_TIME_RANGE_SECONDS = 604800;
+
+const getSinceTimestamp = (sinceSeconds: number): number => {
+  if (sinceSeconds === ALL_TIME_RANGE_SECONDS) {
+    return 0;
+  }
+
+  return Math.max(0, Math.floor(Date.now() / 1000) - sinceSeconds);
+};
+
 const WebhookEventHistory: React.FC = () => {
   const [pagination, setPagination] = useState({ limit: 50, offset: 0 });
-  const [filters, setFilters] = useState({ status: 'all', since: 604800 }); // Default to 7 days
+  const [filters, setFilters] = useState({
+    status: 'all',
+    sinceSeconds: DEFAULT_TIME_RANGE_SECONDS,
+    since: getSinceTimestamp(DEFAULT_TIME_RANGE_SECONDS)
+  });
   const [message, setMessage] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<Record<number, 'raw' | 'formatted'>>({});
 
@@ -53,11 +68,6 @@ const WebhookEventHistory: React.FC = () => {
     }
     clearEventsMutation.mutate({ confirm: 'yes' });
   }, [data?.total, clearEventsMutation]);
-
-  // Refetch when filters or pagination change
-  useEffect(() => {
-    refetch();
-  }, [pagination, filters, refetch]);
 
 
   const toggleViewMode = (eventId: number) => {
@@ -139,7 +149,7 @@ const WebhookEventHistory: React.FC = () => {
             id="status-filter"
             value={filters.status}
             onChange={(e) => {
-              setFilters({ ...filters, status: e.target.value });
+              setFilters((prev) => ({ ...prev, status: e.target.value }));
               setPagination({ ...pagination, offset: 0 });
             }}
           >
@@ -153,16 +163,21 @@ const WebhookEventHistory: React.FC = () => {
           <label htmlFor="time-filter">Time Range:</label>
           <select
             id="time-filter"
-            value={filters.since}
+            value={filters.sinceSeconds}
             onChange={(e) => {
-              setFilters({ ...filters, since: parseInt(e.target.value) });
+              const sinceSeconds = parseInt(e.target.value);
+              setFilters((prev) => ({
+                ...prev,
+                sinceSeconds,
+                since: getSinceTimestamp(sinceSeconds)
+              }));
               setPagination({ ...pagination, offset: 0 });
             }}
           >
             <option value={86400}>Last 24 hours</option>
             <option value={604800}>Last 7 days</option>
             <option value={2592000}>Last 30 days</option>
-            <option value={999999999}>All time</option>
+            <option value={ALL_TIME_RANGE_SECONDS}>All time</option>
           </select>
         </div>
 

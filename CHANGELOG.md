@@ -19,8 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The navigation now exposes Manage Roles as its own first-class admin destination and keeps About clearly outside the admin menu grouping.
 - Upgraded the frontend runtime and type packages to React 19 (`react`, `react-dom`, `@types/react`, and `@types/react-dom`) as the first major-version migration PR in the dependency modernization set.
 - Upgraded the next safe batch of major dependencies in one pass: Vite 8 + `@vitejs/plugin-react` 6, TypeScript 6 (frontend and backend), Express 5, `strava-v3` 4, and `@types/express` 5.
+- Clarified the Playwright e2e prerequisites and authentication flow in the e2e docs: normal logged-in tests use the backend e2e session helper, while manual Strava OAuth is now documented as optional exploratory setup.
 
 ### Fixed
+- Repaired the real Strava integration after the `strava-v3` v4 upgrade by constructing authenticated client instances with `new strava.client(...)`, which restores WMV club membership checks and webhook activity enrichment in development.
+- Corrected the webhook admin event-history time filter to send an absolute Unix timestamp to the backend, so the selected 24-hour, 7-day, and 30-day windows now query the intended event range.
+- Stabilized webhook event-history filtering by keeping the computed `since` timestamp fixed until the selected time range changes, preventing redundant refetches in the admin page.
 - Restored WMV club membership detection after the `strava-v3` v4 upgrade by using the supported `athlete.get()` API path and falling back to `athlete.listClubs()` when club data is omitted from the athlete payload.
 - Creating or editing one season no longer closes another season through the legacy `season.is_active` path.
 - Batch fetch and webhook season validation no longer rely on the removed manual-active flag.
