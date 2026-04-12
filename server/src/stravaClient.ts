@@ -132,6 +132,7 @@ interface StravaClientInstance {
     get(args: { athlete_id: string }): Promise<SummaryAthlete>;
   };
   athlete: {
+    get(args?: { access_token?: string }): Promise<{ [key: string]: unknown }>;
     listActivities(args: {
       after?: number;
       before?: number;
@@ -139,6 +140,11 @@ interface StravaClientInstance {
       per_page?: number;
       include_all_efforts?: boolean;
     }): Promise<Activity[]>;
+    listClubs(args?: {
+      page?: number;
+      per_page?: number;
+      access_token?: string;
+    }): Promise<Array<{ id: string | number; [key: string]: unknown }>>;
   };
 }
 
@@ -197,12 +203,17 @@ async function getAthleteProfile(athleteId: string, accessToken: string): Promis
 async function getLoggedInAthlete(accessToken: string): Promise<any> {
   try {
     const client = createStravaClient(accessToken);
-    
-    // Call the /athlete endpoint to get logged-in athlete's data
-    // This returns the athlete object with clubs array
-    const result = await (client.athlete as any).client?.getEndpoint?.('athlete');
-    
-    return result;
+
+    // Use the public API method provided by strava-v3 v4+.
+    const athlete = await client.athlete.get({});
+
+    // If clubs aren't included on /athlete, fetch them explicitly and merge.
+    if (athlete && !Array.isArray((athlete as any).clubs)) {
+      const clubs = await client.athlete.listClubs({});
+      return { ...athlete, clubs: Array.isArray(clubs) ? clubs : [] };
+    }
+
+    return athlete;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`Failed to fetch logged-in athlete: ${message}`);
