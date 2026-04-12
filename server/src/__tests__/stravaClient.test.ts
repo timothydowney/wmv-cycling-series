@@ -14,8 +14,12 @@ jest.mock('strava-v3', () => {
   // Track the last mock client set for getSegment/etc tests
   let lastMockClient: any = null;
 
-  // Create a client function that works with .call()
-  const clientFunc = function(this: any, token: string) {
+  // Mirror the real library: calling without `new` returns a constructed client.
+  const clientFunc: any = function(this: any, token: string) {
+    if (!(this instanceof clientFunc)) {
+      return new (clientFunc as any)(token);
+    }
+
     // If a mock client was set via mockReturnValue, use it
     if (lastMockClient) {
       Object.assign(this, lastMockClient);
@@ -57,6 +61,18 @@ const mockStrava = strava as any;
 describe('Strava Client', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockStrava.client.mockReturnValue(undefined);
+  });
+
+  describe('createStravaClient', () => {
+    test('constructs a client instance with authenticated handlers', () => {
+      const client = stravaClient.createStravaClient('token123');
+
+      expect(client.athlete).toBeDefined();
+      expect(typeof client.athlete.get).toBe('function');
+      expect(client.activities).toBeDefined();
+      expect(typeof client.activities.get).toBe('function');
+    });
   });
 
   describe('exchangeAuthorizationCode', () => {
