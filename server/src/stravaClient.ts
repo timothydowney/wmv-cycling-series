@@ -154,9 +154,7 @@ interface StravaClientInstance {
  * We call it on a new object to create a configured client with the given token.
  */
 function createStravaClient(accessToken: string): StravaClientInstance {
-  const clientObj = {} as any;
-  strava.client.call(clientObj, accessToken);
-  return clientObj as StravaClientInstance;
+  return new strava.client(accessToken) as unknown as StravaClientInstance;
 }
 
 /**

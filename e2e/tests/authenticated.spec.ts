@@ -57,6 +57,14 @@ test.describe('Authenticated User Features', () => {
     await expect(disconnectButton).toBeVisible();
   });
 
+  test('admin can open the webhook management page with e2e helper auth', async ({ page }) => {
+    await page.getByRole('link', { name: 'Manage Webhooks' }).click();
+    await expect(page).toHaveURL(/\/webhooks/);
+    await expect(page.getByRole('button', { name: 'Subscription Status' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Event History' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Storage Usage' })).toBeVisible();
+  });
+
   test('menu shows unit toggle', async ({ page }) => {
     const unitToggle = page.getByTestId('unit-toggle');
     await expect(unitToggle).toBeVisible();

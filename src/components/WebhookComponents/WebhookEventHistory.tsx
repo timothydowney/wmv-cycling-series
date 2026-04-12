@@ -17,17 +17,24 @@ interface WebhookPayload {
   updates?: Record<string, unknown>;
 }
 
+const ALL_TIME_RANGE_SECONDS = 999999999;
+const DEFAULT_TIME_RANGE_SECONDS = 604800;
+
 const WebhookEventHistory: React.FC = () => {
   const [pagination, setPagination] = useState({ limit: 50, offset: 0 });
-  const [filters, setFilters] = useState({ status: 'all', since: 604800 }); // Default to 7 days
+  const [filters, setFilters] = useState({ status: 'all', sinceSeconds: DEFAULT_TIME_RANGE_SECONDS });
   const [message, setMessage] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<Record<number, 'raw' | 'formatted'>>({});
+
+  const since = filters.sinceSeconds === ALL_TIME_RANGE_SECONDS
+    ? 0
+    : Math.max(0, Math.floor(Date.now() / 1000) - filters.sinceSeconds);
 
   const { data, isLoading, error: queryError, refetch } = trpc.webhookAdmin.getEvents.useQuery(
     {
       limit: pagination.limit,
       offset: pagination.offset,
-      since: filters.since,
+      since,
       status: filters.status as 'all' | 'success' | 'failed',
     },
     {
@@ -153,16 +160,16 @@ const WebhookEventHistory: React.FC = () => {
           <label htmlFor="time-filter">Time Range:</label>
           <select
             id="time-filter"
-            value={filters.since}
+            value={filters.sinceSeconds}
             onChange={(e) => {
-              setFilters({ ...filters, since: parseInt(e.target.value) });
+              setFilters({ ...filters, sinceSeconds: parseInt(e.target.value) });
               setPagination({ ...pagination, offset: 0 });
             }}
           >
             <option value={86400}>Last 24 hours</option>
             <option value={604800}>Last 7 days</option>
             <option value={2592000}>Last 30 days</option>
-            <option value={999999999}>All time</option>
+            <option value={ALL_TIME_RANGE_SECONDS}>All time</option>
           </select>
         </div>
 
