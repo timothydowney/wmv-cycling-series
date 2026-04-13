@@ -17,6 +17,8 @@ Deliverables:
 
 Goal: refactor webhook processing into a thin orchestrator with delegated in-process handlers so Explorer can be added without further overloading the current processor.
 
+Status: complete on the Phase 1 closure branch. The next Explorer PR should start Phase 2 preparation work rather than reopen the webhook seam.
+
 Scope:
 
 - Introduce the handler or matcher abstraction for ingested activity contexts
@@ -37,6 +39,8 @@ Out of scope:
 ## Phase 2: Explorer Data Model And Matching
 
 Goal: add Explorer week, destination, and match storage plus the shared matching service used by both webhooks and refresh actions.
+
+Entry condition: start from a new PR after Phase 1 is merged, and use that PR to close the remaining summary-model and destination-metadata decisions before broad Phase 2 implementation expands.
 
 Scope:
 

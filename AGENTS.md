@@ -2,6 +2,8 @@
 
 Quick reference for agents and automation tools working with this repository.
 
+This file is the canonical operations reference for shared agents in this repo. Custom agents and prompts should prefer linking here instead of restating command catalogs, environment rules, or validation sequences in full.
+
 ## npm Tasks - Quick Reference
 
 ### Development
@@ -101,6 +103,17 @@ npm run audit        # Security audit (frontend + backend)
    - wmv.db changes persist between dev sessions ✅
    - wmv_e2e.db should remain unchanged (test data integrity)
    - Unit tests use in-memory DB (no persistence needed)
+
+6. **Branch discipline:**
+   - Before substantial planning or coding, check the current branch with `git branch --show-current`
+   - If the work is a new slice or feature, start from updated `main` and create a dedicated branch such as `feat/<slice-name>`
+   - Do not pile substantial feature work onto an unrelated PR branch, even if the workspace is already open there
+   - If you discover mid-task that you are on the wrong branch, transplant the working tree onto a fresh branch from `main` before continuing
+
+7. **Version and changelog timing:**
+   - Treat `VERSION` and `CHANGELOG.md` as final pre-commit bookkeeping for user-facing commits
+   - Do not update either file during planning or mid-implementation
+   - Keep changelog entries high-level rather than a play-by-play of intermediate edits
 
 ## Special Tasks
 

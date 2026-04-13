@@ -12,8 +12,8 @@
  * - Athlete deauth events -> remove tokens
  *
  * Retry Strategy:
- * - Max 3 attempts per event
- * - 5-second backoff between retries
+ * - Activity ingestion fetches once, then retries up to 3 more times for missing segment efforts
+ * - Backoff between retries: 15s, 45s, 90s
  * - Failures stored in database with last_error_at timestamp
  * - Re-fetches activity from Strava on retry (not cached payload)
  */
