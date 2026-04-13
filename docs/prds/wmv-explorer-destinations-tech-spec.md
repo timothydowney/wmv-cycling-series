@@ -67,6 +67,8 @@ Recommended initial handlers:
 - Competition week matcher
 - Explorer destination matcher
 
+Phase 1 should land this seam with the existing competition and chain wax handlers first. The Explorer destination handler belongs to Phase 2, after the data model and matching rules are finalized.
+
 This keeps feature fan-out inside the app boundary while avoiding a new worker or CLI-per-event process model.
 
 Phase 1 implementation detail:
@@ -282,7 +284,7 @@ Recommended E2E journeys:
 5. Add admin Explorer setup UI.
 6. Add Challenges hub UI with progress bar, checklist, and completers summary.
 7. Run regression checks on race and admin flows.
-8. Update VERSION and CHANGELOG.md when implementation begins.
+8. If the slice is user-facing and ready to commit, update `VERSION` and `CHANGELOG.md` in the final pre-commit pass with a high-level summary.
 
 ## 12. Risks and Mitigations
 
