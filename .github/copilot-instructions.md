@@ -72,6 +72,16 @@ Before substantial planning or implementation work:
 4. Do not continue substantial work on an unrelated PR branch just because the workspace was already there.
 5. If you discover after edits that the branch is wrong, transplant the working tree onto a fresh branch from `main` before continuing.
 
+## Slice Completion Discipline
+
+When an approved implementation slice is complete and the required validation passes for that slice:
+
+1. Recommend creating the commit immediately rather than continuing into the next slice on an uncommitted worktree.
+2. Recommend opening or updating the PR for that slice before switching back to planning for the next slice.
+3. Only after the slice is committed and the PR step is handled should the workflow move back to planning for the next approved slice.
+
+The goal is to keep implementation slices reviewable, preserve branch discipline, and avoid stacking new planning or coding work on top of an unsubmitted slice.
+
 ---
 
 ## Project Structure
@@ -286,6 +296,7 @@ npm run test:e2e:ui        # Interactive debugging
   ```
   Required when changing `package.json`, lockfiles, `server/package.json`, `Dockerfile`, install hooks/scripts, Node version checks, dependency versions, or frontend/backend build tooling.
 3. **If this commit is user-facing, update `VERSION` and `CHANGELOG.md` immediately before staging and commit** (see top of this file).
+4. **After a validated approved slice is committed, recommend opening or updating the PR for that slice before returning to planning for the next slice.**
 
 **Git best practices:**
 - Use `git add <specific-files>` (never `git add .`)

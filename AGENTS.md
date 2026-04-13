@@ -115,6 +115,11 @@ npm run audit        # Security audit (frontend + backend)
    - Do not update either file during planning or mid-implementation
    - Keep changelog entries high-level rather than a play-by-play of intermediate edits
 
+8. **Slice completion handoff:**
+   - When an approved implementation slice has passed its required validation, recommend committing it before doing more planning or coding
+   - Recommend opening or updating the PR for that slice before moving back to planning for the next slice
+   - Do not casually stack the next slice's planning or implementation onto an uncommitted or unsubmitted slice
+
 ## Special Tasks
 
 | Task | Purpose | When to Use |
