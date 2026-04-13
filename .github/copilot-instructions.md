@@ -1,12 +1,16 @@
 # GitHub Copilot Instructions
 
-WMV Cycling Series: React 18 + TypeScript frontend with Node.js 24 Express + tRPC backend. SQLite database via Drizzle ORM.
+WMV Cycling Series: React 19 + TypeScript frontend with Node.js 24 Express + tRPC backend. SQLite database via Drizzle ORM.
 
 ---
 
 ## 🚨 CRITICAL: Version & Changelog Requirements
 
-**ALWAYS update these files together when making ANY user-facing changes:**
+**Update these files together only in the final pre-commit pass for a user-facing commit:**
+
+- Do not bump `VERSION` or edit `CHANGELOG.md` during planning, early implementation, or exploratory work.
+- If work is not about to be committed, leave both files unchanged.
+- `CHANGELOG.md` should capture the high-level user-facing delta, not a play-by-play of every intermediate edit.
 
 1. **VERSION file** (`/VERSION`): Update semantic version number
    - Bug fixes: increment patch (0.11.0 → 0.11.1)
@@ -21,7 +25,7 @@ WMV Cycling Series: React 18 + TypeScript frontend with Node.js 24 Express + tRP
 
 **Example workflow:**
 ```bash
-# After making changes
+# After validation passes and right before commit
 echo "0.11.2" > VERSION
 # Edit CHANGELOG.md to add your changes
 git add VERSION CHANGELOG.md <your-changed-files>
@@ -30,7 +34,7 @@ git commit -m "feat: your feature description
 Version: 0.11.2"
 ```
 
-**This is not optional.** All commits affecting user experience must update both files.
+**This is not optional for user-facing commits.** Update both files together immediately before staging and commit.
 
 ---
 
@@ -44,7 +48,7 @@ npm run dev:cleanup   # Stop all servers
 
 **Testing & Building:**
 ```bash
-npm test              # Unit tests (backend)
+npm test              # Frontend + backend tests
 npm run test:e2e      # E2E tests (headless)
 npm run test:e2e:headed  # E2E tests (visible browser)
 npm run build         # Production build
@@ -55,6 +59,18 @@ npm run typecheck     # Typecheck both
 **Node.js 24.x required.** Check: `node --version`
 
 See [AGENTS.md](./AGENTS.md) for full npm task reference and database information.
+
+`AGENTS.md` is the canonical shared operations reference for commands, environment separation, validation flow, and branch discipline. Prefer linking there instead of restating those details in custom agents, prompts, and skills.
+
+## Branch Discipline
+
+Before substantial planning or implementation work:
+
+1. Check the current branch with `git branch --show-current`.
+2. If the task is a new feature, phase, or approved slice, update `main` first.
+3. Create or switch to a dedicated feature branch from `main` before making substantial changes.
+4. Do not continue substantial work on an unrelated PR branch just because the workspace was already there.
+5. If you discover after edits that the branch is wrong, transplant the working tree onto a fresh branch from `main` before continuing.
 
 ---
 
@@ -73,7 +89,7 @@ See [AGENTS.md](./AGENTS.md) for full npm task reference and database informatio
 ## Technology Stack
 
 ### Frontend
-- **React 18** + TypeScript + Vite
+- **React 19** + TypeScript + Vite
 - **tRPC Client** for type-safe API calls
 - **TanStack React Query (v5)** for data management
 - **Tailwind CSS** for styling
@@ -86,64 +102,18 @@ See [AGENTS.md](./AGENTS.md) for full npm task reference and database informatio
 - **TypeScript only** (no `.js` files in `/server/src`)
 
 ### Testing
+- **Vitest** for frontend tests
 - **Jest + ts-jest** for backend unit tests (in-memory SQLite)
 - **Playwright** for E2E tests (uses wmv_e2e.db)
 
-## Database Files & Environments
+## Operational Reference
 
-| File | Environment | Purpose | Used By |
-|------|-------------|---------|---------|
-| `server/data/wmv.db` | `.env` | Local dev | `npm run dev`, `npm test` |
-| `server/data/wmv_e2e.db` | `e2e/.env.e2e` | E2E tests | `npm run test:e2e*` |
-| `server/data/wmv_prod.db` | `.env.prod` (Railway) | Production | Railway deployment |
+Use [AGENTS.md](./AGENTS.md) as the source of truth for:
 
-**Key Rule:** Never mix databases. Verify environment file is correct:
-- Dev: `cat .env | grep DATABASE_PATH` → `./data/wmv.db`
-- E2E: `cat e2e/.env.e2e | grep DATABASE_PATH` → `./data/wmv_e2e.db`
-
-## npm Task Reference
-
-### User-Facing Tasks (what you actually run)
-
-```bash
-npm run dev               # Start frontend + backend interactively
-npm run dev:cleanup       # Stop all servers
-npm run build             # Build both frontend + backend for prod
-npm test                  # Run backend unit tests
-npm run test:watch        # Backend tests in watch mode
-npm run test:e2e          # Run E2E tests (headless, CI-friendly)
-npm run test:e2e:headed   # E2E tests with visible browser
-npm run test:e2e:ui       # Playwright UI (interactive debugging)
-npm run lint              # Lint both frontend + backend
-npm run typecheck         # Typecheck both frontend + backend
-npm run audit             # Security audit (both)
-npm run validate:docker   # Validate the production Docker build locally
-```
-
-### Helper Tasks (called by main tasks)
-
-```bash
-predev                   # Auto-run before dev (validates Node 24.x)
-prebuild                 # Auto-run before build (cleans old artifacts)
-dev:server               # Backend dev server (called by dev)
-dev:frontend             # Frontend dev server (called by dev)
-build:server             # TypeScript compilation (called by build)
-build:frontend           # Vite build (called by build)
-lint:server              # Backend linting (called by lint)
-lint:frontend            # Frontend linting (called by lint)
-postinstall              # Auto-run after npm install (installs server deps)
-prepare                  # Auto-run after npm install (sets up git hooks)
-```
-
-### Special/Occasional Tasks
-
-```bash
-mock:strava              # Start mock Strava API (port 8002)
-mock:strava:kill         # Kill mock Strava server
-db:fetch-prod            # Download production database
-webhook:emit             # Emit test webhook events
-test:e2e:report          # View Playwright test report
-```
+- npm task catalogs
+- database and environment separation
+- branch discipline and working-tree transplant rules
+- validation and pre-commit flow
 
 ## Code Patterns & Standards
 
@@ -303,19 +273,19 @@ npm run test:e2e:ui        # Interactive debugging
 
 **Before committing, ALWAYS:**
 
-1. **Update VERSION and CHANGELOG.md** (see top of this file)
-2. **Run checks:**
+1. **Run checks:**
    ```bash
    npm run lint       # Lint both frontend + backend
    npm run typecheck  # Typecheck both
    npm test           # Run unit tests
    npm run build      # Verify production build
    ```
-3. **Run Docker validation for dependency and build-path changes:**
+2. **Run Docker validation for dependency and build-path changes:**
   ```bash
   npm run validate:docker
   ```
   Required when changing `package.json`, lockfiles, `server/package.json`, `Dockerfile`, install hooks/scripts, Node version checks, dependency versions, or frontend/backend build tooling.
+3. **If this commit is user-facing, update `VERSION` and `CHANGELOG.md` immediately before staging and commit** (see top of this file).
 
 **Git best practices:**
 - Use `git add <specific-files>` (never `git add .`)
@@ -419,9 +389,9 @@ For detailed information:
 |------|-------|
 | Node.js | 24.x (required) |
 | Database | SQLite (better-sqlite3) + Drizzle ORM |
-| Frontend | React 18 + TypeScript + Vite |
+| Frontend | React 19 + TypeScript + Vite |
 | Backend | Express + tRPC + TypeScript |
-| Testing | Jest (backend) + Playwright (E2E) |
+| Testing | Vitest (frontend) + Jest (backend) + Playwright (E2E) |
 | Deployment | Railway.app |
 | Hosting | Production: Railway, Development: Local |
 

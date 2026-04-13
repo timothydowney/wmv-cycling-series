@@ -255,7 +255,7 @@ The technical specification for Explorer Destinations is documented in [wmv-expl
 - Manual refresh or backfill works.
 - Explorer history persists and can be queried after week end.
 - Existing leaderboard and admin regression checks pass.
-- VERSION and CHANGELOG.md are updated with implementation.
+- For a user-facing Explorer commit, `VERSION` and `CHANGELOG.md` are updated in the final pre-commit pass with a high-level summary of the shipped slice.
 - Explorer ideas backlog remains separate from the v1 scope.
 
 End of PRD
