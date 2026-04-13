@@ -277,7 +277,7 @@ npm run test:e2e:ui        # Interactive debugging
    ```bash
    npm run lint       # Lint both frontend + backend
    npm run typecheck  # Typecheck both
-   npm test           # Run unit tests
+   npm test           # Run frontend + backend tests
    npm run build      # Verify production build
    ```
 2. **Run Docker validation for dependency and build-path changes:**
