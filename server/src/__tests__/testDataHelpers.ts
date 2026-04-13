@@ -1,6 +1,6 @@
 import { BetterSQLite3Database as DrizzleBetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { isoToUnix } from '../dateUtils';
-import { season, activity, participant, participantToken, result, segment, segmentEffort, week, deletionRequest } from '../db/schema';
+import { season, activity, participant, participantToken, result, segment, segmentEffort, week, deletionRequest, explorerWeek, explorerDestination, explorerDestinationMatch } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 
@@ -20,6 +20,12 @@ export type SelectResult = InferSelectModel<typeof result>;
 export type InsertSegmentEffort = InferInsertModel<typeof segmentEffort>;
 export type SelectSegmentEffort = InferSelectModel<typeof segmentEffort>;
 export type InsertParticipantToken = InferInsertModel<typeof participantToken>;
+export type InsertExplorerWeek = InferInsertModel<typeof explorerWeek>;
+export type SelectExplorerWeek = InferSelectModel<typeof explorerWeek>;
+export type InsertExplorerDestination = InferInsertModel<typeof explorerDestination>;
+export type SelectExplorerDestination = InferSelectModel<typeof explorerDestination>;
+export type InsertExplorerDestinationMatch = InferInsertModel<typeof explorerDestinationMatch>;
+export type SelectExplorerDestinationMatch = InferSelectModel<typeof explorerDestinationMatch>;
 
 // Type for the database instance passed to helper functions - using Drizzle instance now
 type TestDb = DrizzleBetterSQLite3Database;
@@ -86,6 +92,32 @@ interface CreateWeekWithResultsOptions {
   weekName?: string;
   participantIds?: string[];
   times?: number[];
+}
+
+interface CreateExplorerWeekOptions {
+  name?: string;
+  startTime?: string;
+  endTime?: string;
+  status?: string;
+}
+
+interface CreateExplorerDestinationOptions {
+  explorerWeekId: number;
+  stravaSegmentId: string;
+  sourceUrl?: string | null;
+  cachedSegmentName?: string | null;
+  displayLabel?: string | null;
+  displayOrder?: number;
+  surfaceType?: string | null;
+  category?: string | null;
+}
+
+interface CreateExplorerMatchOptions {
+  explorerWeekId: number;
+  explorerDestinationId: number;
+  stravaAthleteId: string;
+  stravaActivityId?: string;
+  matchedAt?: string;
 }
 
 /**
@@ -228,6 +260,76 @@ export function createWeek(db: TestDb, options: CreateWeekOptions = {}): SelectW
   const newWeek = db.insert(week).values(newWeekData).returning().get();
   console.log(`[TEST_HELPER] Created Week: id=${newWeek.id}, name=${newWeek.week_name}, seasonId=${newWeek.season_id}, segmentId=${newWeek.strava_segment_id}`);
   return newWeek;
+}
+
+export function createExplorerWeek(db: TestDb, options: CreateExplorerWeekOptions = {}): SelectExplorerWeek {
+  const {
+    name = 'Explorer Week',
+    startTime = '2025-06-01T00:00:00Z',
+    endTime = '2025-06-07T23:59:59Z',
+    status = 'active'
+  } = options;
+
+  const newExplorerWeekData: InsertExplorerWeek = {
+    name,
+    start_at: isoToUnix(startTime) || 0,
+    end_at: isoToUnix(endTime) || 0,
+    status,
+  };
+
+  const newExplorerWeek = db.insert(explorerWeek).values(newExplorerWeekData).returning().get();
+  console.log(`[TEST_HELPER] Created ExplorerWeek: id=${newExplorerWeek.id}, name=${newExplorerWeek.name}, status=${newExplorerWeek.status}`);
+  return newExplorerWeek;
+}
+
+export function createExplorerDestination(db: TestDb, options: CreateExplorerDestinationOptions): SelectExplorerDestination {
+  const {
+    explorerWeekId,
+    stravaSegmentId,
+    sourceUrl = null,
+    cachedSegmentName = `Segment ${stravaSegmentId}`,
+    displayLabel = null,
+    displayOrder = 0,
+    surfaceType = null,
+    category = null,
+  } = options;
+
+  const newExplorerDestinationData: InsertExplorerDestination = {
+    explorer_week_id: explorerWeekId,
+    strava_segment_id: stravaSegmentId,
+    source_url: sourceUrl,
+    cached_segment_name: cachedSegmentName,
+    display_label: displayLabel,
+    display_order: displayOrder,
+    surface_type: surfaceType,
+    category,
+  };
+
+  const newExplorerDestination = db.insert(explorerDestination).values(newExplorerDestinationData).returning().get();
+  console.log(`[TEST_HELPER] Created ExplorerDestination: id=${newExplorerDestination.id}, weekId=${newExplorerDestination.explorer_week_id}, segmentId=${newExplorerDestination.strava_segment_id}`);
+  return newExplorerDestination;
+}
+
+export function createExplorerMatch(db: TestDb, options: CreateExplorerMatchOptions): SelectExplorerDestinationMatch {
+  const {
+    explorerWeekId,
+    explorerDestinationId,
+    stravaAthleteId,
+    stravaActivityId = String(Math.floor(Math.random() * 1000000000)),
+    matchedAt = '2025-06-03T10:00:00Z'
+  } = options;
+
+  const newExplorerMatchData: InsertExplorerDestinationMatch = {
+    explorer_week_id: explorerWeekId,
+    explorer_destination_id: explorerDestinationId,
+    strava_athlete_id: stravaAthleteId,
+    strava_activity_id: stravaActivityId,
+    matched_at: isoToUnix(matchedAt) || 0,
+  };
+
+  const newExplorerMatch = db.insert(explorerDestinationMatch).values(newExplorerMatchData).returning().get();
+  console.log(`[TEST_HELPER] Created ExplorerMatch: id=${newExplorerMatch.id}, weekId=${newExplorerMatch.explorer_week_id}, athleteId=${newExplorerMatch.strava_athlete_id}`);
+  return newExplorerMatch;
 }
 
 /**
@@ -406,6 +508,9 @@ export function createFullUserWithActivity(db: TestDb, options: CreateFullUserOp
  */
 export function clearAllData(db: TestDb) {
   // Use Drizzle to delete from tables
+  db.delete(explorerDestinationMatch).run();
+  db.delete(explorerDestination).run();
+  db.delete(explorerWeek).run();
   db.delete(deletionRequest).run();
   db.delete(segmentEffort).run();
   db.delete(result).run();

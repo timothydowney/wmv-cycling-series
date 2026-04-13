@@ -1,7 +1,7 @@
 # API reference
 
 **NOTE: The project is migrating to tRPC. The REST endpoints below are legacy or specific to Auth/Webhooks.**
-**For all data fetching (Week, Season, Leaderboard, Segments, Participants, Webhook Admin), refer to the tRPC routers in `server/src/routers`.**
+**For all data fetching (Week, Season, Leaderboard, Segments, Participants, Webhook Admin, Explorer), refer to the tRPC routers in `server/src/routers`.**
 
 Base URL (dev): http://localhost:3001
 
@@ -12,6 +12,73 @@ Base URL (dev): http://localhost:3001
 - `GET /weeks/:id` — **Migrated to `trpc.week.getById`**
 - `GET /weeks/:id/leaderboard` — **Migrated to `trpc.leaderboard.getWeekLeaderboard`**
 - `GET /seasons/:id/leaderboard` — **Migrated to `trpc.leaderboard.getSeasonLeaderboard`**
+
+## Explorer tRPC endpoints
+
+- `trpc.explorer.getActiveWeek` — Returns the currently active Explorer week and its ordered destinations.
+- `trpc.explorer.getWeekProgress` — Authenticated route that returns the current athlete's destination completion progress for an Explorer week.
+
+### `trpc.explorer.getActiveWeek`
+
+Response shape:
+```
+{
+  "id": number,
+  "name": string,
+  "startAt": number,
+  "endAt": number,
+  "status": "draft" | "active" | "archived",
+  "destinations": [
+    {
+      "id": number,
+      "stravaSegmentId": string,
+      "displayLabel": string,
+      "sourceUrl": string | null,
+      "surfaceType": string | null,
+      "category": string | null,
+      "displayOrder": number
+    }
+  ]
+}
+```
+
+### `trpc.explorer.getWeekProgress`
+
+Input:
+```
+{
+  "weekId": number
+}
+```
+
+Response shape:
+```
+{
+  "week": {
+    "id": number,
+    "name": string,
+    "startAt": number,
+    "endAt": number,
+    "status": "draft" | "active" | "archived"
+  },
+  "completedDestinations": number,
+  "totalDestinations": number,
+  "destinations": [
+    {
+      "id": number,
+      "stravaSegmentId": string,
+      "displayLabel": string,
+      "sourceUrl": string | null,
+      "surfaceType": string | null,
+      "category": string | null,
+      "displayOrder": number,
+      "completed": boolean,
+      "matchedAt": number | null,
+      "stravaActivityId": string | null
+    }
+  ]
+}
+```
 
 ### GET /weeks/:id/leaderboard (Legacy)
 

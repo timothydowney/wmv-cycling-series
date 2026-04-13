@@ -40,14 +40,20 @@ Out of scope:
 
 Goal: add Explorer week, destination, and match storage plus the shared matching service used by both webhooks and refresh actions.
 
-Entry condition: start from a new PR after Phase 1 is merged, and use that PR to close the remaining summary-model and destination-metadata decisions before broad Phase 2 implementation expands.
+Entry condition: start from a new PR after Phase 1 is merged and after the summary-model and destination-metadata decisions are explicitly locked in the planning docs. Begin with one narrow implementation slice before expanding Phase 2 scope.
 
 Scope:
 
 - Schema additions
+- Narrow extraction of shared segment-based matching and persistence logic where Explorer would otherwise duplicate existing Competition code
 - Explorer matching service
 - Admin or service-level refresh path
 - Idempotent storage rules
+
+Implementation note:
+
+- This does not require a new top-level phase before Phase 2.
+- The clean version is to treat the extraction as the first bounded sub-slice inside Phase 2 Slice A, with an explicit requirement that Competition behavior remains unchanged.
 
 ## Phase 3: Explorer Admin Setup
 

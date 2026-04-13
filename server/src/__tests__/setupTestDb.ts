@@ -120,6 +120,9 @@ export function teardownTestDb(db: Database.Database) {
       DELETE FROM chain_wax_activity;
       DELETE FROM chain_wax_period;
       DELETE FROM chain_wax_puck;
+      DELETE FROM explorer_destination_match;
+      DELETE FROM explorer_destination;
+      DELETE FROM explorer_week;
       DELETE FROM webhook_subscription;
       DELETE FROM webhook_event;
       DELETE FROM participant_token;

@@ -4,15 +4,15 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 
 ## Current Focus
 
-- Close Phase 1 cleanly and keep the branch ready for a dedicated PR.
-- Mark the webhook seam complete without quietly expanding into Phase 2 work.
-- Prepare the next Explorer PR to focus on Phase 2 preparation decisions.
+- Keep Phase 1 closure stable and documented.
+- Lock the Phase 2 preparation decisions in the planning set.
+- Launch one narrow Phase 2 implementation PR after this planning slice lands.
 
 ## Current Go State
 
-- **Readiness:** Phase 1 Complete; Ready For New Phase 2 Preparation PR
-- **Immediate scope:** close this branch as the Phase 1 PR and begin the next branch with Phase 2 preparation decisions only
-- **Not yet in scope:** broad Phase 2 schema or UI implementation until the remaining design blockers are closed
+- **Readiness:** Phase 1 Complete; Phase 2 Preparation Complete; Ready For Narrow Phase 2 Implementation Slice
+- **Immediate scope:** one bounded Phase 2 Slice A covering Explorer schema, matching service, refresh-path parity, initial query routes, and backend tests
+- **Not yet in scope:** broad Phase 2 implementation across schema, admin UI, athlete UI, and expanded API surface in one PR
 
 ## Decisions Made
 
@@ -24,30 +24,34 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 - GitHub issues remain secondary for now; local planning docs stay primary until slices are stable enough to externalize cleanly.
 - Phase 1 is approved only as a structural webhook slice: preserve current behavior first, add Explorer matching later.
 - Phase 1 is complete on this branch: the shared activity-ingestion context, sequential delegated handlers, explicit handler order, and preservation tests are in place.
+- V1 athlete week summary is computed on read, with `ExplorerDestinationMatch` as the durable source of truth.
+- V1 destination metadata uses a hybrid strategy: reuse shared segment data when present, while storing Explorer-local cached display metadata and source URL values for stable setup and rendering.
+- Explorer should treat segment metadata as relatively durable and reuse the existing shared `segment` table by default, while avoiding the same cache assumptions for activity details and segment-effort availability.
+- Explorer should avoid duplicating the current Competition segment-based matching flow; the first Phase 2 slice should extract only the shared seam needed for Explorer while preserving current Competition behavior.
+- Phase 2 Slice A will follow the existing backend in-memory test pattern and will treat Explorer E2E data as intentionally provisioned test state rather than accidental shared data.
 
 ## Open Questions
 
 | Question | Status | Blocks Implementation | Notes |
 | --- | --- | --- | --- |
-| Should athlete week summaries be computed on read or stored in a cached summary table for v1? | Open | Yes | Tech spec currently leaves this as conditional. |
-| Should Explorer reuse the existing segment table, store Explorer-local cached metadata, or do both? | Open | Yes | Existing UI parsing is proven, but final storage rules are not. |
+| Should athlete week summaries be computed on read or stored in a cached summary table for v1? | Closed For v1 | No | V1 uses computed-on-read summaries with `ExplorerDestinationMatch` as the durable source of truth. |
+| Should Explorer reuse the existing segment table, store Explorer-local cached metadata, or do both? | Closed For v1 | No | V1 uses a hybrid strategy: shared segment reuse when present plus Explorer-local cached display metadata. |
 | How should webhook regression protection be documented for the delegated-handler refactor? | Closed For Phase 1 | No | The preservation target now lives in this worklog and the handler seam is covered by focused webhook tests. |
-| What is the exact E2E data strategy for Explorer flows? | Open | No | Should be defined before Phase 2 starts. |
+| What is the exact E2E data strategy for Explorer flows? | Closed For Phase 2 start | No | Explorer test data should be provisioned intentionally during setup or controlled fixtures, not inherited from accidental shared state. |
 | Should deleted source activities retract Explorer completions in v1? | Open | No | Safe to defer if behavior is documented. |
 
 ## Blockers
 
 ### Must Resolve Before Broad Implementation
 
-1. Decide the v1 summary model.
-2. Decide the v1 destination metadata strategy.
-3. Keep unresolved questions centralized rather than scattered across planning docs.
+1. No additional architecture blockers remain for entry into narrow Phase 2 Slice A.
+2. Broad Phase 2 still requires incremental readiness checks per slice rather than one multi-surface implementation push.
 
 ### Should Resolve Before Phase 2
 
-1. Name Explorer backend test locations and test shape.
-2. Define the E2E data approach.
-3. List documentation surfaces expected to change when Explorer slices land.
+1. Resolved for Slice A: Explorer backend tests should live under `server/src/__tests__` and use the existing in-memory SQLite pattern.
+2. Resolved for Slice A: Explorer E2E scenarios should provision their own challenge data intentionally.
+3. Resolved for Slice A: Planning and implementation docs touched by the slice should be listed explicitly before coding starts.
 
 ## Ready-Next Slices
 
@@ -95,29 +99,37 @@ The current preservation target is backed by:
 3. [server/src/__tests__/webhookProcessor.segmentEffortsRetry.test.ts](../../server/src/__tests__/webhookProcessor.segmentEffortsRetry.test.ts)
 4. [server/src/__tests__/webhookAdminRouter.replayEvent.test.ts](../../server/src/__tests__/webhookAdminRouter.replayEvent.test.ts)
 
-### Slice Candidate B: Summary Model Decision
+### Phase 2 Preparation Decisions Closed
 
-- Phase: Phase 2 preparation
-- Goal: choose computed-on-read versus cached-summary for v1 and update the technical spec accordingly
-- Why this matters: it stabilizes query-service design and schema decisions
-
-### Slice Candidate C: Destination Metadata Strategy
-
-- Phase: Phase 2 preparation
-- Goal: define how Explorer destination setup reuses segment validation and metadata from the current admin flow
-- Why this matters: it stabilizes admin-service and schema direction
+- Summary model: v1 summaries are computed on read, with cached-summary storage deferred until measured query cost justifies it.
+- Destination metadata strategy: v1 uses hybrid shared-segment reuse plus Explorer-local cached display metadata.
+- Segment fetch policy: default to DB-first reuse of shared segment metadata, use explicit refresh when needed, and treat any in-memory cache as segment-only rather than activity-level.
+- Shared seam policy: treat segment-based activity matching and persistence extraction as the first structural step inside Phase 2 Slice A, not as a separate top-level phase.
+- Backend test organization: Slice A should use the existing `server/src/__tests__` in-memory SQLite pattern.
+- E2E data strategy: Explorer test data should be created intentionally during setup or controlled fixtures.
 
 ### Recommended Next PR
 
-- Start a fresh Phase 2 preparation branch from updated `main` after this Phase 1 branch lands.
-- Keep the next PR focused on the athlete summary model, destination metadata strategy, test layout, and E2E data approach.
-- Do not mix those decisions with schema or UI implementation unless the blockers are explicitly closed in the same PR.
+- Start a dedicated implementation branch from updated `main` after this planning branch lands.
+- Keep the next PR scoped to Phase 2 Slice A only:
+	- Explorer schema tables
+	- Shared segment-based match-and-persist seam extracted from current Competition paths only where needed for Explorer reuse
+	- Explorer matching service
+	- Shared refresh-path parity
+	- Shared segment-metadata reuse policy in Explorer services
+	- `explorer.getActiveWeek` and `explorer.getWeekProgress`
+	- Backend tests for boundaries, idempotency, and parity
+- Keep out of scope for that PR:
+	- Explorer admin UI
+	- Explorer hub UI
+	- Expanded Explorer API surface beyond the first read paths
+	- Broad rewrites of hydration, deletion, or unrelated leaderboard query services
 
 ## Issue Candidates
 
-- Decide and document Explorer athlete week summary strategy
-- Decide and document Explorer destination metadata strategy
-- Define Explorer test layout and E2E data plan
+- Implement Explorer Phase 2 Slice A schema and matching service
+- Add initial Explorer query routes for active week and athlete progress
+- Add Explorer backend regression and parity coverage for the shared matching service
 
 ## Documentation Impact Checklist
 
@@ -126,6 +138,7 @@ When a real implementation slice lands, review whether it changes:
 - `ADMIN_GUIDE.md`
 - `docs/API.md`
 - `docs/DATABASE_DESIGN.md`
+- `docs/STRAVA_INTEGRATION.md`
 - `docs-site/admin/*`
 - `docs-site/athlete/*`
 

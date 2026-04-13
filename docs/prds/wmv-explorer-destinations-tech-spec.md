@@ -40,6 +40,8 @@ This specification translates the Explorer Destinations PRD into an implementati
 - Strava auth and participant identity already exist.
 - Webhook ingestion already fetches and normalizes activity data in [server/src/webhooks/processor.ts](../../server/src/webhooks/processor.ts).
 - Batch or explicit activity processing already exists in [server/src/services/BatchFetchService.ts](../../server/src/services/BatchFetchService.ts).
+- The existing shared `segment` table already persists Strava segment metadata such as name, distance, grade, elevation, and location, and Competition already joins against it for read paths.
+- The current admin segment-validation flow already centralizes Strava segment fetch and persistence in [server/src/services/SegmentService.ts](../../server/src/services/SegmentService.ts).
 - App routing and top-level navigation patterns already exist in [src/App.tsx](../../src/App.tsx) and [src/components/NavBar.tsx](../../src/components/NavBar.tsx).
 - The regular admin panel already has a Strava URL input pattern worth mirroring for Explorer destination setup rather than exposing raw segment IDs only.
 
@@ -86,6 +88,23 @@ Recommended direction:
 - Extract Explorer matching into a reusable service.
 - Call that service from the Explorer ingestion handler.
 - Call that same service from an admin or participant-triggered refresh action.
+
+### 4.3 Shared segment-based matching seam
+
+The repository already has partially reusable building blocks for segment-based activity handling:
+
+- activity-window and lap-window selection in [server/src/activityProcessor.ts](../../server/src/activityProcessor.ts)
+- activity and effort persistence in [server/src/activityStorage.ts](../../server/src/activityStorage.ts)
+- webhook competition handling in [server/src/webhooks/handlers/competitionActivityHandler.ts](../../server/src/webhooks/handlers/competitionActivityHandler.ts)
+- batch refresh handling in [server/src/services/BatchFetchService.ts](../../server/src/services/BatchFetchService.ts)
+- late metric hydration in [server/src/services/HydrationService.ts](../../server/src/services/HydrationService.ts)
+
+Explorer should not introduce a second copy of this segment-based matching flow. The first Phase 2 implementation slice should extract a narrow shared seam around segment-based qualifying activity selection and persistence where that reduces duplication between Competition and Explorer. That extraction should stay bounded:
+
+- preserve current Competition behavior and results
+- avoid reworking unrelated read/query services
+- avoid broad refactors of activity deletion or hydration unless directly needed by the shared seam
+- treat this as a structural sub-slice inside Phase 2 rather than a new standalone phase
 
 ## 5. Proposed Data Model
 
@@ -134,7 +153,7 @@ Activation rule: an ExplorerWeek cannot move to an active state unless it has at
   - completedAll boolean
   - lastMatchedAt
 
-For v1, ExplorerAthleteWeekSummary can remain computed on read if query cost is modest. The durable source of truth should be ExplorerDestinationMatch.
+For v1, ExplorerAthleteWeekSummary is computed on read. `ExplorerDestinationMatch` is the durable source of truth. Cached summary storage is deferred unless measured query cost justifies it in a later phase.
 
 ### 5.2 Key integrity rules
 
@@ -145,7 +164,15 @@ For v1, ExplorerAthleteWeekSummary can remain computed on read if query cost is 
 
 ### 5.3 Segment source model
 
-Admins should be able to configure destinations by pasting Strava segment URLs, following the same mental model as the regular admin panel. The system should extract the segment ID from the URL, validate it, and store the parsed segment ID plus the original source URL when available. If the segment is already known in the app's segment table, that data can be reused. If not, Explorer should still accept it and cache enough display metadata for a stable UI.
+Explorer uses a hybrid destination metadata strategy for v1. Admin setup should continue to accept Strava segment URLs, extract the segment ID, and store the parsed segment ID plus the original source URL when available. If the segment already exists in the app's shared `segment` table, Explorer should reuse that canonical data first rather than requiring an immediate Strava refetch. Explorer should also store Explorer-local cached display metadata needed for stable admin setup and week rendering, including cases where the segment is not already present in the shared segment table.
+
+Segment metadata should be treated as comparatively durable. For Explorer v1, the preferred policy is database-first reuse of the shared `segment` table, optional refresh on explicit admin validation or metadata-refresh actions, and optional short-lived in-memory caching inside a running server process to avoid repeated fetches during the same setup workflow. This policy should not be applied blindly to activity details or segment efforts, because activity visibility, photos, and effort availability can change shortly after upload.
+
+### 5.4 V1 decision lock
+
+- Summary model: computed on read
+- Destination metadata strategy: hybrid shared-segment reuse plus Explorer-local cached display metadata
+- These decisions close the planning blockers for narrow Phase 2 Slice A
 
 ## 6. Core Services
 
@@ -275,6 +302,8 @@ Recommended E2E journeys:
 - Athlete completes full weekly set and sees completion state
 - Completers summary reflects at least one full completer
 
+Explorer E2E journeys should provision Explorer week and destination data intentionally during test setup or controlled fixtures, and must not rely on accidental shared state.
+
 ## 11. Migration and Rollout Sequence
 
 1. Refactor webhook processor toward delegated handlers without changing current competition behavior.
@@ -294,6 +323,9 @@ Recommended E2E journeys:
 - Risk: Strava URL parsing becomes brittle.
   Mitigation: mirror the existing admin-panel parsing approach and test it directly.
 
+- Risk: Explorer burns unnecessary Strava API calls by refetching stable segment metadata too aggressively.
+  Mitigation: use shared-segment-table reuse as the default read path, refresh only when explicitly validating or rehydrating metadata, and keep any short-lived cache policy limited to segment metadata rather than activity payloads.
+
 - Risk: Explorer begins to inherit competition UX by accident.
   Mitigation: avoid ranked lists in the primary weekly surface.
 
@@ -302,7 +334,7 @@ Recommended E2E journeys:
 
 ## 13. Suggested Handoff Notes
 
-If this moves to implementation, the first engineering slice should be the delegated ingestion refactor plus Explorer schema design. That is the structural work that determines whether the rest of the feature can be added cleanly.
+If this moves to implementation, the first engineering slice should be a narrow Phase 2 Slice A: Explorer schema, a shared segment-based matching and persistence seam, Explorer matching service, refresh-path parity, the first Explorer read routes, and backend tests. That is the smallest slice that validates the model without spilling into admin or athlete UI.
 
 The next slice should be the smallest end-to-end Explorer loop:
 

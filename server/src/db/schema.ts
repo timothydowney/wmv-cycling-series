@@ -1,4 +1,4 @@
-import { sqliteTable, text, numeric, integer, index, real } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, numeric, integer, index, real, uniqueIndex } from 'drizzle-orm/sqlite-core';
 // import { relations } from "drizzle-orm"
 
 export const sessions = sqliteTable('sessions', {
@@ -133,6 +133,53 @@ export const segment = sqliteTable('segment', {
   climb_category: integer('climb_category'),
 });
 
+export const explorerWeek = sqliteTable('explorer_week', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  name: text().notNull(),
+  start_at: integer('start_at').notNull(),
+  end_at: integer('end_at').notNull(),
+  status: text().default('draft').notNull(),
+  created_at: text('created_at').default('sql`(CURRENT_TIMESTAMP)`'),
+  updated_at: text('updated_at').default('sql`(CURRENT_TIMESTAMP)`'),
+},
+(t) => [
+  index('idx_explorer_week_status').on(t.status),
+  index('idx_explorer_week_window').on(t.start_at, t.end_at),
+]);
+
+export const explorerDestination = sqliteTable('explorer_destination', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  explorer_week_id: integer('explorer_week_id').notNull().references(() => explorerWeek.id, { onDelete: 'cascade' }),
+  strava_segment_id: text('strava_segment_id').notNull(),
+  source_url: text('source_url'),
+  cached_segment_name: text('cached_segment_name'),
+  display_label: text('display_label'),
+  display_order: integer('display_order').default(0).notNull(),
+  surface_type: text('surface_type'),
+  category: text(),
+  created_at: text('created_at').default('sql`(CURRENT_TIMESTAMP)`'),
+  updated_at: text('updated_at').default('sql`(CURRENT_TIMESTAMP)`'),
+},
+(t) => [
+  index('idx_explorer_destination_week').on(t.explorer_week_id),
+  index('idx_explorer_destination_segment').on(t.strava_segment_id),
+]);
+
+export const explorerDestinationMatch = sqliteTable('explorer_destination_match', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  explorer_week_id: integer('explorer_week_id').notNull().references(() => explorerWeek.id, { onDelete: 'cascade' }),
+  explorer_destination_id: integer('explorer_destination_id').notNull().references(() => explorerDestination.id, { onDelete: 'cascade' }),
+  strava_athlete_id: text('strava_athlete_id').notNull().references(() => participant.strava_athlete_id, { onDelete: 'cascade' }),
+  strava_activity_id: text('strava_activity_id').notNull(),
+  matched_at: integer('matched_at').notNull(),
+  created_at: text('created_at').default('sql`(CURRENT_TIMESTAMP)`'),
+},
+(t) => [
+  index('idx_explorer_match_week_athlete').on(t.explorer_week_id, t.strava_athlete_id),
+  index('idx_explorer_match_activity').on(t.strava_activity_id),
+  uniqueIndex('idx_explorer_match_unique').on(t.explorer_week_id, t.explorer_destination_id, t.strava_athlete_id),
+]);
+
 export const webhookEvent = sqliteTable('webhook_event', {
   id: integer().primaryKey({ autoIncrement: true }),
   payload: text().notNull(),
@@ -201,6 +248,15 @@ export type NewWeek = typeof week.$inferInsert;
 
 export type Segment = typeof segment.$inferSelect;
 export type NewSegment = typeof segment.$inferInsert;
+
+export type ExplorerWeek = typeof explorerWeek.$inferSelect;
+export type NewExplorerWeek = typeof explorerWeek.$inferInsert;
+
+export type ExplorerDestination = typeof explorerDestination.$inferSelect;
+export type NewExplorerDestination = typeof explorerDestination.$inferInsert;
+
+export type ExplorerDestinationMatch = typeof explorerDestinationMatch.$inferSelect;
+export type NewExplorerDestinationMatch = typeof explorerDestinationMatch.$inferInsert;
 
 export type Participant = typeof participant.$inferSelect;
 export type NewParticipant = typeof participant.$inferInsert;

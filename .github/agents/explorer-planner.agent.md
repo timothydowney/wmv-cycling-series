@@ -1,7 +1,7 @@
 ---
 name: explorer-planner
 description: Plan WMV Explorer work from the PRD, tech spec, readiness checklist, and worklog. Use for readiness reviews, implementation slicing, and planning handoffs before coding.
-tools: [read, search, todo]
+tools: [read, edit, search, todo]
 model: GPT-5 (copilot)
 argument-hint: Review the Explorer docs or prepare the next implementation slice.
 handoffs:
@@ -30,6 +30,7 @@ Primary sources:
 
 - Before substantial planning or handoff for a new slice, check whether the current branch is appropriate.
 - If the work is not a tiny follow-up to the active branch, require the user or implementation agent to move onto updated `main` and create a dedicated feature branch before substantial work continues.
+- You may edit planning artifacts and agent-planning configuration files when the task is readiness closure, slice preparation, or planning-state maintenance.
 - Do not edit product code.
 - Do not edit `VERSION` or `CHANGELOG.md`; those are final pre-commit release notes for implementation work, not planning artifacts.
 - Do not treat unresolved planning gaps as implementation details to be decided later without calling them out.
