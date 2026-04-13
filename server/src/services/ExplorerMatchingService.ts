@@ -140,6 +140,15 @@ export class ExplorerMatchingService {
       };
     }
 
+    const activityTimestamp = getActivityTimestamp(activityData);
+    if (activityTimestamp === null) {
+      return {
+        processedWeeks: weeks.length,
+        matchedDestinations: 0,
+        newMatches: 0,
+      };
+    }
+
     const segmentIds = getSegmentIdsFromActivity(activityData);
     if (segmentIds.size === 0) {
       return {
@@ -173,7 +182,7 @@ export class ExplorerMatchingService {
             explorer_destination_id: destination.id,
             strava_athlete_id: athleteId,
             strava_activity_id: String(activityData.id),
-            matched_at: getActivityTimestamp(activityData) || 0,
+            matched_at: activityTimestamp,
           })
           .onConflictDoNothing({
             target: [

@@ -18,7 +18,7 @@ The database is managed using **Drizzle ORM**. The source of truth for the schem
 - **`activity`**: The best qualifying Strava activity for a participant in a given week.
 - **`segment_effort`**: Individual laps/efforts extracted from a qualifying activity.
 - **`result`**: Calculated rankings and times (points are computed on-read).
-- **`explorer_week`**: Time-boxed Explorer challenge windows with draft/active/archive status.
+- **`explorer_week`**: Time-boxed Explorer challenge windows with draft/active/archived status.
 - **`explorer_destination`**: Ordered Explorer destinations for a week, keyed by Strava segment ID with cached display metadata.
 - **`explorer_destination_match`**: Athlete completion records linking an Explorer destination to the Strava activity that satisfied it.
 - **`participant_token`**: Encrypted OAuth tokens for Strava API access.
