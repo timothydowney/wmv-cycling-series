@@ -78,7 +78,7 @@ describe('explorerRouter', () => {
     createExplorerDestination(drizzleDb, {
       explorerCampaignId: campaign.id,
       stravaSegmentId: 'seg-402',
-      cachedSegmentName: 'Cached Name',
+      cachedName: 'Cached Name',
       displayOrder: 2,
     });
     createExplorerDestination(drizzleDb, {
@@ -128,13 +128,13 @@ describe('explorerRouter', () => {
     const completedDestination = createExplorerDestination(drizzleDb, {
       explorerCampaignId: campaign.id,
       stravaSegmentId: 'seg-501',
-      cachedSegmentName: 'Forest Road',
+      cachedName: 'Forest Road',
       displayOrder: 1,
     });
     createExplorerDestination(drizzleDb, {
       explorerCampaignId: campaign.id,
       stravaSegmentId: 'seg-502',
-      cachedSegmentName: 'River Road',
+      cachedName: 'River Road',
       displayOrder: 2,
     });
 

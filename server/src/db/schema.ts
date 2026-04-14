@@ -169,7 +169,7 @@ export const explorerDestination = sqliteTable('explorer_destination', {
   explorer_campaign_id: integer('explorer_campaign_id').notNull().references(() => explorerCampaign.id, { onDelete: 'cascade' }),
   strava_segment_id: text('strava_segment_id').notNull(),
   source_url: text('source_url'),
-  cached_segment_name: text('cached_segment_name'),
+  cached_name: text('cached_name'),
   display_label: text('display_label'),
   display_order: integer('display_order').default(0).notNull(),
   surface_type: text('surface_type'),

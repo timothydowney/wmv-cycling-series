@@ -15,7 +15,7 @@ CREATE TABLE `explorer_destination` (
 	`explorer_campaign_id` integer NOT NULL,
 	`strava_segment_id` text NOT NULL,
 	`source_url` text,
-	`cached_segment_name` text,
+	`cached_name` text,
 	`display_label` text,
 	`display_order` integer DEFAULT 0 NOT NULL,
 	`surface_type` text,

@@ -104,7 +104,7 @@ interface CreateExplorerDestinationOptions {
   explorerCampaignId: number;
   stravaSegmentId?: string;
   sourceUrl?: string | null;
-  cachedSegmentName?: string | null;
+  cachedName?: string | null;
   displayLabel?: string | null;
   displayOrder?: number;
   surfaceType?: string | null;
@@ -294,7 +294,7 @@ export function createExplorerDestination(
     explorerCampaignId,
     stravaSegmentId = 'explorer-segment-1',
     sourceUrl = null,
-    cachedSegmentName = null,
+    cachedName = null,
     displayLabel = null,
     displayOrder = 0,
     surfaceType = null,
@@ -307,15 +307,15 @@ export function createExplorerDestination(
     .where(eq(segment.strava_segment_id, stravaSegmentId))
     .get();
 
-  if (!existingSegment && cachedSegmentName) {
-    createSegment(db, stravaSegmentId, cachedSegmentName);
+  if (!existingSegment && cachedName) {
+    createSegment(db, stravaSegmentId, cachedName);
   }
 
   const newDestinationData: InsertExplorerDestination = {
     explorer_campaign_id: explorerCampaignId,
     strava_segment_id: stravaSegmentId,
     source_url: sourceUrl,
-    cached_segment_name: cachedSegmentName,
+    cached_name: cachedName,
     display_label: displayLabel,
     display_order: displayOrder,
     surface_type: surfaceType,

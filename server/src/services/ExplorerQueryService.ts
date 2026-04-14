@@ -53,12 +53,12 @@ interface ExplorerCampaignProgressView {
 function resolveDestinationLabel(destination: {
   strava_segment_id: string;
   display_label: string | null;
-  cached_segment_name: string | null;
+  cached_name: string | null;
   segment_name: string | null;
 }): string {
   return (
     destination.display_label ||
-    destination.cached_segment_name ||
+    destination.cached_name ||
     destination.segment_name ||
     `Segment ${destination.strava_segment_id}`
   );
@@ -101,7 +101,7 @@ export class ExplorerQueryService {
           id: explorerDestination.id,
           strava_segment_id: explorerDestination.strava_segment_id,
           display_label: explorerDestination.display_label,
-          cached_segment_name: explorerDestination.cached_segment_name,
+          cached_name: explorerDestination.cached_name,
           source_url: explorerDestination.source_url,
           surface_type: explorerDestination.surface_type,
           category: explorerDestination.category,
@@ -169,7 +169,7 @@ export class ExplorerQueryService {
         id: explorerDestination.id,
         strava_segment_id: explorerDestination.strava_segment_id,
         display_label: explorerDestination.display_label,
-        cached_segment_name: explorerDestination.cached_segment_name,
+        cached_name: explorerDestination.cached_name,
         source_url: explorerDestination.source_url,
         surface_type: explorerDestination.surface_type,
         category: explorerDestination.category,

@@ -52,7 +52,7 @@ describe('ExplorerMatchingService', () => {
     const destination = createExplorerDestination(drizzleDb, {
       explorerCampaignId: campaign.id,
       stravaSegmentId: 'seg-100',
-      cachedSegmentName: 'Summit Road',
+      cachedName: 'Summit Road',
     });
 
     const service = new ExplorerMatchingService(drizzleDb);
