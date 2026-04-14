@@ -1,7 +1,7 @@
 # API reference
 
 **NOTE: The project is migrating to tRPC. The REST endpoints below are legacy or specific to Auth/Webhooks.**
-**For all data fetching (Week, Season, Leaderboard, Segments, Participants, Webhook Admin), refer to the tRPC routers in `server/src/routers`.**
+**For all data fetching (Week, Season, Leaderboard, Segments, Participants, Webhook Admin, Explorer), refer to the tRPC routers in `server/src/routers`.**
 
 Base URL (dev): http://localhost:3001
 
@@ -188,6 +188,13 @@ The `webhookAdminRouter` provides procedures for monitoring and managing Strava 
 - `trpc.webhookAdmin.getStatus` — Returns current webhook subscription status and statistics.
 - `trpc.webhookAdmin.getEvents` — Returns a paginated list of recently logged webhook events.
 - `trpc.webhookAdmin.getEnrichedEventDetails` — Returns detailed metadata for a specific activity mentioned in a webhook event (uses `ActivityService` for summary and classification).
+
+## Explorer (tRPC)
+
+The `explorerRouter` provides the read paths for the season-attached Explorer campaign MVP.
+
+- `trpc.explorer.getActiveCampaign` — Returns the currently active Explorer campaign for the open season, including ordered destinations. Campaigns without destinations are hidden from the athlete-facing surface.
+- `trpc.explorer.getCampaignProgress` — Returns the authenticated athlete's completion state for a campaign, including completed destinations and the source Strava activity IDs for recorded matches.
 
 ## Error responses
 

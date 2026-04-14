@@ -152,6 +152,51 @@ export const webhookSubscription = sqliteTable('webhook_subscription', {
   last_refreshed_at: text('last_refreshed_at'),
 });
 
+export const explorerCampaign = sqliteTable('explorer_campaign', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  season_id: integer('season_id').notNull().references(() => season.id, { onDelete: 'cascade' }),
+  display_name: text('display_name'),
+  rules_blurb: text('rules_blurb'),
+  created_at: text('created_at').default('sql`(CURRENT_TIMESTAMP)`'),
+  updated_at: text('updated_at').default('sql`(CURRENT_TIMESTAMP)`'),
+},
+(t) => [
+  index('idx_explorer_campaign_season').on(t.season_id),
+]);
+
+export const explorerDestination = sqliteTable('explorer_destination', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  explorer_campaign_id: integer('explorer_campaign_id').notNull().references(() => explorerCampaign.id, { onDelete: 'cascade' }),
+  strava_segment_id: text('strava_segment_id').notNull(),
+  source_url: text('source_url'),
+  cached_segment_name: text('cached_segment_name'),
+  display_label: text('display_label'),
+  display_order: integer('display_order').default(0).notNull(),
+  surface_type: text('surface_type'),
+  category: text('category'),
+  created_at: text('created_at').default('sql`(CURRENT_TIMESTAMP)`'),
+  updated_at: text('updated_at').default('sql`(CURRENT_TIMESTAMP)`'),
+},
+(t) => [
+  index('idx_explorer_destination_campaign').on(t.explorer_campaign_id),
+  index('idx_explorer_destination_segment').on(t.strava_segment_id),
+]);
+
+export const explorerDestinationMatch = sqliteTable('explorer_destination_match', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  explorer_campaign_id: integer('explorer_campaign_id').notNull().references(() => explorerCampaign.id, { onDelete: 'cascade' }),
+  explorer_destination_id: integer('explorer_destination_id').notNull().references(() => explorerDestination.id, { onDelete: 'cascade' }),
+  strava_athlete_id: text('strava_athlete_id').notNull().references(() => participant.strava_athlete_id, { onDelete: 'cascade' }),
+  strava_activity_id: text('strava_activity_id').notNull(),
+  matched_at: integer('matched_at').notNull(),
+  created_at: text('created_at').default('sql`(CURRENT_TIMESTAMP)`'),
+},
+(t) => [
+  index('idx_explorer_match_campaign_athlete').on(t.explorer_campaign_id, t.strava_athlete_id),
+  index('idx_explorer_match_activity').on(t.strava_activity_id),
+  index('idx_explorer_match_unique').on(t.explorer_campaign_id, t.explorer_destination_id, t.strava_athlete_id),
+]);
+
 // Chain Wax Tracking tables
 export const chainWaxPeriod = sqliteTable('chain_wax_period', {
   id: integer().primaryKey({ autoIncrement: true }),
@@ -201,6 +246,15 @@ export type NewWeek = typeof week.$inferInsert;
 
 export type Segment = typeof segment.$inferSelect;
 export type NewSegment = typeof segment.$inferInsert;
+
+export type ExplorerCampaign = typeof explorerCampaign.$inferSelect;
+export type NewExplorerCampaign = typeof explorerCampaign.$inferInsert;
+
+export type ExplorerDestination = typeof explorerDestination.$inferSelect;
+export type NewExplorerDestination = typeof explorerDestination.$inferInsert;
+
+export type ExplorerDestinationMatch = typeof explorerDestinationMatch.$inferSelect;
+export type NewExplorerDestinationMatch = typeof explorerDestinationMatch.$inferInsert;
 
 export type Participant = typeof participant.$inferSelect;
 export type NewParticipant = typeof participant.$inferInsert;
