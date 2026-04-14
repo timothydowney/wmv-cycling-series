@@ -2,6 +2,10 @@ import BetterSqlite3 from 'better-sqlite3';
 
 type SqliteDatabase = InstanceType<typeof BetterSqlite3>;
 
+interface LegacyExplorerRepairState {
+  bootstrapCampaignTablesBeforeMigrate: boolean;
+}
+
 interface LegacyWeekRow {
   id: number;
   name: string;
@@ -48,6 +52,15 @@ function countRows(db: SqliteDatabase, tableName: string): number {
   }
 
   const row = db.prepare(`SELECT COUNT(*) as count FROM ${tableName}`).get() as { count: number };
+  return row.count;
+}
+
+function countAppliedMigrations(db: SqliteDatabase): number {
+  if (!tableExists(db, '__drizzle_migrations')) {
+    return 0;
+  }
+
+  const row = db.prepare('SELECT COUNT(*) as count FROM __drizzle_migrations').get() as { count: number };
   return row.count;
 }
 
@@ -218,24 +231,26 @@ function migrateLegacyExplorerRows(db: SqliteDatabase) {
   }
 }
 
-export function repairLegacyExplorerSchema(db: SqliteDatabase): boolean {
+export function prepareLegacyExplorerSchemaRepair(db: SqliteDatabase): LegacyExplorerRepairState | null {
   const hasLegacyWeekTable = tableExists(db, 'explorer_week');
   const hasCampaignTable = tableExists(db, 'explorer_campaign');
 
   if (!hasLegacyWeekTable || hasCampaignTable) {
-    return false;
+    return null;
   }
 
   const legacyWeekCount = countRows(db, 'explorer_week');
   const legacyDestinationCount = countRows(db, 'explorer_destination');
   const legacyMatchCount = countRows(db, 'explorer_destination_match');
+  const appliedMigrationCount = countAppliedMigrations(db);
+  const bootstrapCampaignTablesBeforeMigrate = appliedMigrationCount >= 10;
 
   console.log(
     '[DB] Legacy Explorer weekly schema detected; repairing to campaign schema ' +
     `(weeks=${legacyWeekCount}, destinations=${legacyDestinationCount}, matches=${legacyMatchCount})`
   );
 
-  const repairTransaction = db.transaction(() => {
+  const prepareTransaction = db.transaction(() => {
     db.exec(`
       ALTER TABLE explorer_destination_match RENAME TO explorer_destination_match_legacy;
       ALTER TABLE explorer_destination RENAME TO explorer_destination_legacy;
@@ -250,7 +265,32 @@ export function repairLegacyExplorerSchema(db: SqliteDatabase): boolean {
       DROP INDEX IF EXISTS idx_explorer_week_window;
     `);
 
-    createCampaignExplorerTables(db);
+    if (bootstrapCampaignTablesBeforeMigrate) {
+      createCampaignExplorerTables(db);
+    }
+  });
+
+  prepareTransaction();
+  return { bootstrapCampaignTablesBeforeMigrate };
+}
+
+export function finalizeLegacyExplorerSchemaRepair(
+  db: SqliteDatabase,
+  repairState: LegacyExplorerRepairState | null
+): boolean {
+  if (!repairState) {
+    return false;
+  }
+
+  if (
+    !tableExists(db, 'explorer_campaign') ||
+    !tableExists(db, 'explorer_destination') ||
+    !tableExists(db, 'explorer_destination_match')
+  ) {
+    throw new Error('Explorer campaign schema missing after legacy repair preparation');
+  }
+
+  const finalizeTransaction = db.transaction(() => {
     migrateLegacyExplorerRows(db);
 
     db.exec(`
@@ -260,7 +300,7 @@ export function repairLegacyExplorerSchema(db: SqliteDatabase): boolean {
     `);
   });
 
-  repairTransaction();
+  finalizeTransaction();
   console.log('[DB] ✓ Legacy Explorer schema repaired');
   return true;
 }

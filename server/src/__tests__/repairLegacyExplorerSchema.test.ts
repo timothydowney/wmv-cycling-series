@@ -1,8 +1,10 @@
 import { Database } from 'better-sqlite3';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { eq } from 'drizzle-orm';
+import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import path from 'path';
 import { explorerCampaign, explorerDestination, explorerDestinationMatch } from '../db/schema';
-import { repairLegacyExplorerSchema } from '../db/repairLegacyExplorerSchema';
+import { finalizeLegacyExplorerSchemaRepair, prepareLegacyExplorerSchemaRepair } from '../db/repairLegacyExplorerSchema';
 import { clearAllData, createParticipant, createSeason, setupTestDb, teardownTestDb } from './testDataHelpers';
 
 function replaceExplorerTablesWithLegacySchema(db: Database) {
@@ -61,6 +63,7 @@ function replaceExplorerTablesWithLegacySchema(db: Database) {
 describe('repairLegacyExplorerSchema', () => {
   let db: Database;
   let drizzleDb: BetterSQLite3Database;
+  const migrationsFolder = path.resolve(__dirname, '../../drizzle');
 
   beforeAll(() => {
     const testDb = setupTestDb();
@@ -76,14 +79,18 @@ describe('repairLegacyExplorerSchema', () => {
     clearAllData(drizzleDb);
   });
 
-  it('returns false when the current campaign schema is already present', () => {
-    expect(repairLegacyExplorerSchema(db)).toBe(false);
+  it('returns null when the current campaign schema is already present', () => {
+    expect(prepareLegacyExplorerSchemaRepair(db)).toBeNull();
+    expect(finalizeLegacyExplorerSchemaRepair(db, null)).toBe(false);
   });
 
-  it('repairs an empty legacy Explorer schema', () => {
+  it('repairs an empty legacy Explorer schema through the real migrate order', () => {
     replaceExplorerTablesWithLegacySchema(db);
+    db.exec('DELETE FROM __drizzle_migrations WHERE rowid >= 10;');
 
-    const repaired = repairLegacyExplorerSchema(db);
+    const repairState = prepareLegacyExplorerSchemaRepair(db);
+    migrate(drizzleDb, { migrationsFolder });
+    const repaired = finalizeLegacyExplorerSchemaRepair(db, repairState);
 
     expect(repaired).toBe(true);
     const explorerCampaignTable = db.prepare(
@@ -99,6 +106,7 @@ describe('repairLegacyExplorerSchema', () => {
 
   it('migrates weekly Explorer data into the campaign model', () => {
     replaceExplorerTablesWithLegacySchema(db);
+    db.exec('DELETE FROM __drizzle_migrations WHERE rowid >= 10;');
 
     const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
     createParticipant(drizzleDb, '999001', 'Legacy Rider');
@@ -137,7 +145,9 @@ describe('repairLegacyExplorerSchema', () => {
       ) VALUES (?, ?, ?, ?, ?)`
     ).run(legacyWeekId, legacyDestinationId, '999001', 'activity-1', seasonRecord.start_at + 3600);
 
-    const repaired = repairLegacyExplorerSchema(db);
+    const repairState = prepareLegacyExplorerSchemaRepair(db);
+    migrate(drizzleDb, { migrationsFolder });
+    const repaired = finalizeLegacyExplorerSchemaRepair(db, repairState);
 
     expect(repaired).toBe(true);
 
@@ -157,5 +167,20 @@ describe('repairLegacyExplorerSchema', () => {
       .get();
     expect(match?.explorer_campaign_id).toBe(campaign?.id);
     expect(match?.strava_athlete_id).toBe('999001');
+  });
+
+  it('still succeeds when the legacy schema has 0009 recorded and only 0010 is pending', () => {
+    replaceExplorerTablesWithLegacySchema(db);
+    db.exec('DELETE FROM __drizzle_migrations WHERE rowid >= 11;');
+
+    const repairState = prepareLegacyExplorerSchemaRepair(db);
+
+    expect(() => migrate(drizzleDb, { migrationsFolder })).not.toThrow();
+    expect(() => finalizeLegacyExplorerSchemaRepair(db, repairState)).not.toThrow();
+
+    const campaignTable = db.prepare(
+      'SELECT name FROM sqlite_master WHERE type = \'table\' AND name = \'explorer_campaign\''
+    ).get();
+    expect(campaignTable).toBeTruthy();
   });
 });
