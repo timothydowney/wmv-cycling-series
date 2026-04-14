@@ -9,6 +9,7 @@ import { clubRouter } from './club';
 import { profileRouter } from './profile';
 import { chatRouter } from './chat';
 import { chainWaxRouter } from './chainWax';
+import { explorerRouter } from './explorer';
 
 export const appRouter = router({
   health: publicProcedure.query(() => 'ok'),
@@ -22,6 +23,7 @@ export const appRouter = router({
   profile: profileRouter,
   chat: chatRouter,
   chainWax: chainWaxRouter,
+  explorer: explorerRouter,
 });
 
 export type AppRouter = typeof appRouter;
