@@ -31,10 +31,11 @@ function normalizeNullableText(value?: string | null): string | null {
 }
 
 function parseStravaSegmentUrl(sourceUrl: string): string {
+  const trimmedSourceUrl = sourceUrl.trim();
   let parsedUrl: URL;
 
   try {
-    parsedUrl = new URL(sourceUrl);
+    parsedUrl = new URL(trimmedSourceUrl);
   } catch {
     throw new Error('Please provide a valid Strava segment URL');
   }
@@ -103,7 +104,8 @@ export class ExplorerAdminService {
       throw new Error('Explorer campaign not found');
     }
 
-    const segmentId = parseStravaSegmentUrl(input.sourceUrl);
+    const trimmedSourceUrl = input.sourceUrl.trim();
+    const segmentId = parseStravaSegmentUrl(trimmedSourceUrl);
 
     const existingDestination = this.db
       .select({ id: explorerDestination.id })
@@ -140,7 +142,7 @@ export class ExplorerAdminService {
       .values({
         explorer_campaign_id: input.explorerCampaignId,
         strava_segment_id: segmentId,
-        source_url: input.sourceUrl.trim(),
+        source_url: trimmedSourceUrl,
         cached_name: metadata?.name || `Segment ${segmentId}`,
         display_label: normalizeNullableText(input.displayLabel),
         display_order: nextDisplayOrder,

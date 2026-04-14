@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm';
 import { appRouter } from '../../routers';
 import { createContext } from '../../trpc/context';
 import { explorerCampaign, explorerDestination, participant } from '../../db/schema';
+import { ExplorerAdminService } from '../../services/ExplorerAdminService';
 import { SegmentService } from '../../services/SegmentService';
 import { clearAllData, createExplorerCampaign, createParticipant, createSeason, setupTestDb, teardownTestDb } from '../testDataHelpers';
 
@@ -92,6 +93,17 @@ describe('explorerAdminRouter', () => {
     ).rejects.toThrow('Explorer campaign already exists for this season');
   });
 
+  it('returns NOT_FOUND when the season does not exist', async () => {
+    const caller = getCaller(true);
+
+    await expect(
+      caller.explorerAdmin.createCampaign({ seasonId: 999999 })
+    ).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+      message: 'Season not found',
+    });
+  });
+
   it('requires admin auth to add a destination', async () => {
     const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
     const campaign = createExplorerCampaign(drizzleDb, { seasonId: seasonRecord.id });
@@ -159,5 +171,42 @@ describe('explorerAdminRouter', () => {
         sourceUrl: 'https://www.strava.com/routes/12744502',
       })
     ).rejects.toThrow('Please provide a valid Strava segment URL');
+  });
+
+  it('maps sqlite unique constraint errors to CONFLICT', async () => {
+    const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
+    const caller = getCaller(true);
+
+    jest.spyOn(ExplorerAdminService.prototype, 'createCampaign').mockImplementation(() => {
+      const error = new Error('UNIQUE constraint failed: explorer_campaign.season_id') as Error & { code: string };
+      error.code = 'SQLITE_CONSTRAINT_UNIQUE';
+      throw error;
+    });
+
+    await expect(
+      caller.explorerAdmin.createCampaign({ seasonId: seasonRecord.id })
+    ).rejects.toMatchObject({
+      code: 'CONFLICT',
+      message: 'UNIQUE constraint failed: explorer_campaign.season_id',
+    });
+  });
+
+  it('does not leak raw internal errors to clients', async () => {
+    const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
+    const caller = getCaller(true);
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    jest.spyOn(ExplorerAdminService.prototype, 'createCampaign').mockImplementation(() => {
+      throw new Error('SQL query failed near idx_explorer_campaign_season');
+    });
+
+    await expect(
+      caller.explorerAdmin.createCampaign({ seasonId: seasonRecord.id })
+    ).rejects.toMatchObject({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: 'Explorer admin operation failed',
+    });
+
+    expect(consoleErrorSpy).toHaveBeenCalled();
   });
 });

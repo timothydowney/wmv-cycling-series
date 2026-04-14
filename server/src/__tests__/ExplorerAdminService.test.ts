@@ -141,6 +141,23 @@ describe('ExplorerAdminService', () => {
     ).rejects.toThrow('Please provide a valid Strava segment URL');
   });
 
+  it('accepts segment URLs with surrounding whitespace when called directly', async () => {
+    const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
+    const campaign = service.createCampaign({ seasonId: seasonRecord.id });
+    segmentMetadataService.fetchAndStoreSegmentMetadata.mockResolvedValue({
+      strava_segment_id: '12744502',
+      name: 'Mocked Segment',
+    } as any);
+
+    const destination = await service.addDestination({
+      explorerCampaignId: campaign.id,
+      sourceUrl: '  https://www.strava.com/segments/12744502  ',
+    });
+
+    expect(destination.strava_segment_id).toBe('12744502');
+    expect(destination.source_url).toBe('https://www.strava.com/segments/12744502');
+  });
+
   it('increments display order for later destinations', async () => {
     const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
     const campaign = service.createCampaign({ seasonId: seasonRecord.id });

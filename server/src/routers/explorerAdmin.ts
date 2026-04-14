@@ -5,16 +5,28 @@ import { ExplorerAdminService } from '../services/ExplorerAdminService';
 
 function mapExplorerAdminError(error: unknown): TRPCError {
   const message = error instanceof Error ? error.message : 'Explorer admin operation failed';
+  const errorCode = typeof error === 'object' && error !== null && 'code' in error
+    ? String((error as { code?: unknown }).code)
+    : '';
 
-  if (message.includes('already exists')) {
+  if (message.includes('already exists') || errorCode.startsWith('SQLITE_CONSTRAINT')) {
     return new TRPCError({ code: 'CONFLICT', message });
   }
 
-  if (message.includes('not found') || message.includes('valid Strava segment URL')) {
+  if (message.includes('not found')) {
+    return new TRPCError({ code: 'NOT_FOUND', message });
+  }
+
+  if (message.includes('valid Strava segment URL')) {
     return new TRPCError({ code: 'BAD_REQUEST', message });
   }
 
-  return new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message });
+  console.error('Unexpected explorer admin error', error);
+
+  return new TRPCError({
+    code: 'INTERNAL_SERVER_ERROR',
+    message: 'Explorer admin operation failed',
+  });
 }
 
 export const explorerAdminRouter = router({
