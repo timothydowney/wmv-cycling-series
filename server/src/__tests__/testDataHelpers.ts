@@ -1,6 +1,6 @@
 import { BetterSQLite3Database as DrizzleBetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { isoToUnix } from '../dateUtils';
-import { season, activity, participant, participantToken, result, segment, segmentEffort, week, deletionRequest } from '../db/schema';
+import { season, activity, participant, participantToken, result, segment, segmentEffort, week, deletionRequest, explorerCampaign, explorerDestination, explorerDestinationMatch } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 
@@ -13,6 +13,12 @@ export type InsertSegment = InferInsertModel<typeof segment>;     // Exported
 export type SelectSegment = InferSelectModel<typeof segment>;
 export type InsertWeek = InferInsertModel<typeof week>;           // Exported
 export type SelectWeek = InferSelectModel<typeof week>;
+export type InsertExplorerCampaign = InferInsertModel<typeof explorerCampaign>;
+export type SelectExplorerCampaign = InferSelectModel<typeof explorerCampaign>;
+export type InsertExplorerDestination = InferInsertModel<typeof explorerDestination>;
+export type SelectExplorerDestination = InferSelectModel<typeof explorerDestination>;
+export type InsertExplorerDestinationMatch = InferInsertModel<typeof explorerDestinationMatch>;
+export type SelectExplorerDestinationMatch = InferSelectModel<typeof explorerDestinationMatch>;
 export type InsertActivity = InferInsertModel<typeof activity>;   // Exported
 export type SelectActivity = InferSelectModel<typeof activity>;
 export type InsertResult = InferInsertModel<typeof result>;       // Exported
@@ -86,6 +92,31 @@ interface CreateWeekWithResultsOptions {
   weekName?: string;
   participantIds?: string[];
   times?: number[];
+}
+
+interface CreateExplorerCampaignOptions {
+  seasonId?: number;
+  displayName?: string | null;
+  rulesBlurb?: string | null;
+}
+
+interface CreateExplorerDestinationOptions {
+  explorerCampaignId: number;
+  stravaSegmentId?: string;
+  sourceUrl?: string | null;
+  cachedName?: string | null;
+  displayLabel?: string | null;
+  displayOrder?: number;
+  surfaceType?: string | null;
+  category?: string | null;
+}
+
+interface CreateExplorerMatchOptions {
+  explorerCampaignId: number;
+  explorerDestinationId: number;
+  stravaAthleteId: string;
+  stravaActivityId?: string;
+  matchedAt?: number;
 }
 
 /**
@@ -228,6 +259,93 @@ export function createWeek(db: TestDb, options: CreateWeekOptions = {}): SelectW
   const newWeek = db.insert(week).values(newWeekData).returning().get();
   console.log(`[TEST_HELPER] Created Week: id=${newWeek.id}, name=${newWeek.week_name}, seasonId=${newWeek.season_id}, segmentId=${newWeek.strava_segment_id}`);
   return newWeek;
+}
+
+export function createExplorerCampaign(
+  db: TestDb,
+  options: CreateExplorerCampaignOptions = {}
+): SelectExplorerCampaign {
+  const {
+    seasonId,
+    displayName = 'Explorer Campaign',
+    rulesBlurb = null,
+  } = options;
+
+  let finalSeasonId = seasonId;
+  if (!finalSeasonId) {
+    const defaultSeason = createSeason(db, 'Explorer Season');
+    finalSeasonId = defaultSeason.id;
+  }
+
+  const newCampaignData: InsertExplorerCampaign = {
+    season_id: finalSeasonId,
+    display_name: displayName,
+    rules_blurb: rulesBlurb,
+  };
+
+  return db.insert(explorerCampaign).values(newCampaignData).returning().get();
+}
+
+export function createExplorerDestination(
+  db: TestDb,
+  options: CreateExplorerDestinationOptions
+): SelectExplorerDestination {
+  const {
+    explorerCampaignId,
+    stravaSegmentId = 'explorer-segment-1',
+    sourceUrl = null,
+    cachedName = null,
+    displayLabel = null,
+    displayOrder = 0,
+    surfaceType = null,
+    category = null,
+  } = options;
+
+  const existingSegment = db
+    .select()
+    .from(segment)
+    .where(eq(segment.strava_segment_id, stravaSegmentId))
+    .get();
+
+  if (!existingSegment && cachedName) {
+    createSegment(db, stravaSegmentId, cachedName);
+  }
+
+  const newDestinationData: InsertExplorerDestination = {
+    explorer_campaign_id: explorerCampaignId,
+    strava_segment_id: stravaSegmentId,
+    source_url: sourceUrl,
+    cached_name: cachedName,
+    display_label: displayLabel,
+    display_order: displayOrder,
+    surface_type: surfaceType,
+    category,
+  };
+
+  return db.insert(explorerDestination).values(newDestinationData).returning().get();
+}
+
+export function createExplorerMatch(
+  db: TestDb,
+  options: CreateExplorerMatchOptions
+): SelectExplorerDestinationMatch {
+  const {
+    explorerCampaignId,
+    explorerDestinationId,
+    stravaAthleteId,
+    stravaActivityId = String(Math.floor(Math.random() * 1000000000)),
+    matchedAt = isoToUnix('2025-06-01T12:00:00Z') || 0,
+  } = options;
+
+  const newMatchData: InsertExplorerDestinationMatch = {
+    explorer_campaign_id: explorerCampaignId,
+    explorer_destination_id: explorerDestinationId,
+    strava_athlete_id: stravaAthleteId,
+    strava_activity_id: stravaActivityId,
+    matched_at: matchedAt,
+  };
+
+  return db.insert(explorerDestinationMatch).values(newMatchData).returning().get();
 }
 
 /**
@@ -407,6 +525,9 @@ export function createFullUserWithActivity(db: TestDb, options: CreateFullUserOp
 export function clearAllData(db: TestDb) {
   // Use Drizzle to delete from tables
   db.delete(deletionRequest).run();
+  db.delete(explorerDestinationMatch).run();
+  db.delete(explorerDestination).run();
+  db.delete(explorerCampaign).run();
   db.delete(segmentEffort).run();
   db.delete(result).run();
   db.delete(activity).run();

@@ -125,6 +125,9 @@ export function teardownTestDb(db: Database.Database) {
       DELETE FROM participant_token;
       DELETE FROM deletion_request;
       DELETE FROM schema_migrations;
+      DELETE FROM explorer_destination_match;
+      DELETE FROM explorer_destination;
+      DELETE FROM explorer_campaign;
       DELETE FROM segment_effort;
       DELETE FROM result;
       DELETE FROM activity;

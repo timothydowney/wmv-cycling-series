@@ -1,7 +1,7 @@
 # Database Design
 
 ## Overview
-This document describes the SQLite database schema for tracking weekly cycling competition results based on Strava activities.
+This document describes the SQLite database schema for tracking weekly cycling competition results and the season-attached Explorer campaign feature based on Strava activities.
 
 **Scale:** Designed for <100 participants. SQLite is perfect for this - simple, fast, no separate database server needed.
 
@@ -18,6 +18,9 @@ The database is managed using **Drizzle ORM**. The source of truth for the schem
 - **`activity`**: The best qualifying Strava activity for a participant in a given week.
 - **`segment_effort`**: Individual laps/efforts extracted from a qualifying activity.
 - **`result`**: Calculated rankings and times (points are computed on-read).
+- **`explorer_campaign`**: A season-attached Explorer campaign that becomes athlete-visible when its parent season is open and the campaign has at least one destination.
+- **`explorer_destination`**: Ordered campaign destinations keyed to Strava segment IDs, with Explorer-local cached display metadata.
+- **`explorer_destination_match`**: Durable per-athlete destination completions within a campaign.
 - **`participant_token`**: Encrypted OAuth tokens for Strava API access.
 - **`webhook_event`**: Log of received Strava webhook events for monitoring.
 
@@ -126,6 +129,13 @@ GROUP BY strava_athlete_id
 ORDER BY total_points DESC;
 ```
 
+### Explorer Campaign Matching
+1. A webhook or refresh path hydrates activity segment efforts.
+2. The system finds Explorer campaigns whose parent season contains the activity timestamp.
+3. Activity segment IDs are compared against configured `explorer_destination.strava_segment_id` values.
+4. Each matching destination inserts at most one `explorer_destination_match` row per athlete per campaign.
+5. Explorer progress is computed on read from `explorer_destination_match` rather than a cached summary table in v1.
+
 ## Migration from Current Schema
 
 ### Current (v1.0)
@@ -152,6 +162,9 @@ CREATE INDEX idx_activity_week_participant ON activities(week_id, strava_athlete
 CREATE INDEX idx_segment_effort_activity ON segment_efforts(activity_id);
 CREATE INDEX idx_result_week ON results(week_id);
 CREATE INDEX idx_result_participant ON results(strava_athlete_id);
+CREATE INDEX idx_explorer_campaign_season ON explorer_campaign(season_id);
+CREATE INDEX idx_explorer_destination_campaign ON explorer_destination(explorer_campaign_id);
+CREATE INDEX idx_explorer_match_campaign_athlete ON explorer_destination_match(explorer_campaign_id, strava_athlete_id);
 ```
 
 ## Example Queries

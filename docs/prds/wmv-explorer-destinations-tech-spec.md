@@ -134,7 +134,7 @@ MVP rule: an ExplorerCampaign is attached to one season. The campaign becomes at
   - explorerCampaignId
   - stravaSegmentId
   - sourceUrl nullable
-  - cachedSegmentName
+  - cachedName
   - displayLabel nullable
   - displayOrder
   - surfaceType nullable such as virtual or outdoor
