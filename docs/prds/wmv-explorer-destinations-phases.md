@@ -36,48 +36,60 @@ Out of scope:
 - Explorer admin setup
 - Forcing activity delete or athlete deauthorization into the same handler abstraction before the activity path is stable
 
-## Phase 2: Explorer Data Model And Matching
+## Phase 2: Season Campaign Model Correction
 
-Goal: add Explorer week, destination, and match storage plus the shared matching service used by both webhooks and refresh actions.
+Goal: correct Explorer from a weekly-first design to a season-attached campaign model, and remove optional mini-campaign complexity from MVP planning.
 
-Entry condition: start from a new PR after Phase 1 is merged, and use that PR to close the remaining summary-model and destination-metadata decisions before broad Phase 2 implementation expands.
+Entry condition: start from a new planning PR from updated `main` because the current planning set and implementation branch were built around the wrong weekly-first model.
 
 Scope:
 
-- Schema additions
+- Rewrite PRD, tech spec, worklog, and readiness checklist around a season-attached Explorer campaign
+- Remove mini-campaigns from MVP scope and record them as future optional work
+- Remove explicit `draft` / `active` / `archived` workflow from MVP unless later implementation proves it is necessary
+- Define the smallest safe follow-on implementation slice against the corrected model
+
+## Phase 3: Explorer Campaign Data Model And Matching
+
+Goal: add Explorer campaign, destination, and match storage plus the shared matching service used by both webhooks and refresh actions.
+
+Scope:
+
+- Schema additions for a season-attached campaign model
 - Explorer matching service
 - Admin or service-level refresh path
 - Idempotent storage rules
 
-## Phase 3: Explorer Admin Setup
+## Phase 4: Explorer Admin Setup
 
-Goal: let admins create Explorer weeks, add destinations from Strava URLs one at a time, label them, order them, and manage activation.
+Goal: let admins create or manage the season campaign, add destinations from Strava URLs one at a time, label them, order them, and manage additions during the season.
 
 Scope:
 
 - Explorer admin routes and service layer
 - Explorer admin UI
-- Activation guard requiring at least one destination
+- Campaign setup attached to a season
+- Add-destination workflow that works before or during the season
 
-## Phase 4: Explorer Hub MVP
+## Phase 5: Explorer Hub MVP
 
-Goal: ship the athlete-facing weekly Explorer view.
+Goal: ship the athlete-facing season Explorer view.
 
 Scope:
 
 - Challenges hub route
-- Active week header
+- Active campaign header
 - Progress bar
 - Destination checklist
 - Completers summary with all names
 
-## Phase 5: Hardening And Follow-on Expansion
+## Phase 6: Hardening And Follow-on Expansion
 
 Goal: stabilize the Explorer feature and prepare later work.
 
 Candidate items:
 
-- Season-wide Explorer aggregation
+- Optional mini-campaigns attached to a season
 - Better admin search and validation tooling
 - Explorer profile rollups
 - Badges and themed campaigns
