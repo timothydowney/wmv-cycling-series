@@ -5,8 +5,8 @@
 This specification translates the Explorer Destinations PRD into an implementation-oriented design for the current WMV Cycling Series codebase. It preserves the key planning decisions:
 
 - Explorer is a separate product area from the current race leaderboard.
-- Explorer uses separate week and result storage rather than reusing the current competition week model.
-- Weekly UX is progress bar plus checklist plus completers summary.
+- Explorer uses a separate season-attached campaign model rather than overloading the current competition week model.
+- Season UX is progress bar plus checklist plus completers summary.
 - Strava segments are the canonical destination type, regardless of whether they represent outdoor or virtual riding.
 - Webhook ingestion remains in-process but is refactored into delegated handlers so Explorer can be added without further overloading the current webhook processor.
 
@@ -14,21 +14,21 @@ This specification translates the Explorer Destinations PRD into an implementati
 
 ### In Scope
 
-- Separate Explorer week model
+- Separate Explorer campaign model attached to an existing WMV season
 - Admin-defined Explorer destinations from Strava segment URLs or IDs
 - Explorer matching from ingested Strava activities
-- One completion per destination per athlete per Explorer week
-- Weekly athlete progress queries
-- Weekly completers summary queries with all completer names
-- Stored Explorer history across weeks
+- One completion per destination per athlete per Explorer campaign
+- Season athlete progress queries
+- Season completers summary queries with all completer names
+- Stored Explorer history across the season
 - Reusable refresh or backfill path
-- Explorer week activation rule requiring at least one destination
+- Allowing admins to add destinations during the season without resetting progress
 
 ### Out of Scope
 
 - Explorer rank-order leaderboard
 - Bonus scoring beyond one point per destination
-- Season-wide Explorer UI
+- Optional mini-campaigns inside a season
 - Shared-segment mini-races
 - Badge systems
 - Queue-backed or out-of-process worker model
@@ -40,6 +40,8 @@ This specification translates the Explorer Destinations PRD into an implementati
 - Strava auth and participant identity already exist.
 - Webhook ingestion already fetches and normalizes activity data in [server/src/webhooks/processor.ts](../../server/src/webhooks/processor.ts).
 - Batch or explicit activity processing already exists in [server/src/services/BatchFetchService.ts](../../server/src/services/BatchFetchService.ts).
+- The existing shared `segment` table already persists Strava segment metadata such as name, distance, grade, elevation, and location, and Competition already joins against it for read paths.
+- The current admin segment-validation flow already centralizes Strava segment fetch and persistence in [server/src/services/SegmentService.ts](../../server/src/services/SegmentService.ts).
 - App routing and top-level navigation patterns already exist in [src/App.tsx](../../src/App.tsx) and [src/components/NavBar.tsx](../../src/components/NavBar.tsx).
 - The regular admin panel already has a Strava URL input pattern worth mirroring for Explorer destination setup rather than exposing raw segment IDs only.
 
@@ -48,6 +50,7 @@ This specification translates the Explorer Destinations PRD into an implementati
 - Do not modify the canonical race scoring model in [docs/SCORING.md](../SCORING.md).
 - Do not overload current competition week records with Explorer semantics.
 - Keep Explorer additive so existing leaderboard, season, and admin flows remain intact.
+- Prefer attaching Explorer to the existing `season` concept rather than inventing a second top-level season model for MVP.
 
 ## 4. Recommended Architecture
 
@@ -87,26 +90,48 @@ Recommended direction:
 - Call that service from the Explorer ingestion handler.
 - Call that same service from an admin or participant-triggered refresh action.
 
+### 4.4 Shared segment-based matching seam
+
+The repository already has partially reusable building blocks for segment-based activity handling:
+
+- activity-window and lap-window selection in [server/src/activityProcessor.ts](../../server/src/activityProcessor.ts)
+- activity and effort persistence in [server/src/activityStorage.ts](../../server/src/activityStorage.ts)
+- webhook competition handling in [server/src/webhooks/handlers/competitionActivityHandler.ts](../../server/src/webhooks/handlers/competitionActivityHandler.ts)
+- batch refresh handling in [server/src/services/BatchFetchService.ts](../../server/src/services/BatchFetchService.ts)
+- late metric hydration in [server/src/services/HydrationService.ts](../../server/src/services/HydrationService.ts)
+
+Explorer should not introduce a second copy of this segment-based matching flow. The first corrected implementation slice should extract only the shared seam needed for a season campaign model while preserving current Competition behavior.
+
+### 4.3 MVP simplification
+
+For MVP, do not introduce a separate Explorer week lifecycle or explicit `draft` / `active` / `archived` workflow unless later implementation proves it is necessary.
+
+Use these simpler rules instead:
+
+- the Explorer campaign attaches to an existing WMV season
+- the campaign is considered active when the parent season is open
+- the athlete-facing Explorer surface should only render when the campaign has at least one destination
+- admins may add destinations before or during the season
+- optional mini-campaigns within a season are deferred until after the season-first model is stable
+
 ## 5. Proposed Data Model
 
 ### 5.1 New entities
 
 Recommended Explorer tables or equivalent schema concepts:
 
-- ExplorerWeek
+- ExplorerCampaign
   - id
-  - name
-  - startAt
-  - endAt
-  - status or active flag
+  - seasonId
+  - optional displayName or rules blurb if needed later
   - createdAt
   - updatedAt
 
-Activation rule: an ExplorerWeek cannot move to an active state unless it has at least one ExplorerDestination.
+MVP rule: an ExplorerCampaign is attached to one season. The campaign becomes athlete-visible only when its parent season is open and it has at least one ExplorerDestination.
 
 - ExplorerDestination
   - id
-  - explorerWeekId
+  - explorerCampaignId
   - stravaSegmentId
   - sourceUrl nullable
   - cachedSegmentName
@@ -119,33 +144,43 @@ Activation rule: an ExplorerWeek cannot move to an active state unless it has at
 
 - ExplorerDestinationMatch
   - id
-  - explorerWeekId
+  - explorerCampaignId
   - explorerDestinationId
   - stravaAthleteId
   - stravaActivityId
   - matchedAt or activityStartAt
   - createdAt
 
-- ExplorerAthleteWeekSummary
+- ExplorerAthleteCampaignSummary
   - optional derived or cached summary table if needed later
-  - explorerWeekId
+  - explorerCampaignId
   - stravaAthleteId
   - matchedDestinationCount
   - completedAll boolean
   - lastMatchedAt
 
-For v1, ExplorerAthleteWeekSummary can remain computed on read if query cost is modest. The durable source of truth should be ExplorerDestinationMatch.
+For v1, ExplorerAthleteCampaignSummary is computed on read. `ExplorerDestinationMatch` is the durable source of truth. Cached summary storage is deferred unless measured query cost justifies it later.
 
 ### 5.2 Key integrity rules
 
-- One athlete can match a given destination at most once per Explorer week.
-- Multiple rides over the same destination in the same Explorer week do not increase progress.
-- Matches are constrained to the Explorer week date range.
-- Explorer records must survive after the week ends so future season views can aggregate them.
+- One athlete can match a given destination at most once per Explorer campaign.
+- Multiple rides over the same destination in the same campaign do not increase progress.
+- Matches are constrained to the parent season date range.
+- Explorer records must survive after the season ends so future rollups or optional mini-campaigns can aggregate them.
 
 ### 5.3 Segment source model
 
 Admins should be able to configure destinations by pasting Strava segment URLs, following the same mental model as the regular admin panel. The system should extract the segment ID from the URL, validate it, and store the parsed segment ID plus the original source URL when available. If the segment is already known in the app's segment table, that data can be reused. If not, Explorer should still accept it and cache enough display metadata for a stable UI.
+
+Explorer uses a hybrid destination metadata strategy for v1. The preferred policy is database-first reuse of the shared `segment` table, plus Explorer-local cached display metadata and source URL values for stable rendering and setup. Segment metadata should be treated as comparatively durable. Optional short-lived in-memory caching can be used for segment metadata during setup workflows, but that should not be generalized to activity details or segment efforts.
+
+### 5.4 V1 decision lock
+
+- Primary product model: season-attached Explorer campaign
+- Summary model: computed on read
+- Destination metadata strategy: hybrid shared-segment reuse plus Explorer-local cached display metadata
+- Optional mini-campaigns within a season: deferred
+- Explicit Explorer publish-status workflow: deferred unless later implementation proves it is needed
 
 ## 6. Core Services
 
@@ -154,8 +189,8 @@ Admins should be able to configure destinations by pasting Strava segment URLs, 
 Responsibilities:
 
 - Receive normalized activity data plus athlete context.
-- Determine which Explorer weeks are active for the activity timestamp.
-- For each relevant Explorer week, compare activity segment efforts to configured Explorer destination segment IDs.
+- Determine which Explorer campaign is active for the activity timestamp by looking at the parent season.
+- Compare activity segment efforts to configured Explorer destination segment IDs for that campaign.
 - Create missing ExplorerDestinationMatch records idempotently.
 - Return summary information about newly matched destinations.
 
@@ -165,17 +200,17 @@ This service is the core reusable unit for both webhook-driven ingestion and exp
 
 Responsibilities:
 
-- Get active Explorer week for UI.
-- Get destination list for a given Explorer week.
-- Get current athlete progress for that week.
-- Get completers summary for that week, including all completer names.
+- Get active Explorer campaign for UI.
+- Get destination list for a given campaign.
+- Get current athlete progress for that campaign.
+- Get completers summary for that campaign, including all completer names.
 - Leave athlete profile aggregation out of the first implementation slice.
 
 ### 6.3 Explorer admin service
 
 Responsibilities:
 
-- Create and update Explorer weeks.
+- Create and update Explorer campaigns for a season.
 - Add, edit, remove, and reorder Explorer destinations.
 - Validate or enrich destination metadata from Strava where possible.
 - Trigger refresh or backfill actions.
@@ -184,16 +219,16 @@ Responsibilities:
 
 Recommended new tRPC surface areas:
 
-- explorer.getActiveWeek
-- explorer.getWeekProgress
-- explorer.getWeekCompleters
-- explorerAdmin.createWeek
-- explorerAdmin.updateWeek
+- explorer.getActiveCampaign
+- explorer.getCampaignProgress
+- explorer.getCampaignCompleters
+- explorerAdmin.createCampaign
+- explorerAdmin.updateCampaign
 - explorerAdmin.addDestination
 - explorerAdmin.updateDestination
 - explorerAdmin.removeDestination
 - explorerAdmin.reorderDestinations
-- explorerAdmin.refreshWeek
+- explorerAdmin.refreshCampaign
 - explorerAdmin.refreshAthlete
 
 These names are illustrative. Final naming should fit existing router conventions.
@@ -205,7 +240,7 @@ These names are illustrative. Final naming should fit existing router convention
 Recommended user-facing sections:
 
 - Challenges hub route
-- Active Explorer week header
+- Active Explorer season campaign header
 - Progress bar
 - Destination checklist
 - Completers summary
@@ -214,18 +249,18 @@ Recommended user-facing sections:
 
 Recommended initial admin capabilities:
 
-- Create Explorer week with date range
+- Attach Explorer campaign to a season
 - Add one destination at a time by pasting a Strava segment URL and parsing the segment ID
 - Edit destination display label and ordering
-- Prevent activation until at least one destination exists
-- Run refresh for a week or athlete
+- Allow adding destinations before or during the season
+- Run refresh for a campaign or athlete
 
 ## 9. Matching Rules
 
 ### V1 rules
 
-- A destination is a Strava segment configured on an Explorer week.
-- A destination counts when the athlete has a qualifying activity containing that segment during the Explorer week.
+- A destination is a Strava segment configured on an Explorer campaign attached to a season.
+- A destination counts when the athlete has a qualifying activity containing that segment during the parent season window.
 - Each destination is worth one point internally.
 - The athlete's visible progress is completed destinations divided by total destinations.
 - Repeated visits do not add progress beyond the first match.
@@ -236,6 +271,7 @@ Recommended initial admin capabilities:
 - Whether to display segment source labels like virtual or outdoor in the checklist
 - Whether a deleted activity should remove an Explorer match if it was the only source of completion
 - Whether to compute historical rollups on read or cache them incrementally
+- Whether optional mini-campaigns should later exist as freestanding season-attached sub-campaigns
 
 ## 10. Testing Strategy
 
@@ -243,9 +279,9 @@ Recommended initial admin capabilities:
 
 Add tests for:
 
-- Explorer week boundary handling
+- Explorer campaign boundary handling using the parent season dates
 - Destination match idempotency
-- Duplicate segment visits in one week
+- Duplicate segment visits in one season campaign
 - Multiple destinations in one activity
 - Virtual and outdoor segment parity
 - Strava URL parsing and validation
@@ -258,33 +294,34 @@ Add tests for:
 Add tests for:
 
 - Challenges hub navigation
-- Active Explorer week rendering
+- Active Explorer campaign rendering
 - Progress bar state
 - Checklist completion state
 - Completers summary rendering
-- Empty states for no active week or no progress yet
+- Empty states for no active campaign or no progress yet
 
 ### End-to-end
 
 Recommended E2E journeys:
 
-- Admin creates Explorer week and destinations
-- Explorer week cannot activate until at least one destination exists
-- Athlete views active Explorer week
+- Admin creates Explorer campaign for a season and destinations
+- Athlete views active Explorer campaign
 - Athlete completes one destination and sees progress update
-- Athlete completes full weekly set and sees completion state
+- Admin adds a new destination during the season and the checklist updates without resetting prior completions
+- Athlete completes full season set and sees completion state
 - Completers summary reflects at least one full completer
 
 ## 11. Migration and Rollout Sequence
 
 1. Refactor webhook processor toward delegated handlers without changing current competition behavior.
-2. Add Explorer schema and backend services.
-3. Implement Explorer matching handler and shared refresh path.
-4. Add Explorer tRPC routes.
-5. Add admin Explorer setup UI.
-6. Add Challenges hub UI with progress bar, checklist, and completers summary.
-7. Run regression checks on race and admin flows.
-8. If the slice is user-facing and ready to commit, update `VERSION` and `CHANGELOG.md` in the final pre-commit pass with a high-level summary.
+2. Correct the planning model to a season-attached Explorer campaign.
+3. Add Explorer schema and backend services for the campaign model.
+4. Implement Explorer matching handler and shared refresh path.
+5. Add Explorer tRPC routes.
+6. Add admin Explorer setup UI.
+7. Add Challenges hub UI with progress bar, checklist, and completers summary.
+8. Run regression checks on race and admin flows.
+9. If the slice is user-facing and ready to commit, update `VERSION` and `CHANGELOG.md` in the final pre-commit pass with a high-level summary.
 
 ## 12. Risks and Mitigations
 
@@ -295,18 +332,21 @@ Recommended E2E journeys:
   Mitigation: mirror the existing admin-panel parsing approach and test it directly.
 
 - Risk: Explorer begins to inherit competition UX by accident.
-  Mitigation: avoid ranked lists in the primary weekly surface.
+  Mitigation: avoid ranked lists in the primary season surface.
+
+- Risk: the MVP is overcomplicated by adding mini-campaigns or explicit status workflows too early.
+  Mitigation: keep the first model season-first, attach it to the existing season, and defer mini-campaigns plus explicit publish states until they solve a real problem.
 
 - Risk: Webhook processor becomes more complex during transition.
   Mitigation: refactor to delegated handlers before layering in Explorer logic.
 
 ## 13. Suggested Handoff Notes
 
-If this moves to implementation, the first engineering slice should be the delegated ingestion refactor plus Explorer schema design. That is the structural work that determines whether the rest of the feature can be added cleanly.
+If this moves to implementation after the planning correction, the first engineering slice should be the season-attached Explorer campaign schema plus matching and query corrections. That is the structural work that determines whether the rest of the feature can be added cleanly.
 
 The next slice should be the smallest end-to-end Explorer loop:
 
-- one Explorer week
+- one Explorer campaign attached to a season
 - one or more destinations
 - one athlete progress query
 - one completers summary query

@@ -4,15 +4,15 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 
 ## Current Focus
 
-- Close Phase 1 cleanly and keep the branch ready for a dedicated PR.
-- Mark the webhook seam complete without quietly expanding into Phase 2 work.
-- Prepare the next Explorer PR to focus on Phase 2 preparation decisions.
+- Correct the planning set from a weekly-first Explorer model to a season-campaign-first MVP.
+- Remove optional mini-campaign and status-workflow complexity from MVP planning.
+- Produce the smallest safe implementation slice against the corrected season campaign model.
 
 ## Current Go State
 
-- **Readiness:** Phase 1 Complete; Ready For New Phase 2 Preparation PR
-- **Immediate scope:** close this branch as the Phase 1 PR and begin the next branch with Phase 2 preparation decisions only
-- **Not yet in scope:** broad Phase 2 schema or UI implementation until the remaining design blockers are closed
+- **Readiness:** Phase 1 Complete; Season-Campaign Correction Landed; Ready For Narrow Corrected Implementation Slice
+- **Immediate scope:** one bounded implementation PR correcting the Explorer data model and matching/query paths to a season-attached campaign
+- **Not yet in scope:** mini-campaigns, explicit publish-status workflows, full admin UI, or full athlete hub UI
 
 ## Decisions Made
 
@@ -24,13 +24,21 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 - GitHub issues remain secondary for now; local planning docs stay primary until slices are stable enough to externalize cleanly.
 - Phase 1 is approved only as a structural webhook slice: preserve current behavior first, add Explorer matching later.
 - Phase 1 is complete on this branch: the shared activity-ingestion context, sequential delegated handlers, explicit handler order, and preservation tests are in place.
+- The previous Explorer planning set and PR #23 used the wrong primary model: weekly Explorer challenges first, with season-wide support deferred.
+- MVP should instead be season-campaign-first, attached to an existing WMV season, with optional mini-campaigns deferred.
+- MVP does not currently justify explicit Explorer `draft` / `active` / `archived` workflow complexity; season dates and destination presence should control visibility unless later implementation proves otherwise.
+- V1 athlete campaign summary is computed on read, with `ExplorerDestinationMatch` as the durable source of truth.
+- V1 destination metadata uses a hybrid strategy: reuse shared segment data when present, while storing Explorer-local cached display metadata and source URL values for stable setup and rendering.
 
 ## Open Questions
 
 | Question | Status | Blocks Implementation | Notes |
 | --- | --- | --- | --- |
-| Should athlete week summaries be computed on read or stored in a cached summary table for v1? | Open | Yes | Tech spec currently leaves this as conditional. |
-| Should Explorer reuse the existing segment table, store Explorer-local cached metadata, or do both? | Open | Yes | Existing UI parsing is proven, but final storage rules are not. |
+| Should Explorer be season-campaign-first or weekly-first in MVP? | Closed | Yes | Closed in favor of season-campaign-first attached to the existing season model. |
+| Should optional mini-campaigns within a season remain in MVP? | Closed | Yes | Closed in favor of removing them from MVP and deferring them to later planning. |
+| Does MVP need an explicit Explorer status workflow such as `draft` or `archived`? | Closed For MVP | Yes | Closed in favor of no explicit status field unless later implementation proves it is needed. |
+| Should athlete campaign summaries be computed on read or stored in a cached summary table for v1? | Closed For v1 | No | V1 uses computed-on-read summaries with `ExplorerDestinationMatch` as the durable source of truth. |
+| Should Explorer reuse the existing segment table, store Explorer-local cached metadata, or do both? | Closed For v1 | No | V1 uses a hybrid strategy: shared segment reuse when present plus Explorer-local cached display metadata. |
 | How should webhook regression protection be documented for the delegated-handler refactor? | Closed For Phase 1 | No | The preservation target now lives in this worklog and the handler seam is covered by focused webhook tests. |
 | What is the exact E2E data strategy for Explorer flows? | Open | No | Should be defined before Phase 2 starts. |
 | Should deleted source activities retract Explorer completions in v1? | Open | No | Safe to defer if behavior is documented. |
@@ -39,15 +47,19 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 
 ### Must Resolve Before Broad Implementation
 
-1. Decide the v1 summary model.
-2. Decide the v1 destination metadata strategy.
-3. Keep unresolved questions centralized rather than scattered across planning docs.
+1. Correct the primary Explorer model to season-campaign-first across the planning set.
+2. Re-scope MVP so optional mini-campaigns are explicitly deferred.
+3. Re-approve the next implementation slice against the corrected model before more Explorer coding continues.
+
+Resolution:
+
+- These planning blockers are now closed on this branch.
 
 ### Should Resolve Before Phase 2
 
-1. Name Explorer backend test locations and test shape.
-2. Define the E2E data approach.
-3. List documentation surfaces expected to change when Explorer slices land.
+1. Resolved for the next slice: Explorer backend tests should live under `server/src/__tests__` and use the existing in-memory SQLite pattern.
+2. Resolved for the next slice: Explorer E2E scenarios should provision their own campaign data intentionally.
+3. Resolved for the next slice: Planning and implementation docs touched by the corrected slice should be listed explicitly before coding starts.
 
 ## Ready-Next Slices
 
@@ -95,29 +107,32 @@ The current preservation target is backed by:
 3. [server/src/__tests__/webhookProcessor.segmentEffortsRetry.test.ts](../../server/src/__tests__/webhookProcessor.segmentEffortsRetry.test.ts)
 4. [server/src/__tests__/webhookAdminRouter.replayEvent.test.ts](../../server/src/__tests__/webhookAdminRouter.replayEvent.test.ts)
 
-### Slice Candidate B: Summary Model Decision
+### Planning Correction: Season Campaign Model
 
-- Phase: Phase 2 preparation
-- Goal: choose computed-on-read versus cached-summary for v1 and update the technical spec accordingly
-- Why this matters: it stabilizes query-service design and schema decisions
-
-### Slice Candidate C: Destination Metadata Strategy
-
-- Phase: Phase 2 preparation
-- Goal: define how Explorer destination setup reuses segment validation and metadata from the current admin flow
-- Why this matters: it stabilizes admin-service and schema direction
+- Phase: Phase 2
+- Goal: change the source-of-truth planning set so Explorer is a season-attached campaign, not a weekly-first challenge model
+- Why this matters: the current implementation branch and planning docs were shaped around the wrong primary concept
 
 ### Recommended Next PR
 
-- Start a fresh Phase 2 preparation branch from updated `main` after this Phase 1 branch lands.
-- Keep the next PR focused on the athlete summary model, destination metadata strategy, test layout, and E2E data approach.
-- Do not mix those decisions with schema or UI implementation unless the blockers are explicitly closed in the same PR.
+- Start from updated `main` on a dedicated implementation branch only after this planning correction lands.
+- Keep the next implementation PR scoped to the corrected campaign model only:
+	- campaign schema attached to `season`
+	- destination and match schema keyed to the campaign
+	- matching service correction from week windows to season windows
+	- corrected query routes for active campaign and athlete progress
+	- backend tests for campaign boundaries, idempotency, and add-destination behavior
+- Keep out of scope for that PR:
+	- mini-campaigns inside a season
+	- explicit Explorer publish-status workflows
+	- full admin UI
+	- full athlete hub UI
 
 ## Issue Candidates
 
-- Decide and document Explorer athlete week summary strategy
-- Decide and document Explorer destination metadata strategy
-- Define Explorer test layout and E2E data plan
+- Correct Explorer planning set to season-campaign-first MVP
+- Implement corrected Explorer campaign schema and matching service
+- Re-scope Explorer admin and hub work to the corrected campaign model
 
 ## Documentation Impact Checklist
 
