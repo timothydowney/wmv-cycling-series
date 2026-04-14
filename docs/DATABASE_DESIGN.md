@@ -136,6 +136,13 @@ ORDER BY total_points DESC;
 4. Each matching destination inserts at most one `explorer_destination_match` row per athlete per campaign.
 5. Explorer progress is computed on read from `explorer_destination_match` rather than a cached summary table in v1.
 
+### Explorer Admin Authoring
+1. Admin setup creates at most one `explorer_campaign` row per season in v1.
+2. Destination authoring accepts validated Strava segment URLs and extracts the canonical segment ID from the URL path.
+3. `explorer_destination` stores both the source URL and Explorer-local cached display metadata so authoring and display stay stable even if shared segment metadata changes later.
+4. Destination creation can proceed with the parsed segment ID and source URL even if live metadata enrichment is temporarily unavailable.
+5. Each campaign can contain a given Strava segment only once, enforced by both service validation and a unique database index.
+
 ## Migration from Current Schema
 
 ### Current (v1.0)
@@ -162,8 +169,9 @@ CREATE INDEX idx_activity_week_participant ON activities(week_id, strava_athlete
 CREATE INDEX idx_segment_effort_activity ON segment_efforts(activity_id);
 CREATE INDEX idx_result_week ON results(week_id);
 CREATE INDEX idx_result_participant ON results(strava_athlete_id);
-CREATE INDEX idx_explorer_campaign_season ON explorer_campaign(season_id);
+CREATE UNIQUE INDEX idx_explorer_campaign_season ON explorer_campaign(season_id);
 CREATE INDEX idx_explorer_destination_campaign ON explorer_destination(explorer_campaign_id);
+CREATE UNIQUE INDEX idx_explorer_destination_campaign_segment ON explorer_destination(explorer_campaign_id, strava_segment_id);
 CREATE INDEX idx_explorer_match_campaign_athlete ON explorer_destination_match(explorer_campaign_id, strava_athlete_id);
 ```
 

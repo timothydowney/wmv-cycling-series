@@ -196,6 +196,25 @@ The `explorerRouter` provides the read paths for the season-attached Explorer ca
 - `trpc.explorer.getActiveCampaign` — Returns the currently active Explorer campaign for the open season, including ordered destinations. Campaigns without destinations are hidden from the athlete-facing surface.
 - `trpc.explorer.getCampaignProgress` — Returns the authenticated athlete's completion state for a campaign, including completed destinations and the source Strava activity IDs for recorded matches.
 
+## Explorer Admin (tRPC)
+
+The `explorerAdminRouter` provides the Phase 4A admin-only write paths for Explorer campaign setup.
+
+Relationship model:
+
+- One season can have one Explorer campaign in v1.
+- One Explorer campaign can contain many destinations.
+- A given Strava segment can appear only once within the same campaign.
+
+- `trpc.explorerAdmin.createCampaign` — Creates the single Explorer campaign allowed for a season in v1. Rejects duplicate campaigns for the same season.
+- `trpc.explorerAdmin.addDestination` — Adds a destination to an Explorer campaign from a validated Strava segment URL, persists the source URL plus Explorer-local cached display metadata, and appends the destination at the next display order.
+
+Current 4A contract notes:
+
+- Raw segment IDs are not accepted as an admin authoring input.
+- Destination creation can still succeed when URL parsing succeeds but live segment metadata enrichment is unavailable.
+- Duplicate segment IDs within the same campaign are rejected.
+
 ## Error responses
 
 Errors follow a simple pattern:
