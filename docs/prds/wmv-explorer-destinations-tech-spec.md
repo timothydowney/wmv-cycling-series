@@ -129,6 +129,8 @@ Recommended Explorer tables or equivalent schema concepts:
 
 MVP rule: an ExplorerCampaign is attached to one season. The campaign becomes athlete-visible only when its parent season is open and it has at least one ExplorerDestination.
 
+For v1 admin authoring, enforce one campaign per season. This should not block future support for multiple seasons each having their own campaign, but it should prevent multiple campaigns competing within the same season.
+
 - ExplorerDestination
   - id
   - explorerCampaignId
@@ -172,15 +174,23 @@ For v1, ExplorerAthleteCampaignSummary is computed on read. `ExplorerDestination
 
 Admins should be able to configure destinations by pasting Strava segment URLs, following the same mental model as the regular admin panel. The system should extract the segment ID from the URL, validate it, and store the parsed segment ID plus the original source URL when available. If the segment is already known in the app's segment table, that data can be reused. If not, Explorer should still accept it and cache enough display metadata for a stable UI.
 
+For 4A, the admin backend contract should accept validated Strava segment URLs rather than raw segment IDs. This keeps the initial write surface aligned with the intended paste-and-add authoring workflow and avoids expanding the first slice with a second authoring mode.
+
 Explorer uses a hybrid destination metadata strategy for v1. The preferred policy is database-first reuse of the shared `segment` table, plus Explorer-local cached display metadata and source URL values for stable rendering and setup. Segment metadata should be treated as comparatively durable. Optional short-lived in-memory caching can be used for segment metadata during setup workflows, but that should not be generalized to activity details or segment efforts.
+
+If URL parsing succeeds but live Strava metadata enrichment fails, 4A should still allow destination creation as long as the parsed segment ID and original source URL are preserved. Missing or stale metadata can be repaired in a later slice without blocking initial authoring.
 
 ### 5.4 V1 decision lock
 
 - Primary product model: season-attached Explorer campaign
 - Summary model: computed on read
 - Destination metadata strategy: hybrid shared-segment reuse plus Explorer-local cached display metadata
+- Campaign cardinality per season: exactly one Explorer campaign per season in v1
+- Admin destination authoring input for 4A: validated Strava segment URLs only
+- Metadata enrichment failure policy: allow creation when parsing succeeds and preserve segment ID plus source URL
 - Optional mini-campaigns within a season: deferred
 - Explicit Explorer publish-status workflow: deferred unless later implementation proves it is needed
+- Refresh or backfill admin mutations: deferred out of 4A
 
 ## 6. Core Services
 
@@ -215,6 +225,11 @@ Responsibilities:
 - Validate or enrich destination metadata from Strava where possible.
 - Trigger refresh or backfill actions.
 
+4A boundary:
+
+- Include campaign creation and add-destination authoring only.
+- Defer refresh or backfill mutations until a later admin slice.
+
 ## 7. API Surface
 
 Recommended new tRPC surface areas:
@@ -233,9 +248,17 @@ Recommended new tRPC surface areas:
 
 These names are illustrative. Final naming should fit existing router conventions.
 
+Pre-release exposure rule:
+
+- `explorerAdmin.*` belongs behind admin authorization.
+- If Explorer UI ships before the athlete-facing hub is approved for release, keep all Explorer UI entry points admin-only and do not add public navigation.
+- Existing Explorer read APIs may exist before launch, but their presence alone should not drive early end-user exposure.
+
 ## 8. UI Surface
 
 ### 8.1 User-facing hub
+
+This surface remains deferred until Explorer is approved for end-user release.
 
 Recommended user-facing sections:
 
@@ -247,6 +270,8 @@ Recommended user-facing sections:
 
 ### 8.2 Admin surface
 
+During early admin slices, any Explorer UI should remain admin-gated and should not make the feature visible to non-admin users.
+
 Recommended initial admin capabilities:
 
 - Attach Explorer campaign to a season
@@ -254,6 +279,8 @@ Recommended initial admin capabilities:
 - Edit destination display label and ordering
 - Allow adding destinations before or during the season
 - Run refresh for a campaign or athlete
+
+The first admin UI should optimize for repeated paste-and-add authoring sessions rather than heavy per-destination form filling, but that UX work belongs to 4B rather than 4A.
 
 ## 9. Matching Rules
 

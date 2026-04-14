@@ -122,7 +122,7 @@ Any Explorer task sent to a cloud agent should include:
 
 Good first cloud-agent tasks for Explorer would look like this:
 
-- `Implement the approved Explorer query router for getActiveWeek and its tests, following the tech spec section on API surface and the current readiness checklist.`
+- `Implement the approved Explorer admin backend slice for createCampaign and addDestination, following the tech spec API surface and the current readiness checklist.`
 - `Make the requested follow-up changes on an existing Explorer PR after review comments, keeping the scope to the listed files and tests.`
 
 Bad first cloud-agent tasks would look like this:
@@ -176,6 +176,12 @@ Prompts should remain narrow and convenient.
 - Hand off to `dev-agent` for coding work.
 - Run local validation.
 - Update docs if the slice changes visible behavior or planning state.
+
+### Slice completion discipline
+
+- If an approved implementation slice only requires narrow planning-state maintenance, such as marking the slice complete, updating the recommended next slice, or aligning readiness wording with merged code, the implementation PR should include those planning doc edits before it is considered done.
+- Hand back to `explorer-planner` when closing the slice requires new product decisions, broader readiness re-evaluation, or reshaping later slice boundaries rather than simply recording the completed state.
+- This keeps implementation PRs from leaving stale planning guidance behind while still reserving real planning work for the planning agent.
 
 ### 4. CLI support if needed
 

@@ -40,6 +40,8 @@ Out of scope:
 
 Goal: correct Explorer from a weekly-first design to a season-attached campaign model, and remove optional mini-campaign complexity from MVP planning.
 
+Status: complete in the current planning set. Future work should build on the corrected model rather than reopen the weekly-first design unless product intent changes again.
+
 Entry condition: start from a new planning PR from updated `main` because the current planning set and implementation branch were built around the wrong weekly-first model.
 
 Scope:
@@ -53,6 +55,8 @@ Scope:
 
 Goal: add Explorer campaign, destination, and match storage plus the shared matching service used by both webhooks and refresh actions.
 
+Status: complete on the merged backend slice. Schema, matching, webhook integration, and the initial read routes now exist and should be treated as the base for later Explorer work.
+
 Scope:
 
 - Schema additions for a season-attached campaign model
@@ -62,18 +66,47 @@ Scope:
 
 ## Phase 4: Explorer Admin Setup
 
-Goal: let admins create or manage the season campaign, add destinations from Strava URLs one at a time, label them, order them, and manage additions during the season.
+Goal: let admins create or manage the season campaign without exposing Explorer to end users before release.
+
+### Slice 4A: Admin Backend
+
+Goal: add the minimal Explorer admin service and tRPC surface needed to create a campaign for a season and add destinations safely.
 
 Scope:
 
-- Explorer admin routes and service layer
+- Explorer admin service and router surface for campaign creation and add-destination flow
+- Enforce one Explorer campaign per season without constraining future multi-season operation
+- Strava segment URL parsing and validation for destination setup; do not expose raw segment-ID authoring in 4A
+- Explorer-local source URL and cached metadata persistence needed for stable authoring and display
+- Allow destination creation to proceed when URL parsing succeeds but live metadata enrichment is unavailable
+- Add-destination behavior that works before or during the season without resetting prior progress
+- Backend tests for auth, validation, campaign creation, destination creation, and in-season additions
+
+Out of scope:
+
+- Admin UI
+- Public athlete-facing Explorer UI
+- Public navigation to Explorer surfaces
+- Reorder, remove, and edit flows unless one is required to keep the backend contract coherent
+- Refresh or backfill mutations
+- Release-note bookkeeping files
+
+### Slice 4B: Admin UI (Admin-Gated)
+
+Goal: expose the approved admin backend capabilities through an admin-only WMV surface.
+
+Scope:
+
+- Admin-only route or section for Explorer campaign setup
+- Create-campaign and add-destination flows using the approved 4A backend contract
+- Keep all Explorer entry points hidden from non-admin users until there is an explicit release decision for the athlete-facing hub
 - Explorer admin UI
 - Campaign setup attached to a season
 - Add-destination workflow that works before or during the season
 
 ## Phase 5: Explorer Hub MVP
 
-Goal: ship the athlete-facing season Explorer view.
+Goal: ship the athlete-facing season Explorer view only after the admin flow is stable and Explorer is approved for end-user release.
 
 Scope:
 

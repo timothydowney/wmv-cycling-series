@@ -115,6 +115,8 @@ Use [AGENTS.md](./AGENTS.md) as the source of truth for:
 - branch discipline and working-tree transplant rules
 - validation and pre-commit flow
 
+For GitHub operations such as pull request review, issue lookup, labels, search, and repository metadata, prefer GitHub MCP and workspace-integrated GitHub tools first. Use `gh` only as a fallback when the MCP path is unavailable or cannot provide the required data.
+
 ## Code Patterns & Standards
 
 ### Backend (TypeScript Only)
