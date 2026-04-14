@@ -232,14 +232,17 @@ Responsibilities:
 
 ## 7. API Surface
 
-Recommended new tRPC surface areas:
+Recommended tRPC surface areas for 4A:
+
+- explorerAdmin.createCampaign
+- explorerAdmin.addDestination
+
+Recommended later tRPC surface areas after 4A:
 
 - explorer.getActiveCampaign
 - explorer.getCampaignProgress
 - explorer.getCampaignCompleters
-- explorerAdmin.createCampaign
 - explorerAdmin.updateCampaign
-- explorerAdmin.addDestination
 - explorerAdmin.updateDestination
 - explorerAdmin.removeDestination
 - explorerAdmin.reorderDestinations

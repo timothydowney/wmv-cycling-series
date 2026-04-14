@@ -42,7 +42,7 @@ Goal: correct Explorer from a weekly-first design to a season-attached campaign 
 
 Status: complete in the current planning set. Future work should build on the corrected model rather than reopen the weekly-first design unless product intent changes again.
 
-Entry condition: start from a new planning PR from updated `main` because the current planning set and implementation branch were built around the wrong weekly-first model.
+Historical note: this planning correction was necessary because an earlier planning set and implementation branch had been built around the wrong weekly-first model.
 
 Scope:
 

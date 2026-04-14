@@ -79,7 +79,7 @@ Explorer has completed the narrow Phase 1 webhook-orchestration slice that prese
 | Acceptance criteria | One section in the worklog or readiness checklist lists all unresolved questions, their current status, and whether they block implementation. |
 | Next action | Seed the worklog with a dedicated open-questions section and keep it current. |
 
-### 5. Phase 1 And Phase 2 Boundary
+### 5. Phase 1 To Phase 4A Boundary
 
 | Field | Value |
 | --- | --- |

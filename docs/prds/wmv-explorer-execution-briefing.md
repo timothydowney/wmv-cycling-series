@@ -122,7 +122,7 @@ Any Explorer task sent to a cloud agent should include:
 
 Good first cloud-agent tasks for Explorer would look like this:
 
-- `Implement the approved Explorer admin backend slice for createCampaign and addDestination, following the tech spec API surface and the current readiness checklist.`
+- `Implement only the approved Explorer admin backend 4A procedures: createCampaign and addDestination. Do not add any other explorerAdmin endpoints. Follow the 4A slice requirements and the current readiness checklist.`
 - `Make the requested follow-up changes on an existing Explorer PR after review comments, keeping the scope to the listed files and tests.`
 
 Bad first cloud-agent tasks would look like this:
