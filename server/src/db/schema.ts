@@ -1,4 +1,4 @@
-import { sqliteTable, text, numeric, integer, index, real } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, numeric, integer, index, real, uniqueIndex } from 'drizzle-orm/sqlite-core';
 // import { relations } from "drizzle-orm"
 
 export const sessions = sqliteTable('sessions', {
@@ -194,7 +194,7 @@ export const explorerDestinationMatch = sqliteTable('explorer_destination_match'
 (t) => [
   index('idx_explorer_match_campaign_athlete').on(t.explorer_campaign_id, t.strava_athlete_id),
   index('idx_explorer_match_activity').on(t.strava_activity_id),
-  index('idx_explorer_match_unique').on(t.explorer_campaign_id, t.explorer_destination_id, t.strava_athlete_id),
+  uniqueIndex('idx_explorer_match_unique').on(t.explorer_campaign_id, t.explorer_destination_id, t.strava_athlete_id),
 ]);
 
 // Chain Wax Tracking tables
