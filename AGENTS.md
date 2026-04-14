@@ -115,6 +115,11 @@ npm run audit        # Security audit (frontend + backend)
    - Do not update either file during planning or mid-implementation
    - Keep changelog entries high-level rather than a play-by-play of intermediate edits
 
+8. **GitHub workflow tools:**
+   - For pull requests, review comments, issues, labels, searches, and repository metadata, prefer GitHub MCP and workspace-integrated GitHub tools first
+   - Fall back to `gh` only when the MCP path is unavailable, missing a needed capability, or returning incomplete results
+   - When falling back to `gh`, keep the usage targeted and explain the blocker or gap that required the fallback
+
 ## Special Tasks
 
 | Task | Purpose | When to Use |

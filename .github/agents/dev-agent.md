@@ -39,6 +39,7 @@ Use the shared repo instructions rather than restating them here:
 
 1. Check `git status` and `git branch --show-current` before substantial work.
 2. If the task is a new phase or feature slice, start from updated `main` on a dedicated feature branch.
-3. Implement with minimal, focused changes that match the existing architecture.
-4. Validate with `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build` before calling the work complete.
-5. Stage files explicitly with `git add <file>` rather than broad staging.
+3. For pull requests, review comments, issue lookups, labels, and repository metadata, prefer GitHub MCP and workspace-integrated GitHub tools first; use `gh` only when that path is blocked or incomplete.
+4. Implement with minimal, focused changes that match the existing architecture.
+5. Validate with `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build` before calling the work complete.
+6. Stage files explicitly with `git add <file>` rather than broad staging.
