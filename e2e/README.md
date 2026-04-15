@@ -41,7 +41,9 @@ npm run test:e2e:report
 5. **Sequential execution** in Phase 1 (enable parallelization in Phase 2)
 6. **TypeScript fixtures** for type safety with tRPC types
 
-## Harness Rules
+## Harness Rules (Target / Next)
+
+These principles describe the intended direction for the E2E harness as it becomes stricter and more explicit.
 
 - Keep test-harness checks centralized in config, bootstrapping, and scripts.
 - Do not scatter test-mode checks through feature logic.
@@ -49,7 +51,9 @@ npm run test:e2e:report
 - Use explicit provider selection for outbound integrations when behavior must differ in E2E, for example live, fixture-backed, or mock-server-backed Strava behavior.
 - Fail fast if the intended E2E env file or backend mode is missing instead of silently falling back to the normal development environment.
 
-This matters for Explorer admin flows because destination authoring fetches segment metadata from the backend, so Playwright browser interception alone is not sufficient for repeatable coverage.
+Current reality: today's E2E setup still relies on explicit local setup and existing scripts. The repo does not yet enforce a single backend E2E mode switch or fail-fast env-file validation, and Playwright does not boot the frontend or backend servers for you.
+
+This matters for Explorer admin flows because destination authoring fetches segment metadata from the backend, so Playwright browser interception alone is not sufficient for repeatable coverage and is one reason the stricter harness direction is needed.
 
 ## Phase 1 Status: Setup
 

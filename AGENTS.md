@@ -29,7 +29,7 @@ npm run test:e2e:headed  # E2E tests with visible browser
 npm run test:e2e:ui      # Playwright UI mode (interactive debugging)
 ```
 
-**Important:** Treat Playwright as a dedicated E2E environment, not as an implicit extension of normal local development. The harness should declare its environment explicitly and fail fast when that wiring is missing.
+**Important:** Treat Playwright as a dedicated E2E environment, not as an implicit extension of normal local development. `npm run test:e2e` sets `ENV_FILE` for the Playwright process, but the frontend and backend still need to be started with the intended E2E wiring; the harness should declare that wiring explicitly and fail fast when it is missing.
 
 ### Building & Deployment
 
@@ -54,7 +54,7 @@ npm run audit        # Security audit (frontend + backend)
 
 - **Environment:** `e2e/.env.e2e`
 - **Purpose:** Dedicated backend/runtime wiring for deterministic browser tests
-- **Current reality:** If the E2E env file is missing, backend config can fall back to `.env`, so do not assume isolation unless the harness explicitly verifies it
+- **Current reality:** If the backend is started without `ENV_FILE=e2e/.env.e2e` or equivalent E2E wiring, config can still use the default `.env`, so do not assume isolation unless the harness explicitly verifies it
 - **Expected direction:** Use an explicit backend E2E mode plus explicit provider selection for outbound integrations, and fail fast when the intended E2E setup is absent
 - **Usage:** Used by `npm run test:e2e*` tasks
 
