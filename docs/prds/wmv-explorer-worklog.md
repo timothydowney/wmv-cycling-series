@@ -137,9 +137,12 @@ The current preservation target is backed by:
 ### Recommended Next PR
 
 - Start from updated `main` on a dedicated implementation branch.
-- Keep the next implementation PR scoped to Phase 4B admin-gated UI only:
+- Keep the next implementation PR scoped to the first pass of Phase 4B admin-gated UI:
 	- admin-only route or section for Explorer campaign setup
 	- create-campaign and add-destination flows using the landed 4A backend contract
+	- explicit backend E2E mode wiring for repeatable admin-flow testing
+	- deterministic server-side Strava segment metadata behavior for Explorer E2E coverage
+	- fail-fast Explorer E2E setup so the suite does not silently fall back to shared dev state
 	- keep all Explorer entry points hidden from non-admin users until there is an explicit release decision
 	- admin UI states for duplicate-campaign, invalid-URL, and metadata-fallback outcomes
 	- targeted UI and E2E coverage for the admin-gated flow
@@ -150,6 +153,39 @@ The current preservation target is backed by:
 	- explicit Explorer publish-status workflows
 	- refresh and backfill mutations
 	- destination reorder, edit, or remove flows unless one proves necessary to keep the UI coherent
+
+### 4B E2E Recommendation
+
+- Prefer a general backend E2E mode rather than a single Explorer-only env flag.
+- Keep that mode narrow: it should enable test-only auth helpers, fail-fast environment validation, and dependency selection for outbound integrations.
+- Do not use the general mode to hide ad hoc behavior changes deep in feature logic.
+- For external calls, use explicit provider selection where needed. For example, Strava-dependent server behavior should choose live, fixture-backed, or mock-server-backed behavior intentionally rather than inferring it indirectly.
+- For the first 4B pass, only one outbound Strava behavior needs to be deterministic: server-side segment metadata lookup used by `explorerAdmin.addDestination`.
+- Real Strava OAuth should remain optional for exploratory manual runs only, not for regression E2E.
+
+### 4B Implementation Handoff
+
+- Slice: first pass of Phase 4B only.
+- Branch start point: updated `main`, then a dedicated feature branch before coding.
+- Governing scope: admin-only Explorer setup on top of the landed 4A backend contract, with no public Explorer exposure.
+- Harness rule: keep E2E and test-mode checks centralized in config, app bootstrap, and scripts rather than scattering them through feature logic.
+- Backend wiring recommendation:
+	- one explicit backend E2E mode for test-only wiring
+	- explicit provider selection for outbound integrations
+	- fail-fast startup or test bootstrap when the expected E2E env is missing
+- First outbound seam to implement: deterministic segment metadata lookup for `explorerAdmin.addDestination`.
+- Existing Playwright impact:
+	- keep current browser-side interception for UI-only Strava rendering tests
+	- keep current e2e-login auth helper for logged-in browser coverage
+	- add the new backend provider behavior only where server-side Strava calls are part of the tested flow
+
+### 4B Branch-Ready Task List
+
+1. Add a single backend E2E mode entrypoint in config or bootstrap and make Playwright fail fast if the intended env file is missing.
+2. Add explicit provider selection for Strava-dependent backend behavior, starting with fixture-backed segment metadata for Explorer admin destination authoring.
+3. Build the admin-only Explorer setup UI for create-campaign and add-destination flows.
+4. Add targeted browser coverage for the admin-gated Explorer setup flow, including duplicate, invalid-URL, and metadata-fallback states.
+5. Update shared docs that describe E2E behavior and the Explorer planning state so they match the implemented harness.
 
 ## 4A Planning Inputs Closed
 

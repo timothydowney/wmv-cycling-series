@@ -103,10 +103,17 @@ Scope:
 
 - Admin-only route or section for Explorer campaign setup
 - Create-campaign and add-destination flows using the approved 4A backend contract
+- Add the minimum E2E foundation needed for repeatable admin-flow coverage before broadening Explorer browser tests
 - Keep all Explorer entry points hidden from non-admin users until there is an explicit release decision for the athlete-facing hub
 - Explorer admin UI
 - Campaign setup attached to a season
 - Add-destination workflow that works before or during the season
+
+Implementation note for the first 4B pass:
+
+- Prefer one explicit backend E2E mode for test-only wiring such as auth helpers, fail-fast environment checks, and safe local defaults.
+- Do not let that mode become a vague catch-all switch. External integrations should still declare their provider behavior explicitly, for example live, fixture-backed, or mock-server-backed.
+- For the first 4B pass, the required outbound Strava behavior is deterministic segment metadata lookup for admin add-destination flows.
 
 ## Phase 5: Explorer Hub MVP
 

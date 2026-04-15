@@ -24,12 +24,12 @@ When running `npm run dev`:
 ```bash
 npm test             # Run frontend Vitest + backend Jest tests
 npm run test:watch   # Watch mode (re-run tests on file changes)
-npm run test:e2e     # Run E2E tests (headless, uses wmv_e2e.db)
+npm run test:e2e     # Run E2E tests (headless, uses the Playwright E2E env)
 npm run test:e2e:headed  # E2E tests with visible browser
 npm run test:e2e:ui      # Playwright UI mode (interactive debugging)
 ```
 
-**Important:** E2E tests use separate database (`wmv_e2e.db`) from development.
+**Important:** Treat Playwright as a dedicated E2E environment, not as an implicit extension of normal local development. The harness should declare its environment explicitly and fail fast when that wiring is missing.
 
 ### Building & Deployment
 
@@ -52,12 +52,11 @@ npm run audit        # Security audit (frontend + backend)
 
 ### E2E Testing
 
-- **File:** `server/data/wmv_e2e.db`
 - **Environment:** `e2e/.env.e2e`
-- **Purpose:** Production copy for E2E test validation
-- **Setup:** Pre-populated with test data (weeks 215-223)
+- **Purpose:** Dedicated backend/runtime wiring for deterministic browser tests
+- **Current reality:** If the E2E env file is missing, backend config can fall back to `.env`, so do not assume isolation unless the harness explicitly verifies it
+- **Expected direction:** Use an explicit backend E2E mode plus explicit provider selection for outbound integrations, and fail fast when the intended E2E setup is absent
 - **Usage:** Used by `npm run test:e2e*` tasks
-- **Important:** Do not modify this database; it's read-only for testing
 
 ### Production
 
@@ -72,7 +71,7 @@ npm run audit        # Security audit (frontend + backend)
 |----------|---------|----------|-----|
 | Local development | `npm run dev` | wmv.db | Interactive frontend + backend |
 | Running unit tests | `npm test` | frontend: none, backend: in-memory | Fast, isolated tests across frontend + backend |
-| Running E2E tests | `npm run test:e2e` | wmv_e2e.db | Test against prod-like data |
+| Running E2E tests | `npm run test:e2e` | explicit E2E env | Test against deterministic, intentionally wired backend behavior |
 | Verifying prod build | `npm run build` | (doesn't use) | Ensure TypeScript compiles, Vite builds |
 | Pre-commit checks | `npm run lint` + `npm run typecheck` | (doesn't use) | Catch errors before commit |
 | Security review | `npm run audit` | (doesn't use) | Check dependencies for vulnerabilities |
@@ -87,22 +86,23 @@ npm run audit        # Security audit (frontend + backend)
 
 2. **Use correct environment files:**
    - Dev tasks → `.env` (uses wmv.db)
-   - E2E tasks → `e2e/.env.e2e` (uses wmv_e2e.db)
+   - E2E tasks → `e2e/.env.e2e` (must declare E2E wiring explicitly and should fail fast if missing)
    - Production → `.env.prod` (Railway secrets)
 
 3. **Never mix databases:**
-   - If modifying E2E database, you've made a mistake
-   - If running `npm run dev` with wmv_e2e.db, you're in wrong environment
+   - Do not let Playwright silently reuse shared dev state
+   - If E2E behavior depends on a separate DB or fixtures, verify the harness selected them explicitly
    - If running `npm test` with production database, you're in wrong environment
 
 4. **Clean shutdown:**
    - When stopping dev: Always use `npm run dev:cleanup` (not `pkill`/`killall`)
    - Check: `npm run dev:cleanup` removes any orphaned processes
 
-5. **Database persistence:**
-   - wmv.db changes persist between dev sessions ✅
-   - wmv_e2e.db should remain unchanged (test data integrity)
-   - Unit tests use in-memory DB (no persistence needed)
+5. **E2E harness consistency:**
+   - Keep test-environment checks centralized in config, bootstrapping, and scripts rather than scattering them through feature code
+   - Use one explicit backend E2E mode for test-only wiring such as auth helpers and fail-fast validation
+   - Choose outbound integration behavior explicitly, for example live, fixture-backed, or mock-server-backed
+   - Unit tests use in-memory DB and should remain independent of Playwright wiring
 
 6. **Branch discipline:**
    - Before substantial planning or coding, check the current branch with `git branch --show-current`
@@ -159,8 +159,8 @@ npm run dev
 ### Wrong database being used
 - Verify environment file: `cat .env | grep DATABASE_PATH`
 - Dev: should be `./data/wmv.db`
-- E2E: should be `./data/wmv_e2e.db`
-- If wrong, check which env file is loaded
+- E2E: verify the Playwright env file and backend mode you intended are actually loaded
+- If wrong, check which env file is loaded and whether the harness failed fast
 
 ## Documentation
 

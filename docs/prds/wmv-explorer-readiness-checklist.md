@@ -109,10 +109,10 @@ Explorer has completed the narrow Phase 1 webhook-orchestration slice that prese
 | --- | --- |
 | Status | Partial |
 | Gate | Should Resolve |
-| Why it matters | Explorer UI and admin flows will need end-to-end coverage, and the repository already enforces a separate E2E database model. |
-| Evidence | [AGENTS.md](../../AGENTS.md) defines `wmv_e2e.db` as the dedicated E2E environment and warns against mixing databases. |
-| Acceptance criteria | The implementation plan explains how Explorer E2E scenarios will be created and validated without relying on accidental shared state. |
-| Next action | Provision Explorer campaign E2E data intentionally during setup or controlled fixtures before admin UI or athlete-facing E2E coverage starts. |
+| Why it matters | Explorer admin UI flows will need repeatable end-to-end coverage, and the current code path reaches outbound Strava services from the backend during destination authoring. |
+| Evidence | The backend loads `ENV_FILE` dynamically in [server/src/config.ts](../../server/src/config.ts) and currently falls back to the default `.env` when a dedicated E2E env file is absent. The admin add-destination path calls server-side segment enrichment through [ExplorerAdminService](../../server/src/services/ExplorerAdminService.ts) and [SegmentService](../../server/src/services/SegmentService.ts), so browser-only route interception is not enough. |
+| Acceptance criteria | The implementation plan explains how Explorer E2E scenarios will run against an explicit E2E backend mode, how Explorer campaign data will be provisioned intentionally, and how outbound Strava-dependent behavior will be made deterministic without relying on accidental shared state or real API budget. |
+| Next action | In the first 4B pass, introduce an explicit backend E2E mode for wiring test-only behavior, add deterministic segment metadata behavior for server-side admin flows, and make the Explorer E2E data setup fail fast when the intended environment is missing. |
 
 ### 3. Documentation Impact Plan
 
