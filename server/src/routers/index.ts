@@ -10,6 +10,7 @@ import { profileRouter } from './profile';
 import { chatRouter } from './chat';
 import { chainWaxRouter } from './chainWax';
 import { explorerRouter } from './explorer';
+import { explorerAdminRouter } from './explorerAdmin';
 
 export const appRouter = router({
   health: publicProcedure.query(() => 'ok'),
@@ -24,6 +25,7 @@ export const appRouter = router({
   chat: chatRouter,
   chainWax: chainWaxRouter,
   explorer: explorerRouter,
+  explorerAdmin: explorerAdminRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -4,15 +4,15 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 
 ## Current Focus
 
-- Prepare Phase 4A as a narrow admin-backend slice.
+- Prepare Phase 4B as a narrow admin-gated UI slice on top of the landed 4A backend contract.
 - Keep any pre-release Explorer UI admin-gated until there is an explicit end-user release decision.
-- Keep the next handoff and implementation brief aligned with the merged backend state.
+- Keep the next handoff and implementation brief aligned with the landed backend authoring contract.
 
 ## Current Go State
 
-- **Readiness:** Phase 1 Complete; Season-Campaign Correction Landed; Backend Campaign Slice Merged; Ready For Phase 4A Admin Backend Slice
-- **Immediate scope:** one bounded implementation PR for Explorer admin backend setup against the existing season-attached campaign model
-- **Not yet in scope:** public athlete-facing Explorer release, full admin UI, mini-campaigns, or explicit publish-status workflows
+- **Readiness:** Phase 1 Complete; Season-Campaign Correction Landed; Backend Campaign Slice Merged; Phase 4A Admin Backend Complete; Ready For Phase 4B Admin-Gated UI Slice
+- **Immediate scope:** one bounded implementation PR for Explorer admin-gated setup UI against the existing season-attached campaign model and landed 4A backend contract
+- **Not yet in scope:** public athlete-facing Explorer release, public navigation to Explorer, mini-campaigns, or explicit publish-status workflows
 
 ## Decisions Made
 
@@ -123,23 +123,33 @@ The current preservation target is backed by:
 - Goal: establish the season-attached Explorer campaign backend model, matching flow, and initial read surface as the base for later admin and hub work
 - Why this matters: 4A should now build on the merged backend slice rather than reopening campaign-model work
 
+### Completed Admin Backend Slice
+
+- Phase: Slice 4A
+- Goal: add the minimal Explorer admin service and tRPC surface needed to create a campaign for a season and add destinations safely
+- Outcome:
+	- `explorerAdmin.createCampaign` now creates the single Explorer campaign allowed per season in v1.
+	- `explorerAdmin.addDestination` now accepts validated Strava segment URLs, persists source URL plus cached display metadata, and appends destinations in display order.
+	- One-campaign-per-season and no-duplicate-segment-within-a-campaign rules are enforced in both service logic and the database.
+	- Destination creation can proceed when URL parsing succeeds even if live metadata enrichment is temporarily unavailable.
+	- Backend coverage now includes focused admin service and router tests for auth, validation, duplicate protection, metadata fallback, and in-season additions.
+
 ### Recommended Next PR
 
 - Start from updated `main` on a dedicated implementation branch.
-- Keep the next implementation PR scoped to Phase 4A admin backend only:
-	- `explorerAdmin` service and router surface for campaign creation and add-destination authoring
-	- service and database enforcement for one campaign per season
-	- Strava segment URL parsing and validation for destination setup
-	- stable source URL plus cached metadata persistence needed for authoring
-	- metadata-enrichment fallback that still allows creation when parsing succeeds
-	- backend tests for auth, validation, campaign creation, and in-season destination additions
+- Keep the next implementation PR scoped to Phase 4B admin-gated UI only:
+	- admin-only route or section for Explorer campaign setup
+	- create-campaign and add-destination flows using the landed 4A backend contract
+	- keep all Explorer entry points hidden from non-admin users until there is an explicit release decision
+	- admin UI states for duplicate-campaign, invalid-URL, and metadata-fallback outcomes
+	- targeted UI and E2E coverage for the admin-gated flow
 - Keep out of scope for that PR:
-	- full admin UI
 	- public athlete hub UI
 	- public navigation to Explorer
 	- mini-campaigns inside a season
 	- explicit Explorer publish-status workflows
 	- refresh and backfill mutations
+	- destination reorder, edit, or remove flows unless one proves necessary to keep the UI coherent
 
 ## 4A Planning Inputs Closed
 
