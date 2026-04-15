@@ -161,7 +161,7 @@ export const explorerCampaign = sqliteTable('explorer_campaign', {
   updated_at: text('updated_at').default('sql`(CURRENT_TIMESTAMP)`'),
 },
 (t) => [
-  index('idx_explorer_campaign_season').on(t.season_id),
+  uniqueIndex('idx_explorer_campaign_season').on(t.season_id),
 ]);
 
 export const explorerDestination = sqliteTable('explorer_destination', {
@@ -180,6 +180,7 @@ export const explorerDestination = sqliteTable('explorer_destination', {
 (t) => [
   index('idx_explorer_destination_campaign').on(t.explorer_campaign_id),
   index('idx_explorer_destination_segment').on(t.strava_segment_id),
+  uniqueIndex('idx_explorer_destination_campaign_segment').on(t.explorer_campaign_id, t.strava_segment_id),
 ]);
 
 export const explorerDestinationMatch = sqliteTable('explorer_destination_match', {

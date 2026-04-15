@@ -20,6 +20,7 @@ import * as stravaClient from './stravaClient';
 import { getValidAccessToken } from './tokenManager';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'; // Import Drizzle migrator
 import { season } from './db/schema'; // Import the Drizzle table object 'season'
+import { finalizeLegacyExplorerSchemaRepair, prepareLegacyExplorerSchemaRepair } from './db/repairLegacyExplorerSchema';
 import LoginService from './services/LoginService';
 import BatchFetchService from './services/BatchFetchService';
 import WeekService from './services/WeekService';
@@ -151,12 +152,15 @@ console.log('[DB] Running Drizzle migrations...');
 try {
   // Disable foreign keys during migration to allow table recreation
   db.pragma('foreign_keys = OFF');
+
+  const legacyExplorerRepairState = prepareLegacyExplorerSchemaRepair(db);
   
   // Resolve migrations folder based on the compiled JS location
   // In dev: server/dist/index.js -> migrations at server/drizzle
   // In docker: /app/server/dist/index.js -> migrations at /app/server/drizzle
   const migrationsFolder = path.resolve(__dirname, '../drizzle');
   migrate(drizzleDb, { migrationsFolder });
+  finalizeLegacyExplorerSchemaRepair(db, legacyExplorerRepairState);
   
   // Re-enable foreign keys after migration
   db.pragma('foreign_keys = ON');

@@ -17,21 +17,21 @@ The ideas backlog is intentionally excluded from v1 implementation scope. It exi
 
 ## Current Go Decision
 
-**Status:** Phase 1 Complete; Season-Campaign Correction Landed; Backend Campaign Slice Merged; Ready For Phase 4A Admin Backend Slice
+**Status:** Phase 1 Complete; Season-Campaign Correction Landed; Backend Campaign Slice Merged; Phase 4A Admin Backend Complete; Ready For Phase 4B Admin-Gated UI Slice
 
-Explorer has completed the narrow Phase 1 webhook-orchestration slice that preserves current competition behavior while introducing delegated in-process handlers. The planning set on this branch now corrects the MVP to a season-campaign-first model attached to an existing WMV season, with optional mini-campaigns and explicit publish-status workflows deferred. The backend campaign slice is merged, so the next approved implementation work should move to Phase 4A admin backend setup rather than redoing the campaign model.
+Explorer has completed the narrow Phase 1 webhook-orchestration slice that preserves current competition behavior while introducing delegated in-process handlers. The planning set on this branch now corrects the MVP to a season-campaign-first model attached to an existing WMV season, with optional mini-campaigns and explicit publish-status workflows deferred. The backend campaign slice is merged and the 4A admin backend slice is now landed, so the next approved implementation work should move to the admin-gated 4B UI rather than reopening backend authoring contracts.
 
 ## Current Status Summary
 
 | Area | Status | Notes |
 | --- | --- | --- |
 | Product framing | Ready | The PRD is clear on goals, users, must-haves, non-goals, and success criteria. |
-| Execution phasing | Ready For Phase 4A | The phases doc now treats the backend campaign slice as complete and makes admin backend the next bounded step. |
-| Architecture closure | Ready For Phase 4A | The technical spec now models a season-attached campaign, records the merged backend slice, and defines admin-only pre-release UI gating. |
+| Execution phasing | Ready For Phase 4B | The phases doc now treats the backend campaign and 4A admin backend slices as complete and makes admin-gated UI the next bounded step. |
+| Architecture closure | Ready For Phase 4B | The technical spec now models a season-attached campaign, records the merged backend and 4A admin contracts, and defines admin-only pre-release UI gating. |
 | Open questions handling | Ready | The worklog now records the corrected model plus the remaining non-blocking questions. |
-| Blocking research closure | Ready For Phase 4A | The product-intent correction is closed for this branch. |
-| Test planning | Ready For Phase 4A | Test planning is now framed against admin backend contracts as the next slice. |
-| Documentation impact plan | Ready For Phase 4A | The likely doc surfaces are known for the next admin backend slice, including slice-local planning closure when readiness state changes. |
+| Blocking research closure | Ready For Phase 4B | The product-intent correction is closed for this branch. |
+| Test planning | Ready For Phase 4B | Test planning is now framed against the admin-gated UI slice as the next step on top of the landed backend contract. |
+| Documentation impact plan | Ready For Phase 4B | The likely doc surfaces are known for the next admin UI slice, including slice-local planning closure when readiness state changes. |
 
 ## Must Resolve Before Broad Implementation
 
@@ -86,8 +86,8 @@ Explorer has completed the narrow Phase 1 webhook-orchestration slice that prese
 | Status | Ready |
 | Gate | Must Resolve |
 | Why it matters | The team needs a shared rule for what can proceed now versus what must wait for the season-model correction. |
-| Evidence | The implemented webhook seam remains valid, the backend campaign slice is merged, and the next slice is now re-approved as Phase 4A admin backend work against the corrected season campaign model. |
-| Acceptance criteria | The readiness artifacts clearly state that Explorer is ready for one bounded admin-backend slice next and identify what remains out of scope. |
+| Evidence | The implemented webhook seam remains valid, the backend campaign slice is merged, the 4A admin backend contract is landed, and the next slice is now re-approved as Phase 4B admin-gated UI work against the corrected season campaign model. |
+| Acceptance criteria | The readiness artifacts clearly state that Explorer is ready for one bounded admin-UI slice next and identify what remains out of scope. |
 | Next action | Keep the current go decision updated as additional corrected Explorer slices are approved or deferred, and close slice-local planning state in the implementation PR when the slice changes readiness or phase status. |
 
 ## Should Resolve Before 4A And 4B Expand
@@ -96,12 +96,12 @@ Explorer has completed the narrow Phase 1 webhook-orchestration slice that prese
 
 | Field | Value |
 | --- | --- |
-| Status | Ready For Phase 4A |
+| Status | Completed For 4A |
 | Gate | Should Resolve |
 | Why it matters | The repo already has a strong backend test pattern. Explorer should fit it rather than improvise. |
-| Evidence | Existing tests under `server/src/__tests__` use the in-memory [setupTestDb](../../server/src/__tests__/setupTestDb.ts) pattern and helper utilities. |
-| Acceptance criteria | The implementation plan names where Explorer admin service, router, and integration tests will live and states that they will use the existing in-memory SQLite setup unless a stronger reason appears. |
-| Next action | Use the existing in-memory backend test pattern for 4A service and router coverage. |
+| Evidence | The landed 4A backend slice added service and router tests under `server/src/__tests__` using the existing in-memory [setupTestDb](../../server/src/__tests__/setupTestDb.ts) pattern and helper utilities. |
+| Acceptance criteria | The admin backend slice uses the established in-memory SQLite backend test pattern for service and router coverage. |
+| Next action | Reuse the same backend fixtures and admin-auth patterns when 4B UI work needs supporting service coverage. |
 
 ### 2. E2E Data Strategy
 
@@ -118,12 +118,12 @@ Explorer has completed the narrow Phase 1 webhook-orchestration slice that prese
 
 | Field | Value |
 | --- | --- |
-| Status | Ready For Phase 4A |
+| Status | Ready For Phase 4B |
 | Gate | Should Resolve |
 | Why it matters | Explorer touches admin, athlete, API, database, and release-note surfaces. That work should be visible before coding. |
-| Evidence | Likely doc surfaces already exist in `ADMIN_GUIDE.md`, `docs/API.md`, `docs/DATABASE_DESIGN.md`, `docs-site/`, `CHANGELOG.md`, and `VERSION`, but the release-note files should wait for the final pre-commit pass of a user-facing slice. |
+| Evidence | The 4A slice updated `docs/API.md`, `docs/DATABASE_DESIGN.md`, and the slice-local planning docs while still deferring user-facing release-note files. |
 | Acceptance criteria | The worklog or implementation slice names the docs expected to change when the slice lands, including any slice-local planning docs needed to close the state transition. |
-| Next action | Keep the documentation-impact checklist current and let implementation PRs carry the minimal planning updates needed to reflect completed slice state. |
+| Next action | Keep the documentation-impact checklist current and treat 4B UI docs as a separate follow-on update set. |
 
 ### 4. Smallest End-To-End Slice
 
@@ -134,7 +134,7 @@ Explorer has completed the narrow Phase 1 webhook-orchestration slice that prese
 | Why it matters | Explorer should not start with a multi-surface implementation burst. |
 | Evidence | The worklog now records the completed Phase 1 webhook-orchestrator slice, including validation expectations and explicit out-of-scope items. |
 | Acceptance criteria | One narrow slice was named, bounded, tied to Phase 1, and validated through the focused webhook regression tests. |
-| Next action | Keep later slices equally narrow and tie the next PR to 4A admin backend instead of reopening already-merged backend work. |
+| Next action | Keep later slices equally narrow and tie the next PR to 4B admin-gated UI instead of reopening landed backend work. |
 
 ## Safe To Defer If Recorded Explicitly
 
@@ -164,7 +164,8 @@ If a slice is expected to change the approved next step, readiness wording, or p
 | Phase 1 Complete | Yes |
 | Season-Campaign Correction Landed | Yes |
 | Backend Campaign Slice Merged | Yes |
-| Ready For Phase 4A Admin Backend Slice | Yes |
+| Phase 4A Admin Backend Complete | Yes |
+| Ready For Phase 4B Admin-Gated UI Slice | Yes |
 | Ready For Broad Feature Implementation | No |
 
-If this file says anything stronger than **Phase 1 Complete; Season-Campaign Correction Landed; Backend Campaign Slice Merged; Ready For Phase 4A Admin Backend Slice**, the linked worklog should show exactly what changed to justify that shift.
+If this file says anything stronger than **Phase 1 Complete; Season-Campaign Correction Landed; Backend Campaign Slice Merged; Phase 4A Admin Backend Complete; Ready For Phase 4B Admin-Gated UI Slice**, the linked worklog should show exactly what changed to justify that shift.

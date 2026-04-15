@@ -72,6 +72,8 @@ Goal: let admins create or manage the season campaign without exposing Explorer 
 
 Goal: add the minimal Explorer admin service and tRPC surface needed to create a campaign for a season and add destinations safely.
 
+Status: complete on the admin-backend slice. The backend now supports admin-authenticated campaign creation, Strava segment URL validation, destination creation with metadata fallback, and the one-campaign-per-season plus no-duplicate-segment-within-a-campaign guards defined for 4A.
+
 Scope:
 
 - Explorer admin service and router surface for campaign creation and add-destination flow
@@ -94,6 +96,8 @@ Out of scope:
 ### Slice 4B: Admin UI (Admin-Gated)
 
 Goal: expose the approved admin backend capabilities through an admin-only WMV surface.
+
+Status: next approved slice after 4A.
 
 Scope:
 
