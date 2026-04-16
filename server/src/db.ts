@@ -1,7 +1,9 @@
 import Database, { type Database as DatabaseType } from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs'; // Restore fs import
-import { config, isE2EMode } from './config';
+import { config, isE2EMode, validateRuntimeConfig } from './config';
+
+validateRuntimeConfig();
 
 const DB_PATH = config.databasePath;
 const dbDir = path.dirname(DB_PATH);
@@ -25,6 +27,8 @@ function prepareE2EDatabase() {
     throw new Error('WMV E2E source database path must differ from DATABASE_PATH');
   }
 
+  fs.rmSync(`${DB_PATH}-wal`, { force: true });
+  fs.rmSync(`${DB_PATH}-shm`, { force: true });
   fs.copyFileSync(sourcePath, DB_PATH);
   console.log(`[DB] Reset E2E database from ${sourcePath} -> ${DB_PATH}`);
 }

@@ -53,6 +53,7 @@ e2e/.auth/*.json
 
 # Allow checked-in production template
 !.env.railway.example
+!e2e/.env.e2e
 
 # Credentials
 public/strava-credentials.json

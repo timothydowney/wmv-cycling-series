@@ -1,5 +1,5 @@
 // Configuration must be imported FIRST (it loads .env and provides all config)
-import { config, logConfigOnStartup, logEnvironmentVariables, isTestMode, validateRuntimeConfig } from './config';
+import { config, logConfigOnStartup, logEnvironmentVariables, isTestMode } from './config';
 
 import express from 'express';
 import cors from 'cors';
@@ -45,7 +45,6 @@ const routes = {
 };
 
 // Log configuration on startup
-validateRuntimeConfig();
 logConfigOnStartup();
 
 

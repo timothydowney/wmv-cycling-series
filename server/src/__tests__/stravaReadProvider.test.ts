@@ -1,4 +1,5 @@
 import { reloadConfig } from '../config';
+import { encryptToken } from '../encryption';
 import { setupTestDb, teardownTestDb } from './setupTestDb';
 import { createParticipant } from './testDataHelpers';
 import * as stravaClientModule from '../stravaClient';
@@ -80,7 +81,11 @@ describe('stravaReadProvider', () => {
     const testDb = setupTestDb({ seed: false });
 
     try {
-      createParticipant(testDb.drizzleDb, '123456', 'Alice', true);
+      createParticipant(testDb.drizzleDb, '123456', 'Alice', {
+        accessToken: encryptToken('test-access-token'),
+        refreshToken: encryptToken('test-refresh-token'),
+        expiresAt: Math.floor(Date.now() / 1000) + 86400,
+      });
       mockStravaClient.getLoggedInAthlete.mockResolvedValue({
         id: 123456,
         firstname: 'Alice',

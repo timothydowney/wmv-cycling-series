@@ -132,7 +132,11 @@ async function getAthleteProfilePictures(
   }
 
   let fallbackToken: string | null = null;
-  if (athleteTokens.size === 0) {
+  if (athleteTokens.size > 0) {
+    fallbackToken = athleteTokens.values().next().value ?? null;
+  }
+
+  if (!fallbackToken && athleteTokens.size < uncachedIds.length) {
     try {
       const anyParticipant = db
         .select({ strava_athlete_id: participantToken.strava_athlete_id })
@@ -164,6 +168,11 @@ async function getAthleteProfilePictures(
     const batchResults = await Promise.all(
       batch.map((id) => {
         const token = athleteTokens.get(id) || fallbackToken;
+
+        if (!token) {
+          return null;
+        }
+
         return getLiveAthleteProfilePicture(id, token!);
       })
     );

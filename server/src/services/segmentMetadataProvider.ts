@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm';
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { getStravaApiMode } from '../config';
 import { participantToken } from '../db/schema';
-import { getSegment, mapStravaSegmentToSegmentRow } from '../stravaClient';
+import * as stravaClientModule from '../stravaClient';
 import { getValidAccessToken } from '../tokenManager';
 import { getFixtureSegmentMetadata, type SegmentMetadataPayload } from './segmentMetadataFixtures';
 
@@ -45,17 +45,15 @@ class LiveStravaSegmentMetadataProvider implements SegmentMetadataProvider {
       return null;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const strava = require('strava-v3');
-    const stravaClient = {
-      refreshAccessToken: async (refreshToken: string) => strava.oauth.refreshToken(refreshToken),
-    };
-
-    const accessToken = await getValidAccessToken(this.db, stravaClient, tokenRecord.strava_athlete_id);
+    const accessToken = await getValidAccessToken(
+      this.db,
+      stravaClientModule,
+      tokenRecord.strava_athlete_id
+    );
     console.log(`[${context}] Fetching segment ${segmentId} from Strava API`);
 
-    const stravaSegment = await getSegment(segmentId, accessToken);
-    return mapStravaSegmentToSegmentRow(stravaSegment);
+    const stravaSegment = await stravaClientModule.getSegment(segmentId, accessToken);
+    return stravaClientModule.mapStravaSegmentToSegmentRow(stravaSegment);
   }
 }
 
