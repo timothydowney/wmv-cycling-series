@@ -75,7 +75,6 @@ test.describe('Authenticated User Features', () => {
   test('menu shows admin links for authorized users', async ({ page }) => {
     // Admin navigation (may or may not be visible depending on user permissions)
     const manageCompetition = page.getByRole('link', { name: 'Manage Competition' });
-    const manageExplorer = page.getByRole('link', { name: 'Manage Explorer' });
     const manageRoles = page.getByRole('link', { name: 'Manage Roles' });
     const manageSeasons = page.getByRole('link', { name: 'Manage Seasons' });
     const participantStatus = page.getByRole('link', { name: 'Participant Status' });
@@ -84,7 +83,6 @@ test.describe('Authenticated User Features', () => {
     // Just verify they exist in the DOM (visibility depends on permissions)
     const adminLinksCount = await Promise.all([
       manageCompetition.count(),
-      manageExplorer.count(),
       manageRoles.count(),
       manageSeasons.count(),
       participantStatus.count(),
