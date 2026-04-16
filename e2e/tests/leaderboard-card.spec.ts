@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 
+const appBaseUrl = process.env.E2E_FRONTEND_URL || 'http://localhost:5174';
+
 test.describe('LeaderboardCard Component', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/leaderboard');
@@ -357,7 +359,7 @@ test.describe('LeaderboardCard Component', () => {
   test.describe('Watts per Kilogram (w/kg) Metric', () => {
     test('does not show w/kg metric for weeks without weight data (Fall 2025 Week 1)', async ({ page }) => {
       // Navigate directly to Fall 2025 Week 1 (no weight data)
-      await page.goto('http://localhost:5173/leaderboard/1/weekly/1');
+      await page.goto(`${appBaseUrl}/leaderboard/1/weekly/1`);
       await page.waitForLoadState('networkidle');
       
       await page.waitForSelector('[data-testid^="leaderboard-card-"]');
@@ -378,7 +380,7 @@ test.describe('LeaderboardCard Component', () => {
 
     test('shows w/kg metric for weeks with weight data (Winter 2026 Week 9)', async ({ page }) => {
       // Navigate directly to Winter 2026 Week 9 (has weight data)
-      await page.goto('http://localhost:5173/leaderboard/3/weekly/9');
+      await page.goto(`${appBaseUrl}/leaderboard/3/weekly/9`);
       await page.waitForLoadState('networkidle');
       
       await page.waitForSelector('[data-testid^="leaderboard-card-"]');
@@ -412,7 +414,7 @@ test.describe('LeaderboardCard Component', () => {
 
     test('w/kg value does not change when unit preference is toggled', async ({ page }) => {
       // Navigate directly to Winter 2026 Week 9 (has weight data)
-      await page.goto('http://localhost:5173/leaderboard/3/weekly/9');
+      await page.goto(`${appBaseUrl}/leaderboard/3/weekly/9`);
       await page.waitForLoadState('networkidle');
       
       await page.waitForSelector('[data-testid^="leaderboard-card-"]');

@@ -29,6 +29,9 @@ dist-ssr
 *.db-wal
 *.db-shm
 server/data/
+!server/data/
+server/data/*
+!server/data/wmv_e2e_fixture.db
 
 # Test coverage
 coverage/

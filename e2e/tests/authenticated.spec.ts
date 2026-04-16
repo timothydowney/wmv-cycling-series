@@ -7,6 +7,32 @@
 import { test, expect } from '@playwright/test';
 import { loginAsE2EUser } from '../fixtures/test-helpers';
 
+async function selectSeasonWithCurrentUserCard(page: import('@playwright/test').Page, athleteId: string) {
+  const seasonSelect = page.getByTestId('season-select');
+  await expect(seasonSelect).toBeVisible();
+
+  const optionValues = await seasonSelect.locator('option').evaluateAll((options) =>
+    options
+      .map((option) => option.getAttribute('value'))
+      .filter((value): value is string => Boolean(value))
+  );
+
+  for (const seasonValue of optionValues) {
+    await seasonSelect.selectOption(seasonValue);
+    await page.getByRole('link', { name: 'Season' }).click();
+    await page.waitForLoadState('networkidle');
+
+    if (await page.getByTestId(`season-card-${athleteId}`).count()) {
+      return;
+    }
+
+    await page.goto('/leaderboard');
+    await expect(seasonSelect).toBeVisible();
+  }
+
+  throw new Error(`No season leaderboard contained athlete ${athleteId}`);
+}
+
 function extractSinceFromWebhookRequest(urlString: string): number | null {
   const url = new URL(urlString);
   const inputParam = url.searchParams.get('input');
@@ -49,6 +75,7 @@ test.describe('Authenticated User Features', () => {
   test('menu shows admin links for authorized users', async ({ page }) => {
     // Admin navigation (may or may not be visible depending on user permissions)
     const manageCompetition = page.getByRole('link', { name: 'Manage Competition' });
+    const manageExplorer = page.getByRole('link', { name: 'Manage Explorer' });
     const manageRoles = page.getByRole('link', { name: 'Manage Roles' });
     const manageSeasons = page.getByRole('link', { name: 'Manage Seasons' });
     const participantStatus = page.getByRole('link', { name: 'Participant Status' });
@@ -57,6 +84,7 @@ test.describe('Authenticated User Features', () => {
     // Just verify they exist in the DOM (visibility depends on permissions)
     const adminLinksCount = await Promise.all([
       manageCompetition.count(),
+      manageExplorer.count(),
       manageRoles.count(),
       manageSeasons.count(),
       participantStatus.count(),
@@ -101,18 +129,25 @@ test.describe('Authenticated User Features', () => {
     await timeFilter.selectOption('999999999');
     await allTimeRequest;
 
-    const expectedSince = Math.floor(Date.now() / 1000) - 604800;
-    const sevenDayRequest = page.waitForRequest((request) => {
+    await page.goto('/webhooks');
+    await expect(page).toHaveURL(/\/webhooks/);
+    await page.getByRole('button', { name: 'Event History' }).click();
+
+    const refreshedTimeFilter = page.locator('#time-filter');
+    await expect(refreshedTimeFilter).toBeVisible();
+
+    const expectedSince = Math.floor(Date.now() / 1000) - 2592000;
+    const thirtyDayRequest = page.waitForRequest((request) => {
       if (!request.url().includes('webhookAdmin.getEvents')) {
         return false;
       }
 
       const since = extractSinceFromWebhookRequest(request.url());
-      return since !== null && since > 1_000_000_000;
+      return since !== null && since >= expectedSince - 30 && since <= expectedSince + 30;
     });
 
-    await timeFilter.selectOption('604800');
-    const request = await sevenDayRequest;
+    await refreshedTimeFilter.selectOption('2592000');
+    const request = await thirtyDayRequest;
     const since = extractSinceFromWebhookRequest(request.url());
 
     expect(since).not.toBeNull();
@@ -158,12 +193,9 @@ test.describe('Authenticated User Features', () => {
 test.describe('Authenticated User - Leaderboard Highlighting', () => {
   test('current user card is highlighted on season leaderboard', async ({ page }) => {
     await loginAsE2EUser(page);
-    // Navigate to Fall 2025 season leaderboard
     await page.goto('/leaderboard');
-    await page.getByTestId('season-select').selectOption('1'); // Fall 2025
-    await page.getByRole('link', { name: 'Season' }).click();
+    await selectSeasonWithCurrentUserCard(page, '366880');
     
-    // Find the current user's card (Tim Downey, athlete ID 366880)
     const currentUserCard = page.getByTestId('season-card-366880');
     await expect(currentUserCard).toBeVisible();
     

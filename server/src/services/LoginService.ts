@@ -8,7 +8,7 @@ import { eq } from 'drizzle-orm';
 import { participant, participantToken } from '../db/schema';
 import { encryptToken, decryptToken } from '../encryption';
 import * as stravaClient from '../stravaClient';
-import { getAthleteProfilePicture, seedProfileCache } from './StravaProfileService';
+import { getAuthStatusProfilePicture, seedProfileCache } from './StravaProfileService';
 import { AuthorizationService } from './AuthorizationService';
 
 export interface ParticipantData {
@@ -164,8 +164,7 @@ class LoginService {
     let profilePictureUrl: string | null = null;
     if (tokenCheck) {
       try {
-        const accessToken = await this.getValidAccessToken(athleteId);
-        profilePictureUrl = await getAthleteProfilePicture(athleteId, accessToken);
+        profilePictureUrl = await getAuthStatusProfilePicture(athleteId, this.drizzleDb);
       } catch (error) {
         console.warn(`[LOGIN] Failed to fetch profile picture for athlete ${athleteId}:`, error);
       }
