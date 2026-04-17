@@ -4,15 +4,15 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 
 ## Current Focus
 
-- Close out Phase 4B-2 as the minimal admin-gated Explorer setup surface.
-- Prepare a planning handoff for the next admin UX refinement slice instead of broadening 4B-2 in-place.
+- Prepare the next bounded admin UX refinement slice for Explorer admin setup now that 4B-2 is merged.
+- Keep the next slice focused on card-first destination authoring and richer accepted-destination presentation rather than broad Explorer management expansion.
 - Keep any pre-release Explorer UI admin-gated until there is an explicit end-user release decision.
-- Keep the next handoff and implementation brief aligned with the landed backend authoring contract.
+- Keep the next handoff and implementation brief aligned with the landed backend authoring contract plus the existing `segment.validate` preview seam.
 
 ## Current Go State
 
-- **Readiness:** Phase 1 Complete; Season-Campaign Correction Landed; Backend Campaign Slice Merged; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Implemented Locally; Ready For Admin UX Refinement Planning
-- **Immediate scope:** land the minimal 4B-2 admin-gated setup surface, then return to planning for the next bounded admin UX slice
+- **Readiness:** Phase 1 Complete; Season-Campaign Correction Landed; Backend Campaign Slice Merged; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Ready For Phase 4B-3 Admin UX Refinement
+- **Immediate scope:** implement the bounded 4B-3 admin UX refinement slice from updated `main` on a dedicated feature branch
 - **Not yet in scope:** public athlete-facing Explorer release, public navigation to Explorer, mini-campaigns, or explicit publish-status workflows
 
 ## Decisions Made
@@ -35,6 +35,9 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 - 4A destination authoring accepts validated Strava segment URLs, not raw segment IDs.
 - If URL parsing succeeds but live Strava metadata enrichment fails, destination creation still succeeds with stored segment ID and source URL.
 - Refresh and backfill admin mutations are deferred out of 4A.
+- 4B-3 should defer persisted inline editing for accepted destination cards and keep the slice focused on preview-add authoring plus richer read-only cards.
+- Icon-first admin actions are the preferred interaction style going forward, provided they keep accessible labels.
+- The first accepted-destination card metadata set for 4B-3 should surface distance, average grade, location text, and a clearly clickable source link back to Strava.
 
 ## Open Questions
 
@@ -53,6 +56,8 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 | Should 4A accept raw segment IDs as an admin authoring input? | Closed | No | No. Use validated Strava segment URLs only in the 4A backend contract. |
 | What happens if URL parsing succeeds but live metadata enrichment fails? | Closed | No | Allow creation and preserve segment ID plus source URL for later repair. |
 | Do refresh and backfill admin mutations belong in 4A? | Closed | No | No. Defer them to a later admin slice. |
+| Should already-added Explorer destination cards support persisted inline editing in the first UX-refinement slice? | Closed For 4B-3 | No | No. Keep 4B-3 to preview-add flow plus richer read-only cards. |
+| Does 4B-3 need true map-ready coordinate storage for accepted destination cards? | Open | No | No for 4B-3. Current location text plus source link are enough for this slice, but actual map rendering may require later schema or API expansion for coordinates or geometry. |
 
 ## Blockers
 
@@ -139,102 +144,131 @@ The current preservation target is backed by:
 ### Recommended Next PR
 
 - Start from updated `main` on a dedicated implementation branch.
-- Keep the current implementation PR scoped to the minimal 4B-2 admin-gated UI surface:
-	- create-campaign and add-destination admin flows on top of the stabilized harness
-	- targeted browser coverage for the admin surface
-	- no public athlete-facing Explorer exposure
-	- slice-local planning updates that mark 4B-2 complete and hand back to planning for the next slice
-- The next planning pass should define a separate admin UX refinement slice for:
-	- clearer setup guidance and validation feedback
-	- stronger client-side segment URL assistance
-	- more intentional component reuse and card hierarchy aligned with the existing WMV surfaces
-	- any workflow changes beyond the minimal 4A contract exposure
+- Keep the next implementation PR scoped to Slice 4B-3 only:
+	- reuse existing WMV leaderboard-style card language where practical
+	- convert destination authoring from a plain form into a paste-validate-preview-add card flow
+	- use icon-first accept or reject controls with accessible labeling for previewed destinations
+	- render accepted destinations as richer cards with Explorer-specific labeling plus known segment metadata
+	- make the Strava source link clearly clickable from the accepted card without styling it as a generic button
+	- keep admin authoring fast for repeated paste-and-add sessions
+	- avoid new persisted edit, remove, reorder, refresh, or search workflows unless the slice is explicitly re-approved
+- Validation path for the next PR:
+	- frontend unit coverage for the authoring-card state machine
+	- focused backend coverage only if the Explorer admin read shape grows
+	- targeted Playwright for the authoring and accepted-card flow
+	- normal lint, typecheck, and build verification
+- Planning and documentation surfaces likely to change when 4B-3 lands:
+	- `docs/prds/wmv-explorer-destinations-phases.md`
+	- `docs/prds/wmv-explorer-worklog.md`
+	- `docs/prds/wmv-explorer-readiness-checklist.md`
+	- `docs/API.md` only if the Explorer admin read contract is expanded
 
-### 4B-1 Harness Recommendation
+### 4B-3 Implementation Handoff
 
-- Prefer a general backend E2E mode rather than a single Explorer-only env flag.
-- Keep that mode narrow: it should enable test-only auth helpers, fail-fast environment validation, and dependency selection for outbound integrations.
-- Do not use the general mode to hide ad hoc behavior changes deep in feature logic.
-- For external calls, use explicit provider selection where needed. For example, Strava-dependent server behavior should choose live, fixture-backed, or mock-server-backed behavior intentionally rather than inferring it indirectly.
-- The portable-harness goal is that a fresh clone can run `npm run test:e2e` without depending on a contributor's pre-existing development database.
-- If a checked-in E2E database is used, it must be sanitized and must not contain live Strava OAuth secrets.
-- Real Strava OAuth should remain optional for exploratory manual runs only, not for regression E2E.
-
-### 4B-1 Implementation Handoff
-
-- Slice: Phase 4B-1 only.
+- Slice: Phase 4B-3 only.
 - Branch start point: updated `main`, then a dedicated feature branch before coding.
-- Governing scope: portable E2E harness hardening that supports the landed 4A backend contract and existing browser coverage, with no public Explorer exposure.
-- Harness rule: keep E2E and test-mode checks centralized in config, app bootstrap, and scripts rather than scattering them through feature logic.
-- Backend wiring recommendation:
-	- one explicit backend E2E mode for test-only wiring
-	- explicit provider selection for outbound integrations
-	- fail-fast startup or test bootstrap when the expected E2E env is missing
-- First outbound seam to implement: deterministic segment metadata lookup for `explorerAdmin.addDestination`.
-- Additional requirement: remove reliance on copied development token rows or other local-only state for normal E2E regression runs.
+- Governing scope: card-first destination authoring and richer accepted-destination cards on top of the already-merged 4B-1 harness and 4B-2 minimal UI baseline.
+- UI rule: prefer reuse of the existing WMV leaderboard card language and component patterns where that reuse clarifies hierarchy, rather than layering more bespoke Explorer-only form styling.
+- Authoring flow recommendation:
+	- admin pastes a Strava segment URL
+	- the UI parses and validates promptly through the existing `segment.validate` seam
+	- a preview card appears with segment metadata before persistence
+	- the admin explicitly accepts or rejects the preview
+	- the optional Explorer display label is applied during that preview step
+- Backend expectation:
+	- keep the existing `explorerAdmin.addDestination` write contract
+	- expand Explorer admin read-side destination fields only if needed for richer accepted-card rendering
+	- do not add persisted edit, remove, reorder, refresh, or search mutations in this slice
 - Existing Playwright impact:
-	- keep current browser-side interception for UI-only Strava rendering tests
-	- keep current e2e-login auth helper for logged-in browser coverage
-	- add the new backend provider behavior only where server-side Strava calls are part of the tested flow
+	- preserve the admin-only route and navigation behavior
+	- add or adjust browser coverage only for the interactive preview-add flow and accepted-card presentation
+	- continue using the hardened E2E harness rather than local-only assumptions
 
-### 4B-1 Branch-Ready Task List
+### 4B-3 Branch-Ready Task List
 
-1. Add a single backend E2E mode entrypoint in config or bootstrap and make Playwright fail fast if the intended env file is missing.
-2. Replace the copied-dev-database approach with a deterministic E2E data source that is safe for contributors and CI.
-3. Add explicit provider selection for Strava-dependent backend behavior, starting with fixture-backed segment metadata for Explorer admin destination authoring and removing scattered business-logic short-circuits where possible.
-4. Fix brittle Playwright assumptions such as hard-coded local URLs or seed-specific IDs so the suite matches the portable harness.
-5. Update shared docs that describe E2E behavior and the Explorer planning state so they match the implemented harness.
+1. Rework the Explorer admin screen so season summary, campaign summary, authoring, and accepted destinations follow a coherent card hierarchy aligned with the current WMV leaderboard surfaces.
+2. Replace the plain add-destination form with a fast paste-validate-preview-add interaction using the existing segment-validation seam.
+3. Extend accepted-destination cards to show richer segment details already known to the system, such as distance, grade, and location, plus Explorer-specific label context.
+4. Keep campaign creation visually consistent with the updated card hierarchy without widening into broader management workflows.
+5. Update slice-local tests and planning docs so the merged outcome clearly records 4B-3 completion and the next approved Explorer step.
 
-### Current Working Tree Split Plan
+### 4B-3 Implementation Brief
 
-Use this split if the current mixed branch needs to be separated into a harness PR and a later UI PR.
+- Phase: 4B-3 Admin UX Refinement
+- Readiness state: approved to implement now; no blocking planning questions remain for this slice
+- Branch start point: commit the current planning-doc updates on `main`, then create a fresh feature branch from updated `main` before any product-code changes
 
-Harness-first files for 4B-1:
+Primary governing references:
 
-- `.gitignore`
 - `docs/prds/wmv-explorer-destinations-phases.md`
-- `docs/prds/wmv-explorer-execution-briefing.md`
 - `docs/prds/wmv-explorer-readiness-checklist.md`
-- `docs/prds/wmv-explorer-worklog.md`
-- `e2e/README.md`
-- `e2e/auth.setup.ts`
-- `e2e/fixtures/test-helpers.ts`
-- `e2e/tests/authenticated.spec.ts`
-- `e2e/tests/leaderboard-card.spec.ts`
-- `package.json`
-- `playwright.config.ts`
-- `server/data/wmv_e2e_fixture.db`
-- `server/scripts/build-e2e-fixture.cjs`
-- `server/src/config.ts`
-- `server/src/db.ts`
-- `server/src/index.ts`
-- `server/src/__tests__/stravaReadProvider.test.ts`
-- `server/src/services/ClubService.ts`
-- `server/src/services/LoginService.ts`
-- `server/src/services/SegmentService.ts`
-- `server/src/services/StravaProfileService.ts`
-- `server/src/services/WebhookAdminService.ts`
-- `server/src/services/segmentMetadataFixtures.ts`
-- `server/src/services/segmentMetadataProvider.ts`
-- `server/src/services/stravaReadProvider.ts`
+- `docs/prds/wmv-explorer-destinations-tech-spec.md` sections `5.3 Segment source model`, `6.2 Explorer query service`, `6.3 Explorer admin service`, and `8.2 Admin surface`
 
-UI-follow-on files for 4B-2:
+Goal:
 
-- `src/App.tsx`
-- `src/components/NavBar.tsx`
-- `src/components/ExplorerAdminPanel.tsx`
-- `src/components/ExplorerAdminPanel.css`
-- `e2e/tests/explorer-admin.authenticated.spec.ts`
-- `server/src/routers/explorerAdmin.ts`
-- `server/src/services/ExplorerQueryService.ts`
-- `server/src/__tests__/trpc/explorerAdminRouter.test.ts`
+- Turn the minimal Explorer admin setup screen into a more interactive, modern, card-first authoring experience that matches the existing WMV card language and makes repeated paste-and-add destination setup feel fast and obvious.
 
-If a file remains shared across both slices, prefer keeping it in 4B-1 only when the change is strictly required for the portable harness. Otherwise, restage it into 4B-2.
+Required outcome:
 
-### 4B-2 Preview
+- The Explorer admin screen keeps season and campaign framing at the top, but uses a clearer card hierarchy consistent with the leaderboard, weekly, season, and schedule surfaces.
+- Destination authoring becomes a preview-first flow:
+	- the admin pastes a Strava segment URL
+	- the UI validates through the existing `segment.validate` seam
+	- a preview card appears with segment metadata before persistence
+	- the admin uses icon-first accept or reject controls with accessible labels
+	- the optional Explorer display label is applied during that preview step
+- Accepted destinations render as richer cards rather than a plain list.
+- Each accepted destination card shows, when available:
+	- Explorer display label or resolved destination name
+	- distance
+	- average grade
+	- location text using city, state, and country
+	- a clearly clickable link back to the original Strava segment source
 
-- After the 4B-1 harness-only commit or PR is separated cleanly, resume the admin-only Explorer setup UI for create-campaign and add-destination flows.
-- Keep the 4B-2 UI PR focused on the admin route, duplicate or invalid authoring states, and the minimum browser coverage needed on top of the hardened harness.
+Expected code surfaces:
+
+- Frontend likely:
+	- `src/components/ExplorerAdminPanel.tsx`
+	- `src/components/ExplorerAdminPanel.css`
+	- shared card or metadata display helpers only if reuse is actually cleaner than local duplication
+- Backend only if needed for richer accepted-card data:
+	- `server/src/services/ExplorerQueryService.ts`
+	- `server/src/routers/explorerAdmin.ts`
+	- `server/src/__tests__/trpc/explorerAdminRouter.test.ts`
+- Tests likely:
+	- `src/components/__tests__/ExplorerAdminPanel.test.tsx`
+	- `e2e/tests/explorer-admin.authenticated.spec.ts`
+
+Implementation constraints:
+
+- Do not add persisted edit, remove, reorder, refresh, or search flows in this slice.
+- Do not add public Explorer exposure.
+- Do not convert links into generic button-styled actions when a normal link is clearer.
+- Keep icon-first actions accessible with visible context and `aria-label` support where needed.
+- Treat map plotting as deferred. Location text should be surfaced now, but real coordinate or geometry storage is not part of 4B-3.
+
+Validation path:
+
+- Frontend unit tests covering preview state, validation success and failure, accept, reject, and repeated add behavior
+- Focused backend tests only if the Explorer admin read shape changes
+- Targeted Playwright coverage for the admin paste-validate-preview-add flow and richer accepted-card rendering
+- `npm run lint`
+- `npm run typecheck`
+- targeted build verification for the touched UI
+
+Documentation expectations when 4B-3 lands:
+
+- update `docs/prds/wmv-explorer-destinations-phases.md` to mark 4B-3 complete if the slice lands as approved
+- update `docs/prds/wmv-explorer-worklog.md` and `docs/prds/wmv-explorer-readiness-checklist.md` to record the new next step
+- update `docs/API.md` only if the Explorer admin read contract expands
+
+Non-blockers to leave alone:
+
+- true map rendering
+- coordinate or geometry persistence
+- persisted inline card editing
+- Strava destination search
+- refresh or backfill admin actions
 
 ## 4A Planning Inputs Closed
 
@@ -249,6 +283,7 @@ These decisions are now closed for the 4A implementation handoff.
 
 - Implement Explorer admin backend setup
 - Add admin-gated Explorer setup UI
+- Refine Explorer admin destination authoring UX
 - Prepare the athlete-facing Explorer hub for a later release gate
 
 ## Documentation Impact Checklist

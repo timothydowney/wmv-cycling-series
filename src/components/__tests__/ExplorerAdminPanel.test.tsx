@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Season } from '../../types';
 import ExplorerAdminPanel from '../ExplorerAdminPanel';
 
-globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const trpcMocks = vi.hoisted(() => ({
   campaignQuery: {
@@ -15,17 +15,33 @@ const trpcMocks = vi.hoisted(() => ({
       destinations: Array<{
         id: number;
         displayLabel: string;
+        customLabel: string | null;
+        segmentName: string;
         displayOrder: number;
         sourceUrl: string | null;
         stravaSegmentId: string;
+        distance: number | null;
+        averageGrade: number | null;
+        city: string | null;
+        state: string | null;
+        country: string | null;
       }>;
     },
     error: null as Error | null,
     isLoading: false,
   },
   invalidate: vi.fn(async () => undefined),
-  createCampaign: vi.fn(async () => ({ id: 1 })),
-  addDestination: vi.fn(async () => ({
+  validateSegment: vi.fn(async () => ({
+    strava_segment_id: '2234642',
+    name: 'Box Hill KOM',
+    distance: 2931,
+    average_grade: 5.4,
+    city: 'Dorking',
+    state: 'Surrey',
+    country: 'United Kingdom',
+  })),
+  createCampaign: vi.fn(async (_input?: unknown) => ({ id: 1 })),
+  addDestination: vi.fn(async (_input?: unknown) => ({
     id: 1,
     cached_name: 'Segment 1',
     strava_segment_id: '1',
@@ -36,6 +52,13 @@ const trpcMocks = vi.hoisted(() => ({
 vi.mock('../../utils/trpc', () => ({
   trpc: {
     useUtils: () => ({
+      client: {
+        segment: {
+          validate: {
+            query: trpcMocks.validateSegment,
+          },
+        },
+      },
       explorerAdmin: {
         getCampaignForSeason: {
           invalidate: trpcMocks.invalidate,
@@ -168,12 +191,29 @@ async function submitForm(form: HTMLElement) {
   });
 }
 
+async function clickElement(element: HTMLElement) {
+  await act(async () => {
+    element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await Promise.resolve();
+  });
+}
+
 describe('ExplorerAdminPanel', () => {
   beforeEach(() => {
     trpcMocks.campaignQuery.data = null;
     trpcMocks.campaignQuery.error = null;
     trpcMocks.campaignQuery.isLoading = false;
     trpcMocks.invalidate.mockClear();
+    trpcMocks.validateSegment.mockReset();
+    trpcMocks.validateSegment.mockResolvedValue({
+      strava_segment_id: '2234642',
+      name: 'Box Hill KOM',
+      distance: 2931,
+      average_grade: 5.4,
+      city: 'Dorking',
+      state: 'Surrey',
+      country: 'United Kingdom',
+    });
     trpcMocks.createCampaign.mockReset();
     trpcMocks.createCampaign.mockResolvedValue({ id: 1 });
     trpcMocks.addDestination.mockReset();
@@ -181,6 +221,7 @@ describe('ExplorerAdminPanel', () => {
       id: 1,
       cached_name: 'Segment 2234642',
       strava_segment_id: '2234642',
+      usedPlaceholderMetadata: false,
     });
     vi.useRealTimers();
   });
@@ -232,7 +273,7 @@ describe('ExplorerAdminPanel', () => {
     expect(queryByTestId(container, 'explorer-create-campaign-form')).toBeNull();
   });
 
-  it('adds destinations with trimmed values and preserves the latest flash message timer', async () => {
+  it('previews, accepts, and rejects destinations while preserving the latest flash message timer', async () => {
     vi.useFakeTimers();
     trpcMocks.campaignQuery.data = {
       id: 41,
@@ -260,7 +301,16 @@ describe('ExplorerAdminPanel', () => {
       getByTestId(container, 'explorer-source-url-input') as HTMLInputElement,
       '  https://www.strava.com/segments/2234642  '
     );
-    await submitForm(getByTestId(container, 'explorer-add-destination-form'));
+    await clickElement(getByTestId(container, 'explorer-preview-destination-button'));
+
+    expect(getByTestId(container, 'explorer-destination-preview-card').textContent).toContain('Box Hill KOM');
+    expect(getByTestId(container, 'explorer-destination-preview-card').textContent).toContain('2.93 km');
+
+    await clickElement(getByTestId(container, 'explorer-reject-preview-button'));
+    expect(queryByTestId(container, 'explorer-destination-preview-card')).toBeNull();
+
+    await clickElement(getByTestId(container, 'explorer-preview-destination-button'));
+    await clickElement(getByTestId(container, 'explorer-accept-preview-button'));
 
     expect(getByTestId(container, 'explorer-admin-message').textContent).toContain('placeholder metadata');
     expect(trpcMocks.addDestination).toHaveBeenNthCalledWith(1, {
@@ -281,7 +331,12 @@ describe('ExplorerAdminPanel', () => {
       getByTestId(container, 'explorer-display-label-input') as HTMLInputElement,
       '  Box Hill opener  '
     );
-    await submitForm(getByTestId(container, 'explorer-add-destination-form'));
+    await clickElement(getByTestId(container, 'explorer-preview-destination-button'));
+
+    expect(getByTestId(container, 'explorer-preview-name').textContent).toContain('Box Hill opener');
+    expect(getByTestId(container, 'explorer-preview-segment-name').textContent).toContain('Box Hill KOM');
+
+    await clickElement(getByTestId(container, 'explorer-accept-preview-button'));
 
     expect(getByTestId(container, 'explorer-admin-message').textContent).toContain('Destination added to the Explorer campaign.');
     expect(trpcMocks.addDestination).toHaveBeenNthCalledWith(2, {
@@ -301,5 +356,38 @@ describe('ExplorerAdminPanel', () => {
     });
 
     expect(queryByTestId(container, 'explorer-admin-message')).toBeNull();
+  });
+
+  it('renders richer destination cards when a campaign already has destinations', async () => {
+    trpcMocks.campaignQuery.data = {
+      id: 41,
+      name: 'Spring 2026 Explorer',
+      rulesBlurb: 'Ride every destination once.',
+      destinations: [
+        {
+          id: 99,
+          displayLabel: 'Box Hill opener',
+          customLabel: 'Box Hill opener',
+          segmentName: 'Box Hill KOM',
+          displayOrder: 0,
+          sourceUrl: 'https://www.strava.com/segments/2234642',
+          stravaSegmentId: '2234642',
+          distance: 2931,
+          averageGrade: 5.4,
+          city: 'Dorking',
+          state: 'Surrey',
+          country: 'United Kingdom',
+        },
+      ],
+    };
+
+    const { container } = await renderPanel();
+
+    expect(getByTestId(container, 'explorer-destination-row-99').textContent).toContain('Box Hill opener');
+    expect(getByTestId(container, 'explorer-destination-row-99').textContent).toContain('Segment name: Box Hill KOM');
+    expect(getByTestId(container, 'explorer-destination-row-99').textContent).toContain('2.93 km');
+    expect(getByTestId(container, 'explorer-destination-row-99').textContent).toContain('5.4% avg grade');
+    expect(getByTestId(container, 'explorer-destination-row-99').textContent).toContain('Dorking, Surrey, United Kingdom');
+    expect(getByTestId(container, 'explorer-destination-row-99').textContent).toContain('Open original Strava segment');
   });
 });
