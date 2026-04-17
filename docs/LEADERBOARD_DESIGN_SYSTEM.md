@@ -6,6 +6,7 @@ Scope:
 - Weekly leaderboard
 - Season leaderboard
 - Schedule tab
+- Segment-linked surfaces reused inside those tabs
 - Shared primitives those tabs already use
 
 Out of scope:
@@ -25,6 +26,8 @@ Use these files in this order when building or reviewing leaderboard-style UI:
 | Weekly header pattern | `src/components/WeeklyHeader.tsx` | Primary hero card for weekly and schedule surfaces |
 | Weekly participant card | `src/components/LeaderboardCard.tsx` | Rank card composition, expanded detail treatment |
 | Season participant card | `src/components/SeasonCard.tsx` | Season-card hierarchy and compact metadata pill treatment |
+| Segment card primitive | `src/components/SegmentCard.tsx` and `src/components/SegmentCard.css` | Compact segment or destination title and metadata treatment |
+| Segment profile wrapper | `src/components/CollapsibleSegmentProfile.tsx` | Collapsible segment-detail heading and reveal pattern |
 | Weekly tab composition | `src/components/WeeklyLeaderboard.tsx` | Card stacking, expansion rhythm, no-results state |
 | Schedule tab composition | `src/components/ScheduleTable.tsx` and `src/components/ScheduleTable.css` | Week-list rhythm, next-up badge, schedule expansion layout |
 
@@ -151,6 +154,39 @@ Common traits:
 - animation is modest and short-lived
 - the expanded layer should not visually compete with the main card shell
 
+### Segment And Destination Metadata Card Pattern
+
+`src/components/SegmentCard.tsx` and `src/components/SegmentCard.css` define a compact metadata card that is not the same thing as a leaderboard row.
+
+Use this pattern when the UI is presenting a segment-like object or destination-like object as a compact reference card rather than as a ranked participant row.
+
+Defining traits:
+- title line uses `var(--font-base)` with a dark text heading tone
+- the segment or destination name itself is the Strava link
+- the link uses the orange `.segment-link` treatment with `font-weight: 600`
+- optional identity metadata such as the segment ID appears as a warm pill, not as dominant body text
+- secondary metadata sits below the title in a single compact row with muted tone and bullet separators
+- location, distance, and average grade live at the same hierarchy level unless product requirements elevate one of them
+
+Rules:
+- use this pattern as the primary source of truth when Explorer destinations are acting more like segment objects than like leaderboard standings
+- do not force these objects into `leaderboard-card` row anatomy when there is no rank, avatar, or right-side value hierarchy
+- if a destination card blends leaderboard shell plus segment metadata, the segment title and metadata treatment should still come from `SegmentCard`
+
+### Segment Profile Reveal Pattern
+
+`src/components/CollapsibleSegmentProfile.tsx` defines the segment-profile reveal used inside Weekly and Schedule expanded states.
+
+Defining traits:
+- the section label is uppercase, compact, and secondary in tone
+- the profile toggle is lightweight and text-led, not a large button chrome treatment
+- the reveal animation is small and attached to the parent expanded surface
+- the profile content is subordinate to the parent week card, not a competing hero surface
+
+Rules:
+- when Explorer needs to reveal deeper destination geometry or embedded segment detail, this is the closest reference pattern
+- prefer a lightweight heading-plus-chevron reveal before introducing a new destination-detail container system
+
 ## Tab-Specific Patterns
 
 ### Weekly
@@ -167,6 +203,7 @@ Defining traits:
 - metadata directly under the title is quiet and compact
 - detailed rider rows use the shared card shell, not bespoke component framing
 - expanded rider details keep metrics and links compact, not dashboard-like
+- segment profile reveal inside expanded notes uses the lightweight `CollapsibleSegmentProfile` pattern rather than a second hero card
 
 ### Season
 
@@ -200,10 +237,16 @@ The public leaderboard establishes two important link conventions:
 1. Important Strava destination titles are usually the link themselves.
 2. External-link icons are inline companions to the text, not detached action buttons.
 
+There are two valid title-link expressions in the current system:
+
+- `WeeklyHeader` pattern: linked title plus inline external-link icon for a hero-level week surface
+- `SegmentCard` pattern: linked title text without detached icon-first chrome for compact segment-object cards
+
 Rules:
 - for route, week, or destination title links, prefer the linked-name pattern over a separate icon-only action
 - use `var(--wmv-orange)` for high-signal interactive links tied to the sport object itself
 - avoid button-styling normal navigation or outbound links when a text link is clearer
+- choose between the `WeeklyHeader` link treatment and the `SegmentCard` link treatment based on hierarchy, not personal preference
 
 ## Reuse Rules For Explorer
 
@@ -212,8 +255,10 @@ Explorer should default to the leaderboard system in this order:
 1. Reuse the existing token and typography system from `src/index.css`.
 2. Reuse `leaderboard-card` and `card-*` classes from `src/components/Card.css` whenever the Explorer surface is still fundamentally a card.
 3. Reuse `week-header-chip` for compact metadata before inventing a new chip style.
-4. Reuse the linked-title pattern from `WeeklyHeader.tsx` for public-facing Explorer destination titles.
-5. Only add Explorer-specific classes for layout or semantics the leaderboard primitives do not already express.
+4. Reuse `SegmentCard` title and metadata treatment whenever an Explorer destination is behaving like a compact segment object.
+5. Reuse the linked-title pattern from `WeeklyHeader.tsx` for hero-level Explorer headers or destination surfaces that are acting like weekly-header analogs.
+6. Reuse `CollapsibleSegmentProfile` as the default reference for deeper segment or destination detail reveals inside expanded surfaces.
+7. Only add Explorer-specific classes for layout or semantics the leaderboard primitives do not already express.
 
 Do not treat legacy admin components as the source of truth for public Explorer UI.
 
@@ -239,10 +284,11 @@ Before approving a new leaderboard-inspired UI, check:
 
 1. Does it use `src/index.css` tokens instead of hardcoded colors and ad hoc font sizes?
 2. Does it reuse `leaderboard-card`, `card-*`, or `week-header-chip` where the semantics match?
-3. Does the title, metadata, and value hierarchy feel consistent with Weekly, Season, or Schedule?
-4. Is the link treatment consistent with the public leaderboard rather than legacy admin?
-5. Are any new classes truly new primitives, or are they accidental duplicates of existing ones?
-6. If a new primitive is real, has it been documented here or in a companion UI standard?
+3. Does it use `SegmentCard` conventions when the surface is fundamentally a segment or destination object rather than a ranking row?
+4. Does the title, metadata, and value hierarchy feel consistent with Weekly, Season, Schedule, or Segment patterns?
+5. Is the link treatment consistent with the public leaderboard rather than legacy admin?
+6. Are any new classes truly new primitives, or are they accidental duplicates of existing ones?
+7. If a new primitive is real, has it been documented here or in a companion UI standard?
 
 ## Non-Authoritative References
 

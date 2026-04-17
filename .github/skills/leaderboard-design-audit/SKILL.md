@@ -22,6 +22,8 @@ argument-hint: 'Describe the UI surface to audit or design and whether you want 
 - `src/components/WeeklyHeader.tsx`
 - `src/components/LeaderboardCard.tsx`
 - `src/components/SeasonCard.tsx`
+- `src/components/SegmentCard.tsx`
+- `src/components/CollapsibleSegmentProfile.tsx`
 - `src/components/WeeklyLeaderboard.tsx`
 - `src/components/ScheduleTable.tsx`
 
@@ -30,7 +32,7 @@ argument-hint: 'Describe the UI surface to audit or design and whether you want 
 1. Confirm the work is for the main end-user leaderboard design language, not legacy admin.
 2. Read `docs/LEADERBOARD_DESIGN_SYSTEM.md` first.
 3. Identify which leaderboard source files are the closest analog for the target UI.
-4. Separate reusable primitives from genuinely new requirements.
+4. Decide whether the target surface is primarily a ranking card, a hero header, a compact segment-object card, or a reveal panel.
 5. Call out any gaps where the current leaderboard does not define a stable pattern, especially forms and admin controls.
 6. Recommend the smallest set of new styles necessary after reuse is exhausted.
 
@@ -49,4 +51,5 @@ Return a compact result with:
 - Do not treat legacy admin as the UX source of truth for public Explorer work.
 - Prefer tokenized colors and font scale from `src/index.css` over hardcoded values.
 - Prefer `leaderboard-card`, `card-*`, and `week-header-chip` over bespoke replacements when the semantics match.
+- Prefer `SegmentCard` for compact segment or destination-object title and metadata styling when there is no ranking-row hierarchy.
 - If the leaderboard does not yet define a pattern, name that gap explicitly instead of guessing.
