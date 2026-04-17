@@ -41,7 +41,11 @@ import path from 'path';
 const envFile = process.env.ENV_FILE || '.env';
 dotenv.config({ path: path.resolve(__dirname, '../../', envFile) });
 
+type RuntimeMode = 'default' | 'e2e';
+type StravaApiMode = 'live' | 'fixture' | 'mock-server';
+
 interface Config {
+  runtimeMode: RuntimeMode;
   frontendUrl: string;
   backendUrl: string;
   stravaRedirectUri: string;
@@ -53,9 +57,12 @@ interface Config {
   stravaClientId: string | undefined;
   stravaClientSecret: string | undefined;
   stravaWebhookApiUrl: string; // Only used for webhook subscription endpoints
+  stravaApiMode: StravaApiMode;
   stravaClubId: string; // Strava club to track membership for
   // Database
   databasePath: string;
+  e2eSourceDatabasePath: string | undefined;
+  e2eResetDatabaseOnStartup: boolean;
   maxDatabaseSize: number; // Maximum database size in MB (default: 256)
   // Session
   sessionSecret: string;
@@ -78,6 +85,17 @@ interface Config {
 function getConfig(): Config {
   const nodeEnv = process.env.NODE_ENV || 'development';
   const isDevelopment = nodeEnv !== 'production';
+  const runtimeMode: RuntimeMode = process.env.WMV_RUNTIME_MODE === 'e2e' ? 'e2e' : 'default';
+
+  const stravaApiModeEnv = process.env.STRAVA_API_MODE;
+  let stravaApiMode: StravaApiMode = 'live';
+  if (
+    stravaApiModeEnv === 'live' ||
+    stravaApiModeEnv === 'fixture' ||
+    stravaApiModeEnv === 'mock-server'
+  ) {
+    stravaApiMode = stravaApiModeEnv;
+  }
 
   // Parse admin athlete IDs
   const adminAthleteIds: string[] = [];
@@ -124,6 +142,7 @@ function getConfig(): Config {
   }
 
   return {
+    runtimeMode,
     frontendUrl,
     backendUrl,
     stravaRedirectUri: `${backendUrl}/auth/strava/callback`,
@@ -135,9 +154,12 @@ function getConfig(): Config {
     stravaClientId: process.env.STRAVA_CLIENT_ID,
     stravaClientSecret: process.env.STRAVA_CLIENT_SECRET,
     stravaWebhookApiUrl: process.env.STRAVA_WEBHOOK_API_URL || 'https://www.strava.com',
+    stravaApiMode,
     stravaClubId: process.env.STRAVA_CLUB_ID || '1495648',
     // Database
     databasePath: process.env.DATABASE_PATH || path.join(__dirname, '..', 'data', 'wmv.db'),
+    e2eSourceDatabasePath: process.env.WMV_E2E_SOURCE_DATABASE_PATH,
+    e2eResetDatabaseOnStartup: process.env.WMV_E2E_RESET_DB_ON_BOOT === 'true',
     maxDatabaseSize,
     // Session
     sessionSecret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
@@ -168,6 +190,38 @@ export let config = getConfig();
  */
 export function reloadConfig(): void {
   config = getConfig();
+}
+
+export function getRuntimeMode(): RuntimeMode {
+  return config.runtimeMode;
+}
+
+export function isE2EMode(): boolean {
+  return getRuntimeMode() === 'e2e';
+}
+
+export function getStravaApiMode(): StravaApiMode {
+  return config.stravaApiMode;
+}
+
+export function validateRuntimeConfig(): void {
+  if (!isE2EMode()) {
+    return;
+  }
+
+  if (!process.env.DATABASE_PATH) {
+    throw new Error('WMV E2E mode requires DATABASE_PATH to be set explicitly');
+  }
+
+  if (!process.env.STRAVA_API_MODE) {
+    throw new Error('WMV E2E mode requires STRAVA_API_MODE to be set explicitly');
+  }
+
+  if (config.e2eResetDatabaseOnStartup && !config.e2eSourceDatabasePath) {
+    throw new Error(
+      'WMV E2E mode requires WMV_E2E_SOURCE_DATABASE_PATH when WMV_E2E_RESET_DB_ON_BOOT=true'
+    );
+  }
 }
 
 /**
@@ -210,9 +264,11 @@ export function isDevelopmentMode(): boolean {
 export function logConfigOnStartup(): void {
   console.log('========== CONFIGURATION ==========');
   console.log(`[CONFIG] Mode: ${getMode()}`);
+  console.log(`[CONFIG] Runtime mode: ${config.runtimeMode}`);
   console.log(`[CONFIG] Split stack: ${config.isSplitStack}`);
   console.log(`[CONFIG] Frontend URL: ${config.frontendUrl}`);
   console.log(`[CONFIG] Backend URL: ${config.backendUrl}`);
+  console.log(`[CONFIG] Strava API mode: ${config.stravaApiMode}`);
   console.log(`[CONFIG] OAuth callback: ${config.stravaRedirectUri}`);
   console.log(`[CONFIG] Webhook callback: ${config.webhookCallbackUrl}`);
 
@@ -230,9 +286,11 @@ export function logConfigOnStartup(): void {
 export function logEnvironmentVariables(): void {
   const safeEnv = {
     MODE: getMode(),
+    RUNTIME_MODE: config.runtimeMode,
     FRONTEND_URL: process.env.FRONTEND_URL || '(not set)',
     BACKEND_URL: process.env.BACKEND_URL || '(not set)',
     APP_BASE_URL: process.env.APP_BASE_URL || '(not set)',
+    STRAVA_API_MODE: process.env.STRAVA_API_MODE || '(not set)',
     STRAVA_CLIENT_ID: process.env.STRAVA_CLIENT_ID ? '(set)' : '(not set)',
     DATABASE_PATH: process.env.DATABASE_PATH || '(not set)',
     TOKEN_ENCRYPTION_KEY_LENGTH: process.env.TOKEN_ENCRYPTION_KEY

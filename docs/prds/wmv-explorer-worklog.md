@@ -4,14 +4,15 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 
 ## Current Focus
 
-- Prepare Phase 4B as a narrow admin-gated UI slice on top of the landed 4A backend contract.
+- Preserve the completed 4B-1 harness work as its own clean commit or PR slice.
+- Resume Phase 4B-2 as the next coding slice only after the harness-only file set is separated from the current mixed working tree.
 - Keep any pre-release Explorer UI admin-gated until there is an explicit end-user release decision.
 - Keep the next handoff and implementation brief aligned with the landed backend authoring contract.
 
 ## Current Go State
 
-- **Readiness:** Phase 1 Complete; Season-Campaign Correction Landed; Backend Campaign Slice Merged; Phase 4A Admin Backend Complete; Ready For Phase 4B Admin-Gated UI Slice
-- **Immediate scope:** one bounded implementation PR for Explorer admin-gated setup UI against the existing season-attached campaign model and landed 4A backend contract
+- **Readiness:** Phase 1 Complete; Season-Campaign Correction Landed; Backend Campaign Slice Merged; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Validated Locally; Ready For Phase 4B-2 Admin UI
+- **Immediate scope:** separate the current mixed work tree into a harness-only 4B-1 commit or PR set, then continue the admin-gated setup UI as 4B-2
 - **Not yet in scope:** public athlete-facing Explorer release, public navigation to Explorer, mini-campaigns, or explicit publish-status workflows
 
 ## Decisions Made
@@ -45,7 +46,7 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 | Should athlete campaign summaries be computed on read or stored in a cached summary table for v1? | Closed For v1 | No | V1 uses computed-on-read summaries with `ExplorerDestinationMatch` as the durable source of truth. |
 | Should Explorer reuse the existing segment table, store Explorer-local cached metadata, or do both? | Closed For v1 | No | V1 uses a hybrid strategy: shared segment reuse when present plus Explorer-local cached display metadata. |
 | How should webhook regression protection be documented for the delegated-handler refactor? | Closed For Phase 1 | No | The preservation target now lives in this worklog and the handler seam is covered by focused webhook tests. |
-| What is the exact E2E data strategy for Explorer flows? | Open | No | Should be defined before athlete-facing or admin UI E2E coverage starts. |
+| What is the exact E2E data strategy for Explorer flows? | Closed For 4B-1 | No | The baseline data source is the committed sanitized fixture at `server/data/wmv_e2e_fixture.db`, with deterministic backend Strava reads selected through explicit providers. |
 | Should deleted source activities retract Explorer completions in v1? | Open | No | Safe to defer if behavior is documented. |
 | Should pre-release Explorer UI remain admin-gated until launch approval? | Closed | No | Yes. Do not expose Explorer UI to non-admin users before a viable release decision. |
 | Should there be more than one Explorer campaign per season in v1? | Closed | No | No. Enforce one campaign per season in 4A while leaving room for future multi-season support. |
@@ -69,6 +70,7 @@ Resolution:
 
 1. Resolved for the next slice: Explorer backend tests should live under `server/src/__tests__` and use the existing in-memory SQLite pattern.
 2. Resolved for the next slice: Explorer E2E scenarios should provision their own campaign data intentionally.
+	- Progress: the shared E2E baseline now comes from a sanitized committed fixture rather than copied local development state.
 3. Resolved for the next slice: Planning and implementation docs touched by the corrected slice should be listed explicitly before coding starts.
 
 ## Ready-Next Slices
@@ -137,15 +139,12 @@ The current preservation target is backed by:
 ### Recommended Next PR
 
 - Start from updated `main` on a dedicated implementation branch.
-- Keep the next implementation PR scoped to the first pass of Phase 4B admin-gated UI:
-	- admin-only route or section for Explorer campaign setup
-	- create-campaign and add-destination flows using the landed 4A backend contract
-	- explicit backend E2E mode wiring for repeatable admin-flow testing
-	- deterministic server-side Strava segment metadata behavior for Explorer E2E coverage
-	- fail-fast Explorer E2E setup so the suite does not silently fall back to shared dev state
-	- keep all Explorer entry points hidden from non-admin users until there is an explicit release decision
-	- admin UI states for duplicate-campaign, invalid-URL, and metadata-fallback outcomes
-	- targeted UI and E2E coverage for the admin-gated flow
+- First preserve the completed Phase 4B-1 harness hardening changes as their own clean commit or PR set.
+- After that, keep the next implementation PR scoped to Phase 4B-2 admin-gated UI:
+	- create-campaign and add-destination admin flows on top of the stabilized harness
+	- targeted browser coverage for the admin surface
+	- no public athlete-facing Explorer exposure
+	- slice-local planning updates only if 4B-2 changes readiness or the recommended next slice again
 - Keep out of scope for that PR:
 	- public athlete hub UI
 	- public navigation to Explorer
@@ -154,38 +153,91 @@ The current preservation target is backed by:
 	- refresh and backfill mutations
 	- destination reorder, edit, or remove flows unless one proves necessary to keep the UI coherent
 
-### 4B E2E Recommendation
+### 4B-1 Harness Recommendation
 
 - Prefer a general backend E2E mode rather than a single Explorer-only env flag.
 - Keep that mode narrow: it should enable test-only auth helpers, fail-fast environment validation, and dependency selection for outbound integrations.
 - Do not use the general mode to hide ad hoc behavior changes deep in feature logic.
 - For external calls, use explicit provider selection where needed. For example, Strava-dependent server behavior should choose live, fixture-backed, or mock-server-backed behavior intentionally rather than inferring it indirectly.
-- For the first 4B pass, only one outbound Strava behavior needs to be deterministic: server-side segment metadata lookup used by `explorerAdmin.addDestination`.
+- The portable-harness goal is that a fresh clone can run `npm run test:e2e` without depending on a contributor's pre-existing development database.
+- If a checked-in E2E database is used, it must be sanitized and must not contain live Strava OAuth secrets.
 - Real Strava OAuth should remain optional for exploratory manual runs only, not for regression E2E.
 
-### 4B Implementation Handoff
+### 4B-1 Implementation Handoff
 
-- Slice: first pass of Phase 4B only.
+- Slice: Phase 4B-1 only.
 - Branch start point: updated `main`, then a dedicated feature branch before coding.
-- Governing scope: admin-only Explorer setup on top of the landed 4A backend contract, with no public Explorer exposure.
+- Governing scope: portable E2E harness hardening that supports the landed 4A backend contract and existing browser coverage, with no public Explorer exposure.
 - Harness rule: keep E2E and test-mode checks centralized in config, app bootstrap, and scripts rather than scattering them through feature logic.
 - Backend wiring recommendation:
 	- one explicit backend E2E mode for test-only wiring
 	- explicit provider selection for outbound integrations
 	- fail-fast startup or test bootstrap when the expected E2E env is missing
 - First outbound seam to implement: deterministic segment metadata lookup for `explorerAdmin.addDestination`.
+- Additional requirement: remove reliance on copied development token rows or other local-only state for normal E2E regression runs.
 - Existing Playwright impact:
 	- keep current browser-side interception for UI-only Strava rendering tests
 	- keep current e2e-login auth helper for logged-in browser coverage
 	- add the new backend provider behavior only where server-side Strava calls are part of the tested flow
 
-### 4B Branch-Ready Task List
+### 4B-1 Branch-Ready Task List
 
 1. Add a single backend E2E mode entrypoint in config or bootstrap and make Playwright fail fast if the intended env file is missing.
-2. Add explicit provider selection for Strava-dependent backend behavior, starting with fixture-backed segment metadata for Explorer admin destination authoring.
-3. Build the admin-only Explorer setup UI for create-campaign and add-destination flows.
-4. Add targeted browser coverage for the admin-gated Explorer setup flow, including duplicate, invalid-URL, and metadata-fallback states.
+2. Replace the copied-dev-database approach with a deterministic E2E data source that is safe for contributors and CI.
+3. Add explicit provider selection for Strava-dependent backend behavior, starting with fixture-backed segment metadata for Explorer admin destination authoring and removing scattered business-logic short-circuits where possible.
+4. Fix brittle Playwright assumptions such as hard-coded local URLs or seed-specific IDs so the suite matches the portable harness.
 5. Update shared docs that describe E2E behavior and the Explorer planning state so they match the implemented harness.
+
+### Current Working Tree Split Plan
+
+Use this split if the current mixed branch needs to be separated into a harness PR and a later UI PR.
+
+Harness-first files for 4B-1:
+
+- `.gitignore`
+- `docs/prds/wmv-explorer-destinations-phases.md`
+- `docs/prds/wmv-explorer-execution-briefing.md`
+- `docs/prds/wmv-explorer-readiness-checklist.md`
+- `docs/prds/wmv-explorer-worklog.md`
+- `e2e/README.md`
+- `e2e/auth.setup.ts`
+- `e2e/fixtures/test-helpers.ts`
+- `e2e/tests/authenticated.spec.ts`
+- `e2e/tests/leaderboard-card.spec.ts`
+- `package.json`
+- `playwright.config.ts`
+- `server/data/wmv_e2e_fixture.db`
+- `server/scripts/build-e2e-fixture.cjs`
+- `server/src/config.ts`
+- `server/src/db.ts`
+- `server/src/index.ts`
+- `server/src/__tests__/stravaReadProvider.test.ts`
+- `server/src/services/ClubService.ts`
+- `server/src/services/LoginService.ts`
+- `server/src/services/SegmentService.ts`
+- `server/src/services/StravaProfileService.ts`
+- `server/src/services/WebhookAdminService.ts`
+- `server/src/services/segmentMetadataFixtures.ts`
+- `server/src/services/segmentMetadataProvider.ts`
+- `server/src/services/stravaReadProvider.ts`
+
+UI-follow-on files for 4B-2:
+
+- `src/App.tsx`
+- `src/components/NavBar.tsx`
+- `src/components/ExplorerAdminPanel.tsx`
+- `src/components/ExplorerAdminPanel.css`
+- `e2e/tests/explorer-admin.authenticated.spec.ts`
+- `server/src/routers/explorerAdmin.ts`
+- `server/src/services/ExplorerQueryService.ts`
+- `server/src/__tests__/trpc/explorerAdminRouter.test.ts`
+
+If a file remains shared across both slices, prefer keeping it in 4B-1 only when the change is strictly required for the portable harness. Otherwise, restage it into 4B-2.
+
+### 4B-2 Preview
+
+- After the 4B-1 harness-only commit or PR is separated cleanly, resume the admin-only Explorer setup UI for create-campaign and add-destination flows.
+- Keep the 4B-2 UI PR focused on the admin route, duplicate or invalid authoring states, and the minimum browser coverage needed on top of the hardened harness.
 
 ## 4A Planning Inputs Closed
 

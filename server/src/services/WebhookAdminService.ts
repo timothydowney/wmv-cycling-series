@@ -15,8 +15,7 @@ import { StorageMonitor } from '../webhooks/storageMonitor';
 import { config } from '../config';
 import { createWebhookProcessor } from '../webhooks/processor';
 import { WebhookLogger } from '../webhooks/logger';
-import * as stravaClient from '../stravaClient';
-import { getValidAccessToken } from '../tokenManager';
+import { getWebhookActivityDetails } from './stravaReadProvider';
 
 export class WebhookAdminService {
   private subscriptionService: WebhookSubscriptionService;
@@ -208,27 +207,12 @@ export class WebhookAdminService {
       };
 
       // Try to fetch activity details from Strava
-      try {
-        if (participantRecord && activityId) {
-          console.log(`[WebhookAdmin] Fetching Strava activity details for activity ${activityId}`);
-          const token = await getValidAccessToken(this.db, stravaClient, participantRecord.strava_athlete_id);
-          const activityData = await stravaClient.getActivity(activityId, token);
-          
-          enrichment.strava_data = {
-            activity_id: String(activityData.id),
-            name: activityData.name,
-            type: activityData.type,
-            distance_m: activityData.distance,
-            moving_time_sec: activityData.moving_time,
-            elevation_gain_m: activityData.elevation_gain,
-            start_date_iso: activityData.start_date,
-            device_name: activityData.device_name || null,
-            segment_effort_count: activityData.segment_efforts?.length || 0,
-            visibility: activityData.visibility || null
-          };
-        }
-      } catch (error) {
-        console.warn(`[WebhookAdmin] Activity fetch from Strava failed: ${error instanceof Error ? error.message : String(error)}`);
+      if (participantRecord && activityId) {
+        enrichment.strava_data = await getWebhookActivityDetails(
+          this.db,
+          participantRecord.strava_athlete_id,
+          activityId
+        );
       }
 
       // If not processed, return early

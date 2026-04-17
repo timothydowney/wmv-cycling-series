@@ -8,33 +8,21 @@
  */
 
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { getValidAccessToken } from '../tokenManager';
-import { getAthleteProfile } from '../stravaClient';
-import * as stravaClientModule from '../stravaClient';
-import { participantToken } from '../db/schema';
-import { desc } from 'drizzle-orm';
-
-// Simple in-memory cache to avoid fetching the same athlete multiple times
-// Cache expires after 1 hour
-interface CachedProfile {
-  profile: string | null;
-  timestamp: number;
-}
-const profileCache = new Map<string, CachedProfile>();
-const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+import {
+  clearProfileCache as clearProfileCacheFromProvider,
+  getAthleteProfilePictures as getAthleteProfilePicturesFromProvider,
+  getAuthStatusProfilePicture as getAuthStatusProfilePictureFromProvider,
+  getLiveAthleteProfilePicture,
+  seedProfileCache as seedProfileCacheFromProvider,
+} from './stravaReadProvider';
 
 /**
  * Seed the profile cache with an already-known profile URL
  * Used during login to save an extra API call
  */
 export function seedProfileCache(athleteId: string, profileUrl: string | null): void {
-  if (athleteId) {
-    profileCache.set(athleteId, {
-      profile: profileUrl,
-      timestamp: Date.now()
-    });
-    console.log(`[Profile] Cache seeded for athlete ${athleteId}`);
-  }
+  seedProfileCacheFromProvider(athleteId, profileUrl);
+  console.log(`[Profile] Cache seeded for athlete ${athleteId}`);
 }
 
 /**
@@ -46,32 +34,14 @@ export function seedProfileCache(athleteId: string, profileUrl: string | null): 
  * @returns Profile picture URL or null if fetch fails
  */
 async function getAthleteProfilePicture(athleteId: string, accessToken: string): Promise<string | null> {
-  try {
-    // Check cache first
-    const cached = profileCache.get(athleteId);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-      return cached.profile;
-    }
+  return getLiveAthleteProfilePicture(athleteId, accessToken);
+}
 
-    // Use strava client library to fetch athlete profile
-    const athleteData = await getAthleteProfile(athleteId, accessToken);
-
-    const profileUrl = athleteData?.profile || athleteData?.profile_medium || null;
-
-    // Cache the result
-    profileCache.set(athleteId, {
-      profile: profileUrl,
-      timestamp: Date.now()
-    });
-
-    return profileUrl;
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    console.warn(
-      `[Profile] Failed to fetch profile for athlete ${athleteId}: ${errorMsg}`
-    );
-    return null;
-  }
+async function getAuthStatusProfilePicture(
+  athleteId: string,
+  db: BetterSQLite3Database
+): Promise<string | null> {
+  return getAuthStatusProfilePictureFromProvider(athleteId, db);
 }
 
 /**
@@ -87,106 +57,18 @@ async function getAthleteProfilePictures(
   athleteIds: string[],
   db: BetterSQLite3Database
 ): Promise<Map<string, string | null>> {
-  const results = new Map<string, string | null>();
-
-  // Filter out athletes already in cache
-  const uncachedIds = athleteIds.filter(id => {
-    const cached = profileCache.get(id);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-      results.set(id, cached.profile);
-      return false;
-    }
-    return true;
-  });
-
-  if (uncachedIds.length === 0) {
-    return results;
-  }
-
-  // Build a map of athlete ID to their valid (refreshed) token
-  // This way we use each athlete's own token when available, with auto-refresh
-  const athleteTokens = new Map<string, string>();
-
-  for (const athleteId of uncachedIds) {
-    try {
-      // Use getValidAccessToken to ensure token is refreshed if expiring soon
-      const validToken = await getValidAccessToken(db, stravaClientModule, athleteId);
-      if (validToken) {
-        athleteTokens.set(athleteId, validToken);
-        console.log(`[Profile] Retrieved and refreshed token for athlete ${athleteId}`);
-      } else {
-        console.log(`[Profile] No valid token available for athlete ${athleteId}`);
-      }
-    } catch (error) {
-      console.warn(`[Profile] Failed to get valid token for athlete ${athleteId}:`, error);
-      // Continue to next athlete instead of failing completely
-    }
-  }
-
-  // If we don't have any athlete tokens, fall back to any available valid token
-  let fallbackToken: string | null = null;
-  if (athleteTokens.size === 0) {
-    try {
-      // Get any participant that has a token and refresh it
-      const anyParticipant = db
-        .select({ strava_athlete_id: participantToken.strava_athlete_id })
-        .from(participantToken)
-        .orderBy(desc(participantToken.updated_at))
-        .limit(1)
-        .get();
-
-      if (anyParticipant) {
-        const validToken = await getValidAccessToken(db, stravaClientModule, anyParticipant.strava_athlete_id);
-        if (validToken) {
-          fallbackToken = validToken;
-          console.log('[Profile] Using fallback token (refreshed) for profile fetches');
-        }
-      }
-    } catch (error) {
-      console.warn('Failed to get fallback token:', error);
-    }
-  }
-
-  if (athleteTokens.size === 0 && !fallbackToken) {
-    console.warn('No valid Strava tokens available to fetch athlete profiles');
-    // Return empty results for all athletes
-    uncachedIds.forEach(id => results.set(id, null));
-    return results;
-  }
-
-  // Fetch uncached profiles in parallel (but rate-limit to avoid overwhelming Strava)
-  // Fetch in batches of 5 with small delays between batches
-  const batchSize = 5;
-  for (let i = 0; i < uncachedIds.length; i += batchSize) {
-    const batch = uncachedIds.slice(i, i + batchSize);
-    const promises = batch.map(id => {
-      // Use the athlete's own token if available, otherwise use fallback
-      const token = athleteTokens.get(id) || fallbackToken;
-      return getAthleteProfilePicture(id, token!);
-    });
-
-    const batchResults = await Promise.all(promises);
-    batch.forEach((id, index) => {
-      results.set(id, batchResults[index]);
-    });
-
-    // Small delay between batches to be respectful to Strava's API
-    if (i + batchSize < uncachedIds.length) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-  }
-
-  return results;
+  return getAthleteProfilePicturesFromProvider(athleteIds, db);
 }
 
 /**
  * Clear the profile cache (useful for testing or manual refresh)
  */
 function clearProfileCache(): void {
-  profileCache.clear();
+  clearProfileCacheFromProvider();
 }
 
 export {
+  getAuthStatusProfilePicture,
   getAthleteProfilePicture,
   getAthleteProfilePictures,
   clearProfileCache

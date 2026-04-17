@@ -29,6 +29,9 @@ dist-ssr
 *.db-wal
 *.db-shm
 server/data/
+!server/data/
+server/data/*
+!server/data/wmv_e2e_fixture.db
 
 # Test coverage
 coverage/
@@ -50,6 +53,7 @@ e2e/.auth/*.json
 
 # Allow checked-in production template
 !.env.railway.example
+!e2e/.env.e2e
 
 # Credentials
 public/strava-credentials.json

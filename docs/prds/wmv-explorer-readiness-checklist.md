@@ -17,21 +17,21 @@ The ideas backlog is intentionally excluded from v1 implementation scope. It exi
 
 ## Current Go Decision
 
-**Status:** Phase 1 Complete; Season-Campaign Correction Landed; Backend Campaign Slice Merged; Phase 4A Admin Backend Complete; Ready For Phase 4B Admin-Gated UI Slice
+**Status:** Phase 1 Complete; Season-Campaign Correction Landed; Backend Campaign Slice Merged; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Validated Locally; Ready For Phase 4B-2 Admin UI
 
-Explorer has completed the narrow Phase 1 webhook-orchestration slice that preserves current competition behavior while introducing delegated in-process handlers. The planning set on this branch now corrects the MVP to a season-campaign-first model attached to an existing WMV season, with optional mini-campaigns and explicit publish-status workflows deferred. The backend campaign slice is merged and the 4A admin backend slice is now landed, so the next approved implementation work should move to the admin-gated 4B UI rather than reopening backend authoring contracts.
+Explorer has completed the narrow Phase 1 webhook-orchestration slice that preserves current competition behavior while introducing delegated in-process handlers. The planning set on this branch now corrects the MVP to a season-campaign-first model attached to an existing WMV season, with optional mini-campaigns and explicit publish-status workflows deferred. The backend campaign slice is merged, the 4A admin backend slice is landed, and the 4B-1 portable harness work is now validated locally with full tests, build, lint, typecheck, and Playwright coverage green. The next approved implementation work is the admin-gated 4B-2 UI slice, but the current mixed working tree should be separated so the harness changes land as their own coherent PR or commit set first.
 
 ## Current Status Summary
 
 | Area | Status | Notes |
 | --- | --- | --- |
 | Product framing | Ready | The PRD is clear on goals, users, must-haves, non-goals, and success criteria. |
-| Execution phasing | Ready For Phase 4B | The phases doc now treats the backend campaign and 4A admin backend slices as complete and makes admin-gated UI the next bounded step. |
-| Architecture closure | Ready For Phase 4B | The technical spec now models a season-attached campaign, records the merged backend and 4A admin contracts, and defines admin-only pre-release UI gating. |
+| Execution phasing | Ready For Phase 4B-2 | The phases doc now treats 4B-1 harness hardening as validated locally and makes the admin-gated UI the next bounded step after the harness-only changes are separated cleanly. |
+| Architecture closure | Ready For Phase 4B-2 | The technical spec now models a season-attached campaign, records the merged backend and 4A admin contracts, and the harness-first hardening work is complete enough to support the admin-only UI broadening next. |
 | Open questions handling | Ready | The worklog now records the corrected model plus the remaining non-blocking questions. |
-| Blocking research closure | Ready For Phase 4B | The product-intent correction is closed for this branch. |
-| Test planning | Ready For Phase 4B | Test planning is now framed against the admin-gated UI slice as the next step on top of the landed backend contract. |
-| Documentation impact plan | Ready For Phase 4B | The likely doc surfaces are known for the next admin UI slice, including slice-local planning closure when readiness state changes. |
+| Blocking research closure | Ready For Phase 4B-2 | The product-intent correction is closed for this branch. |
+| Test planning | Ready For Phase 4B-2 | Portable harness hardening is now validated locally, so test planning can move back to the admin-gated UI slice on top of the stabilized harness. |
+| Documentation impact plan | Ready For Phase 4B-2 | The harness docs are updated, and the next doc surfaces are the admin UI follow-on plus the harness/UI branch split note. |
 
 ## Must Resolve Before Broad Implementation
 
@@ -107,23 +107,23 @@ Explorer has completed the narrow Phase 1 webhook-orchestration slice that prese
 
 | Field | Value |
 | --- | --- |
-| Status | Partial |
+| Status | Completed For 4B-1 |
 | Gate | Should Resolve |
-| Why it matters | Explorer admin UI flows will need repeatable end-to-end coverage, and the current code path reaches outbound Strava services from the backend during destination authoring. |
-| Evidence | The backend loads `ENV_FILE` dynamically in [server/src/config.ts](../../server/src/config.ts) and uses the default `.env` when `ENV_FILE` is not set instead of starting in a dedicated E2E backend mode. The admin add-destination path calls server-side segment enrichment through [ExplorerAdminService](../../server/src/services/ExplorerAdminService.ts) and [SegmentService](../../server/src/services/SegmentService.ts), so browser-only route interception is not enough. |
-| Acceptance criteria | The implementation plan explains how Explorer E2E scenarios will run against an explicit E2E backend mode, how Explorer campaign data will be provisioned intentionally, and how outbound Strava-dependent behavior will be made deterministic without relying on accidental shared state or real API budget. |
-| Next action | In the first 4B pass, introduce an explicit backend E2E mode for wiring test-only behavior, add deterministic segment metadata behavior for server-side admin flows, and make the Explorer E2E data setup fail fast when the intended environment is missing. |
+| Why it matters | Explorer admin UI flows and the existing Playwright suite need repeatable end-to-end coverage, and the current code path reaches outbound Strava services from the backend during destination authoring and some read flows. |
+| Evidence | The backend now has an explicit E2E mode in [server/src/config.ts](../../server/src/config.ts), the E2E database resets from the committed sanitized fixture [server/data/wmv_e2e_fixture.db](../../server/data/wmv_e2e_fixture.db), and deterministic read-side Strava behavior now flows through explicit providers in [server/src/services/segmentMetadataProvider.ts](../../server/src/services/segmentMetadataProvider.ts) and [server/src/services/stravaReadProvider.ts](../../server/src/services/stravaReadProvider.ts) rather than through scattered service-level `isE2EMode()` branches. Full validation is green, including `npm test`, `npm run test:e2e`, `npm run typecheck`, `npm run lint`, and `npm run build`. |
+| Acceptance criteria | Explorer and existing E2E scenarios run against an explicit backend E2E mode, deterministic campaign and leaderboard data are provisioned without copying a contributor's local development database, and outbound Strava-dependent behavior is selected through explicit providers rather than scattered feature-level short-circuits. |
+| Next action | Preserve the harness-only file set as its own commit or PR, then build the 4B-2 admin UI slice on top of that stabilized baseline. |
 
 ### 3. Documentation Impact Plan
 
 | Field | Value |
 | --- | --- |
-| Status | Ready For Phase 4B |
+| Status | Ready For Phase 4B-2 |
 | Gate | Should Resolve |
 | Why it matters | Explorer touches admin, athlete, API, database, and release-note surfaces. That work should be visible before coding. |
-| Evidence | The 4A slice updated `docs/API.md`, `docs/DATABASE_DESIGN.md`, and the slice-local planning docs while still deferring user-facing release-note files. |
+| Evidence | The 4A slice updated `docs/API.md`, `docs/DATABASE_DESIGN.md`, and the slice-local planning docs while still deferring user-facing release-note files. The next harness slice will also need E2E doc updates because current reality changed again. |
 | Acceptance criteria | The worklog or implementation slice names the docs expected to change when the slice lands, including any slice-local planning docs needed to close the state transition. |
-| Next action | Keep the documentation-impact checklist current and treat 4B UI docs as a separate follow-on update set. |
+| Next action | Keep the documentation-impact checklist current and treat the clean harness PR or commit set plus the 4B-2 UI docs as separate follow-on update sets. |
 
 ### 4. Smallest End-To-End Slice
 
@@ -165,7 +165,8 @@ If a slice is expected to change the approved next step, readiness wording, or p
 | Season-Campaign Correction Landed | Yes |
 | Backend Campaign Slice Merged | Yes |
 | Phase 4A Admin Backend Complete | Yes |
-| Ready For Phase 4B Admin-Gated UI Slice | Yes |
+| Phase 4B-1 E2E Harness Hardening Validated Locally | Yes |
+| Ready For Phase 4B-2 Admin UI | Yes |
 | Ready For Broad Feature Implementation | No |
 
-If this file says anything stronger than **Phase 1 Complete; Season-Campaign Correction Landed; Backend Campaign Slice Merged; Phase 4A Admin Backend Complete; Ready For Phase 4B Admin-Gated UI Slice**, the linked worklog should show exactly what changed to justify that shift.
+If this file says anything stronger than **Phase 1 Complete; Season-Campaign Correction Landed; Backend Campaign Slice Merged; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Validated Locally; Ready For Phase 4B-2 Admin UI**, the linked worklog should show exactly what changed to justify that shift.
