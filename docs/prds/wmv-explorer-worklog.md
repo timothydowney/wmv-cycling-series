@@ -4,15 +4,15 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 
 ## Current Focus
 
-- Prepare the next bounded admin UX refinement slice for Explorer admin setup now that 4B-2 is merged.
-- Keep the next slice focused on card-first destination authoring and richer accepted-destination presentation rather than broad Explorer management expansion.
+- Preserve the checkpointed functional 4B-3 admin UX work while documenting the leaderboard design system before more Explorer UX polish continues.
+- Keep the next slice focused on Weekly, Season, and Schedule UI audit and documentation so future Explorer surfaces start from the right public-facing primitives.
 - Keep any pre-release Explorer UI admin-gated until there is an explicit end-user release decision.
 - Keep the next handoff and implementation brief aligned with the landed backend authoring contract plus the existing `segment.validate` preview seam.
 
 ## Current Go State
 
 - **Readiness:** Phase 1 Complete; Season-Campaign Correction Landed; Backend Campaign Slice Merged; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Ready For Phase 4B-3 Admin UX Refinement
-- **Immediate scope:** implement the bounded 4B-3 admin UX refinement slice from updated `main` on a dedicated feature branch
+- **Immediate scope:** document the canonical leaderboard design system and wire that guidance into future Explorer implementation before resuming UX-polish work on top of the checkpointed 4B-3 branch state
 - **Not yet in scope:** public athlete-facing Explorer release, public navigation to Explorer, mini-campaigns, or explicit publish-status workflows
 
 ## Decisions Made
@@ -143,25 +143,23 @@ The current preservation target is backed by:
 
 ### Recommended Next PR
 
-- Start from updated `main` on a dedicated implementation branch.
-- Keep the next implementation PR scoped to Slice 4B-3 only:
-	- reuse existing WMV leaderboard-style card language where practical
-	- convert destination authoring from a plain form into a paste-validate-preview-add card flow
-	- use icon-first accept or reject controls with accessible labeling for previewed destinations
-	- render accepted destinations as richer cards with Explorer-specific labeling plus known segment metadata
-	- make the Strava source link clearly clickable from the accepted card without styling it as a generic button
-	- keep admin authoring fast for repeated paste-and-add sessions
-	- avoid new persisted edit, remove, reorder, refresh, or search workflows unless the slice is explicitly re-approved
+- Start from the checkpointed 4B-3 branch state on a dedicated documentation or design-system branch.
+- Keep the next implementation PR scoped to the leaderboard design-system audit and documentation slice:
+	- document the canonical Weekly, Season, and Schedule design language in one durable reference
+	- identify which shared primitives Explorer should reuse by default
+	- record gaps where the public leaderboard does not yet define a stable form or admin-control pattern
+	- wire the documented guidance into repo instructions or agent-facing surfaces so future Explorer work reads it first
+	- avoid further piecemeal Explorer restyling until that guide exists
 - Validation path for the next PR:
-	- frontend unit coverage for the authoring-card state machine
-	- focused backend coverage only if the Explorer admin read shape grows
-	- targeted Playwright for the authoring and accepted-card flow
-	- normal lint, typecheck, and build verification
+	- document review against the authoritative source files
+	- verify agent-facing references point to the new guide
+	- no product-code validation beyond any touched markdown or instruction surfaces unless the slice expands again
 - Planning and documentation surfaces likely to change when 4B-3 lands:
+	- `docs/LEADERBOARD_DESIGN_SYSTEM.md`
 	- `docs/prds/wmv-explorer-destinations-phases.md`
 	- `docs/prds/wmv-explorer-worklog.md`
 	- `docs/prds/wmv-explorer-readiness-checklist.md`
-	- `docs/API.md` only if the Explorer admin read contract is expanded
+	- repo instruction surfaces such as `AGENTS.md`, `AGENT_USAGE.md`, or `.github/copilot-instructions.md`
 
 ### 4B-3 Implementation Handoff
 

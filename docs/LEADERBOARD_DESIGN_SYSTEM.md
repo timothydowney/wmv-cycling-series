@@ -1,0 +1,255 @@
+# Leaderboard Design System
+
+This document defines the current gold-standard UI language for the end-user leaderboard experience only.
+
+Scope:
+- Weekly leaderboard
+- Season leaderboard
+- Schedule tab
+- Shared primitives those tabs already use
+
+Out of scope:
+- Legacy admin screens
+- Explorer admin UX except where it intentionally reuses leaderboard primitives
+- New form-control systems that do not yet exist in the public leaderboard
+
+## Source Of Truth
+
+Use these files in this order when building or reviewing leaderboard-style UI:
+
+| Area | Source file | Role |
+| --- | --- | --- |
+| Global tokens and typography | `src/index.css` | Brand colors, text colors, font scale, heading defaults |
+| App-level layout | `src/App.css` | Main content width, page spacing, table baseline |
+| Shared card shell | `src/components/Card.css` | Card container, collapsed header, expanded details, chip primitives |
+| Weekly header pattern | `src/components/WeeklyHeader.tsx` | Primary hero card for weekly and schedule surfaces |
+| Weekly participant card | `src/components/LeaderboardCard.tsx` | Rank card composition, expanded detail treatment |
+| Season participant card | `src/components/SeasonCard.tsx` | Season-card hierarchy and compact metadata pill treatment |
+| Weekly tab composition | `src/components/WeeklyLeaderboard.tsx` | Card stacking, expansion rhythm, no-results state |
+| Schedule tab composition | `src/components/ScheduleTable.tsx` and `src/components/ScheduleTable.css` | Week-list rhythm, next-up badge, schedule expansion layout |
+
+If a new UI conflicts with these files, the new UI should usually change before the leaderboard primitives do.
+
+## Foundations
+
+### Color Tokens
+
+All new leaderboard-inspired UI should start from the tokens in `src/index.css`:
+
+- `--wmv-purple`: primary heading and brand accent
+- `--wmv-purple-dark`: stronger hover or active purple
+- `--wmv-orange`: interactive accent, CTA, badge, and highlight color
+- `--wmv-orange-hover`: orange hover state
+- `--wmv-orange-light`: warm orange-tinted background
+- `--wmv-text-dark`: primary body text
+- `--wmv-text-light`: secondary metadata text
+- `--wmv-border`: neutral borders and dividers
+- `--wmv-bg-light`: muted chip and expanded-panel background
+- `--wmv-white`: card and surface background
+
+Rules:
+- Prefer these variables over hardcoded hex values.
+- If a new token is needed, add it centrally instead of scattering one-off colors.
+- Public leaderboard-inspired UI should avoid borrowing colors from legacy admin screens unless they are promoted into tokens first.
+
+### Typography
+
+The global type system lives in `src/index.css`.
+
+- Body copy inherits the system sans stack declared on `:root`.
+- Headings use the same sans stack with `font-weight: 700` and `color: var(--wmv-purple)` by default.
+- The responsive scale is tokenized through:
+  - `--font-xs`
+  - `--font-sm`
+  - `--font-base`
+  - `--font-lg`
+  - `--font-xl`
+  - `--font-2xl`
+
+Rules:
+- Prefer the tokenized font scale over hardcoded pixel values.
+- For card titles and key metadata, reuse existing leaderboard classes before inventing new font rules.
+- Secondary metadata should usually sit on `var(--wmv-text-light)` and `var(--font-sm)` or smaller.
+
+### Layout And Spacing
+
+The page container standard comes from `src/App.css`:
+
+- `.app-content` uses a centered max width of `1280px`
+- page padding is `clamp(1rem, 4vw, 2rem)`
+- major app sections breathe with `gap: 2rem`
+
+Leaderboard components then work on a tighter internal rhythm:
+
+- card margin bottom: `12px`
+- common vertical list gap: `16px`
+- header gap: `8px`
+- expanded-detail padding: `16px 16px 24px 16px`
+- large header cards such as `WeeklyHeader` use `24px` internal padding and `16px` radius
+
+Rules:
+- Prefer the existing 4px, 8px, 12px, 16px, 24px cadence.
+- Do not introduce heavier spacing systems in Explorer unless the leaderboard primitives cannot express the layout.
+
+## Core Primitives
+
+### Card Shell
+
+`src/components/Card.css` is the main reusable shell.
+
+Key classes:
+- `.leaderboard-card`
+- `.leaderboard-card.current-user`
+- `.card-header`
+- `.card-jersey`
+- `.card-rank`
+- `.card-avatar`
+- `.card-main-info`
+- `.card-name`
+- `.card-points-row`
+- `.card-right-side`
+- `.card-time`
+- `.card-chevron`
+- `.card-expanded-details`
+
+Behavior rules:
+- cards are white with subtle shadow, 12px radius, and slight hover lift
+- the current-user modifier adds orange emphasis without replacing the core shell
+- expanded details use a light inset panel and stay visually attached to the collapsed header
+- hover and expansion motion should stay subtle and fast
+
+### Chip Pattern
+
+The standard compact metadata badge is `.week-header-chip` with optional `.week-header-chip-icon`.
+
+Characteristics:
+- inline-flex layout
+- muted background using `var(--wmv-bg-light)`
+- rounded 16px pill shape
+- medium-weight text
+- subdued metadata color using `var(--wmv-text-light)`
+
+Use this for:
+- participant count
+- distance
+- elevation
+- grade
+- compact location or status metadata when it fits the same semantic weight
+
+Avoid replacing it with bespoke pill systems unless the new component needs a materially different role.
+
+### Expandable Surface Pattern
+
+The leaderboard uses two related expansion patterns:
+
+1. `Card.css` expansion via `.card-expanded-details`
+2. header-to-detail overlap in `WeeklyLeaderboard.tsx` and `ScheduleTable.tsx`
+
+Common traits:
+- expansion appears attached to the trigger surface
+- detail background is lighter than the collapsed surface
+- animation is modest and short-lived
+- the expanded layer should not visually compete with the main card shell
+
+## Tab-Specific Patterns
+
+### Weekly
+
+Source files:
+- `src/components/WeeklyLeaderboard.tsx`
+- `src/components/WeeklyHeader.tsx`
+- `src/components/LeaderboardCard.tsx`
+- `src/components/WeeklyLeaderboard.css`
+
+Defining traits:
+- the week header is the hero surface for the page
+- the week name itself is the Strava link, styled in orange with an inline external-link icon
+- metadata directly under the title is quiet and compact
+- detailed rider rows use the shared card shell, not bespoke component framing
+- expanded rider details keep metrics and links compact, not dashboard-like
+
+### Season
+
+Source files:
+- `src/components/SeasonLeaderboard.tsx`
+- `src/components/SeasonCard.tsx`
+
+Defining traits:
+- season cards reuse the same shell and hierarchy as weekly cards
+- participant identity still leads the card
+- compact pills can sit inside the card body when they read as secondary metadata
+- the right side emphasizes the primary value, but without abandoning the shared card rhythm
+
+### Schedule
+
+Source files:
+- `src/components/ScheduleTable.tsx`
+- `src/components/ScheduleTable.css`
+- `src/components/WeeklyHeader.tsx`
+
+Defining traits:
+- schedule reuses `WeeklyHeader` rather than inventing a parallel card shell
+- the `Next Up` badge is a specific schedule affordance, not a general chip replacement
+- expanded week content uses the same overlap-and-reveal idea as weekly notes
+- CTAs remain visually subordinate to the main header card
+
+## Link Rules
+
+The public leaderboard establishes two important link conventions:
+
+1. Important Strava destination titles are usually the link themselves.
+2. External-link icons are inline companions to the text, not detached action buttons.
+
+Rules:
+- for route, week, or destination title links, prefer the linked-name pattern over a separate icon-only action
+- use `var(--wmv-orange)` for high-signal interactive links tied to the sport object itself
+- avoid button-styling normal navigation or outbound links when a text link is clearer
+
+## Reuse Rules For Explorer
+
+Explorer should default to the leaderboard system in this order:
+
+1. Reuse the existing token and typography system from `src/index.css`.
+2. Reuse `leaderboard-card` and `card-*` classes from `src/components/Card.css` whenever the Explorer surface is still fundamentally a card.
+3. Reuse `week-header-chip` for compact metadata before inventing a new chip style.
+4. Reuse the linked-title pattern from `WeeklyHeader.tsx` for public-facing Explorer destination titles.
+5. Only add Explorer-specific classes for layout or semantics the leaderboard primitives do not already express.
+
+Do not treat legacy admin components as the source of truth for public Explorer UI.
+
+## Patterns That Are Not Yet Fully Defined
+
+The leaderboard does not yet provide a complete design system for:
+
+- forms and field groups
+- admin action buttons
+- validation and toast states
+- destructive actions
+- dense configuration panels
+
+When new Explorer or admin work needs these patterns:
+- define them deliberately
+- prefer tokenized colors and existing spacing rhythm
+- document the new primitive once it stabilizes
+- do not backfill from old admin CSS by default
+
+## Design Audit Checklist
+
+Before approving a new leaderboard-inspired UI, check:
+
+1. Does it use `src/index.css` tokens instead of hardcoded colors and ad hoc font sizes?
+2. Does it reuse `leaderboard-card`, `card-*`, or `week-header-chip` where the semantics match?
+3. Does the title, metadata, and value hierarchy feel consistent with Weekly, Season, or Schedule?
+4. Is the link treatment consistent with the public leaderboard rather than legacy admin?
+5. Are any new classes truly new primitives, or are they accidental duplicates of existing ones?
+6. If a new primitive is real, has it been documented here or in a companion UI standard?
+
+## Non-Authoritative References
+
+These components may still be useful, but they do not outrank the leaderboard sources above for public Explorer UX:
+
+- legacy admin panels
+- older management screens such as season and segment admin views
+- one-off exploratory component CSS
+
+If these surfaces conflict with the leaderboard system, follow the leaderboard system unless product requirements explicitly say otherwise.

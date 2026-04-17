@@ -15,4 +15,6 @@ This file is intentionally brief. It exists to steer agent workflows toward the 
 3. Use `npm run dev` and `npm run dev:cleanup` when a live dev server is actually required.
 4. Do not invent package scripts or alternate process-management commands that the repo does not define.
 5. If a customization file starts repeating command catalogs or environment tables, move that information back to [AGENTS.md](./AGENTS.md) and link to it.
+6. For end-user leaderboard-inspired UI work, read [docs/LEADERBOARD_DESIGN_SYSTEM.md](./docs/LEADERBOARD_DESIGN_SYSTEM.md) before reusing CSS from legacy admin screens.
+7. For public Explorer UI audits or reviews, prefer the repo-local skill at [.github/skills/leaderboard-design-audit/SKILL.md](./.github/skills/leaderboard-design-audit/SKILL.md).
 
