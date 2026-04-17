@@ -10,11 +10,11 @@
 .explorer-admin-access-denied,
 .explorer-empty-state,
 .explorer-season-summary {
-  background: #fff;
-  border: 1px solid #e5e7eb;
+  background: var(--wmv-white);
+  border: 1px solid var(--wmv-border);
   border-radius: 12px;
   padding: 1.5rem;
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .explorer-card,
@@ -32,7 +32,7 @@
 .explorer-card h3,
 .explorer-season-summary h2 {
   margin: 0 0 0.5rem;
-  color: #1f2937;
+  color: var(--wmv-purple);
 }
 
 .explorer-message {
@@ -61,7 +61,7 @@
 
 .explorer-season-summary,
 .explorer-card-header,
-.explorer-destination-item {
+.explorer-preview-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -70,11 +70,11 @@
 
 .explorer-section-label {
   margin: 0 0 0.35rem;
-  font-size: 0.78rem;
+  font-size: var(--font-xs);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #f56004;
+  color: var(--wmv-orange);
 }
 
 .explorer-season-window,
@@ -83,7 +83,7 @@
 .explorer-rules-blurb,
 .explorer-destination-meta {
   margin: 0;
-  color: #6b7280;
+  color: var(--wmv-text-light);
 }
 
 .explorer-form {
@@ -101,24 +101,24 @@
 
 .explorer-form-group label {
   font-weight: 700;
-  color: #1f2937;
+  color: var(--wmv-text-dark);
 }
 
 .explorer-form-group input,
 .explorer-form-group textarea {
   width: 100%;
   padding: 0.8rem 0.95rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--wmv-border);
   border-radius: 10px;
-  font-size: 0.95rem;
-  color: #111827;
-  background: #fff;
+  font-size: var(--font-base);
+  color: var(--wmv-text-dark);
+  background: var(--wmv-white);
 }
 
 .explorer-form-group input:focus,
 .explorer-form-group textarea:focus {
   outline: none;
-  border-color: #f56004;
+  border-color: var(--wmv-orange);
   box-shadow: 0 0 0 3px rgba(245, 96, 4, 0.12);
 }
 
@@ -142,7 +142,7 @@
 .explorer-input-help,
 .explorer-preview-subtitle,
 .explorer-preview-status {
-  color: #6b7280;
+  color: var(--wmv-text-light);
 }
 
 .explorer-preview-status {
@@ -156,18 +156,11 @@
   font-weight: 600;
 }
 
-.explorer-preview-card,
-.explorer-destination-card {
-  margin-top: 1rem;
-  border: 1px solid #e5e7eb;
-}
-
 .explorer-preview-card {
-  cursor: default;
-}
-
-.explorer-preview-header {
-  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
 }
 
 .explorer-preview-actions {
@@ -175,13 +168,28 @@
   gap: 0.75rem;
 }
 
-.explorer-destination-heading {
-  margin: 0 0 0.5rem;
-  font-size: var(--font-base);
-  color: #333;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
+.explorer-destination-card {
+  margin-top: 1rem;
+}
+
+.explorer-destination-meta-card,
+.explorer-destination-summary-card {
+  border-color: var(--wmv-border);
+  border-radius: 12px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.explorer-destination-summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.explorer-destination-card[data-expanded='true'] .explorer-destination-summary-card {
+  border-color: rgba(245, 96, 4, 0.28);
+}
+
+.explorer-destination-title {
+  margin-bottom: 0.35rem;
 }
 
 .explorer-destination-name-link {
@@ -193,9 +201,9 @@
   width: 2.75rem;
   height: 2.75rem;
   border-radius: 999px;
-  border: 1px solid #d1d5db;
-  background: #fff;
-  color: #111827;
+  border: 1px solid var(--wmv-border);
+  background: var(--wmv-white);
+  color: var(--wmv-text-dark);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -210,7 +218,7 @@
 
 .explorer-icon-button:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .explorer-icon-button-accept {
@@ -236,21 +244,22 @@
   margin-top: 0.85rem;
 }
 
+.explorer-destination-stats {
+  margin-top: 0;
+}
+
 .explorer-destination-summary {
   width: 100%;
   padding: 0;
+  border: none;
+  background: transparent;
   text-align: left;
   cursor: pointer;
   outline: none;
 }
 
-.explorer-destination-item {
-  padding: 0.95rem 1rem;
-  background: transparent;
-}
-
 .explorer-destination-label {
-  color: #333;
+  color: var(--wmv-text-dark);
   font-weight: 600;
 }
 
@@ -273,7 +282,7 @@
   flex-shrink: 0;
   width: 1.25rem;
   height: 1.25rem;
-  color: #6b7280;
+  color: var(--wmv-text-light);
   transition: transform 0.2s ease;
 }
 
@@ -292,12 +301,19 @@
   align-items: center;
 }
 
-.explorer-destination-card[data-expanded='true'] {
-  border-color: rgba(245, 96, 4, 0.28);
+.explorer-destination-detail-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
 }
 
-.explorer-error-card {
-  border-color: #fca5a5;
+.explorer-detail-label {
+  margin: 0;
+  font-size: var(--font-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wmv-text-light);
 }
 
 @keyframes explorer-spin {
@@ -313,16 +329,13 @@
 @media (max-width: 768px) {
   .explorer-season-summary,
   .explorer-card-header,
-  .explorer-destination-item {
+  .explorer-preview-header,
+  .explorer-destination-summary-card {
     flex-direction: column;
   }
 
   .explorer-preview-actions {
     width: 100%;
     justify-content: flex-start;
-  }
-
-  .explorer-destination-heading {
-    flex-wrap: wrap;
   }
 }

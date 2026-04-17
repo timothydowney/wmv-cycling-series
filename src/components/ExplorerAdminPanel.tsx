@@ -4,7 +4,6 @@ import {
   ChevronDownIcon,
   CheckIcon,
   ClockIcon,
-  MapPinIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 import type { Season } from '../types';
@@ -74,6 +73,39 @@ function formatDestinationCreatedAt(createdAt?: string | null): string | null {
 
   const formatted = formatUtcIsoDateTime(createdAt);
   return formatted === '—' ? null : formatted.replace(/,\s+\d{1,2}:\d{2}:\d{2}\s+[AP]M$/, '');
+}
+
+function getDestinationStatItems({
+  distance,
+  averageGrade,
+  city,
+  state,
+  country,
+}: {
+  distance?: number | null;
+  averageGrade?: number | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+}): string[] {
+  const statItems: string[] = [];
+  const distanceLabel = formatSegmentDistance(distance);
+  const averageGradeLabel = formatAverageGrade(averageGrade);
+  const locationLabel = formatLocation(city, state, country);
+
+  if (distanceLabel) {
+    statItems.push(distanceLabel);
+  }
+
+  if (averageGradeLabel) {
+    statItems.push(averageGradeLabel);
+  }
+
+  if (locationLabel) {
+    statItems.push(locationLabel);
+  }
+
+  return statItems;
 }
 
 function ExplorerAdminPanel({
@@ -451,21 +483,9 @@ function ExplorerAdminPanel({
                   ) : null}
 
                   {destinationPreview ? (
-                    <article className="leaderboard-card explorer-preview-card" data-testid="explorer-destination-preview-card">
-                      <div className="explorer-card-header explorer-preview-header">
-                        <div>
-                          <p className="explorer-section-label">Preview</p>
-                          <h3 className="explorer-destination-heading" data-testid="explorer-preview-name">
-                            <a
-                              className="segment-link explorer-destination-name-link"
-                              href={destinationPreview.sourceUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              {destinationPreview.name}
-                            </a>
-                          </h3>
-                        </div>
+                    <article className="explorer-preview-card" data-testid="explorer-destination-preview-card">
+                      <div className="explorer-preview-header">
+                        <p className="explorer-section-label">Preview</p>
                         <div className="explorer-preview-actions">
                           <button
                             type="button"
@@ -494,18 +514,24 @@ function ExplorerAdminPanel({
                         </div>
                       </div>
 
-                      <div className="explorer-destination-chips">
-                        {formatSegmentDistance(destinationPreview.distance) ? (
-                          <span className="week-header-chip">{formatSegmentDistance(destinationPreview.distance)}</span>
-                        ) : null}
-                        {formatAverageGrade(destinationPreview.averageGrade) ? (
-                          <span className="week-header-chip">{formatAverageGrade(destinationPreview.averageGrade)}</span>
-                        ) : null}
-                        {formatLocation(destinationPreview.city, destinationPreview.state, destinationPreview.country) ? (
-                          <span className="week-header-chip explorer-location-chip">
-                            <MapPinIcon className="week-header-chip-icon" aria-hidden="true" />
-                            <span>{formatLocation(destinationPreview.city, destinationPreview.state, destinationPreview.country)}</span>
-                          </span>
+                      <div className="segment-card explorer-destination-meta-card">
+                        <h3 className="segment-card-title explorer-destination-title" data-testid="explorer-preview-name">
+                          <a
+                            className="segment-link explorer-destination-name-link"
+                            href={destinationPreview.sourceUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {destinationPreview.name}
+                          </a>
+                        </h3>
+
+                        {getDestinationStatItems(destinationPreview).length > 0 ? (
+                          <div className="segment-card-stats explorer-destination-stats">
+                            {getDestinationStatItems(destinationPreview).map((item) => (
+                              <span key={item}>{item}</span>
+                            ))}
+                          </div>
                         ) : null}
                       </div>
                     </article>
@@ -528,12 +554,18 @@ function ExplorerAdminPanel({
                     {sortedDestinations.map((destination) => {
                       const isExpanded = expandedDestinationId === destination.id;
                       const createdAtLabel = formatDestinationCreatedAt(destination.createdAt);
-                      const locationLabel = formatLocation(destination.city, destination.state, destination.country);
+                      const destinationStatItems = getDestinationStatItems({
+                        distance: destination.distance,
+                        averageGrade: destination.averageGrade,
+                        city: destination.city,
+                        state: destination.state,
+                        country: destination.country,
+                      });
 
                       return (
                         <li
                           key={destination.id}
-                          className="leaderboard-card explorer-destination-card"
+                          className="explorer-destination-card"
                           data-expanded={isExpanded}
                           data-testid={`explorer-destination-row-${destination.id}`}
                         >
@@ -553,9 +585,9 @@ function ExplorerAdminPanel({
                             aria-expanded={isExpanded}
                             data-testid={`explorer-destination-toggle-${destination.id}`}
                           >
-                            <div className="explorer-destination-item">
+                            <div className="segment-card explorer-destination-summary-card">
                               <div>
-                                <h4 className="explorer-destination-heading">
+                                <h4 className="segment-card-title explorer-destination-title">
                                   {destination.sourceUrl ? (
                                     <a
                                       className="segment-link explorer-destination-name-link"
@@ -573,20 +605,13 @@ function ExplorerAdminPanel({
                                   )}
                                 </h4>
 
-                                <div className="explorer-destination-chips">
-                                  {formatSegmentDistance(destination.distance) ? (
-                                    <span className="week-header-chip">{formatSegmentDistance(destination.distance)}</span>
-                                  ) : null}
-                                  {formatAverageGrade(destination.averageGrade) ? (
-                                    <span className="week-header-chip">{formatAverageGrade(destination.averageGrade)}</span>
-                                  ) : null}
-                                  {locationLabel ? (
-                                    <span className="week-header-chip explorer-location-chip">
-                                      <MapPinIcon className="week-header-chip-icon" aria-hidden="true" />
-                                      <span>{locationLabel}</span>
-                                    </span>
-                                  ) : null}
-                                </div>
+                                {destinationStatItems.length > 0 ? (
+                                  <div className="segment-card-stats explorer-destination-stats">
+                                    {destinationStatItems.map((item) => (
+                                      <span key={item}>{item}</span>
+                                    ))}
+                                  </div>
+                                ) : null}
                               </div>
 
                               <ChevronDownIcon className={`explorer-destination-chevron${isExpanded ? ' is-expanded' : ''}`} aria-hidden="true" />
@@ -595,19 +620,23 @@ function ExplorerAdminPanel({
 
                           {isExpanded ? (
                             <div className="card-expanded-details explorer-destination-details">
-                              {destination.customLabel && destination.customLabel !== destination.segmentName ? (
-                                <p className="explorer-preview-subtitle">Original segment name: {destination.segmentName}</p>
-                              ) : null}
+                              <div className="explorer-destination-detail-block">
+                                <p className="explorer-detail-label">Details</p>
 
-                              <div className="explorer-destination-detail-row">
-                                {createdAtLabel ? (
-                                  <p className="explorer-destination-meta">
-                                    <ClockIcon aria-hidden="true" />
-                                    <span>Added {createdAtLabel}</span>
-                                  </p>
-                                ) : (
-                                  <p className="explorer-muted-copy">Added date unavailable.</p>
-                                )}
+                                {destination.customLabel && destination.customLabel !== destination.segmentName ? (
+                                  <p className="explorer-preview-subtitle">Original segment name: {destination.segmentName}</p>
+                                ) : null}
+
+                                <div className="explorer-destination-detail-row">
+                                  {createdAtLabel ? (
+                                    <p className="explorer-destination-meta">
+                                      <ClockIcon aria-hidden="true" />
+                                      <span>Added {createdAtLabel}</span>
+                                    </p>
+                                  ) : (
+                                    <p className="explorer-muted-copy">Added date unavailable.</p>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           ) : null}
