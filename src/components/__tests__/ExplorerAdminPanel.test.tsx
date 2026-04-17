@@ -25,7 +25,12 @@ const trpcMocks = vi.hoisted(() => ({
   },
   invalidate: vi.fn(async () => undefined),
   createCampaign: vi.fn(async () => ({ id: 1 })),
-  addDestination: vi.fn(async () => ({ id: 1, cached_name: 'Segment 1', strava_segment_id: '1' })),
+  addDestination: vi.fn(async () => ({
+    id: 1,
+    cached_name: 'Segment 1',
+    strava_segment_id: '1',
+    usedPlaceholderMetadata: true,
+  })),
 }));
 
 vi.mock('../../utils/trpc', () => ({
@@ -62,7 +67,11 @@ vi.mock('../../utils/trpc', () => ({
       addDestination: {
         useMutation: (options: {
           onError?: (error: Error) => void;
-          onSuccess?: (result: { cached_name: string; strava_segment_id: string }) => Promise<void> | void;
+          onSuccess?: (result: {
+            cached_name: string;
+            strava_segment_id: string;
+            usedPlaceholderMetadata: boolean;
+          }) => Promise<void> | void;
         }) => ({
           isPending: false,
           mutateAsync: async (input: unknown) => {
@@ -210,6 +219,12 @@ describe('ExplorerAdminPanel', () => {
     expect(trpcMocks.invalidate).toHaveBeenCalledWith({ seasonId: 7 });
   });
 
+  it('falls back to the first season when the selected season is missing', async () => {
+    const { container } = await renderPanel({ selectedSeasonId: 999 });
+
+    expect(getByTestId(container, 'explorer-season-summary').textContent).toContain('Spring 2026');
+  });
+
   it('shows the empty state when there are no seasons to configure', async () => {
     const { container } = await renderPanel({ seasons: [], selectedSeasonId: null });
 
@@ -230,11 +245,13 @@ describe('ExplorerAdminPanel', () => {
         id: 1,
         cached_name: 'Segment 2234642',
         strava_segment_id: '2234642',
+        usedPlaceholderMetadata: true,
       })
       .mockResolvedValueOnce({
         id: 2,
         cached_name: 'Box Hill KOM',
         strava_segment_id: '2234642',
+        usedPlaceholderMetadata: false,
       });
 
     const { container } = await renderPanel();

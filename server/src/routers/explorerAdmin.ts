@@ -35,9 +35,14 @@ export const explorerAdminRouter = router({
     .input(z.object({
       seasonId: z.number().int().positive(),
     }))
-    .query(({ ctx, input }) => {
+    .query(async ({ ctx, input }) => {
       const service = new ExplorerQueryService(ctx.orm);
-      return service.getCampaignForSeason(input.seasonId);
+
+      try {
+        return await service.getCampaignForSeason(input.seasonId);
+      } catch (error) {
+        throw mapExplorerAdminError(error);
+      }
     }),
 
   createCampaign: adminProcedure

@@ -29,9 +29,7 @@ interface ActiveExplorerCampaignView {
   destinations: ExplorerDestinationView[];
 }
 
-interface ExplorerAdminCampaignView extends ActiveExplorerCampaignView {
-  seasonId: number;
-}
+type ExplorerAdminCampaignView = ActiveExplorerCampaignView;
 
 interface ExplorerProgressDestinationView extends ExplorerDestinationView {
   completed: boolean;

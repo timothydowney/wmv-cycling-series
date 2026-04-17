@@ -36,7 +36,9 @@ function ExplorerAdminPanel({
   });
   const [message, setMessage] = useState<FlashMessage | null>(null);
 
-  const resolvedSeasonId = selectedSeasonId ?? seasons[0]?.id ?? null;
+  const hasSelectedSeason =
+    selectedSeasonId !== null && seasons.some((season) => season.id === selectedSeasonId);
+  const resolvedSeasonId = hasSelectedSeason ? selectedSeasonId : seasons[0]?.id ?? null;
   const selectedSeason = seasons.find((season) => season.id === resolvedSeasonId) || null;
 
   useEffect(() => {
@@ -84,10 +86,9 @@ function ExplorerAdminPanel({
       await utils.explorerAdmin.getCampaignForSeason.invalidate({ seasonId: resolvedSeasonId ?? 0 });
       setDestinationForm({ sourceUrl: '', displayLabel: '' });
 
-      const isMetadataFallback = destination.cached_name === `Segment ${destination.strava_segment_id}`;
       setTimedMessage({
-        type: isMetadataFallback ? 'info' : 'success',
-        text: isMetadataFallback
+        type: destination.usedPlaceholderMetadata ? 'info' : 'success',
+        text: destination.usedPlaceholderMetadata
           ? 'Destination added with placeholder metadata because live segment enrichment was unavailable.'
           : 'Destination added to the Explorer campaign.',
       });
