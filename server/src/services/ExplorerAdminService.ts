@@ -25,6 +25,17 @@ interface AddDestinationInput {
   preferredAthleteId?: string;
 }
 
+interface AddDestinationResult {
+  id: number;
+  explorer_campaign_id: number;
+  strava_segment_id: string;
+  source_url: string | null;
+  cached_name: string | null;
+  display_label: string | null;
+  display_order: number;
+  usedPlaceholderMetadata: boolean;
+}
+
 function normalizeNullableText(value?: string | null): string | null {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
@@ -91,7 +102,7 @@ export class ExplorerAdminService {
       .get();
   }
 
-  async addDestination(input: AddDestinationInput) {
+  async addDestination(input: AddDestinationInput): Promise<AddDestinationResult> {
     const campaignRecord = this.db
       .select({
         id: explorerCampaign.id,
@@ -137,7 +148,7 @@ export class ExplorerAdminService {
 
     const nextDisplayOrder = (orderRecord?.maxDisplayOrder ?? -1) + 1;
 
-    return this.db
+    const createdDestination = this.db
       .insert(explorerDestination)
       .values({
         explorer_campaign_id: input.explorerCampaignId,
@@ -149,7 +160,12 @@ export class ExplorerAdminService {
       })
       .returning()
       .get();
+
+    return {
+      ...createdDestination,
+      usedPlaceholderMetadata: !metadata?.name,
+    };
   }
 }
 
-export type { CreateCampaignInput, AddDestinationInput, ExplorerSegmentMetadataService };
+export type { CreateCampaignInput, AddDestinationInput, AddDestinationResult, ExplorerSegmentMetadataService };

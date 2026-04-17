@@ -25,6 +25,10 @@
   "engines": {
     "node": ">=24 <25"
   },
+  "overrides": {
+    "protobufjs": "7.5.5",
+    "follow-redirects": "1.16.0"
+  },
   "dependencies": {
     "@google/genai": "^1.49.0",
     "@trpc/server": "^11.16.0",
