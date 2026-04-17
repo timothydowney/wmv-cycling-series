@@ -61,6 +61,24 @@ describe('explorerAdminRouter', () => {
     ).rejects.toThrow('UNAUTHORIZED');
   });
 
+  it('requires admin auth to read a season campaign', async () => {
+    const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
+    const caller = getCaller(false);
+
+    await expect(
+      caller.explorerAdmin.getCampaignForSeason({ seasonId: seasonRecord.id })
+    ).rejects.toThrow('UNAUTHORIZED');
+  });
+
+  it('returns null when a season has no explorer campaign', async () => {
+    const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
+    const caller = getCaller(true);
+
+    await expect(
+      caller.explorerAdmin.getCampaignForSeason({ seasonId: seasonRecord.id })
+    ).resolves.toBeNull();
+  });
+
   it('creates a campaign when called by an admin', async () => {
     const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
     const caller = getCaller(true);
@@ -141,6 +159,34 @@ describe('explorerAdminRouter', () => {
       .where(eq(explorerDestination.id, result.id))
       .get();
     expect(stored?.display_order).toBe(0);
+  });
+
+  it('returns an admin campaign view with destinations for the selected season', async () => {
+    const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
+    const campaign = createExplorerCampaign(drizzleDb, {
+      seasonId: seasonRecord.id,
+      displayName: 'Explorer 2026',
+      rulesBlurb: 'Ride every destination once.',
+    });
+    const caller = getCaller(true);
+    jest.spyOn(SegmentService.prototype, 'fetchAndStoreSegmentMetadata').mockResolvedValue({
+      strava_segment_id: '12744502',
+      name: 'Mocked Segment',
+    } as any);
+
+    await caller.explorerAdmin.addDestination({
+      explorerCampaignId: campaign.id,
+      sourceUrl: 'https://www.strava.com/segments/12744502',
+      displayLabel: 'Hilltown opener',
+    });
+
+    const result = await caller.explorerAdmin.getCampaignForSeason({ seasonId: seasonRecord.id });
+
+    expect(result).not.toBeNull();
+    expect(result?.name).toBe('Explorer 2026');
+    expect(result?.rulesBlurb).toBe('Ride every destination once.');
+    expect(result?.destinations).toHaveLength(1);
+    expect(result?.destinations[0]?.displayLabel).toBe('Hilltown opener');
   });
 
   it('allows destination creation when metadata enrichment falls back to placeholder data', async () => {

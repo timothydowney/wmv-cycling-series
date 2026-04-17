@@ -1,0 +1,189 @@
+.explorer-admin-panel {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.explorer-admin-access-denied,
+.explorer-empty-state,
+.explorer-card,
+.explorer-season-summary {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+}
+
+.explorer-admin-access-denied {
+  text-align: center;
+}
+
+.explorer-admin-access-denied h2,
+.explorer-empty-state h2,
+.explorer-card h3,
+.explorer-season-summary h2 {
+  margin: 0 0 0.5rem;
+  color: #1f2937;
+}
+
+.explorer-message {
+  padding: 0.9rem 1rem;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.explorer-message.success {
+  background: #dcfce7;
+  border: 1px solid #86efac;
+  color: #166534;
+}
+
+.explorer-message.error {
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  color: #991b1b;
+}
+
+.explorer-message.info {
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  color: #9a3412;
+}
+
+.explorer-season-summary,
+.explorer-card-header,
+.explorer-destination-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.explorer-section-label {
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #f56004;
+}
+
+.explorer-season-window,
+.explorer-card-header p,
+.explorer-muted-copy,
+.explorer-rules-blurb,
+.explorer-destination-meta {
+  margin: 0;
+  color: #6b7280;
+}
+
+.explorer-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.explorer-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.explorer-form-group label {
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.explorer-form-group input,
+.explorer-form-group textarea {
+  width: 100%;
+  padding: 0.8rem 0.95rem;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  color: #111827;
+  background: #fff;
+}
+
+.explorer-form-group input:focus,
+.explorer-form-group textarea:focus {
+  outline: none;
+  border-color: #f56004;
+  box-shadow: 0 0 0 3px rgba(245, 96, 4, 0.12);
+}
+
+.explorer-form-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.explorer-submit-button {
+  border: none;
+  background: #f56004;
+  color: #fff;
+  padding: 0.85rem 1.25rem;
+  border-radius: 999px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.explorer-submit-button:hover {
+  background: #d9480f;
+}
+
+.explorer-submit-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.explorer-destination-list {
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.explorer-destination-item {
+  padding: 0.95rem 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fafaf9;
+}
+
+.explorer-destination-label {
+  margin: 0 0 0.25rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.explorer-destination-order {
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: rgba(245, 96, 4, 0.12);
+  color: #c2410c;
+  padding: 0.35rem 0.7rem;
+  font-weight: 700;
+}
+
+.explorer-error-card {
+  border-color: #fca5a5;
+}
+
+@media (max-width: 768px) {
+  .explorer-season-summary,
+  .explorer-card-header,
+  .explorer-destination-item {
+    flex-direction: column;
+  }
+
+  .explorer-submit-button {
+    width: 100%;
+  }
+}

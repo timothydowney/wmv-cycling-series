@@ -40,6 +40,9 @@ module.exports = {
     '/server/src/routes/seasons\\.ts$' // Not a test file
   ],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
+  modulePathIgnorePatterns: [
+    '<rootDir>/dist/'
+  ],
   // Transform ESM packages (don't ignore them in node_modules)
   transformIgnorePatterns: [
     'node_modules/(?!(@google/genai|p-retry|is-network-error)/)'

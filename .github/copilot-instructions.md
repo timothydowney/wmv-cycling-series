@@ -277,6 +277,7 @@ npm run test:e2e:ui        # Interactive debugging
 
 1. **Run checks:**
    ```bash
+  npm run audit      # Audit frontend + backend dependencies
    npm run lint       # Lint both frontend + backend
    npm run typecheck  # Typecheck both
    npm test           # Run frontend + backend tests

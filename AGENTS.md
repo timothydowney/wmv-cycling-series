@@ -31,6 +31,8 @@ npm run test:e2e:ui      # Playwright UI mode (interactive debugging)
 
 **Important:** Treat Playwright as a dedicated E2E environment, not as an implicit extension of normal local development. `npm run test:e2e` sets `ENV_FILE` for the Playwright process, but the frontend and backend still need to be started with the intended E2E wiring; the harness should declare that wiring explicitly and fail fast when it is missing.
 
+For UI work, prefer focused unit tests first and add Playwright only where browser integration is the point of the change. Use the hardened E2E harness for auth, route wiring, and full-stack mutation flows that unit tests cannot prove reliably.
+
 ### Building & Deployment
 
 ```bash
@@ -39,6 +41,8 @@ npm run lint         # Lint both frontend + backend
 npm run typecheck    # Typecheck both frontend + backend
 npm run audit        # Security audit (frontend + backend)
 ```
+
+Before merging or opening a substantive PR, run `npm run audit` locally alongside lint, typecheck, tests, and build so CI is not the first place dependency vulnerabilities are discovered.
 
 ## Database Files & Environments
 
