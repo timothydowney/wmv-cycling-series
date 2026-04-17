@@ -29,6 +29,10 @@ interface ActiveExplorerCampaignView {
   destinations: ExplorerDestinationView[];
 }
 
+interface ExplorerAdminCampaignView extends ActiveExplorerCampaignView {
+  seasonId: number;
+}
+
 interface ExplorerProgressDestinationView extends ExplorerDestinationView {
   completed: boolean;
   matchedAt: number | null;
@@ -70,6 +74,64 @@ function resolveCampaignName(displayName: string | null, seasonName: string): st
 
 export class ExplorerQueryService {
   constructor(private readonly db: BetterSQLite3Database) {}
+
+  getCampaignForSeason(seasonId: number): ExplorerAdminCampaignView | null {
+    const campaignRecord = this.db
+      .select({
+        id: explorerCampaign.id,
+        season_id: explorerCampaign.season_id,
+        display_name: explorerCampaign.display_name,
+        rules_blurb: explorerCampaign.rules_blurb,
+        season_name: season.name,
+        season_start_at: season.start_at,
+        season_end_at: season.end_at,
+      })
+      .from(explorerCampaign)
+      .innerJoin(season, eq(explorerCampaign.season_id, season.id))
+      .where(eq(explorerCampaign.season_id, seasonId))
+      .get();
+
+    if (!campaignRecord) {
+      return null;
+    }
+
+    const destinations = this.db
+      .select({
+        id: explorerDestination.id,
+        strava_segment_id: explorerDestination.strava_segment_id,
+        display_label: explorerDestination.display_label,
+        cached_name: explorerDestination.cached_name,
+        source_url: explorerDestination.source_url,
+        surface_type: explorerDestination.surface_type,
+        category: explorerDestination.category,
+        display_order: explorerDestination.display_order,
+        segment_name: segment.name,
+      })
+      .from(explorerDestination)
+      .leftJoin(segment, eq(explorerDestination.strava_segment_id, segment.strava_segment_id))
+      .where(eq(explorerDestination.explorer_campaign_id, campaignRecord.id))
+      .orderBy(asc(explorerDestination.display_order), asc(explorerDestination.id))
+      .all();
+
+    return {
+      id: campaignRecord.id,
+      seasonId: campaignRecord.season_id,
+      name: resolveCampaignName(campaignRecord.display_name, campaignRecord.season_name),
+      seasonName: campaignRecord.season_name,
+      startAt: campaignRecord.season_start_at,
+      endAt: campaignRecord.season_end_at,
+      rulesBlurb: campaignRecord.rules_blurb,
+      destinations: destinations.map((destination) => ({
+        id: destination.id,
+        stravaSegmentId: destination.strava_segment_id,
+        displayLabel: resolveDestinationLabel(destination),
+        sourceUrl: destination.source_url,
+        surfaceType: destination.surface_type,
+        category: destination.category,
+        displayOrder: destination.display_order,
+      })),
+    };
+  }
 
   async getActiveCampaign(
     nowTimestamp: number = Math.floor(Date.now() / 1000)
@@ -233,4 +295,4 @@ export class ExplorerQueryService {
   }
 }
 
-export type { ActiveExplorerCampaignView, ExplorerCampaignProgressView };
+export type { ActiveExplorerCampaignView, ExplorerAdminCampaignView, ExplorerCampaignProgressView };

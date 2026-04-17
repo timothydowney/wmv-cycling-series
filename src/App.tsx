@@ -13,6 +13,7 @@ import ParticipantStatus from './components/ParticipantStatus';
 import ManageSegments from './components/ManageSegments';
 import SeasonManager from './components/SeasonManager';
 import WebhookManagementPanel from './components/WebhookManagementPanel';
+import ExplorerAdminPanel from './components/ExplorerAdminPanel';
 import StravaConnectInfoBox from './components/StravaConnectInfoBox';
 import StravaClubJoinPrompt from './components/StravaClubJoinPrompt';
 import AboutPage from './components/AboutPage';
@@ -28,7 +29,7 @@ import { httpBatchLink } from '@trpc/client';
 import { trpc } from './utils/trpc';
 import { Season, Week } from './types'; // Import shared types
 
-type ViewMode = 'leaderboard' | 'admin' | 'roles' | 'participants' | 'segments' | 'seasons' | 'webhooks' | 'about' | 'profile' | 'chat' | 'chain-checker';
+type ViewMode = 'leaderboard' | 'admin' | 'explorer-admin' | 'roles' | 'participants' | 'segments' | 'seasons' | 'webhooks' | 'about' | 'profile' | 'chat' | 'chain-checker';
 
 interface LeaderboardViewProps {
   seasons: Season[];
@@ -187,6 +188,7 @@ function AppContent() {
   const viewMode = useMemo((): ViewMode => {
     const path = location.pathname;
     if (path.startsWith('/admin')) return 'admin';
+    if (path.startsWith('/explorer-admin')) return 'explorer-admin';
     if (path.startsWith('/roles')) return 'roles';
     if (path.startsWith('/participants')) return 'participants';
     if (path.startsWith('/segments')) return 'segments';
@@ -206,6 +208,7 @@ function AppContent() {
   const getPageTitle = (mode: ViewMode) => {
     switch (mode) {
       case 'admin': return 'Manage Competition';
+      case 'explorer-admin': return 'Manage Explorer';
       case 'roles': return 'Manage Roles';
       case 'participants': return 'Participant Status';
       case 'segments': return 'Manage Segments';
@@ -256,6 +259,14 @@ function AppContent() {
           <Route path="/admin" element={
             <AdminPanel 
               onFetchResults={() => utils.leaderboard.getWeekLeaderboard.invalidate()}
+              seasons={seasons}
+              selectedSeasonId={adminSeasonId}
+              onSeasonChange={setAdminSeasonId}
+            />
+          } />
+          <Route path="/explorer-admin" element={
+            <ExplorerAdminPanel
+              isAdmin={isAdmin}
               seasons={seasons}
               selectedSeasonId={adminSeasonId}
               onSeasonChange={setAdminSeasonId}

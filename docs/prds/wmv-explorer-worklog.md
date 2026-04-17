@@ -4,15 +4,15 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 
 ## Current Focus
 
-- Preserve the completed 4B-1 harness work as its own clean commit or PR slice.
-- Resume Phase 4B-2 as the next coding slice only after the harness-only file set is separated from the current mixed working tree.
+- Close out Phase 4B-2 as the minimal admin-gated Explorer setup surface.
+- Prepare a planning handoff for the next admin UX refinement slice instead of broadening 4B-2 in-place.
 - Keep any pre-release Explorer UI admin-gated until there is an explicit end-user release decision.
 - Keep the next handoff and implementation brief aligned with the landed backend authoring contract.
 
 ## Current Go State
 
-- **Readiness:** Phase 1 Complete; Season-Campaign Correction Landed; Backend Campaign Slice Merged; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Validated Locally; Ready For Phase 4B-2 Admin UI
-- **Immediate scope:** separate the current mixed work tree into a harness-only 4B-1 commit or PR set, then continue the admin-gated setup UI as 4B-2
+- **Readiness:** Phase 1 Complete; Season-Campaign Correction Landed; Backend Campaign Slice Merged; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Implemented Locally; Ready For Admin UX Refinement Planning
+- **Immediate scope:** land the minimal 4B-2 admin-gated setup surface, then return to planning for the next bounded admin UX slice
 - **Not yet in scope:** public athlete-facing Explorer release, public navigation to Explorer, mini-campaigns, or explicit publish-status workflows
 
 ## Decisions Made
@@ -139,19 +139,16 @@ The current preservation target is backed by:
 ### Recommended Next PR
 
 - Start from updated `main` on a dedicated implementation branch.
-- First preserve the completed Phase 4B-1 harness hardening changes as their own clean commit or PR set.
-- After that, keep the next implementation PR scoped to Phase 4B-2 admin-gated UI:
+- Keep the current implementation PR scoped to the minimal 4B-2 admin-gated UI surface:
 	- create-campaign and add-destination admin flows on top of the stabilized harness
 	- targeted browser coverage for the admin surface
 	- no public athlete-facing Explorer exposure
-	- slice-local planning updates only if 4B-2 changes readiness or the recommended next slice again
-- Keep out of scope for that PR:
-	- public athlete hub UI
-	- public navigation to Explorer
-	- mini-campaigns inside a season
-	- explicit Explorer publish-status workflows
-	- refresh and backfill mutations
-	- destination reorder, edit, or remove flows unless one proves necessary to keep the UI coherent
+	- slice-local planning updates that mark 4B-2 complete and hand back to planning for the next slice
+- The next planning pass should define a separate admin UX refinement slice for:
+	- clearer setup guidance and validation feedback
+	- stronger client-side segment URL assistance
+	- more intentional component reuse and card hierarchy aligned with the existing WMV surfaces
+	- any workflow changes beyond the minimal 4A contract exposure
 
 ### 4B-1 Harness Recommendation
 

@@ -2,6 +2,7 @@ import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { router, adminProcedure } from '../trpc/init';
 import { ExplorerAdminService } from '../services/ExplorerAdminService';
+import { ExplorerQueryService } from '../services/ExplorerQueryService';
 
 function mapExplorerAdminError(error: unknown): TRPCError {
   const message = error instanceof Error ? error.message : 'Explorer admin operation failed';
@@ -30,6 +31,15 @@ function mapExplorerAdminError(error: unknown): TRPCError {
 }
 
 export const explorerAdminRouter = router({
+  getCampaignForSeason: adminProcedure
+    .input(z.object({
+      seasonId: z.number().int().positive(),
+    }))
+    .query(({ ctx, input }) => {
+      const service = new ExplorerQueryService(ctx.orm);
+      return service.getCampaignForSeason(input.seasonId);
+    }),
+
   createCampaign: adminProcedure
     .input(z.object({
       seasonId: z.number().int().positive(),

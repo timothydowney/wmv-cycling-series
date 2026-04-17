@@ -17,21 +17,21 @@ The ideas backlog is intentionally excluded from v1 implementation scope. It exi
 
 ## Current Go Decision
 
-**Status:** Phase 1 Complete; Season-Campaign Correction Landed; Backend Campaign Slice Merged; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Validated Locally; Ready For Phase 4B-2 Admin UI
+**Status:** Phase 1 Complete; Season-Campaign Correction Landed; Backend Campaign Slice Merged; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Implemented Locally; Ready For Admin UX Refinement Planning
 
-Explorer has completed the narrow Phase 1 webhook-orchestration slice that preserves current competition behavior while introducing delegated in-process handlers. The planning set on this branch now corrects the MVP to a season-campaign-first model attached to an existing WMV season, with optional mini-campaigns and explicit publish-status workflows deferred. The backend campaign slice is merged, the 4A admin backend slice is landed, and the 4B-1 portable harness work is now validated locally with full tests, build, lint, typecheck, and Playwright coverage green. The next approved implementation work is the admin-gated 4B-2 UI slice, but the current mixed working tree should be separated so the harness changes land as their own coherent PR or commit set first.
+Explorer has completed the narrow Phase 1 webhook-orchestration slice that preserves current competition behavior while introducing delegated in-process handlers. The planning set on this branch now corrects the MVP to a season-campaign-first model attached to an existing WMV season, with optional mini-campaigns and explicit publish-status workflows deferred. The backend campaign slice is merged, the 4A admin backend slice is landed, the 4B-1 portable harness work is merged, and the 4B-2 admin-gated UI now exists as a minimal setup surface with local unit, backend, E2E, lint, typecheck, build, and audit validation. The next recommended work is to return to planning for a bounded admin UX refinement slice rather than continue broadening 4B-2 ad hoc.
 
 ## Current Status Summary
 
 | Area | Status | Notes |
 | --- | --- | --- |
 | Product framing | Ready | The PRD is clear on goals, users, must-haves, non-goals, and success criteria. |
-| Execution phasing | Ready For Phase 4B-2 | The phases doc now treats 4B-1 harness hardening as validated locally and makes the admin-gated UI the next bounded step after the harness-only changes are separated cleanly. |
-| Architecture closure | Ready For Phase 4B-2 | The technical spec now models a season-attached campaign, records the merged backend and 4A admin contracts, and the harness-first hardening work is complete enough to support the admin-only UI broadening next. |
+| Execution phasing | Ready For Next Planning Slice | The phases doc now treats 4B-2 as the minimal admin-gated UI completion point and sends the next work back through planning for admin UX refinement. |
+| Architecture closure | Ready For Next Planning Slice | The technical spec and landed slices are sufficient for a planning pass on the next admin UX improvement slice without reopening the campaign model or harness work. |
 | Open questions handling | Ready | The worklog now records the corrected model plus the remaining non-blocking questions. |
-| Blocking research closure | Ready For Phase 4B-2 | The product-intent correction is closed for this branch. |
-| Test planning | Ready For Phase 4B-2 | Portable harness hardening is now validated locally, so test planning can move back to the admin-gated UI slice on top of the stabilized harness. |
-| Documentation impact plan | Ready For Phase 4B-2 | The harness docs are updated, and the next doc surfaces are the admin UI follow-on plus the harness/UI branch split note. |
+| Blocking research closure | Ready For Next Planning Slice | The product-intent correction is closed for this branch. |
+| Test planning | Ready For Next Planning Slice | The minimal admin UI is now validated, so the next test-planning work should attach to the separate admin UX refinement slice. |
+| Documentation impact plan | Ready For Next Planning Slice | The next documentation impact is the planning handoff for admin UX refinement rather than more broadening of the current implementation slice. |
 
 ## Must Resolve Before Broad Implementation
 

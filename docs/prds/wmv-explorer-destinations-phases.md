@@ -123,7 +123,7 @@ Implementation notes:
 
 Goal: expose the approved admin backend capabilities through an admin-only WMV surface once the E2E harness is portable enough to support repeatable regression coverage.
 
-Status: next approved slice after the 4B-1 harness-only PR or commit set is separated cleanly from the mixed working tree.
+Status: complete in the current local implementation work as a minimal admin-gated setup surface. The next step should return to planning for a follow-on admin UX refinement slice rather than continue broadening this implementation branch opportunistically.
 
 Scope:
 
@@ -133,6 +133,10 @@ Scope:
 - Keep all Explorer entry points hidden from non-admin users until there is an explicit release decision for the athlete-facing hub
 - Campaign setup attached to a season
 - Add-destination workflow that works before or during the season
+
+Follow-on planning note:
+
+- Treat richer admin guidance, stronger client-side segment validation, and broader card or component-system refinement as the next planning surface, not as open-ended scope creep inside 4B-2.
 
 ## Phase 5: Explorer Hub MVP
 
