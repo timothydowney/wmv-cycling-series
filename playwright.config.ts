@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const e2eFrontendUrl = process.env.E2E_FRONTEND_URL || 'http://localhost:5174';
+const e2eBackendUrl = process.env.E2E_BACKEND_URL || 'http://localhost:3002';
+
 export default defineConfig({
   testDir: './e2e/tests',
   testIgnore: '**/auth.setup.ts', // Don't run setup in normal test runs
@@ -8,9 +11,24 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : 1,
   reporter: 'list',
+
+  webServer: [
+    {
+      command: 'npm run dev:server:e2e',
+      url: `${e2eBackendUrl}/auth/status`,
+      reuseExistingServer: false,
+      timeout: 120000,
+    },
+    {
+      command: 'npm run dev:frontend:e2e',
+      url: e2eFrontendUrl,
+      reuseExistingServer: false,
+      timeout: 120000,
+    },
+  ],
   
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: e2eFrontendUrl,
     trace: 'on-first-retry',
   },
 

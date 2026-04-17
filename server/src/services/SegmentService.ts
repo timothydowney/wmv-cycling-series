@@ -5,18 +5,20 @@
  */
 
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { getSegment, mapStravaSegmentToSegmentRow } from '../stravaClient';
-import { getValidAccessToken } from '../tokenManager';
 import { Segment } from '../db/schema'; // Import Drizzle Segment type
-import { segment, participantToken } from '../db/schema';
+import { segment } from '../db/schema';
 import { eq, asc } from 'drizzle-orm';
+import { createSegmentMetadataProvider, type SegmentMetadataPayload, type SegmentMetadataProvider } from './segmentMetadataProvider';
 
 interface LogCallback {
   (level: string, message: string): void;
 }
 
 class SegmentService {
-  constructor(private db: BetterSQLite3Database) {}
+  constructor(
+    private db: BetterSQLite3Database,
+    private readonly metadataProvider: SegmentMetadataProvider = createSegmentMetadataProvider(db)
+  ) {}
 
   /**
    * Fetch segment metadata from Strava API and store in database
@@ -32,47 +34,15 @@ class SegmentService {
     const log = logCallback ? (level: string, msg: string) => logCallback(level, msg) : () => {};
 
     try {
-      let tokenRecord;
+      const segmentData = await this.metadataProvider.fetchSegmentMetadata(
+        segmentId,
+        context,
+        preferredAthleteId
+      );
 
-      // Try preferred athlete first
-      if (preferredAthleteId) {
-        tokenRecord = this.db
-          .select({ strava_athlete_id: participantToken.strava_athlete_id })
-          .from(participantToken)
-          .where(eq(participantToken.strava_athlete_id, preferredAthleteId))
-          .get();
-      }
-
-      // Fallback to any connected participant if preferred not found
-      if (!tokenRecord) {
-        tokenRecord = this.db
-          .select({ strava_athlete_id: participantToken.strava_athlete_id })
-          .from(participantToken)
-          .limit(1)
-          .get();
-      }
-
-      if (!tokenRecord) {
-        console.log(`[${context}] No connected participants, creating placeholder segment`);
+      if (!segmentData) {
         return this.createPlaceholderSegment(segmentId);
       }
-
-      // Get valid access token (auto-refreshes if needed)
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const strava = require('strava-v3');
-      const stravaClient = {
-        refreshAccessToken: async (rt: string) => {
-          return strava.oauth.refreshToken(rt);
-        }
-      };
-      
-      // Use canonical token manager with Drizzle DB
-      const accessToken = await getValidAccessToken(this.db, stravaClient, tokenRecord.strava_athlete_id);
-
-      // Fetch segment metadata from Strava
-      console.log(`[${context}] Fetching segment ${segmentId} from Strava API`);
-      const stravaSegment = await getSegment(segmentId, accessToken);
-      const segmentData = mapStravaSegmentToSegmentRow(stravaSegment);
 
       // Log what we're storing (technical log, console only)
       console.log(`[${context}] Segment data from Strava:
@@ -104,7 +74,7 @@ class SegmentService {
    * Store segment metadata in database
    * INSERT OR REPLACE ensures idempotency
    */
-  private storeSegmentMetadata(segmentId: string, data: any): void {
+  private storeSegmentMetadata(segmentId: string, data: SegmentMetadataPayload): void {
     this.db
       .insert(segment)
       .values({

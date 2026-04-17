@@ -21,6 +21,8 @@
 import { test as setup, expect } from '@playwright/test';
 
 const authFile = 'e2e/.auth/user.json';
+const frontendBaseUrl = process.env.E2E_FRONTEND_URL || 'http://localhost:5174';
+const frontendHostPattern = new URL(frontendBaseUrl).host.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 setup('authenticate with Strava', async ({ page }) => {
   // Set a longer timeout for manual authentication (5 minutes)
@@ -52,11 +54,11 @@ setup('authenticate with Strava', async ({ page }) => {
   // Wait for redirect back to our app (5 minute timeout for manual login + MFA)
   // Use a more flexible URL pattern and handle network changes during OAuth
   try {
-    await page.waitForURL(/localhost:5173/, { timeout: 300000 });
+    await page.waitForURL(new RegExp(frontendHostPattern), { timeout: 300000 });
   } catch (error) {
     // If we get a network error, check if we're actually back on the app
     const currentUrl = page.url();
-    if (!currentUrl.includes('localhost:5173')) {
+    if (!currentUrl.includes(new URL(frontendBaseUrl).host)) {
       throw error;
     }
     console.log('⚠️  Network change detected during redirect, but we are back on the app');

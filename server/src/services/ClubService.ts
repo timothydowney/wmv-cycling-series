@@ -22,15 +22,14 @@
  */
 
 import { getLoggedInAthlete } from '../stravaClient';
-import { getValidAccessToken } from '../tokenManager';
-import * as stravaClient from '../stravaClient';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { checkClubMembership } from './stravaReadProvider';
 
 interface AthleteClub {
   id: number;
   resource_state?: number;
   name?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export class ClubService {
@@ -45,20 +44,7 @@ export class ClubService {
    * @returns true if athlete is a member, false if not or on error
    */
   async checkMember(athleteId: string, clubId: string): Promise<boolean> {
-    try {
-      // Get valid access token
-      const accessToken = await getValidAccessToken(this.db, stravaClient, athleteId);
-      
-      if (!accessToken) {
-        console.warn(`[Club] No access token for athlete ${athleteId}`);
-        return false;
-      }
-
-      return await this.isMemberOfClub(clubId, accessToken);
-    } catch (error) {
-      console.error(`[Club] Error checking membership for athlete ${athleteId}:`, error);
-      return false;
-    }
+    return checkClubMembership(this.db, athleteId, clubId);
   }
 
   /**

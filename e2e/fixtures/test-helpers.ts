@@ -1,6 +1,6 @@
 import { Locator, Page } from '@playwright/test';
 
-const E2E_BACKEND_URL = 'http://localhost:3001';
+const E2E_BACKEND_URL = process.env.E2E_BACKEND_URL || 'http://localhost:3002';
 
 /**
  * Mock Strava API responses

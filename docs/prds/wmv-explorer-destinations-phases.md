@@ -93,27 +93,46 @@ Out of scope:
 - Refresh or backfill mutations
 - Release-note bookkeeping files
 
-### Slice 4B: Admin UI (Admin-Gated)
+### Slice 4B-1: E2E Harness Hardening
 
-Goal: expose the approved admin backend capabilities through an admin-only WMV surface.
+Goal: make Explorer and existing Playwright coverage run against a portable, explicit, repeatable E2E harness before adding more admin UI surface.
 
-Status: next approved slice after 4A.
+Status: complete in the current local implementation work. The remaining operational step is to stage or PR the harness-only file set separately from the 4B-2 admin UI follow-on files.
+
+Scope:
+
+- Keep one explicit backend E2E mode for test-only auth, startup validation, and safe boot wiring
+- Replace accidental reliance on a contributor's local `wmv.db` with a deterministic E2E data source
+- Prefer checked-in sanitized E2E fixture data or a committed generator over copying development data with live token rows
+- Move outbound Strava differences behind explicit provider selection rather than scattering `isE2EMode()` short-circuits through general feature logic
+- Keep existing Playwright coverage green while removing hard-coded localhost and seed-ID assumptions that prevent portability
+- Update E2E docs and planning state so current reality matches the implemented harness
+
+Out of scope:
+
+- New athlete-facing Explorer UI
+- Broad new admin UI beyond what is needed to prove the harness supports the landed backend contract
+- Public navigation changes
+
+Implementation notes:
+
+- Prefer fixture-backed providers for segment metadata, profile imagery, club checks, or webhook enrichment where deterministic behavior is required in E2E.
+- Do not treat backend E2E mode as a catch-all behavior switch. It should select explicit providers and enforce fail-fast boot rules, not silently bypass arbitrary application logic.
+
+### Slice 4B-2: Admin UI (Admin-Gated)
+
+Goal: expose the approved admin backend capabilities through an admin-only WMV surface once the E2E harness is portable enough to support repeatable regression coverage.
+
+Status: next approved slice after the 4B-1 harness-only PR or commit set is separated cleanly from the mixed working tree.
 
 Scope:
 
 - Admin-only route or section for Explorer campaign setup
 - Create-campaign and add-destination flows using the approved 4A backend contract
-- Add the minimum E2E foundation needed for repeatable admin-flow coverage before broadening Explorer browser tests
+- Targeted browser coverage for admin setup flows on top of the hardened E2E harness
 - Keep all Explorer entry points hidden from non-admin users until there is an explicit release decision for the athlete-facing hub
-- Explorer admin UI
 - Campaign setup attached to a season
 - Add-destination workflow that works before or during the season
-
-Implementation note for the first 4B pass:
-
-- Prefer one explicit backend E2E mode for test-only wiring such as auth helpers, fail-fast environment checks, and safe local defaults.
-- Do not let that mode become a vague catch-all switch. External integrations should still declare their provider behavior explicitly, for example live, fixture-backed, or mock-server-backed.
-- For the first 4B pass, the required outbound Strava behavior is deterministic segment metadata lookup for admin add-destination flows.
 
 ## Phase 5: Explorer Hub MVP
 

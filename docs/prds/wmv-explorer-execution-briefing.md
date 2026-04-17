@@ -177,6 +177,13 @@ Prompts should remain narrow and convenient.
 - Run local validation.
 - Update docs if the slice changes visible behavior or planning state.
 
+### Slice-splitting note for 4B
+
+- Phase 4B is now intended to land as two implementation branches, not one mixed branch.
+- 4B-1 has now hardened the portable E2E harness locally and should be preserved as its own clean commit or PR set.
+- 4B-2 should add the admin-only Explorer UI only after the harness-only changes are merged or cleanly staged on top of them.
+- Do not leave harness surgery and admin UI work interleaved on the same long-running branch once the split is approved in the planning docs.
+
 ### Slice completion discipline
 
 - If an approved implementation slice only requires narrow planning-state maintenance, such as marking the slice complete, updating the recommended next slice, or aligning readiness wording with merged code, the implementation PR should include those planning doc edits before it is considered done.
