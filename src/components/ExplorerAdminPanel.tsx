@@ -1,17 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ArrowPathIcon,
-  ArrowTopRightOnSquareIcon,
+  ChevronDownIcon,
   CheckIcon,
+  ClockIcon,
   MapPinIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 import type { Season } from '../types';
 import { trpc } from '../utils/trpc';
-import { formatUnixDate } from '../utils/dateUtils';
+import { formatUnixDate, formatUtcIsoDateTime } from '../utils/dateUtils';
 import SeasonSelector from './SeasonSelector';
 import './AdminPanel.css';
 import './Card.css';
+import './SegmentCard.css';
 import './ExplorerAdminPanel.css';
 
 interface ExplorerAdminPanelProps {
@@ -28,7 +30,6 @@ interface FlashMessage {
 
 interface PreviewDestination {
   sourceUrl: string;
-  stravaSegmentId: string;
   name: string;
   distance?: number | null;
   averageGrade?: number | null;
@@ -66,6 +67,15 @@ function formatLocation(city?: string | null, state?: string | null, country?: s
   return locationParts.length > 0 ? locationParts.join(', ') : null;
 }
 
+function formatDestinationCreatedAt(createdAt?: string | null): string | null {
+  if (!createdAt) {
+    return null;
+  }
+
+  const formatted = formatUtcIsoDateTime(createdAt);
+  return formatted === '—' ? null : formatted.replace(/,\s+\d{1,2}:\d{2}:\d{2}\s+[AP]M$/, '');
+}
+
 function ExplorerAdminPanel({
   isAdmin,
   seasons,
@@ -78,13 +88,11 @@ function ExplorerAdminPanel({
     displayName: '',
     rulesBlurb: '',
   });
-  const [destinationForm, setDestinationForm] = useState({
-    sourceUrl: '',
-    displayLabel: '',
-  });
+  const [destinationForm, setDestinationForm] = useState({ sourceUrl: '' });
   const [destinationPreview, setDestinationPreview] = useState<PreviewDestination | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [isValidatingPreview, setIsValidatingPreview] = useState(false);
+  const [expandedDestinationId, setExpandedDestinationId] = useState<number | null>(null);
   const [message, setMessage] = useState<FlashMessage | null>(null);
 
   const hasSelectedSeason =
@@ -135,9 +143,10 @@ function ExplorerAdminPanel({
   const addDestinationMutation = trpc.explorerAdmin.addDestination.useMutation({
     onSuccess: async (destination) => {
       await utils.explorerAdmin.getCampaignForSeason.invalidate({ seasonId: resolvedSeasonId ?? 0 });
-      setDestinationForm({ sourceUrl: '', displayLabel: '' });
+      setDestinationForm({ sourceUrl: '' });
       setDestinationPreview(null);
       setPreviewError(null);
+      setExpandedDestinationId(destination.id);
 
       setTimedMessage({
         type: destination.usedPlaceholderMetadata ? 'info' : 'success',
@@ -166,7 +175,7 @@ function ExplorerAdminPanel({
     });
   };
 
-  const requestDestinationPreview = async () => {
+  const requestDestinationPreview = useCallback(async () => {
     const trimmedSourceUrl = destinationForm.sourceUrl.trim();
 
     if (!trimmedSourceUrl) {
@@ -195,7 +204,6 @@ function ExplorerAdminPanel({
 
       setDestinationPreview({
         sourceUrl: trimmedSourceUrl,
-        stravaSegmentId: segment.strava_segment_id,
         name: segment.name,
         distance: segment.distance,
         averageGrade: segment.average_grade,
@@ -210,7 +218,7 @@ function ExplorerAdminPanel({
     } finally {
       setIsValidatingPreview(false);
     }
-  };
+  }, [destinationForm.sourceUrl, utils.client.segment.validate]);
 
   const handleAcceptPreview = async () => {
     if (!destinationPreview) {
@@ -225,11 +233,44 @@ function ExplorerAdminPanel({
     await addDestinationMutation.mutateAsync({
       explorerCampaignId: campaignQuery.data.id,
       sourceUrl: destinationPreview.sourceUrl,
-      displayLabel: destinationForm.displayLabel.trim() || null,
     });
   };
 
-  const previewDisplayLabel = destinationForm.displayLabel.trim();
+  useEffect(() => {
+    if (!campaignQuery.data) {
+      return;
+    }
+
+    const trimmedSourceUrl = destinationForm.sourceUrl.trim();
+
+    if (!trimmedSourceUrl) {
+      setDestinationPreview(null);
+      setPreviewError(null);
+      return;
+    }
+
+    const previewTimeout = window.setTimeout(() => {
+      void requestDestinationPreview();
+    }, 150);
+
+    return () => {
+      window.clearTimeout(previewTimeout);
+    };
+  }, [campaignQuery.data, destinationForm.sourceUrl, requestDestinationPreview]);
+
+  const sortedDestinations = campaignQuery.data
+    ? [...campaignQuery.data.destinations].sort((left, right) => {
+        if (left.createdAt && right.createdAt && left.createdAt !== right.createdAt) {
+          return right.createdAt.localeCompare(left.createdAt);
+        }
+
+        if (left.displayOrder !== right.displayOrder) {
+          return right.displayOrder - left.displayOrder;
+        }
+
+        return right.id - left.id;
+      })
+    : [];
 
   if (!isAdmin) {
     return (
@@ -244,13 +285,13 @@ function ExplorerAdminPanel({
 
   return (
     <div className="explorer-admin-panel" data-testid="explorer-admin-panel">
-      {message && (
+      {message ? (
         <div className={`explorer-message ${message.type}`} data-testid="explorer-admin-message">
           {message.text}
         </div>
-      )}
+      ) : null}
 
-      {seasons.length > 0 && (
+      {seasons.length > 0 ? (
         <div className="admin-season-selector-wrapper">
           <SeasonSelector
             seasons={seasons}
@@ -258,7 +299,7 @@ function ExplorerAdminPanel({
             setSelectedSeasonId={onSeasonChange}
           />
         </div>
-      )}
+      ) : null}
 
       {seasons.length === 0 ? (
         <div className="explorer-empty-state">
@@ -283,33 +324,31 @@ function ExplorerAdminPanel({
           </section>
 
           {campaignQuery.isLoading ? (
-            <div className="leaderboard-card explorer-card">
-              <p>Loading Explorer campaign setup...</p>
-            </div>
-          ) : campaignQuery.error ? (
-            <div className="leaderboard-card explorer-card explorer-error-card">
-              <p>{campaignQuery.error.message}</p>
-            </div>
-          ) : !campaignQuery.data ? (
+            <section className="leaderboard-card explorer-card">
+              <p className="explorer-muted-copy">Loading Explorer campaign…</p>
+            </section>
+          ) : campaignQuery.data == null ? (
             <section className="leaderboard-card explorer-card" data-testid="explorer-create-campaign-card">
               <div className="explorer-card-header">
                 <div>
                   <p className="explorer-section-label">Phase 4B setup</p>
                   <h3>Create Explorer Campaign</h3>
                 </div>
-                <p>Each season can have one Explorer campaign in v1.</p>
+                <p>Start with a campaign shell for this season, then add destinations below.</p>
               </div>
 
-              <form className="explorer-form" onSubmit={handleCreateCampaign} data-testid="explorer-create-campaign-form">
+              <form className="explorer-form" data-testid="explorer-create-campaign-form" onSubmit={(event) => {
+                void handleCreateCampaign(event);
+              }}>
                 <div className="explorer-form-group">
-                  <label htmlFor="explorer-display-name">Campaign name</label>
+                  <label htmlFor="explorer-display-name">Display name</label>
                   <input
                     id="explorer-display-name"
                     data-testid="explorer-display-name-input"
                     value={campaignForm.displayName}
-                    onChange={(event) =>
-                      setCampaignForm((current) => ({ ...current, displayName: event.target.value }))
-                    }
+                    onChange={(event) => {
+                      setCampaignForm((current) => ({ ...current, displayName: event.target.value }));
+                    }}
                     placeholder={`Defaults to ${selectedSeason.name}`}
                     maxLength={255}
                   />
@@ -321,9 +360,9 @@ function ExplorerAdminPanel({
                     id="explorer-rules-blurb"
                     data-testid="explorer-rules-blurb-input"
                     value={campaignForm.rulesBlurb}
-                    onChange={(event) =>
-                      setCampaignForm((current) => ({ ...current, rulesBlurb: event.target.value }))
-                    }
+                    onChange={(event) => {
+                      setCampaignForm((current) => ({ ...current, rulesBlurb: event.target.value }));
+                    }}
                     placeholder="Optional guidance shown alongside the Explorer campaign"
                     rows={4}
                     maxLength={2000}
@@ -350,11 +389,15 @@ function ExplorerAdminPanel({
                     <p className="explorer-section-label">Explorer campaign</p>
                     <h3 data-testid="explorer-campaign-name">{campaignQuery.data.name}</h3>
                   </div>
-                  <p>{campaignQuery.data.destinations.length} destination{campaignQuery.data.destinations.length === 1 ? '' : 's'}</p>
+                  <p>
+                    {campaignQuery.data.destinations.length} destination{campaignQuery.data.destinations.length === 1 ? '' : 's'}
+                  </p>
                 </div>
 
                 {campaignQuery.data.rulesBlurb ? (
-                  <p className="explorer-rules-blurb" data-testid="explorer-campaign-rules-blurb">{campaignQuery.data.rulesBlurb}</p>
+                  <p className="explorer-rules-blurb" data-testid="explorer-campaign-rules-blurb">
+                    {campaignQuery.data.rulesBlurb}
+                  </p>
                 ) : (
                   <p className="explorer-muted-copy">No rules blurb has been added yet.</p>
                 )}
@@ -366,7 +409,7 @@ function ExplorerAdminPanel({
                     <p className="explorer-section-label">Destination authoring</p>
                     <h3>Add Destination</h3>
                   </div>
-                  <p>Paste a Strava segment URL to preview it, then accept or reject before adding it to the campaign.</p>
+                  <p>Paste a Strava segment URL and Explorer will validate it into a quick add preview automatically.</p>
                 </div>
 
                 <div className="explorer-form" data-testid="explorer-add-destination-form">
@@ -377,12 +420,9 @@ function ExplorerAdminPanel({
                       data-testid="explorer-source-url-input"
                       value={destinationForm.sourceUrl}
                       onChange={(event) => {
-                        setDestinationForm((current) => ({ ...current, sourceUrl: event.target.value }));
+                        setDestinationForm({ sourceUrl: event.target.value });
                         setDestinationPreview(null);
                         setPreviewError(null);
-                      }}
-                      onBlur={() => {
-                        void requestDestinationPreview();
                       }}
                       onPaste={() => {
                         window.setTimeout(() => {
@@ -393,56 +433,38 @@ function ExplorerAdminPanel({
                       required
                     />
                     <p className="explorer-input-help">
-                      Explorer keeps the original source URL and cached display metadata for stable rendering.
+                      Explorer keeps the original Strava URL and previews the segment automatically as you paste.
                     </p>
                   </div>
 
-                  <div className="explorer-form-group">
-                    <label htmlFor="explorer-display-label">Display label</label>
-                    <input
-                      id="explorer-display-label"
-                      data-testid="explorer-display-label-input"
-                      value={destinationForm.displayLabel}
-                      onChange={(event) =>
-                        setDestinationForm((current) => ({ ...current, displayLabel: event.target.value }))
-                      }
-                      placeholder="Optional label to override the cached segment name"
-                    />
-                  </div>
+                  {isValidatingPreview ? (
+                    <p className="explorer-preview-status" data-testid="explorer-preview-status">
+                      <ArrowPathIcon className="explorer-button-icon explorer-spin" aria-hidden="true" />
+                      <span>Validating segment...</span>
+                    </p>
+                  ) : null}
 
-                  <div className="explorer-form-actions">
-                    <button
-                      type="button"
-                      className="explorer-submit-button"
-                      data-testid="explorer-preview-destination-button"
-                      disabled={isValidatingPreview || addDestinationMutation.isPending}
-                      onClick={() => {
-                        void requestDestinationPreview();
-                      }}
-                    >
-                      {isValidatingPreview ? (
-                        <>
-                          <ArrowPathIcon className="explorer-button-icon explorer-spin" aria-hidden="true" />
-                          <span>Validating...</span>
-                        </>
-                      ) : (
-                        <span>Preview Destination</span>
-                      )}
-                    </button>
-                  </div>
-
-                  {previewError && (
+                  {previewError ? (
                     <p className="explorer-preview-error" data-testid="explorer-preview-error">
                       {previewError}
                     </p>
-                  )}
+                  ) : null}
 
-                  {destinationPreview && (
+                  {destinationPreview ? (
                     <article className="leaderboard-card explorer-preview-card" data-testid="explorer-destination-preview-card">
                       <div className="explorer-card-header explorer-preview-header">
                         <div>
                           <p className="explorer-section-label">Preview</p>
-                          <h3 data-testid="explorer-preview-name">{previewDisplayLabel || destinationPreview.name}</h3>
+                          <h3 className="explorer-destination-heading" data-testid="explorer-preview-name">
+                            <a
+                              className="segment-link explorer-destination-name-link"
+                              href={destinationPreview.sourceUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              {destinationPreview.name}
+                            </a>
+                          </h3>
                         </div>
                         <div className="explorer-preview-actions">
                           <button
@@ -472,39 +494,22 @@ function ExplorerAdminPanel({
                         </div>
                       </div>
 
-                      {previewDisplayLabel && (
-                        <p className="explorer-preview-subtitle" data-testid="explorer-preview-segment-name">
-                          Segment name: {destinationPreview.name}
-                        </p>
-                      )}
-
-                      <div className="explorer-destination-stats">
-                        {formatSegmentDistance(destinationPreview.distance) && (
-                          <span className="explorer-stat-pill">{formatSegmentDistance(destinationPreview.distance)}</span>
-                        )}
-                        {formatAverageGrade(destinationPreview.averageGrade) && (
-                          <span className="explorer-stat-pill">{formatAverageGrade(destinationPreview.averageGrade)}</span>
-                        )}
+                      <div className="explorer-destination-chips">
+                        {formatSegmentDistance(destinationPreview.distance) ? (
+                          <span className="week-header-chip">{formatSegmentDistance(destinationPreview.distance)}</span>
+                        ) : null}
+                        {formatAverageGrade(destinationPreview.averageGrade) ? (
+                          <span className="week-header-chip">{formatAverageGrade(destinationPreview.averageGrade)}</span>
+                        ) : null}
+                        {formatLocation(destinationPreview.city, destinationPreview.state, destinationPreview.country) ? (
+                          <span className="week-header-chip explorer-location-chip">
+                            <MapPinIcon className="week-header-chip-icon" aria-hidden="true" />
+                            <span>{formatLocation(destinationPreview.city, destinationPreview.state, destinationPreview.country)}</span>
+                          </span>
+                        ) : null}
                       </div>
-
-                      {formatLocation(destinationPreview.city, destinationPreview.state, destinationPreview.country) && (
-                        <p className="explorer-destination-location">
-                          <MapPinIcon aria-hidden="true" />
-                          <span>{formatLocation(destinationPreview.city, destinationPreview.state, destinationPreview.country)}</span>
-                        </p>
-                      )}
-
-                      <a
-                        className="explorer-destination-link"
-                        href={destinationPreview.sourceUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        <span>Open original Strava segment</span>
-                        <ArrowTopRightOnSquareIcon aria-hidden="true" />
-                      </a>
                     </article>
-                  )}
+                  ) : null}
                 </div>
               </section>
 
@@ -520,52 +525,95 @@ function ExplorerAdminPanel({
                   <p className="explorer-muted-copy">No destinations added yet.</p>
                 ) : (
                   <ol className="explorer-destination-list" data-testid="explorer-destination-list">
-                    {campaignQuery.data.destinations.map((destination) => (
-                      <li
-                        key={destination.id}
-                        className="leaderboard-card explorer-destination-card"
-                        data-testid={`explorer-destination-row-${destination.id}`}
-                      >
-                        <div className="explorer-destination-item">
-                          <div>
-                            <p className="explorer-destination-label">{destination.displayLabel}</p>
-                            {destination.customLabel && destination.customLabel !== destination.segmentName ? (
-                              <p className="explorer-preview-subtitle">Segment name: {destination.segmentName}</p>
-                            ) : null}
-                            <p className="explorer-destination-meta">Segment {destination.stravaSegmentId}</p>
+                    {sortedDestinations.map((destination) => {
+                      const isExpanded = expandedDestinationId === destination.id;
+                      const createdAtLabel = formatDestinationCreatedAt(destination.createdAt);
+                      const locationLabel = formatLocation(destination.city, destination.state, destination.country);
 
-                            <div className="explorer-destination-stats">
-                              {formatSegmentDistance(destination.distance) && (
-                                <span className="explorer-stat-pill">{formatSegmentDistance(destination.distance)}</span>
-                              )}
-                              {formatAverageGrade(destination.averageGrade) && (
-                                <span className="explorer-stat-pill">{formatAverageGrade(destination.averageGrade)}</span>
-                              )}
+                      return (
+                        <li
+                          key={destination.id}
+                          className="leaderboard-card explorer-destination-card"
+                          data-expanded={isExpanded}
+                          data-testid={`explorer-destination-row-${destination.id}`}
+                        >
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            className="explorer-destination-summary"
+                            onClick={() => {
+                              setExpandedDestinationId((current) => current === destination.id ? null : destination.id);
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                setExpandedDestinationId((current) => current === destination.id ? null : destination.id);
+                              }
+                            }}
+                            aria-expanded={isExpanded}
+                            data-testid={`explorer-destination-toggle-${destination.id}`}
+                          >
+                            <div className="explorer-destination-item">
+                              <div>
+                                <h4 className="explorer-destination-heading">
+                                  {destination.sourceUrl ? (
+                                    <a
+                                      className="segment-link explorer-destination-name-link"
+                                      href={destination.sourceUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                      }}
+                                    >
+                                      {destination.displayLabel}
+                                    </a>
+                                  ) : (
+                                    <span className="explorer-destination-label">{destination.displayLabel}</span>
+                                  )}
+                                </h4>
+
+                                <div className="explorer-destination-chips">
+                                  {formatSegmentDistance(destination.distance) ? (
+                                    <span className="week-header-chip">{formatSegmentDistance(destination.distance)}</span>
+                                  ) : null}
+                                  {formatAverageGrade(destination.averageGrade) ? (
+                                    <span className="week-header-chip">{formatAverageGrade(destination.averageGrade)}</span>
+                                  ) : null}
+                                  {locationLabel ? (
+                                    <span className="week-header-chip explorer-location-chip">
+                                      <MapPinIcon className="week-header-chip-icon" aria-hidden="true" />
+                                      <span>{locationLabel}</span>
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </div>
+
+                              <ChevronDownIcon className={`explorer-destination-chevron${isExpanded ? ' is-expanded' : ''}`} aria-hidden="true" />
                             </div>
-
-                            {formatLocation(destination.city, destination.state, destination.country) && (
-                              <p className="explorer-destination-location">
-                                <MapPinIcon aria-hidden="true" />
-                                <span>{formatLocation(destination.city, destination.state, destination.country)}</span>
-                              </p>
-                            )}
-
-                            {destination.sourceUrl ? (
-                              <a
-                                className="explorer-destination-link"
-                                href={destination.sourceUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                <span>Open original Strava segment</span>
-                                <ArrowTopRightOnSquareIcon aria-hidden="true" />
-                              </a>
-                            ) : null}
                           </div>
-                          <span className="explorer-destination-order">#{destination.displayOrder + 1}</span>
-                        </div>
-                      </li>
-                    ))}
+
+                          {isExpanded ? (
+                            <div className="card-expanded-details explorer-destination-details">
+                              {destination.customLabel && destination.customLabel !== destination.segmentName ? (
+                                <p className="explorer-preview-subtitle">Original segment name: {destination.segmentName}</p>
+                              ) : null}
+
+                              <div className="explorer-destination-detail-row">
+                                {createdAtLabel ? (
+                                  <p className="explorer-destination-meta">
+                                    <ClockIcon aria-hidden="true" />
+                                    <span>Added {createdAtLabel}</span>
+                                  </p>
+                                ) : (
+                                  <p className="explorer-muted-copy">Added date unavailable.</p>
+                                )}
+                              </div>
+                            </div>
+                          ) : null}
+                        </li>
+                      );
+                    })}
                   </ol>
                 )}
               </section>

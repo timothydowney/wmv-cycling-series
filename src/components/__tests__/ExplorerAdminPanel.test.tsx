@@ -20,6 +20,7 @@ const trpcMocks = vi.hoisted(() => ({
         displayOrder: number;
         sourceUrl: string | null;
         stravaSegmentId: string;
+        createdAt: string | null;
         distance: number | null;
         averageGrade: number | null;
         city: string | null;
@@ -273,7 +274,7 @@ describe('ExplorerAdminPanel', () => {
     expect(queryByTestId(container, 'explorer-create-campaign-form')).toBeNull();
   });
 
-  it('previews, accepts, and rejects destinations while preserving the latest flash message timer', async () => {
+  it('auto-previews, accepts, and rejects destinations while preserving the latest flash message timer', async () => {
     vi.useFakeTimers();
     trpcMocks.campaignQuery.data = {
       id: 41,
@@ -301,7 +302,10 @@ describe('ExplorerAdminPanel', () => {
       getByTestId(container, 'explorer-source-url-input') as HTMLInputElement,
       '  https://www.strava.com/segments/2234642  '
     );
-    await clickElement(getByTestId(container, 'explorer-preview-destination-button'));
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+      await Promise.resolve();
+    });
 
     expect(getByTestId(container, 'explorer-destination-preview-card').textContent).toContain('Box Hill KOM');
     expect(getByTestId(container, 'explorer-destination-preview-card').textContent).toContain('2.93 km');
@@ -309,14 +313,20 @@ describe('ExplorerAdminPanel', () => {
     await clickElement(getByTestId(container, 'explorer-reject-preview-button'));
     expect(queryByTestId(container, 'explorer-destination-preview-card')).toBeNull();
 
-    await clickElement(getByTestId(container, 'explorer-preview-destination-button'));
+    await setValue(
+      getByTestId(container, 'explorer-source-url-input') as HTMLInputElement,
+      'https://www.strava.com/segments/2234642'
+    );
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+      await Promise.resolve();
+    });
     await clickElement(getByTestId(container, 'explorer-accept-preview-button'));
 
     expect(getByTestId(container, 'explorer-admin-message').textContent).toContain('placeholder metadata');
     expect(trpcMocks.addDestination).toHaveBeenNthCalledWith(1, {
       explorerCampaignId: 41,
       sourceUrl: 'https://www.strava.com/segments/2234642',
-      displayLabel: null,
     });
 
     await act(async () => {
@@ -327,14 +337,12 @@ describe('ExplorerAdminPanel', () => {
       getByTestId(container, 'explorer-source-url-input') as HTMLInputElement,
       'https://www.strava.com/segments/2234642'
     );
-    await setValue(
-      getByTestId(container, 'explorer-display-label-input') as HTMLInputElement,
-      '  Box Hill opener  '
-    );
-    await clickElement(getByTestId(container, 'explorer-preview-destination-button'));
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+      await Promise.resolve();
+    });
 
-    expect(getByTestId(container, 'explorer-preview-name').textContent).toContain('Box Hill opener');
-    expect(getByTestId(container, 'explorer-preview-segment-name').textContent).toContain('Box Hill KOM');
+    expect(getByTestId(container, 'explorer-preview-name').textContent).toContain('Box Hill KOM');
 
     await clickElement(getByTestId(container, 'explorer-accept-preview-button'));
 
@@ -342,7 +350,6 @@ describe('ExplorerAdminPanel', () => {
     expect(trpcMocks.addDestination).toHaveBeenNthCalledWith(2, {
       explorerCampaignId: 41,
       sourceUrl: 'https://www.strava.com/segments/2234642',
-      displayLabel: 'Box Hill opener',
     });
 
     await act(async () => {
@@ -372,6 +379,7 @@ describe('ExplorerAdminPanel', () => {
           displayOrder: 0,
           sourceUrl: 'https://www.strava.com/segments/2234642',
           stravaSegmentId: '2234642',
+          createdAt: '2026-04-17 13:15:00',
           distance: 2931,
           averageGrade: 5.4,
           city: 'Dorking',
@@ -384,10 +392,13 @@ describe('ExplorerAdminPanel', () => {
     const { container } = await renderPanel();
 
     expect(getByTestId(container, 'explorer-destination-row-99').textContent).toContain('Box Hill opener');
-    expect(getByTestId(container, 'explorer-destination-row-99').textContent).toContain('Segment name: Box Hill KOM');
     expect(getByTestId(container, 'explorer-destination-row-99').textContent).toContain('2.93 km');
     expect(getByTestId(container, 'explorer-destination-row-99').textContent).toContain('5.4% avg grade');
     expect(getByTestId(container, 'explorer-destination-row-99').textContent).toContain('Dorking, Surrey, United Kingdom');
-    expect(getByTestId(container, 'explorer-destination-row-99').textContent).toContain('Open original Strava segment');
+
+    await clickElement(getByTestId(container, 'explorer-destination-toggle-99'));
+
+    expect(getByTestId(container, 'explorer-destination-row-99').textContent).toContain('Original segment name: Box Hill KOM');
+    expect(getByTestId(container, 'explorer-destination-row-99').textContent).toContain('Added');
   });
 });

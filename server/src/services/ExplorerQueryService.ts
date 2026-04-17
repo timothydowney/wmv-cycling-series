@@ -15,6 +15,7 @@ interface ExplorerDestinationView {
   customLabel: string | null;
   segmentName: string;
   sourceUrl: string | null;
+  createdAt: string | null;
   distance: number | null;
   averageGrade: number | null;
   city: string | null;
@@ -115,6 +116,7 @@ export class ExplorerQueryService {
         display_label: explorerDestination.display_label,
         cached_name: explorerDestination.cached_name,
         source_url: explorerDestination.source_url,
+        created_at: explorerDestination.created_at,
         surface_type: explorerDestination.surface_type,
         category: explorerDestination.category,
         display_order: explorerDestination.display_order,
@@ -146,6 +148,7 @@ export class ExplorerQueryService {
         customLabel: destination.display_label,
         segmentName: resolveSegmentName(destination),
         sourceUrl: destination.source_url,
+        createdAt: destination.created_at,
         distance: destination.distance,
         averageGrade: destination.average_grade,
         city: destination.city,
@@ -190,6 +193,7 @@ export class ExplorerQueryService {
           display_label: explorerDestination.display_label,
           cached_name: explorerDestination.cached_name,
           source_url: explorerDestination.source_url,
+          created_at: explorerDestination.created_at,
           surface_type: explorerDestination.surface_type,
           category: explorerDestination.category,
           display_order: explorerDestination.display_order,
@@ -225,6 +229,7 @@ export class ExplorerQueryService {
           customLabel: destination.display_label,
           segmentName: resolveSegmentName(destination),
           sourceUrl: destination.source_url,
+          createdAt: destination.created_at,
           distance: destination.distance,
           averageGrade: destination.average_grade,
           city: destination.city,
@@ -270,6 +275,7 @@ export class ExplorerQueryService {
         display_label: explorerDestination.display_label,
         cached_name: explorerDestination.cached_name,
         source_url: explorerDestination.source_url,
+        created_at: explorerDestination.created_at,
         surface_type: explorerDestination.surface_type,
         category: explorerDestination.category,
         display_order: explorerDestination.display_order,
@@ -313,6 +319,7 @@ export class ExplorerQueryService {
         customLabel: destination.display_label,
         segmentName: resolveSegmentName(destination),
         sourceUrl: destination.source_url,
+        createdAt: destination.created_at,
         distance: destination.distance,
         averageGrade: destination.average_grade,
         city: destination.city,

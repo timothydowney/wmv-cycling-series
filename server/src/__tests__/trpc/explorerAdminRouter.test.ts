@@ -200,6 +200,7 @@ describe('explorerAdminRouter', () => {
     expect(result?.destinations).toHaveLength(1);
     expect(result?.destinations[0]?.displayLabel).toBe('Hilltown opener');
     expect(result?.destinations[0]?.segmentName).toBe('Mocked Segment');
+    expect(result?.destinations[0]?.createdAt).toBeTruthy();
     expect(result?.destinations[0]?.distance).toBe(3210);
     expect(result?.destinations[0]?.averageGrade).toBe(4.2);
     expect(result?.destinations[0]?.city).toBe('Northampton');

@@ -122,33 +122,6 @@
   box-shadow: 0 0 0 3px rgba(245, 96, 4, 0.12);
 }
 
-.explorer-form-actions {
-  display: flex;
-  justify-content: flex-start;
-}
-
-.explorer-submit-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  border: none;
-  background: #f56004;
-  color: #fff;
-  padding: 0.85rem 1.25rem;
-  border-radius: 999px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.explorer-submit-button:hover {
-  background: #d9480f;
-}
-
-.explorer-submit-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-
 .explorer-button-icon {
   width: 1rem;
   height: 1rem;
@@ -160,14 +133,22 @@
 
 .explorer-input-help,
 .explorer-preview-subtitle,
-.explorer-preview-error {
+.explorer-preview-error,
+.explorer-preview-status {
   margin: 0;
   font-size: 0.9rem;
 }
 
 .explorer-input-help,
-.explorer-preview-subtitle {
+.explorer-preview-subtitle,
+.explorer-preview-status {
   color: #6b7280;
+}
+
+.explorer-preview-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .explorer-preview-error {
@@ -181,6 +162,10 @@
   border: 1px solid #e5e7eb;
 }
 
+.explorer-preview-card {
+  cursor: default;
+}
+
 .explorer-preview-header {
   align-items: center;
 }
@@ -188,6 +173,20 @@
 .explorer-preview-actions {
   display: flex;
   gap: 0.75rem;
+}
+
+.explorer-destination-heading {
+  margin: 0 0 0.5rem;
+  font-size: var(--font-base);
+  color: #333;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.explorer-destination-name-link {
+  display: inline-flex;
+  align-items: center;
 }
 
 .explorer-icon-button {
@@ -230,86 +229,71 @@
   color: #b91c1c;
 }
 
-.explorer-destination-stats {
+.explorer-destination-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
   margin-top: 0.85rem;
 }
 
-.explorer-stat-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.35rem 0.75rem;
-  border-radius: 999px;
-  background: #f3f4f6;
-  color: #374151;
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-
-.explorer-destination-location {
-  margin: 0.85rem 0 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  color: #4b5563;
-  font-size: 0.95rem;
-}
-
-.explorer-destination-location svg {
-  width: 1rem;
-  height: 1rem;
-  flex-shrink: 0;
-}
-
-.explorer-destination-link {
-  margin-top: 0.85rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  color: #c2410c;
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.explorer-destination-link:hover {
-  text-decoration: underline;
-}
-
-.explorer-destination-link svg {
-  width: 1rem;
-  height: 1rem;
-}
-
-.explorer-destination-list {
-  margin: 1rem 0 0;
+.explorer-destination-summary {
+  width: 100%;
   padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+  outline: none;
 }
 
 .explorer-destination-item {
   padding: 0.95rem 1rem;
-  border-radius: 10px;
-  background: #fafaf9;
+  background: transparent;
 }
 
 .explorer-destination-label {
-  margin: 0 0 0.25rem;
-  font-weight: 700;
-  color: #111827;
+  color: #333;
+  font-weight: 600;
 }
 
-.explorer-destination-order {
+.explorer-destination-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  color: var(--wmv-text-light);
+  font-size: var(--font-sm);
+}
+
+.explorer-destination-meta svg {
+  width: 0.95rem;
+  height: 0.95rem;
   flex-shrink: 0;
-  border-radius: 999px;
-  background: rgba(245, 96, 4, 0.12);
-  color: #c2410c;
-  padding: 0.35rem 0.7rem;
-  font-weight: 700;
+}
+
+.explorer-destination-chevron {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #6b7280;
+  transition: transform 0.2s ease;
+}
+
+.explorer-destination-chevron.is-expanded {
+  transform: rotate(180deg);
+}
+
+.explorer-destination-details {
+  margin-top: 0;
+}
+
+.explorer-destination-detail-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.explorer-destination-card[data-expanded='true'] {
+  border-color: rgba(245, 96, 4, 0.28);
 }
 
 .explorer-error-card {
@@ -333,12 +317,12 @@
     flex-direction: column;
   }
 
-  .explorer-submit-button {
-    width: 100%;
-  }
-
   .explorer-preview-actions {
     width: 100%;
     justify-content: flex-start;
+  }
+
+  .explorer-destination-heading {
+    flex-wrap: wrap;
   }
 }
