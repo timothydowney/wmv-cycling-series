@@ -12,7 +12,15 @@ interface ExplorerDestinationView {
   id: number;
   stravaSegmentId: string;
   displayLabel: string;
+  customLabel: string | null;
+  segmentName: string;
   sourceUrl: string | null;
+  createdAt: string | null;
+  distance: number | null;
+  averageGrade: number | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
   surfaceType: string | null;
   category: string | null;
   displayOrder: number;
@@ -70,6 +78,14 @@ function resolveCampaignName(displayName: string | null, seasonName: string): st
   return displayName || seasonName;
 }
 
+function resolveSegmentName(destination: {
+  strava_segment_id: string;
+  cached_name: string | null;
+  segment_name: string | null;
+}): string {
+  return destination.segment_name || destination.cached_name || `Segment ${destination.strava_segment_id}`;
+}
+
 export class ExplorerQueryService {
   constructor(private readonly db: BetterSQLite3Database) {}
 
@@ -100,10 +116,16 @@ export class ExplorerQueryService {
         display_label: explorerDestination.display_label,
         cached_name: explorerDestination.cached_name,
         source_url: explorerDestination.source_url,
+        created_at: explorerDestination.created_at,
         surface_type: explorerDestination.surface_type,
         category: explorerDestination.category,
         display_order: explorerDestination.display_order,
         segment_name: segment.name,
+        distance: segment.distance,
+        average_grade: segment.average_grade,
+        city: segment.city,
+        state: segment.state,
+        country: segment.country,
       })
       .from(explorerDestination)
       .leftJoin(segment, eq(explorerDestination.strava_segment_id, segment.strava_segment_id))
@@ -123,7 +145,15 @@ export class ExplorerQueryService {
         id: destination.id,
         stravaSegmentId: destination.strava_segment_id,
         displayLabel: resolveDestinationLabel(destination),
+        customLabel: destination.display_label,
+        segmentName: resolveSegmentName(destination),
         sourceUrl: destination.source_url,
+        createdAt: destination.created_at,
+        distance: destination.distance,
+        averageGrade: destination.average_grade,
+        city: destination.city,
+        state: destination.state,
+        country: destination.country,
         surfaceType: destination.surface_type,
         category: destination.category,
         displayOrder: destination.display_order,
@@ -163,10 +193,16 @@ export class ExplorerQueryService {
           display_label: explorerDestination.display_label,
           cached_name: explorerDestination.cached_name,
           source_url: explorerDestination.source_url,
+          created_at: explorerDestination.created_at,
           surface_type: explorerDestination.surface_type,
           category: explorerDestination.category,
           display_order: explorerDestination.display_order,
           segment_name: segment.name,
+          distance: segment.distance,
+          average_grade: segment.average_grade,
+          city: segment.city,
+          state: segment.state,
+          country: segment.country,
         })
         .from(explorerDestination)
         .leftJoin(segment, eq(explorerDestination.strava_segment_id, segment.strava_segment_id))
@@ -190,7 +226,15 @@ export class ExplorerQueryService {
           id: destination.id,
           stravaSegmentId: destination.strava_segment_id,
           displayLabel: resolveDestinationLabel(destination),
+          customLabel: destination.display_label,
+          segmentName: resolveSegmentName(destination),
           sourceUrl: destination.source_url,
+          createdAt: destination.created_at,
+          distance: destination.distance,
+          averageGrade: destination.average_grade,
+          city: destination.city,
+          state: destination.state,
+          country: destination.country,
           surfaceType: destination.surface_type,
           category: destination.category,
           displayOrder: destination.display_order,
@@ -231,10 +275,16 @@ export class ExplorerQueryService {
         display_label: explorerDestination.display_label,
         cached_name: explorerDestination.cached_name,
         source_url: explorerDestination.source_url,
+        created_at: explorerDestination.created_at,
         surface_type: explorerDestination.surface_type,
         category: explorerDestination.category,
         display_order: explorerDestination.display_order,
         segment_name: segment.name,
+        distance: segment.distance,
+        average_grade: segment.average_grade,
+        city: segment.city,
+        state: segment.state,
+        country: segment.country,
       })
       .from(explorerDestination)
       .leftJoin(segment, eq(explorerDestination.strava_segment_id, segment.strava_segment_id))
@@ -266,7 +316,15 @@ export class ExplorerQueryService {
         id: destination.id,
         stravaSegmentId: destination.strava_segment_id,
         displayLabel: resolveDestinationLabel(destination),
+        customLabel: destination.display_label,
+        segmentName: resolveSegmentName(destination),
         sourceUrl: destination.source_url,
+        createdAt: destination.created_at,
+        distance: destination.distance,
+        averageGrade: destination.average_grade,
+        city: destination.city,
+        state: destination.state,
+        country: destination.country,
         surfaceType: destination.surface_type,
         category: destination.category,
         displayOrder: destination.display_order,

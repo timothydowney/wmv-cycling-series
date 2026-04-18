@@ -48,12 +48,15 @@ test.describe('Explorer Admin Setup', () => {
     await expect(page.getByTestId('explorer-campaign-name')).toContainText('Fall 2025 Explorer');
 
     await page.getByTestId('explorer-source-url-input').fill('https://www.strava.com/segments/2234642');
-    await page.getByTestId('explorer-display-label-input').fill('Box Hill opener');
-    await page.getByTestId('explorer-add-destination-button').click();
+    await page.getByTestId('explorer-source-url-input').blur();
+
+    await expect(page.getByTestId('explorer-destination-preview-card')).toContainText('Box Hill KOM');
+    await page.getByTestId('explorer-accept-preview-button').click();
 
     await expect(page.getByTestId('explorer-admin-message')).toContainText('Destination added');
-    await expect(page.getByTestId('explorer-destination-list')).toContainText('Box Hill opener');
-    await expect(page.getByTestId('explorer-destination-list')).toContainText('Segment 2234642');
+    await expect(page.getByTestId('explorer-destination-list')).toContainText('Box Hill KOM');
+    await expect(page.getByTestId('explorer-destination-list')).toContainText('Dorking, Surrey, United Kingdom');
+    await expect(page.getByRole('link', { name: 'Box Hill KOM' }).first()).toBeVisible();
   });
 
   test('admin sees invalid URL and duplicate destination states', async ({ page }) => {
@@ -64,15 +67,17 @@ test.describe('Explorer Admin Setup', () => {
     await ensureCampaignExists(page);
 
     await page.getByTestId('explorer-source-url-input').fill('https://www.strava.com/routes/2234642');
-    await page.getByTestId('explorer-add-destination-button').click();
-    await expect(page.getByTestId('explorer-admin-message')).toContainText('valid Strava segment URL');
+    await page.getByTestId('explorer-source-url-input').blur();
+    await expect(page.getByTestId('explorer-preview-error')).toContainText('valid Strava segment URL');
 
     await page.getByTestId('explorer-source-url-input').fill('https://www.strava.com/segments/12345');
-    await page.getByTestId('explorer-add-destination-button').click();
+    await page.getByTestId('explorer-source-url-input').blur();
+    await page.getByTestId('explorer-accept-preview-button').click();
     await expect(page.getByTestId('explorer-admin-message')).toContainText('Destination added');
 
     await page.getByTestId('explorer-source-url-input').fill('https://www.strava.com/segments/12345');
-    await page.getByTestId('explorer-add-destination-button').click();
+    await page.getByTestId('explorer-source-url-input').blur();
+    await page.getByTestId('explorer-accept-preview-button').click();
     await expect(page.getByTestId('explorer-admin-message')).toContainText('already exists');
   });
 });

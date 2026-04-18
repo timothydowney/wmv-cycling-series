@@ -35,6 +35,7 @@ Welcome to the WMV Cycling Series documentation. Start with **Getting Started**,
 ### Branding & Standards
 
 - **[Strava Branding](../STRAVA_BRANDING.md)** - OAuth button guidelines and attribution
+- **[Leaderboard Design System](./LEADERBOARD_DESIGN_SYSTEM.md)** - Canonical UI language for the Weekly, Season, and Schedule tabs
 
 ---
 
@@ -62,6 +63,7 @@ Welcome to the WMV Cycling Series documentation. Start with **Getting Started**,
 
 ### Frontend Developer
 - Reference: [Architecture Overview](./ARCHITECTURE.md)
+- UI source of truth: [Leaderboard Design System](./LEADERBOARD_DESIGN_SYSTEM.md)
 - API calls: [API Reference](./API.md)
 - Auth flow: [Strava Integration](./STRAVA_INTEGRATION.md)
 
@@ -76,6 +78,7 @@ Welcome to the WMV Cycling Series documentation. Start with **Getting Started**,
 ├── QUICK_START.md              # Get running in 5 minutes
 ├── ARCHITECTURE.md             # System design overview
 ├── API.md                      # Endpoint reference
+├── LEADERBOARD_DESIGN_SYSTEM.md # Weekly/Season/Schedule UI source of truth
 ├── DATABASE_DESIGN.md          # Schema and queries
 ├── STRAVA_INTEGRATION.md       # OAuth and activity flow
 ├── WEBHOOKS.md                 # Real-time webhook processing
@@ -99,6 +102,7 @@ Welcome to the WMV Cycling Series documentation. Start with **Getting Started**,
 | **QUICK_START.md** | Get running immediately | You want to run the app NOW |
 | **ARCHITECTURE.md** | Understand the system | You want to understand how it works |
 | **API.md** | Reference all endpoints | You're building features |
+| **LEADERBOARD_DESIGN_SYSTEM.md** | Public leaderboard UI rules | You're building or reviewing leaderboard-style UI |
 | **DATABASE_DESIGN.md** | Understand the schema | You're working with data |
 | **STRAVA_INTEGRATION.md** | Learn OAuth + activity flow | You're integrating Strava or debugging auth |
 | **WEBHOOKS.md** | Real-time webhook processing | You're implementing/understanding webhooks |

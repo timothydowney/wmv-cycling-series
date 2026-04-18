@@ -6,7 +6,7 @@ import { createContext } from '../../trpc/context';
 import { explorerCampaign, explorerDestination, participant } from '../../db/schema';
 import { ExplorerAdminService } from '../../services/ExplorerAdminService';
 import { SegmentService } from '../../services/SegmentService';
-import { clearAllData, createExplorerCampaign, createParticipant, createSeason, setupTestDb, teardownTestDb } from '../testDataHelpers';
+import { clearAllData, createExplorerCampaign, createParticipant, createSeason, createSegment, setupTestDb, teardownTestDb } from '../testDataHelpers';
 
 describe('explorerAdminRouter', () => {
   let db: Database;
@@ -142,6 +142,11 @@ describe('explorerAdminRouter', () => {
     jest.spyOn(SegmentService.prototype, 'fetchAndStoreSegmentMetadata').mockResolvedValue({
       strava_segment_id: '12744502',
       name: 'Mocked Segment',
+      distance: 3210,
+      average_grade: 4.2,
+      city: 'Northampton',
+      state: 'MA',
+      country: 'USA',
     } as any);
 
     const result = await caller.explorerAdmin.addDestination({
@@ -169,6 +174,13 @@ describe('explorerAdminRouter', () => {
       rulesBlurb: 'Ride every destination once.',
     });
     const caller = getCaller(true);
+    createSegment(drizzleDb, '12744502', 'Mocked Segment', {
+      distance: 3210,
+      averageGrade: 4.2,
+      city: 'Northampton',
+      state: 'MA',
+      country: 'USA',
+    });
     jest.spyOn(SegmentService.prototype, 'fetchAndStoreSegmentMetadata').mockResolvedValue({
       strava_segment_id: '12744502',
       name: 'Mocked Segment',
@@ -187,6 +199,13 @@ describe('explorerAdminRouter', () => {
     expect(result?.rulesBlurb).toBe('Ride every destination once.');
     expect(result?.destinations).toHaveLength(1);
     expect(result?.destinations[0]?.displayLabel).toBe('Hilltown opener');
+    expect(result?.destinations[0]?.segmentName).toBe('Mocked Segment');
+    expect(result?.destinations[0]?.createdAt).toBeTruthy();
+    expect(result?.destinations[0]?.distance).toBe(3210);
+    expect(result?.destinations[0]?.averageGrade).toBe(4.2);
+    expect(result?.destinations[0]?.city).toBe('Northampton');
+    expect(result?.destinations[0]?.state).toBe('MA');
+    expect(result?.destinations[0]?.country).toBe('USA');
   });
 
   it('allows destination creation when metadata enrichment falls back to placeholder data', async () => {
