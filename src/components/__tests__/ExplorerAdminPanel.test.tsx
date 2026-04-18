@@ -134,7 +134,21 @@ interface RenderResult {
   root: Root;
 }
 
+interface DeferredValue<T> {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+}
+
 let renderResult: RenderResult | null = null;
+
+function createDeferredValue<T>(): DeferredValue<T> {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+
+  return { promise, resolve };
+}
 
 async function renderPanel(overrides: Partial<React.ComponentProps<typeof ExplorerAdminPanel>> = {}) {
   const container = document.createElement('div');
@@ -363,6 +377,116 @@ describe('ExplorerAdminPanel', () => {
     });
 
     expect(queryByTestId(container, 'explorer-admin-message')).toBeNull();
+  });
+
+  it('requests a single preview validation for each source-url change', async () => {
+    vi.useFakeTimers();
+    trpcMocks.campaignQuery.data = {
+      id: 41,
+      name: 'Spring 2026 Explorer',
+      rulesBlurb: 'Ride every destination once.',
+      destinations: [],
+    };
+
+    const { container } = await renderPanel();
+
+    await setValue(
+      getByTestId(container, 'explorer-source-url-input') as HTMLInputElement,
+      'https://www.strava.com/segments/2234642'
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+      await Promise.resolve();
+    });
+
+    expect(trpcMocks.validateSegment).toHaveBeenCalledTimes(1);
+    expect(trpcMocks.validateSegment).toHaveBeenCalledWith('2234642');
+  });
+
+  it('ignores stale preview responses when the source URL changes mid-request', async () => {
+    vi.useFakeTimers();
+    trpcMocks.campaignQuery.data = {
+      id: 41,
+      name: 'Spring 2026 Explorer',
+      rulesBlurb: 'Ride every destination once.',
+      destinations: [],
+    };
+
+    const firstPreview = createDeferredValue({
+      strava_segment_id: '2234642',
+      name: 'Older Preview',
+      distance: 1000,
+      average_grade: 2.1,
+      city: 'Oldtown',
+      state: 'MA',
+      country: 'USA',
+    });
+    const secondPreview = createDeferredValue({
+      strava_segment_id: '9999999',
+      name: 'Newest Preview',
+      distance: 4500,
+      average_grade: 6.2,
+      city: 'Newtown',
+      state: 'VT',
+      country: 'USA',
+    });
+
+    trpcMocks.validateSegment.mockReset();
+    trpcMocks.validateSegment
+      .mockReturnValueOnce(firstPreview.promise)
+      .mockReturnValueOnce(secondPreview.promise);
+
+    const { container } = await renderPanel();
+
+    await setValue(
+      getByTestId(container, 'explorer-source-url-input') as HTMLInputElement,
+      'https://www.strava.com/segments/2234642'
+    );
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+      await Promise.resolve();
+    });
+
+    await setValue(
+      getByTestId(container, 'explorer-source-url-input') as HTMLInputElement,
+      'https://www.strava.com/segments/9999999'
+    );
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      firstPreview.resolve({
+        strava_segment_id: '2234642',
+        name: 'Older Preview',
+        distance: 1000,
+        average_grade: 2.1,
+        city: 'Oldtown',
+        state: 'MA',
+        country: 'USA',
+      });
+      await Promise.resolve();
+    });
+
+    expect(queryByTestId(container, 'explorer-destination-preview-card')).toBeNull();
+
+    await act(async () => {
+      secondPreview.resolve({
+        strava_segment_id: '9999999',
+        name: 'Newest Preview',
+        distance: 4500,
+        average_grade: 6.2,
+        city: 'Newtown',
+        state: 'VT',
+        country: 'USA',
+      });
+      await Promise.resolve();
+    });
+
+    expect(getByTestId(container, 'explorer-destination-preview-card').textContent).toContain('Newest Preview');
+    expect(getByTestId(container, 'explorer-destination-preview-card').textContent).not.toContain('Older Preview');
   });
 
   it('renders richer destination cards when a campaign already has destinations', async () => {

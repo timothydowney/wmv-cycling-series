@@ -172,7 +172,7 @@ The current preservation target is backed by:
 	- the UI parses and validates promptly through the existing `segment.validate` seam
 	- a preview card appears with segment metadata before persistence
 	- the admin explicitly accepts or rejects the preview
-	- the optional Explorer display label is applied during that preview step
+	- optional Explorer display-label entry is deferred from the shipped 4B-3 preview-add flow
 - Backend expectation:
 	- keep the existing `explorerAdmin.addDestination` write contract
 	- expand Explorer admin read-side destination fields only if needed for richer accepted-card rendering
@@ -214,7 +214,7 @@ Required outcome:
 	- the UI validates through the existing `segment.validate` seam
 	- a preview card appears with segment metadata before persistence
 	- the admin uses icon-first accept or reject controls with accessible labels
-	- the optional Explorer display label is applied during that preview step
+	- optional Explorer display-label entry is deferred from the shipped 4B-3 preview-add flow
 - Accepted destinations render as richer cards rather than a plain list.
 - Each accepted destination card shows, when available:
 	- Explorer display label or resolved destination name

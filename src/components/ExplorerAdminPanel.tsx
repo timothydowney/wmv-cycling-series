@@ -116,6 +116,7 @@ function ExplorerAdminPanel({
 }: ExplorerAdminPanelProps) {
   const utils = trpc.useUtils();
   const messageTimeoutRef = useRef<number | null>(null);
+  const previewRequestIdRef = useRef(0);
   const [campaignForm, setCampaignForm] = useState({
     displayName: '',
     rulesBlurb: '',
@@ -209,6 +210,9 @@ function ExplorerAdminPanel({
 
   const requestDestinationPreview = useCallback(async () => {
     const trimmedSourceUrl = destinationForm.sourceUrl.trim();
+    const requestId = previewRequestIdRef.current + 1;
+
+    previewRequestIdRef.current = requestId;
 
     if (!trimmedSourceUrl) {
       setDestinationPreview(null);
@@ -230,6 +234,10 @@ function ExplorerAdminPanel({
     try {
       const segment = await utils.client.segment.validate.query(parsedSegmentId);
 
+      if (previewRequestIdRef.current !== requestId || destinationForm.sourceUrl.trim() !== trimmedSourceUrl) {
+        return;
+      }
+
       if (!segment) {
         throw new Error('Segment metadata could not be loaded');
       }
@@ -244,11 +252,17 @@ function ExplorerAdminPanel({
         country: segment.country,
       });
     } catch (error) {
+      if (previewRequestIdRef.current !== requestId || destinationForm.sourceUrl.trim() !== trimmedSourceUrl) {
+        return;
+      }
+
       const errorMessage = error instanceof Error ? error.message : 'Segment metadata could not be loaded';
       setDestinationPreview(null);
       setPreviewError(errorMessage);
     } finally {
-      setIsValidatingPreview(false);
+      if (previewRequestIdRef.current === requestId) {
+        setIsValidatingPreview(false);
+      }
     }
   }, [destinationForm.sourceUrl, utils.client.segment.validate]);
 
@@ -276,6 +290,7 @@ function ExplorerAdminPanel({
     const trimmedSourceUrl = destinationForm.sourceUrl.trim();
 
     if (!trimmedSourceUrl) {
+      previewRequestIdRef.current += 1;
       setDestinationPreview(null);
       setPreviewError(null);
       return;
@@ -456,11 +471,6 @@ function ExplorerAdminPanel({
                         setDestinationPreview(null);
                         setPreviewError(null);
                       }}
-                      onPaste={() => {
-                        window.setTimeout(() => {
-                          void requestDestinationPreview();
-                        }, 0);
-                      }}
                       placeholder="https://www.strava.com/segments/2234642"
                       required
                     />
@@ -483,59 +493,65 @@ function ExplorerAdminPanel({
                   ) : null}
 
                   {destinationPreview ? (
-                    <article className="explorer-preview-card" data-testid="explorer-destination-preview-card">
-                      <div className="explorer-preview-header">
-                        <p className="explorer-section-label">Preview</p>
-                        <div className="explorer-preview-actions">
-                          <button
-                            type="button"
-                            className="explorer-icon-button explorer-icon-button-accept"
-                            data-testid="explorer-accept-preview-button"
-                            aria-label="Accept destination preview"
-                            onClick={() => {
-                              void handleAcceptPreview();
-                            }}
-                            disabled={addDestinationMutation.isPending}
-                          >
-                            <CheckIcon aria-hidden="true" />
-                          </button>
-                          <button
-                            type="button"
-                            className="explorer-icon-button explorer-icon-button-reject"
-                            data-testid="explorer-reject-preview-button"
-                            aria-label="Reject destination preview"
-                            onClick={() => {
-                              setDestinationPreview(null);
-                              setPreviewError(null);
-                            }}
-                          >
-                            <XMarkIcon aria-hidden="true" />
-                          </button>
-                        </div>
-                      </div>
+                    (() => {
+                      const previewStatItems = getDestinationStatItems(destinationPreview);
 
-                      <div className="explorer-destination-surface explorer-destination-surface-preview">
-                        <h3 className="explorer-destination-hero-title" data-testid="explorer-preview-name">
-                          <a
-                            className="explorer-destination-surface-link"
-                            href={destinationPreview.sourceUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            {destinationPreview.name}
-                            <ArrowTopRightOnSquareIcon aria-hidden="true" />
-                          </a>
-                        </h3>
-
-                        {getDestinationStatItems(destinationPreview).length > 0 ? (
-                          <div className="explorer-destination-chip-row">
-                            {getDestinationStatItems(destinationPreview).map((item) => (
-                              <span key={item} className="week-header-chip">{item}</span>
-                            ))}
+                      return (
+                        <article className="explorer-preview-card" data-testid="explorer-destination-preview-card">
+                          <div className="explorer-preview-header">
+                            <p className="explorer-section-label">Preview</p>
+                            <div className="explorer-preview-actions">
+                              <button
+                                type="button"
+                                className="explorer-icon-button explorer-icon-button-accept"
+                                data-testid="explorer-accept-preview-button"
+                                aria-label="Accept destination preview"
+                                onClick={() => {
+                                  void handleAcceptPreview();
+                                }}
+                                disabled={addDestinationMutation.isPending}
+                              >
+                                <CheckIcon aria-hidden="true" />
+                              </button>
+                              <button
+                                type="button"
+                                className="explorer-icon-button explorer-icon-button-reject"
+                                data-testid="explorer-reject-preview-button"
+                                aria-label="Reject destination preview"
+                                onClick={() => {
+                                  setDestinationPreview(null);
+                                  setPreviewError(null);
+                                }}
+                              >
+                                <XMarkIcon aria-hidden="true" />
+                              </button>
+                            </div>
                           </div>
-                        ) : null}
-                      </div>
-                    </article>
+
+                          <div className="explorer-destination-surface explorer-destination-surface-preview">
+                            <h3 className="explorer-destination-hero-title" data-testid="explorer-preview-name">
+                              <a
+                                className="explorer-destination-surface-link"
+                                href={destinationPreview.sourceUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                {destinationPreview.name}
+                                <ArrowTopRightOnSquareIcon aria-hidden="true" />
+                              </a>
+                            </h3>
+
+                            {previewStatItems.length > 0 ? (
+                              <div className="explorer-destination-chip-row">
+                                {previewStatItems.map((item) => (
+                                  <span key={item} className="week-header-chip">{item}</span>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+                        </article>
+                      );
+                    })()
                   ) : null}
                 </div>
               </section>
@@ -594,7 +610,7 @@ function ExplorerAdminPanel({
                                       className="explorer-destination-surface-link"
                                       href={destination.sourceUrl}
                                       target="_blank"
-                                      rel="noreferrer"
+                                      rel="noopener noreferrer"
                                       onClick={(event) => {
                                         event.stopPropagation();
                                       }}

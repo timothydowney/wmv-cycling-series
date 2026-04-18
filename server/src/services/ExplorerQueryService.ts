@@ -83,7 +83,7 @@ function resolveSegmentName(destination: {
   cached_name: string | null;
   segment_name: string | null;
 }): string {
-  return destination.cached_name || destination.segment_name || `Segment ${destination.strava_segment_id}`;
+  return destination.segment_name || destination.cached_name || `Segment ${destination.strava_segment_id}`;
 }
 
 export class ExplorerQueryService {

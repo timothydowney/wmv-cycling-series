@@ -152,7 +152,7 @@ Scope:
 	- parse and validate a pasted Strava segment URL quickly using the existing validation seam
 	- show an immediate preview card with segment details before persistence
 	- provide icon-first accept and reject controls for the previewed destination, with accessible text or `aria-label` support
-	- allow the optional Explorer display label to be set during the preview step rather than through a heavier follow-up form
+	- defer optional Explorer display-label overrides until a later slice instead of reintroducing a heavier follow-up form into 4B-3
 - Render already-added campaign destinations as richer cards instead of a plain list so admins can see what is already in the campaign at a glance.
 - Extend Explorer admin read-side data only as needed to support richer accepted-destination cards, including the currently available distance, average grade, city, state, country, and source URL values.
 - Make the original Strava segment source clearly clickable from the accepted destination card without falling back to button-like link treatment.
