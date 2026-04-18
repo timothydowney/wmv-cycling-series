@@ -97,7 +97,7 @@ Out of scope:
 
 Goal: make Explorer and existing Playwright coverage run against a portable, explicit, repeatable E2E harness before adding more admin UI surface.
 
-Status: complete in the current local implementation work. The remaining operational step is to stage or PR the harness-only file set separately from the 4B-2 admin UI follow-on files.
+Status: merged as the portable baseline for later Explorer UI work.
 
 Scope:
 
@@ -123,7 +123,7 @@ Implementation notes:
 
 Goal: expose the approved admin backend capabilities through an admin-only WMV surface once the E2E harness is portable enough to support repeatable regression coverage.
 
-Status: complete in the current local implementation work as a minimal admin-gated setup surface. The next step should return to planning for a follow-on admin UX refinement slice rather than continue broadening this implementation branch opportunistically.
+Status: merged as the minimal admin-gated setup surface. The next step should build a bounded admin UX refinement slice from updated `main` on a fresh branch rather than continue broadening 4B-2 opportunistically.
 
 Scope:
 
@@ -137,6 +137,45 @@ Scope:
 Follow-on planning note:
 
 - Treat richer admin guidance, stronger client-side segment validation, and broader card or component-system refinement as the next planning surface, not as open-ended scope creep inside 4B-2.
+
+### Slice 4B-3: Admin UX Refinement (Card-First Destination Authoring)
+
+Goal: refine Explorer admin setup into a more interactive, card-first authoring experience that mirrors the existing WMV leaderboard surfaces and supports repeated paste-and-add destination setup without widening into the full later admin-management backlog.
+
+Status: ready for implementation from updated `main` on a dedicated feature branch now that 4B-2 is merged.
+
+Scope:
+
+- Reuse existing WMV card patterns where practical for Explorer admin hierarchy instead of continuing with bespoke form-block presentation.
+- Keep the season and campaign framing at the top of the screen, but restyle it into the same card language used by the leaderboard, weekly, season, and schedule surfaces.
+- Replace the plain add-destination form with an interactive authoring card that supports repeated paste-and-add work:
+	- parse and validate a pasted Strava segment URL quickly using the existing validation seam
+	- show an immediate preview card with segment details before persistence
+	- provide icon-first accept and reject controls for the previewed destination, with accessible text or `aria-label` support
+	- defer optional Explorer display-label overrides until a later slice instead of reintroducing a heavier follow-up form into 4B-3
+- Render already-added campaign destinations as richer cards instead of a plain list so admins can see what is already in the campaign at a glance.
+- Extend Explorer admin read-side data only as needed to support richer accepted-destination cards, including the currently available distance, average grade, city, state, country, and source URL values.
+- Make the original Strava segment source clearly clickable from the accepted destination card without falling back to button-like link treatment.
+
+Out of scope:
+
+- Strava segment search or discovery workflows
+- Persisted edit, remove, or reorder flows for already-added destinations
+- Refresh or backfill mutations
+- Athlete-facing Explorer hub work
+- Public Explorer navigation or release exposure
+
+Validation:
+
+- Frontend unit tests for the authoring-card state flow, including paste, validation, preview, accept, reject, and repeated add behavior
+- Focused backend service or router tests only if the Explorer admin read shape is expanded for richer destination cards
+- Targeted Playwright coverage for the admin paste-validate-preview-add flow and the accepted-destination card rendering
+- Slice-normal `npm run lint`, `npm run typecheck`, and targeted build verification
+
+Implementation note:
+
+- If the slice later grows to include persisted inline editing for accepted destination cards, that should be called out explicitly as a scope change because it pulls in new admin mutations rather than remaining a UI refinement only.
+- True map plotting is not part of 4B-3. The current shared segment model carries location text fields, but a future map slice may still require coordinate or geometry storage if the product needs real map pins rather than text-only place context.
 
 ## Phase 5: Explorer Hub MVP
 

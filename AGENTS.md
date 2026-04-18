@@ -123,6 +123,10 @@ Before merging or opening a substantive PR, run `npm run audit` locally alongsid
    - For pull requests, review comments, issues, labels, searches, and repository metadata, prefer GitHub MCP and workspace-integrated GitHub tools first
    - Fall back to `gh` only when the MCP path is unavailable, missing a needed capability, or returning incomplete results
    - When falling back to `gh`, keep the usage targeted and explain the blocker or gap that required the fallback
+9. **Leaderboard-inspired UI work:**
+   - Treat `docs/LEADERBOARD_DESIGN_SYSTEM.md` as the canonical reference for the end-user Weekly, Season, and Schedule design language
+   - Do not use legacy admin CSS as the default source of truth for public Explorer UI
+   - If the leaderboard does not define a needed pattern, record that gap explicitly instead of freehanding a new local style system
 
 ## Special Tasks
 
@@ -171,6 +175,7 @@ npm run dev
 For detailed information, see:
 - **Quick start:** [docs/QUICK_START.md](./docs/QUICK_START.md)
 - **Architecture:** [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
+- **Leaderboard design system:** [docs/LEADERBOARD_DESIGN_SYSTEM.md](./docs/LEADERBOARD_DESIGN_SYSTEM.md)
 - **Database design:** [docs/DATABASE_DESIGN.md](./docs/DATABASE_DESIGN.md)
 - **Strava integration:** [docs/STRAVA_INTEGRATION.md](./docs/STRAVA_INTEGRATION.md)
 - **API reference:** [docs/API.md](./docs/API.md)

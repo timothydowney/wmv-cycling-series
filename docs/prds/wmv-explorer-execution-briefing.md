@@ -179,10 +179,8 @@ Prompts should remain narrow and convenient.
 
 ### Slice-splitting note for 4B
 
-- Phase 4B is now intended to land as two implementation branches, not one mixed branch.
-- 4B-1 has now hardened the portable E2E harness locally and should be preserved as its own clean commit or PR set.
-- 4B-2 should add the admin-only Explorer UI only after the harness-only changes are merged or cleanly staged on top of them.
-- Do not leave harness surgery and admin UI work interleaved on the same long-running branch once the split is approved in the planning docs.
+- The earlier 4B split is now complete: 4B-1 hardened the portable E2E harness and 4B-2 landed the minimal admin-only Explorer UI.
+- Follow-on work should now start from updated `main` on a fresh branch for the approved 4B-3 admin UX refinement slice rather than reopening the already-merged split work.
 
 ### Slice completion discipline
 

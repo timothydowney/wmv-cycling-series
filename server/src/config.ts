@@ -258,6 +258,10 @@ export function isDevelopmentMode(): boolean {
   return getMode() === 'development';
 }
 
+export function getBrowserEntryUrl(): string {
+  return config.isSplitStack ? config.frontendUrl : config.backendUrl;
+}
+
 /**
  * Log configuration on startup (for debugging URL issues)
  */
@@ -265,12 +269,17 @@ export function logConfigOnStartup(): void {
   console.log('========== CONFIGURATION ==========');
   console.log(`[CONFIG] Mode: ${getMode()}`);
   console.log(`[CONFIG] Runtime mode: ${config.runtimeMode}`);
+  console.log(`[CONFIG] Open in browser: ${getBrowserEntryUrl()}`);
   console.log(`[CONFIG] Split stack: ${config.isSplitStack}`);
-  console.log(`[CONFIG] Frontend URL: ${config.frontendUrl}`);
-  console.log(`[CONFIG] Backend URL: ${config.backendUrl}`);
+  console.log(`[CONFIG] Frontend URL (browser origin / CORS): ${config.frontendUrl}`);
+  console.log(`[CONFIG] Backend URL (server origin / OAuth + webhooks): ${config.backendUrl}`);
   console.log(`[CONFIG] Strava API mode: ${config.stravaApiMode}`);
   console.log(`[CONFIG] OAuth callback: ${config.stravaRedirectUri}`);
   console.log(`[CONFIG] Webhook callback: ${config.webhookCallbackUrl}`);
+
+  if (isDevelopmentMode()) {
+    console.log('[CONFIG] Local dev note: the browser entry URL follows the active frontend origin; the Express server origin is logged separately below.');
+  }
 
   // Warn about missing env vars if in production
   if (isProduction() && !process.env.APP_BASE_URL && !process.env.FRONTEND_URL) {

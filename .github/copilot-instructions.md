@@ -163,6 +163,8 @@ try {
 
 ### Frontend (React + TypeScript)
 
+For end-user leaderboard-inspired UI work, including future public Explorer surfaces, use [docs/LEADERBOARD_DESIGN_SYSTEM.md](./docs/LEADERBOARD_DESIGN_SYSTEM.md) as the canonical design reference before copying patterns from older admin screens.
+
 **tRPC Hooks:**
 ```typescript
 import { trpc } from '@/utils/trpc';
@@ -378,6 +380,7 @@ npm run typecheck
 For detailed information:
 - **Quick start:** [docs/QUICK_START.md](./docs/QUICK_START.md)
 - **Architecture:** [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
+- **Leaderboard design system:** [docs/LEADERBOARD_DESIGN_SYSTEM.md](./docs/LEADERBOARD_DESIGN_SYSTEM.md)
 - **Database:** [docs/DATABASE_DESIGN.md](./docs/DATABASE_DESIGN.md)
 - **API reference:** [docs/API.md](./docs/API.md)
 - **Strava integration:** [docs/STRAVA_INTEGRATION.md](./docs/STRAVA_INTEGRATION.md)
