@@ -163,6 +163,12 @@
   margin-top: 1rem;
 }
 
+.explorer-destination-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
 .explorer-preview-actions {
   display: flex;
   gap: 0.75rem;
@@ -172,10 +178,15 @@
   margin-top: 1rem;
 }
 
-.explorer-destination-meta-card,
+.explorer-destination-surface {
+  background-color: var(--wmv-white);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid transparent;
+}
+
 .explorer-destination-summary-card {
-  border-color: var(--wmv-border);
-  border-radius: 12px;
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
@@ -185,16 +196,38 @@
 }
 
 .explorer-destination-card[data-expanded='true'] .explorer-destination-summary-card {
-  border-color: rgba(245, 96, 4, 0.28);
+  border-color: var(--wmv-orange);
 }
 
-.explorer-destination-title {
-  margin-bottom: 0.35rem;
+.explorer-destination-hero-title {
+  margin: 0;
+  font-size: var(--font-2xl);
+  line-height: 1.2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.explorer-destination-name-link {
+.explorer-destination-list-title {
+  padding-right: 16px;
+}
+
+.explorer-destination-surface-link {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
+  color: var(--wmv-orange);
+  text-decoration: none;
+}
+
+.explorer-destination-surface-link:hover {
+  text-decoration: underline;
+}
+
+.explorer-destination-surface-link svg {
+  width: 20px;
+  height: 20px;
 }
 
 .explorer-icon-button {
@@ -237,15 +270,11 @@
   color: #b91c1c;
 }
 
-.explorer-destination-chips {
+.explorer-destination-chip-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 0.85rem;
-}
-
-.explorer-destination-stats {
-  margin-top: 0;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .explorer-destination-summary {
@@ -258,9 +287,17 @@
   outline: none;
 }
 
+.explorer-destination-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
 .explorer-destination-label {
   color: var(--wmv-text-dark);
   font-weight: 600;
+  font-size: var(--font-2xl);
+  line-height: 1.2;
 }
 
 .explorer-destination-meta {
@@ -280,8 +317,8 @@
 
 .explorer-destination-chevron {
   flex-shrink: 0;
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 24px;
+  height: 24px;
   color: var(--wmv-text-light);
   transition: transform 0.2s ease;
 }
@@ -291,7 +328,13 @@
 }
 
 .explorer-destination-details {
-  margin-top: 0;
+  margin: -8px 16px 16px;
+  border: 1px solid var(--wmv-border);
+  border-top: none;
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
+  background-color: #f9fafb;
+  padding-top: 32px;
 }
 
 .explorer-destination-detail-row {
@@ -334,8 +377,17 @@
     flex-direction: column;
   }
 
+  .explorer-destination-surface {
+    padding: 20px;
+  }
+
   .explorer-preview-actions {
     width: 100%;
     justify-content: flex-start;
+  }
+
+  .explorer-destination-hero-title,
+  .explorer-destination-label {
+    font-size: var(--font-xl);
   }
 }

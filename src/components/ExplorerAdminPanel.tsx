@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ArrowPathIcon,
+  ArrowTopRightOnSquareIcon,
   ChevronDownIcon,
   CheckIcon,
   ClockIcon,
@@ -12,7 +13,6 @@ import { formatUnixDate, formatUtcIsoDateTime } from '../utils/dateUtils';
 import SeasonSelector from './SeasonSelector';
 import './AdminPanel.css';
 import './Card.css';
-import './SegmentCard.css';
 import './ExplorerAdminPanel.css';
 
 interface ExplorerAdminPanelProps {
@@ -514,22 +514,23 @@ function ExplorerAdminPanel({
                         </div>
                       </div>
 
-                      <div className="segment-card explorer-destination-meta-card">
-                        <h3 className="segment-card-title explorer-destination-title" data-testid="explorer-preview-name">
+                      <div className="explorer-destination-surface explorer-destination-surface-preview">
+                        <h3 className="explorer-destination-hero-title" data-testid="explorer-preview-name">
                           <a
-                            className="segment-link explorer-destination-name-link"
+                            className="explorer-destination-surface-link"
                             href={destinationPreview.sourceUrl}
                             target="_blank"
                             rel="noreferrer"
                           >
                             {destinationPreview.name}
+                            <ArrowTopRightOnSquareIcon aria-hidden="true" />
                           </a>
                         </h3>
 
                         {getDestinationStatItems(destinationPreview).length > 0 ? (
-                          <div className="segment-card-stats explorer-destination-stats">
+                          <div className="explorer-destination-chip-row">
                             {getDestinationStatItems(destinationPreview).map((item) => (
-                              <span key={item}>{item}</span>
+                              <span key={item} className="week-header-chip">{item}</span>
                             ))}
                           </div>
                         ) : null}
@@ -539,7 +540,7 @@ function ExplorerAdminPanel({
                 </div>
               </section>
 
-              <section className="leaderboard-card explorer-card" data-testid="explorer-destination-list-card">
+              <section className="explorer-destination-section" data-testid="explorer-destination-list-card">
                 <div className="explorer-card-header">
                   <div>
                     <p className="explorer-section-label">Current campaign map</p>
@@ -585,12 +586,12 @@ function ExplorerAdminPanel({
                             aria-expanded={isExpanded}
                             data-testid={`explorer-destination-toggle-${destination.id}`}
                           >
-                            <div className="segment-card explorer-destination-summary-card">
+                            <div className="explorer-destination-surface explorer-destination-summary-card">
                               <div>
-                                <h4 className="segment-card-title explorer-destination-title">
+                                <h4 className="explorer-destination-hero-title explorer-destination-list-title">
                                   {destination.sourceUrl ? (
                                     <a
-                                      className="segment-link explorer-destination-name-link"
+                                      className="explorer-destination-surface-link"
                                       href={destination.sourceUrl}
                                       target="_blank"
                                       rel="noreferrer"
@@ -599,6 +600,7 @@ function ExplorerAdminPanel({
                                       }}
                                     >
                                       {destination.displayLabel}
+                                      <ArrowTopRightOnSquareIcon aria-hidden="true" />
                                     </a>
                                   ) : (
                                     <span className="explorer-destination-label">{destination.displayLabel}</span>
@@ -606,9 +608,9 @@ function ExplorerAdminPanel({
                                 </h4>
 
                                 {destinationStatItems.length > 0 ? (
-                                  <div className="segment-card-stats explorer-destination-stats">
+                                  <div className="explorer-destination-chip-row">
                                     {destinationStatItems.map((item) => (
-                                      <span key={item}>{item}</span>
+                                      <span key={item} className="week-header-chip">{item}</span>
                                     ))}
                                   </div>
                                 ) : null}

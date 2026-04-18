@@ -229,6 +229,9 @@ Defining traits:
 - the `Next Up` badge is a specific schedule affordance, not a general chip replacement
 - expanded week content uses the same overlap-and-reveal idea as weekly notes
 - CTAs remain visually subordinate to the main header card
+- the segment name hierarchy is large and prominent, using `var(--font-2xl)` scale rather than compact metadata-card title sizing
+- the segment link keeps the inline external-link arrow attached directly to the title text
+- individual schedule entries should read as single primary surfaces, not stacks of nested boxes inside another card shell
 
 ## Link Rules
 
@@ -241,6 +244,7 @@ There are two valid title-link expressions in the current system:
 
 - `WeeklyHeader` pattern: linked title plus inline external-link icon for a hero-level week surface
 - `SegmentCard` pattern: linked title text without detached icon-first chrome for compact segment-object cards
+- `Schedule` destination-entry pattern: a large title treatment using the same linked-name plus inline-arrow idea, but still rendered as one primary surface with chips beneath it
 
 Rules:
 - for route, week, or destination title links, prefer the linked-name pattern over a separate icon-only action
@@ -257,8 +261,9 @@ Explorer should default to the leaderboard system in this order:
 3. Reuse `week-header-chip` for compact metadata before inventing a new chip style.
 4. Reuse `SegmentCard` title and metadata treatment whenever an Explorer destination is behaving like a compact segment object.
 5. Reuse the linked-title pattern from `WeeklyHeader.tsx` for hero-level Explorer headers or destination surfaces that are acting like weekly-header analogs.
-6. Reuse `CollapsibleSegmentProfile` as the default reference for deeper segment or destination detail reveals inside expanded surfaces.
-7. Only add Explorer-specific classes for layout or semantics the leaderboard primitives do not already express.
+6. Reuse the `Schedule` segment-entry hierarchy for Explorer destination rows when they are the primary objects in a list and need the larger title, inline arrow affordance, and flatter single-surface card treatment.
+7. Reuse `CollapsibleSegmentProfile` as the default reference for deeper segment or destination detail reveals inside expanded surfaces.
+8. Only add Explorer-specific classes for layout or semantics the leaderboard primitives do not already express.
 
 Do not treat legacy admin components as the source of truth for public Explorer UI.
 
