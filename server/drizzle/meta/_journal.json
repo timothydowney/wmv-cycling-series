@@ -78,6 +78,13 @@
       "when": 1776174000000,
       "tag": "0010_explorer_admin_backend",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1776600000000,
+      "tag": "0011_explorer_campaign_dates",
+      "breakpoints": true
     }
   ]
 }

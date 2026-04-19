@@ -18,7 +18,12 @@ function mapExplorerAdminError(error: unknown): TRPCError {
     return new TRPCError({ code: 'NOT_FOUND', message });
   }
 
-  if (message.includes('valid Strava segment URL')) {
+  if (
+    message.includes('valid Strava segment URL') ||
+    message.includes('Campaign end date') ||
+    message.includes('Campaign dates must be valid timestamps') ||
+    message.includes('cannot overlap')
+  ) {
     return new TRPCError({ code: 'BAD_REQUEST', message });
   }
 
@@ -31,15 +36,13 @@ function mapExplorerAdminError(error: unknown): TRPCError {
 }
 
 export const explorerAdminRouter = router({
-  getCampaignForSeason: adminProcedure
-    .input(z.object({
-      seasonId: z.number().int().positive(),
-    }))
-    .query(async ({ ctx, input }) => {
+  getCampaigns: adminProcedure
+    .input(z.void())
+    .query(async ({ ctx }) => {
       const service = new ExplorerQueryService(ctx.orm);
 
       try {
-        return await service.getCampaignForSeason(input.seasonId);
+        return service.getAdminCampaigns();
       } catch (error) {
         throw mapExplorerAdminError(error);
       }
@@ -47,7 +50,8 @@ export const explorerAdminRouter = router({
 
   createCampaign: adminProcedure
     .input(z.object({
-      seasonId: z.number().int().positive(),
+      startAt: z.number().int().positive(),
+      endAt: z.number().int().positive(),
       displayName: z.string().trim().max(255).nullable().optional(),
       rulesBlurb: z.string().trim().max(2000).nullable().optional(),
     }))
@@ -56,6 +60,24 @@ export const explorerAdminRouter = router({
 
       try {
         return service.createCampaign(input);
+      } catch (error) {
+        throw mapExplorerAdminError(error);
+      }
+    }),
+
+  updateCampaign: adminProcedure
+    .input(z.object({
+      explorerCampaignId: z.number().int().positive(),
+      startAt: z.number().int().positive(),
+      endAt: z.number().int().positive(),
+      displayName: z.string().trim().max(255).nullable().optional(),
+      rulesBlurb: z.string().trim().max(2000).nullable().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const service = new ExplorerAdminService(ctx.orm);
+
+      try {
+        return service.updateCampaign(input);
       } catch (error) {
         throw mapExplorerAdminError(error);
       }

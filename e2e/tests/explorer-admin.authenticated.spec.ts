@@ -1,22 +1,15 @@
 import { test, expect, type Page } from '@playwright/test';
 import { loginAsE2EUser } from '../fixtures/test-helpers';
 
-async function selectFirstSeason(page: Page) {
-  const seasonSelect = page.getByTestId('season-select');
-  await expect(seasonSelect).toBeVisible();
-
-  const firstSeasonValue = await seasonSelect.locator('option').first().getAttribute('value');
-  expect(firstSeasonValue).not.toBeNull();
-
-  await seasonSelect.selectOption(firstSeasonValue!);
-}
-
 async function ensureCampaignExists(page: Page) {
-  if (await page.getByTestId('explorer-create-campaign-form').isVisible()) {
+  if (await page.getByTestId('explorer-campaign-stack').count() === 0) {
+    await page.getByTestId('explorer-display-name-input').fill('Fall 2025 Explorer');
+    await page.getByTestId('explorer-start-date-input').fill('2025-10-01');
+    await page.getByTestId('explorer-end-date-input').fill('2025-10-31');
     await page.getByTestId('explorer-create-campaign-button').click();
   }
 
-  await expect(page.getByTestId('explorer-campaign-summary-card')).toBeVisible();
+  await expect(page.getByTestId('explorer-campaign-stack')).toBeVisible();
 }
 
 test.describe('Explorer Admin Setup', () => {
@@ -36,11 +29,11 @@ test.describe('Explorer Admin Setup', () => {
   test('admin can create a campaign and add a destination', async ({ page }) => {
     await page.goto('/explorer-admin');
 
-    await selectFirstSeason(page);
-
     await expect(page.getByTestId('explorer-create-campaign-form')).toBeVisible();
 
     await page.getByTestId('explorer-display-name-input').fill('Fall 2025 Explorer');
+    await page.getByTestId('explorer-start-date-input').fill('2025-10-01');
+    await page.getByTestId('explorer-end-date-input').fill('2025-10-31');
     await page.getByTestId('explorer-rules-blurb-input').fill('Ride each featured segment once.');
     await page.getByTestId('explorer-create-campaign-button').click();
 
@@ -61,8 +54,6 @@ test.describe('Explorer Admin Setup', () => {
 
   test('admin sees invalid URL and duplicate destination states', async ({ page }) => {
     await page.goto('/explorer-admin');
-
-    await selectFirstSeason(page);
 
     await ensureCampaignExists(page);
 

@@ -95,7 +95,8 @@ interface CreateWeekWithResultsOptions {
 }
 
 interface CreateExplorerCampaignOptions {
-  seasonId?: number;
+  startAt?: number;
+  endAt?: number;
   displayName?: string | null;
   rulesBlurb?: string | null;
 }
@@ -266,19 +267,15 @@ export function createExplorerCampaign(
   options: CreateExplorerCampaignOptions = {}
 ): SelectExplorerCampaign {
   const {
-    seasonId,
+    startAt = isoToUnix('2025-06-01T00:00:00Z') || 0,
+    endAt = isoToUnix('2025-06-30T23:59:59Z') || 0,
     displayName = 'Explorer Campaign',
     rulesBlurb = null,
   } = options;
 
-  let finalSeasonId = seasonId;
-  if (!finalSeasonId) {
-    const defaultSeason = createSeason(db, 'Explorer Season');
-    finalSeasonId = defaultSeason.id;
-  }
-
   const newCampaignData: InsertExplorerCampaign = {
-    season_id: finalSeasonId,
+    start_at: startAt,
+    end_at: endAt,
     display_name: displayName,
     rules_blurb: rulesBlurb,
   };

@@ -6,7 +6,14 @@ import { createContext } from '../../trpc/context';
 import { explorerCampaign, explorerDestination, participant } from '../../db/schema';
 import { ExplorerAdminService } from '../../services/ExplorerAdminService';
 import { SegmentService } from '../../services/SegmentService';
-import { clearAllData, createExplorerCampaign, createParticipant, createSeason, createSegment, setupTestDb, teardownTestDb } from '../testDataHelpers';
+import {
+  clearAllData,
+  createExplorerCampaign,
+  createParticipant,
+  createSegment,
+  setupTestDb,
+  teardownTestDb,
+} from '../testDataHelpers';
 
 describe('explorerAdminRouter', () => {
   let db: Database;
@@ -53,43 +60,37 @@ describe('explorerAdminRouter', () => {
   };
 
   it('requires admin auth to create a campaign', async () => {
-    const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
     const caller = getCaller(false);
 
     await expect(
-      caller.explorerAdmin.createCampaign({ seasonId: seasonRecord.id })
+      caller.explorerAdmin.createCampaign({ startAt: 1748736000, endAt: 1751327999 })
     ).rejects.toThrow('UNAUTHORIZED');
   });
 
-  it('requires admin auth to read a season campaign', async () => {
-    const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
+  it('requires admin auth to read campaigns', async () => {
     const caller = getCaller(false);
 
-    await expect(
-      caller.explorerAdmin.getCampaignForSeason({ seasonId: seasonRecord.id })
-    ).rejects.toThrow('UNAUTHORIZED');
+    await expect(caller.explorerAdmin.getCampaigns()).rejects.toThrow('UNAUTHORIZED');
   });
 
-  it('returns null when a season has no explorer campaign', async () => {
-    const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
+  it('returns an empty list when no campaigns exist', async () => {
     const caller = getCaller(true);
 
-    await expect(
-      caller.explorerAdmin.getCampaignForSeason({ seasonId: seasonRecord.id })
-    ).resolves.toBeNull();
+    await expect(caller.explorerAdmin.getCampaigns()).resolves.toEqual([]);
   });
 
   it('creates a campaign when called by an admin', async () => {
-    const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
     const caller = getCaller(true);
 
     const result = await caller.explorerAdmin.createCampaign({
-      seasonId: seasonRecord.id,
+      startAt: 1748736000,
+      endAt: 1751327999,
       displayName: 'Explorer 2026',
       rulesBlurb: 'Ride every destination once.',
     });
 
-    expect(result.season_id).toBe(seasonRecord.id);
+    expect(result.start_at).toBe(1748736000);
+    expect(result.end_at).toBe(1751327999);
     expect(result.display_name).toBe('Explorer 2026');
 
     const stored = drizzleDb
@@ -100,31 +101,52 @@ describe('explorerAdminRouter', () => {
     expect(stored?.rules_blurb).toBe('Ride every destination once.');
   });
 
-  it('rejects duplicate campaigns for the same season', async () => {
-    const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
+  it('updates a campaign when called by an admin', async () => {
     const caller = getCaller(true);
+    const campaign = createExplorerCampaign(drizzleDb, {
+      startAt: 1748736000,
+      endAt: 1751327999,
+      displayName: 'Explorer 2026',
+    });
 
-    await caller.explorerAdmin.createCampaign({ seasonId: seasonRecord.id });
+    const result = await caller.explorerAdmin.updateCampaign({
+      explorerCampaignId: campaign.id,
+      startAt: 1748822400,
+      endAt: 1751241599,
+      displayName: 'Updated Explorer 2026',
+      rulesBlurb: 'Updated rules.',
+    });
 
-    await expect(
-      caller.explorerAdmin.createCampaign({ seasonId: seasonRecord.id })
-    ).rejects.toThrow('Explorer campaign already exists for this season');
+    expect(result.display_name).toBe('Updated Explorer 2026');
+    expect(result.start_at).toBe(1748822400);
+    expect(result.end_at).toBe(1751241599);
   });
 
-  it('returns NOT_FOUND when the season does not exist', async () => {
+  it('rejects overlapping campaigns', async () => {
+    const caller = getCaller(true);
+    await caller.explorerAdmin.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
+
+    await expect(
+      caller.explorerAdmin.createCampaign({ startAt: 1750464000, endAt: 1753055999 })
+    ).rejects.toMatchObject({
+      code: 'BAD_REQUEST',
+      message: 'Explorer campaigns cannot overlap in v1',
+    });
+  });
+
+  it('rejects invalid campaign windows', async () => {
     const caller = getCaller(true);
 
     await expect(
-      caller.explorerAdmin.createCampaign({ seasonId: 999999 })
+      caller.explorerAdmin.createCampaign({ startAt: 1751327999, endAt: 1748736000 })
     ).rejects.toMatchObject({
-      code: 'NOT_FOUND',
-      message: 'Season not found',
+      code: 'BAD_REQUEST',
+      message: 'Campaign end date must be on or after the start date',
     });
   });
 
   it('requires admin auth to add a destination', async () => {
-    const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
-    const campaign = createExplorerCampaign(drizzleDb, { seasonId: seasonRecord.id });
+    const campaign = createExplorerCampaign(drizzleDb, { startAt: 1748736000, endAt: 1751327999 });
     const caller = getCaller(false);
 
     await expect(
@@ -136,8 +158,7 @@ describe('explorerAdminRouter', () => {
   });
 
   it('adds a destination and persists source URL plus cached metadata', async () => {
-    const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
-    const campaign = createExplorerCampaign(drizzleDb, { seasonId: seasonRecord.id });
+    const campaign = createExplorerCampaign(drizzleDb, { startAt: 1748736000, endAt: 1751327999 });
     const caller = getCaller(true);
     jest.spyOn(SegmentService.prototype, 'fetchAndStoreSegmentMetadata').mockResolvedValue({
       strava_segment_id: '12744502',
@@ -166,12 +187,17 @@ describe('explorerAdminRouter', () => {
     expect(stored?.display_order).toBe(0);
   });
 
-  it('returns an admin campaign view with destinations for the selected season', async () => {
-    const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
-    const campaign = createExplorerCampaign(drizzleDb, {
-      seasonId: seasonRecord.id,
-      displayName: 'Explorer 2026',
+  it('returns campaigns with destinations in admin view order', async () => {
+    const firstCampaign = createExplorerCampaign(drizzleDb, {
+      startAt: 1748736000,
+      endAt: 1751327999,
+      displayName: 'Spring Explorer',
       rulesBlurb: 'Ride every destination once.',
+    });
+    createExplorerCampaign(drizzleDb, {
+      startAt: 1751414400,
+      endAt: 1754006399,
+      displayName: 'Summer Explorer',
     });
     const caller = getCaller(true);
     createSegment(drizzleDb, '12744502', 'Mocked Segment', {
@@ -187,30 +213,45 @@ describe('explorerAdminRouter', () => {
     } as any);
 
     await caller.explorerAdmin.addDestination({
-      explorerCampaignId: campaign.id,
+      explorerCampaignId: firstCampaign.id,
       sourceUrl: 'https://www.strava.com/segments/12744502',
       displayLabel: 'Hilltown opener',
     });
 
-    const result = await caller.explorerAdmin.getCampaignForSeason({ seasonId: seasonRecord.id });
+    const result = await caller.explorerAdmin.getCampaigns();
 
-    expect(result).not.toBeNull();
-    expect(result?.name).toBe('Explorer 2026');
-    expect(result?.rulesBlurb).toBe('Ride every destination once.');
-    expect(result?.destinations).toHaveLength(1);
-    expect(result?.destinations[0]?.displayLabel).toBe('Hilltown opener');
-    expect(result?.destinations[0]?.segmentName).toBe('Mocked Segment');
-    expect(result?.destinations[0]?.createdAt).toBeTruthy();
-    expect(result?.destinations[0]?.distance).toBe(3210);
-    expect(result?.destinations[0]?.averageGrade).toBe(4.2);
-    expect(result?.destinations[0]?.city).toBe('Northampton');
-    expect(result?.destinations[0]?.state).toBe('MA');
-    expect(result?.destinations[0]?.country).toBe('USA');
+    expect(result).toHaveLength(2);
+    expect(result[1]?.name).toBe('Spring Explorer');
+    expect(result[1]?.displayNameRaw).toBe('Spring Explorer');
+    expect(result[1]?.rulesBlurb).toBe('Ride every destination once.');
+    expect(result[1]?.destinations).toHaveLength(1);
+    expect(result[1]?.destinations[0]).toMatchObject({
+      displayLabel: 'Hilltown opener',
+      segmentName: 'Mocked Segment',
+      distance: 3210,
+      averageGrade: 4.2,
+      city: 'Northampton',
+      state: 'MA',
+      country: 'USA',
+    });
+  });
+
+  it('preserves a null raw display name for unnamed campaigns', async () => {
+    createExplorerCampaign(drizzleDb, {
+      startAt: 1748736000,
+      endAt: 1751327999,
+      displayName: null,
+    });
+    const caller = getCaller(true);
+
+    const result = await caller.explorerAdmin.getCampaigns();
+
+    expect(result[0]?.name).toBe('Explorer Campaign');
+    expect(result[0]?.displayNameRaw).toBeNull();
   });
 
   it('allows destination creation when metadata enrichment falls back to placeholder data', async () => {
-    const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
-    const campaign = createExplorerCampaign(drizzleDb, { seasonId: seasonRecord.id });
+    const campaign = createExplorerCampaign(drizzleDb, { startAt: 1748736000, endAt: 1751327999 });
     const caller = getCaller(true);
     jest.spyOn(SegmentService.prototype, 'fetchAndStoreSegmentMetadata').mockResolvedValue({
       strava_segment_id: '12744502',
@@ -226,8 +267,7 @@ describe('explorerAdminRouter', () => {
   });
 
   it('rejects invalid segment URLs', async () => {
-    const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
-    const campaign = createExplorerCampaign(drizzleDb, { seasonId: seasonRecord.id });
+    const campaign = createExplorerCampaign(drizzleDb, { startAt: 1748736000, endAt: 1751327999 });
     const caller = getCaller(true);
 
     await expect(
@@ -239,34 +279,32 @@ describe('explorerAdminRouter', () => {
   });
 
   it('maps sqlite unique constraint errors to CONFLICT', async () => {
-    const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
     const caller = getCaller(true);
 
     jest.spyOn(ExplorerAdminService.prototype, 'createCampaign').mockImplementation(() => {
-      const error = new Error('UNIQUE constraint failed: explorer_campaign.season_id') as Error & { code: string };
+      const error = new Error('UNIQUE constraint failed: explorer_destination_campaign_segment') as Error & { code: string };
       error.code = 'SQLITE_CONSTRAINT_UNIQUE';
       throw error;
     });
 
     await expect(
-      caller.explorerAdmin.createCampaign({ seasonId: seasonRecord.id })
+      caller.explorerAdmin.createCampaign({ startAt: 1748736000, endAt: 1751327999 })
     ).rejects.toMatchObject({
       code: 'CONFLICT',
-      message: 'UNIQUE constraint failed: explorer_campaign.season_id',
+      message: 'UNIQUE constraint failed: explorer_destination_campaign_segment',
     });
   });
 
   it('does not leak raw internal errors to clients', async () => {
-    const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
     const caller = getCaller(true);
     const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
     jest.spyOn(ExplorerAdminService.prototype, 'createCampaign').mockImplementation(() => {
-      throw new Error('SQL query failed near idx_explorer_campaign_season');
+      throw new Error('SQL query failed near idx_explorer_campaign_window');
     });
 
     await expect(
-      caller.explorerAdmin.createCampaign({ seasonId: seasonRecord.id })
+      caller.explorerAdmin.createCampaign({ startAt: 1748736000, endAt: 1751327999 })
     ).rejects.toMatchObject({
       code: 'INTERNAL_SERVER_ERROR',
       message: 'Explorer admin operation failed',

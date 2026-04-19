@@ -4,15 +4,15 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 
 ## Current Focus
 
-- Preserve the checkpointed functional 4B-3 admin UX work while documenting the leaderboard design system before more Explorer UX polish continues.
-- Keep the next slice focused on Weekly, Season, and Schedule UI audit and documentation so future Explorer surfaces start from the right public-facing primitives.
+- Correct Explorer from the superseded season-attached model to a campaign-first model with campaign-owned date boundaries.
+- Define the next slice as structural decoupling plus a more all-in-one leaderboard-styled Explorer admin shell rather than as more season-based admin polish.
 - Keep any pre-release Explorer UI admin-gated until there is an explicit end-user release decision.
-- Keep the next handoff and implementation brief aligned with the landed backend authoring contract plus the existing `segment.validate` preview seam.
+- Keep the next handoff and implementation brief aligned with the existing `segment.validate` preview seam plus the campaign-first model correction.
 
 ## Current Go State
 
-- **Readiness:** Phase 1 Complete; Season-Campaign Correction Landed; Backend Campaign Slice Merged; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Ready For Phase 4B-3 Admin UX Refinement
-- **Immediate scope:** document the canonical leaderboard design system and wire that guidance into future Explorer implementation before resuming UX-polish work on top of the checkpointed 4B-3 branch state
+- **Readiness:** Phase 1 Complete; Campaign-First Explorer Correction Landed; Explorer Structural Decoupling Required; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Ready For Phase 4B-3 Campaign Decoupling And Unified Admin Shell
+- **Immediate scope:** land the campaign-first planning correction and hand off one bounded structural-correction slice before more Explorer UI expansion continues
 - **Not yet in scope:** public athlete-facing Explorer release, public navigation to Explorer, mini-campaigns, or explicit publish-status workflows
 
 ## Decisions Made
@@ -26,12 +26,13 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 - Phase 1 is approved only as a structural webhook slice: preserve current behavior first, add Explorer matching later.
 - Phase 1 is complete on this branch: the shared activity-ingestion context, sequential delegated handlers, explicit handler order, and preservation tests are in place.
 - The previous Explorer planning set and PR #23 used the wrong primary model: weekly Explorer challenges first, with season-wide support deferred.
-- MVP should instead be season-campaign-first, attached to an existing WMV season, with optional mini-campaigns deferred.
-- MVP does not currently justify explicit Explorer `draft` / `active` / `archived` workflow complexity; season dates and destination presence should control visibility unless later implementation proves otherwise.
+- MVP should instead be campaign-first, with campaign-owned date boundaries and optional sub-campaigns deferred.
+- MVP does not currently justify explicit Explorer `draft` / `active` / `archived` workflow complexity; campaign dates and destination presence should control visibility unless later implementation proves otherwise.
 - V1 athlete campaign summary is computed on read, with `ExplorerDestinationMatch` as the durable source of truth.
 - V1 destination metadata uses a hybrid strategy: reuse shared segment data when present, while storing Explorer-local cached display metadata and source URL values for stable setup and rendering.
 - If Explorer UI is touched before public release, it stays admin-only and does not add public navigation.
-- V1 permits exactly one Explorer campaign per season; this should be enforced in the admin backend without blocking future multi-season support.
+- `Season` should remain competition-only for Explorer planning and implementation purposes.
+- V1 permits Explorer campaigns with their own date windows, but does not permit overlapping Explorer campaigns.
 - 4A destination authoring accepts validated Strava segment URLs, not raw segment IDs.
 - If URL parsing succeeds but live Strava metadata enrichment fails, destination creation still succeeds with stored segment ID and source URL.
 - Refresh and backfill admin mutations are deferred out of 4A.
@@ -43,8 +44,8 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 
 | Question | Status | Blocks Implementation | Notes |
 | --- | --- | --- | --- |
-| Should Explorer be season-campaign-first or weekly-first in MVP? | Closed | Yes | Closed in favor of season-campaign-first attached to the existing season model. |
-| Should optional mini-campaigns within a season remain in MVP? | Closed | Yes | Closed in favor of removing them from MVP and deferring them to later planning. |
+| Should Explorer be campaign-first or weekly-first in MVP? | Closed | Yes | Closed in favor of a campaign-first Explorer model with campaign-owned date boundaries. |
+| Should optional nested campaign structures remain in MVP? | Closed | Yes | Closed in favor of removing them from MVP and deferring them to later planning. |
 | Does MVP need an explicit Explorer status workflow such as `draft` or `archived`? | Closed For MVP | Yes | Closed in favor of no explicit status field unless later implementation proves it is needed. |
 | Should athlete campaign summaries be computed on read or stored in a cached summary table for v1? | Closed For v1 | No | V1 uses computed-on-read summaries with `ExplorerDestinationMatch` as the durable source of truth. |
 | Should Explorer reuse the existing segment table, store Explorer-local cached metadata, or do both? | Closed For v1 | No | V1 uses a hybrid strategy: shared segment reuse when present plus Explorer-local cached display metadata. |
@@ -52,7 +53,8 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 | What is the exact E2E data strategy for Explorer flows? | Closed For 4B-1 | No | The baseline data source is the committed sanitized fixture at `server/data/wmv_e2e_fixture.db`, with deterministic backend Strava reads selected through explicit providers. |
 | Should deleted source activities retract Explorer completions in v1? | Open | No | Safe to defer if behavior is documented. |
 | Should pre-release Explorer UI remain admin-gated until launch approval? | Closed | No | Yes. Do not expose Explorer UI to non-admin users before a viable release decision. |
-| Should there be more than one Explorer campaign per season in v1? | Closed | No | No. Enforce one campaign per season in 4A while leaving room for future multi-season support. |
+| Should Explorer depend on the competition `Season` model in v1? | Closed | Yes | No. `Season` returns to competition-only semantics and Explorer uses campaign-owned dates. |
+| Should overlapping Explorer campaigns be allowed in v1? | Closed | Yes | No. Disallow overlap so active-campaign lookup stays deterministic without adding a heavier publish-status model. |
 | Should 4A accept raw segment IDs as an admin authoring input? | Closed | No | No. Use validated Strava segment URLs only in the 4A backend contract. |
 | What happens if URL parsing succeeds but live metadata enrichment fails? | Closed | No | Allow creation and preserve segment ID plus source URL for later repair. |
 | Do refresh and backfill admin mutations belong in 4A? | Closed | No | No. Defer them to a later admin slice. |
@@ -63,8 +65,8 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 
 ### Must Resolve Before Broad Implementation
 
-1. Correct the primary Explorer model to season-campaign-first across the planning set.
-2. Re-scope MVP so optional mini-campaigns are explicitly deferred.
+1. Correct the primary Explorer model to campaign-first across the planning set.
+2. Re-scope MVP so overlapping or nested campaign structures are explicitly deferred.
 3. Re-approve the next implementation slice against the corrected model before more Explorer coding continues.
 
 Resolution:
@@ -127,72 +129,77 @@ The current preservation target is backed by:
 ### Completed Backend Campaign Slice
 
 - Phase: Phase 3
-- Goal: establish the season-attached Explorer campaign backend model, matching flow, and initial read surface as the base for later admin and hub work
-- Why this matters: 4A should now build on the merged backend slice rather than reopening campaign-model work
+- Goal: establish the initial Explorer campaign backend model, matching flow, and read surface
+- Why this matters: this backend slice is merged, but it now sits on the superseded season-attached model and should be treated as the correction surface for the next slice rather than as a finished long-term base
 
 ### Completed Admin Backend Slice
 
 - Phase: Slice 4A
-- Goal: add the minimal Explorer admin service and tRPC surface needed to create a campaign for a season and add destinations safely
+- Goal: add the minimal Explorer admin service and tRPC surface needed to create a campaign and add destinations safely
 - Outcome:
-	- `explorerAdmin.createCampaign` now creates the single Explorer campaign allowed per season in v1.
+	- `explorerAdmin.createCampaign` currently creates Explorer campaigns against the superseded season-attached model and is part of the next correction surface.
 	- `explorerAdmin.addDestination` now accepts validated Strava segment URLs, persists source URL plus cached display metadata, and appends destinations in display order.
-	- One-campaign-per-season and no-duplicate-segment-within-a-campaign rules are enforced in both service logic and the database.
+	- No-duplicate-segment-within-a-campaign protection is enforced in both service logic and the database.
 	- Destination creation can proceed when URL parsing succeeds even if live metadata enrichment is temporarily unavailable.
-	- Backend coverage now includes focused admin service and router tests for auth, validation, duplicate protection, metadata fallback, and in-season additions.
+	- Backend coverage now includes focused admin service and router tests for auth, validation, duplicate protection, metadata fallback, and in-campaign additions.
 
 ### Recommended Next PR
 
-- Start from the checkpointed 4B-3 branch state on a dedicated documentation or design-system branch.
-- Keep the next implementation PR scoped to the leaderboard design-system audit and documentation slice:
-	- document the canonical Weekly, Season, and Schedule design language in one durable reference
-	- identify which shared primitives Explorer should reuse by default
-	- record gaps where the public leaderboard does not yet define a stable form or admin-control pattern
-	- wire the documented guidance into repo instructions or agent-facing surfaces so future Explorer work reads it first
-	- avoid further piecemeal Explorer restyling until that guide exists
+- Start from updated `main` on a dedicated implementation branch.
+- Keep the next implementation PR scoped to the campaign decoupling and unified admin-shell slice:
+	- move Explorer campaign boundaries onto campaign-owned start and end dates
+	- remove Explorer's dependency on the competition `Season` model
+	- enforce the v1 no-overlap campaign rule
+	- reshape the Explorer admin surface into a more all-in-one leaderboard-styled campaign editor with an expandable campaign card for dates and metadata
+	- preserve the existing preview-first destination authoring flow inside that unified shell
 - Validation path for the next PR:
-	- document review against the authoritative source files
-	- verify agent-facing references point to the new guide
-	- no product-code validation beyond any touched markdown or instruction surfaces unless the slice expands again
+	- focused backend tests for campaign boundaries and overlap enforcement
+	- frontend unit tests for the unified campaign card and preview-first destination authoring flow
+	- targeted Playwright for campaign date editing or creation plus destination preview-add behavior
+	- `npm run lint`, `npm run typecheck`, and targeted build verification
 - Planning and documentation surfaces likely to change when 4B-3 lands:
-	- `docs/LEADERBOARD_DESIGN_SYSTEM.md`
+	- `docs/API.md`
+	- `docs/DATABASE_DESIGN.md`
 	- `docs/prds/wmv-explorer-destinations-phases.md`
 	- `docs/prds/wmv-explorer-worklog.md`
 	- `docs/prds/wmv-explorer-readiness-checklist.md`
-	- repo instruction surfaces such as `AGENTS.md`, `AGENT_USAGE.md`, or `.github/copilot-instructions.md`
+	- `docs/prds/wmv-explorer-execution-briefing.md` if the slice changes the approved next step again
 
 ### 4B-3 Implementation Handoff
 
 - Slice: Phase 4B-3 only.
 - Branch start point: updated `main`, then a dedicated feature branch before coding.
-- Governing scope: card-first destination authoring and richer accepted-destination cards on top of the already-merged 4B-1 harness and 4B-2 minimal UI baseline.
+- Governing scope: campaign-first structural correction plus a more all-in-one leaderboard-styled Explorer admin shell on top of the already-merged 4B-1 harness and 4B-2 minimal UI baseline.
 - UI rule: prefer reuse of the existing WMV leaderboard card language and component patterns where that reuse clarifies hierarchy, rather than layering more bespoke Explorer-only form styling.
 - Authoring flow recommendation:
-	- admin pastes a Strava segment URL
+	- the admin manages campaign dates and campaign metadata in one expandable campaign card
+	- the admin pastes a Strava segment URL inside the same Explorer surface
 	- the UI parses and validates promptly through the existing `segment.validate` seam
 	- a preview card appears with segment metadata before persistence
 	- the admin explicitly accepts or rejects the preview
-	- optional Explorer display-label entry is deferred from the shipped 4B-3 preview-add flow
+	- optional Explorer display-label entry remains deferred unless this correction slice proves it is required
 - Backend expectation:
-	- keep the existing `explorerAdmin.addDestination` write contract
-	- expand Explorer admin read-side destination fields only if needed for richer accepted-card rendering
-	- do not add persisted edit, remove, reorder, refresh, or search mutations in this slice
+	- remove Explorer's dependency on competition `Season`
+	- give Explorer campaigns their own start and end dates
+	- enforce the no-overlap rule in v1
+	- keep the existing `explorerAdmin.addDestination` write contract unless the campaign correction forces a narrow contract update
+	- do not add persisted edit, remove, reorder, refresh, or search mutations in this slice unless one is required to keep the campaign editor coherent
 - Existing Playwright impact:
 	- preserve the admin-only route and navigation behavior
-	- add or adjust browser coverage only for the interactive preview-add flow and accepted-card presentation
+	- add or adjust browser coverage for campaign date editing or creation plus the interactive preview-add flow and accepted-card presentation
 	- continue using the hardened E2E harness rather than local-only assumptions
 
 ### 4B-3 Branch-Ready Task List
 
-1. Rework the Explorer admin screen so season summary, campaign summary, authoring, and accepted destinations follow a coherent card hierarchy aligned with the current WMV leaderboard surfaces.
-2. Replace the plain add-destination form with a fast paste-validate-preview-add interaction using the existing segment-validation seam.
-3. Extend accepted-destination cards to show richer segment details already known to the system, such as distance, grade, and location, plus Explorer-specific label context.
-4. Keep campaign creation visually consistent with the updated card hierarchy without widening into broader management workflows.
-5. Update slice-local tests and planning docs so the merged outcome clearly records 4B-3 completion and the next approved Explorer step.
+1. Move Explorer campaign boundaries from competition `Season` to campaign-owned start and end dates.
+2. Enforce the no-overlap Explorer campaign rule for v1 without introducing a heavier publish-status model.
+3. Rework the Explorer admin screen into an all-in-one campaign editor that follows the WMV leaderboard design language.
+4. Preserve and nest the preview-first paste-validate-preview-add destination flow inside that campaign editor.
+5. Update slice-local tests and planning docs so the merged outcome clearly records the model correction and the next approved Explorer step.
 
 ### 4B-3 Implementation Brief
 
-- Phase: 4B-3 Admin UX Refinement
+- Phase: 4B-3 Campaign Decoupling And Unified Admin Shell
 - Readiness state: approved to implement now; no blocking planning questions remain for this slice
 - Branch start point: commit the current planning-doc updates on `main`, then create a fresh feature branch from updated `main` before any product-code changes
 
@@ -204,11 +211,12 @@ Primary governing references:
 
 Goal:
 
-- Turn the minimal Explorer admin setup screen into a more interactive, modern, card-first authoring experience that matches the existing WMV card language and makes repeated paste-and-add destination setup feel fast and obvious.
+- Correct the shipped season-attached Explorer model by moving Explorer onto campaign-owned dates, then turn the minimal Explorer admin setup screen into a more unified, modern, card-first campaign editor that matches the existing WMV card language.
 
 Required outcome:
 
-- The Explorer admin screen keeps season and campaign framing at the top, but uses a clearer card hierarchy consistent with the leaderboard, weekly, season, and schedule surfaces.
+- The Explorer admin screen uses Explorer campaign framing at the top, not competition season framing, and follows a clearer card hierarchy consistent with the leaderboard, weekly, season, and schedule surfaces.
+- The campaign card includes editable start and end dates in an expandable shell.
 - Destination authoring becomes a preview-first flow:
 	- the admin pastes a Strava segment URL
 	- the UI validates through the existing `segment.validate` seam
@@ -239,17 +247,18 @@ Expected code surfaces:
 
 Implementation constraints:
 
-- Do not add persisted edit, remove, reorder, refresh, or search flows in this slice.
+- Do not add persisted edit, remove, reorder, refresh, or search flows in this slice unless one is required to keep the corrected campaign editor coherent.
 - Do not add public Explorer exposure.
 - Do not convert links into generic button-styled actions when a normal link is clearer.
 - Keep icon-first actions accessible with visible context and `aria-label` support where needed.
+- Keep production migration simple and boot-safe; Explorer campaign rows do not currently require data-preservation work.
 - Treat map plotting as deferred. Location text should be surfaced now, but real coordinate or geometry storage is not part of 4B-3.
 
 Validation path:
 
-- Frontend unit tests covering preview state, validation success and failure, accept, reject, and repeated add behavior
-- Focused backend tests only if the Explorer admin read shape changes
-- Targeted Playwright coverage for the admin paste-validate-preview-add flow and richer accepted-card rendering
+- Frontend unit tests covering campaign date editing plus preview state, validation success and failure, accept, reject, and repeated add behavior
+- Focused backend tests for campaign boundary matching, overlap enforcement, and any Explorer admin contract changes
+- Targeted Playwright coverage for campaign date editing or creation plus the admin paste-validate-preview-add flow and accepted-card rendering
 - `npm run lint`
 - `npm run typecheck`
 - targeted build verification for the touched UI
@@ -258,7 +267,7 @@ Documentation expectations when 4B-3 lands:
 
 - update `docs/prds/wmv-explorer-destinations-phases.md` to mark 4B-3 complete if the slice lands as approved
 - update `docs/prds/wmv-explorer-worklog.md` and `docs/prds/wmv-explorer-readiness-checklist.md` to record the new next step
-- update `docs/API.md` only if the Explorer admin read contract expands
+- update `docs/API.md` and `docs/DATABASE_DESIGN.md` if campaign-owned dates or overlap constraints change the backend contract or schema
 
 Non-blockers to leave alone:
 
@@ -272,7 +281,7 @@ Non-blockers to leave alone:
 
 These decisions are now closed for the 4A implementation handoff.
 
-1. Enforce one campaign per season in 4A. Prefer database protection plus service-layer validation.
+1. The earlier one-campaign-per-season rule is superseded by campaign-owned dates plus a no-overlap rule in v1.
 2. Accept validated Strava segment URLs only in 4A.
 3. Allow creation when URL parsing succeeds even if live metadata enrichment fails.
 4. Defer refresh and backfill mutations to a later admin slice.

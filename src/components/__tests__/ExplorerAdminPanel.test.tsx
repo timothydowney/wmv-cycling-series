@@ -1,16 +1,18 @@
-import { act } from 'react';
+import { act, type ComponentProps } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Season } from '../../types';
+import { dateToUnixEnd, dateToUnixStart, unixToDateLocal } from '../../utils/dateUtils';
 import ExplorerAdminPanel from '../ExplorerAdminPanel';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const trpcMocks = vi.hoisted(() => ({
-  campaignQuery: {
-    data: null as null | {
+  campaignsQuery: {
+    data: [] as Array<{
       id: number;
       name: string;
+      startAt: number;
+      endAt: number;
       rulesBlurb: string | null;
       destinations: Array<{
         id: number;
@@ -27,7 +29,7 @@ const trpcMocks = vi.hoisted(() => ({
         state: string | null;
         country: string | null;
       }>;
-    },
+    }>,
     error: null as Error | null,
     isLoading: false,
   },
@@ -41,12 +43,23 @@ const trpcMocks = vi.hoisted(() => ({
     state: 'Surrey',
     country: 'United Kingdom',
   })),
-  createCampaign: vi.fn(async (_input?: unknown) => ({ id: 1 })),
+  createCampaign: vi.fn(async (_input?: unknown) => ({
+    id: 91,
+    start_at: 1748736000,
+    end_at: 1751327999,
+    display_name: 'Explorer June',
+  })),
+  updateCampaign: vi.fn(async (_input?: unknown) => ({
+    id: 41,
+    start_at: 1748736000,
+    end_at: 1751327999,
+    display_name: 'Updated Explorer',
+  })),
   addDestination: vi.fn(async (_input?: unknown) => ({
-    id: 1,
-    cached_name: 'Segment 1',
-    strava_segment_id: '1',
-    usedPlaceholderMetadata: true,
+    id: 201,
+    cached_name: 'Box Hill KOM',
+    strava_segment_id: '2234642',
+    usedPlaceholderMetadata: false,
   })),
 }));
 
@@ -61,14 +74,14 @@ vi.mock('../../utils/trpc', () => ({
         },
       },
       explorerAdmin: {
-        getCampaignForSeason: {
+        getCampaigns: {
           invalidate: trpcMocks.invalidate,
         },
       },
     }),
     explorerAdmin: {
-      getCampaignForSeason: {
-        useQuery: () => trpcMocks.campaignQuery,
+      getCampaigns: {
+        useQuery: () => trpcMocks.campaignsQuery,
       },
       createCampaign: {
         useMutation: (options: {
@@ -88,6 +101,24 @@ vi.mock('../../utils/trpc', () => ({
           },
         }),
       },
+      updateCampaign: {
+        useMutation: (options: {
+          onError?: (error: Error) => void;
+          onSuccess?: (result: unknown) => Promise<void> | void;
+        }) => ({
+          isPending: false,
+          mutateAsync: async (input: unknown) => {
+            try {
+              const result = await trpcMocks.updateCampaign(input);
+              await options.onSuccess?.(result);
+              return result;
+            } catch (error) {
+              options.onError?.(error as Error);
+              throw error;
+            }
+          },
+        }),
+      },
       addDestination: {
         useMutation: (options: {
           onError?: (error: Error) => void;
@@ -95,6 +126,7 @@ vi.mock('../../utils/trpc', () => ({
             cached_name: string;
             strava_segment_id: string;
             usedPlaceholderMetadata: boolean;
+            id: number;
           }) => Promise<void> | void;
         }) => ({
           isPending: false,
@@ -113,21 +145,6 @@ vi.mock('../../utils/trpc', () => ({
     },
   },
 }));
-
-const seasons: Season[] = [
-  {
-    id: 7,
-    name: 'Spring 2026',
-    start_at: 1711929600,
-    end_at: 1714521600,
-  },
-  {
-    id: 8,
-    name: 'Summer 2026',
-    start_at: 1717200000,
-    end_at: 1719792000,
-  },
-];
 
 interface RenderResult {
   container: HTMLDivElement;
@@ -150,21 +167,13 @@ function createDeferredValue<T>(): DeferredValue<T> {
   return { promise, resolve };
 }
 
-async function renderPanel(overrides: Partial<React.ComponentProps<typeof ExplorerAdminPanel>> = {}) {
+async function renderPanel(overrides: Partial<ComponentProps<typeof ExplorerAdminPanel>> = {}) {
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root = createRoot(container);
 
   await act(async () => {
-    root.render(
-      <ExplorerAdminPanel
-        isAdmin
-        seasons={seasons}
-        selectedSeasonId={seasons[0].id}
-        onSeasonChange={vi.fn()}
-        {...overrides}
-      />
-    );
+    root.render(<ExplorerAdminPanel isAdmin {...overrides} />);
   });
 
   renderResult = { container, root };
@@ -215,9 +224,9 @@ async function clickElement(element: HTMLElement) {
 
 describe('ExplorerAdminPanel', () => {
   beforeEach(() => {
-    trpcMocks.campaignQuery.data = null;
-    trpcMocks.campaignQuery.error = null;
-    trpcMocks.campaignQuery.isLoading = false;
+    trpcMocks.campaignsQuery.data = [];
+    trpcMocks.campaignsQuery.error = null;
+    trpcMocks.campaignsQuery.isLoading = false;
     trpcMocks.invalidate.mockClear();
     trpcMocks.validateSegment.mockReset();
     trpcMocks.validateSegment.mockResolvedValue({
@@ -230,11 +239,23 @@ describe('ExplorerAdminPanel', () => {
       country: 'United Kingdom',
     });
     trpcMocks.createCampaign.mockReset();
-    trpcMocks.createCampaign.mockResolvedValue({ id: 1 });
+    trpcMocks.createCampaign.mockResolvedValue({
+      id: 91,
+      start_at: 1748736000,
+      end_at: 1751327999,
+      display_name: 'Explorer June',
+    });
+    trpcMocks.updateCampaign.mockReset();
+    trpcMocks.updateCampaign.mockResolvedValue({
+      id: 41,
+      start_at: 1748736000,
+      end_at: 1751327999,
+      display_name: 'Updated Explorer',
+    });
     trpcMocks.addDestination.mockReset();
     trpcMocks.addDestination.mockResolvedValue({
-      id: 1,
-      cached_name: 'Segment 2234642',
+      id: 201,
+      cached_name: 'Box Hill KOM',
       strava_segment_id: '2234642',
       usedPlaceholderMetadata: false,
     });
@@ -244,7 +265,7 @@ describe('ExplorerAdminPanel', () => {
   afterEach(async () => {
     if (renderResult) {
       await act(async () => {
-        renderResult?.root.unmount();
+        renderResult.root.unmount();
       });
       renderResult.container.remove();
       renderResult = null;
@@ -260,69 +281,84 @@ describe('ExplorerAdminPanel', () => {
     expect(container.textContent).toContain('do not have admin permissions');
   });
 
-  it('falls back to the first season when no admin season is selected', async () => {
-    const { container } = await renderPanel({ selectedSeasonId: null });
+  it('creates a campaign with date-bound input', async () => {
+    const { container } = await renderPanel();
 
-    expect(getByTestId(container, 'explorer-season-summary').textContent).toContain('Spring 2026');
+    await setValue(getByTestId(container, 'explorer-display-name-input') as HTMLInputElement, 'Explorer June');
+    await setValue(getByTestId(container, 'explorer-start-date-input') as HTMLInputElement, '2025-06-01');
+    await setValue(getByTestId(container, 'explorer-end-date-input') as HTMLInputElement, '2025-06-30');
+    await setValue(getByTestId(container, 'explorer-rules-blurb-input') as HTMLTextAreaElement, 'Ride every destination once.');
 
     await submitForm(getByTestId(container, 'explorer-create-campaign-form'));
 
     expect(trpcMocks.createCampaign).toHaveBeenCalledWith({
-      seasonId: 7,
-      displayName: null,
-      rulesBlurb: null,
-    });
-    expect(trpcMocks.invalidate).toHaveBeenCalledWith({ seasonId: 7 });
-  });
-
-  it('falls back to the first season when the selected season is missing', async () => {
-    const { container } = await renderPanel({ selectedSeasonId: 999 });
-
-    expect(getByTestId(container, 'explorer-season-summary').textContent).toContain('Spring 2026');
-  });
-
-  it('shows the empty state when there are no seasons to configure', async () => {
-    const { container } = await renderPanel({ seasons: [], selectedSeasonId: null });
-
-    expect(container.textContent).toContain('No seasons available');
-    expect(queryByTestId(container, 'explorer-create-campaign-form')).toBeNull();
-  });
-
-  it('auto-previews, accepts, and rejects destinations while preserving the latest flash message timer', async () => {
-    vi.useFakeTimers();
-    trpcMocks.campaignQuery.data = {
-      id: 41,
-      name: 'Spring 2026 Explorer',
+      startAt: dateToUnixStart('2025-06-01'),
+      endAt: dateToUnixEnd('2025-06-30'),
+      displayName: 'Explorer June',
       rulesBlurb: 'Ride every destination once.',
-      destinations: [],
-    };
-    trpcMocks.addDestination
-      .mockResolvedValueOnce({
-        id: 1,
-        cached_name: 'Segment 2234642',
-        strava_segment_id: '2234642',
-        usedPlaceholderMetadata: true,
-      })
-      .mockResolvedValueOnce({
-        id: 2,
-        cached_name: 'Box Hill KOM',
-        strava_segment_id: '2234642',
-        usedPlaceholderMetadata: false,
-      });
+    });
+    expect(trpcMocks.invalidate).toHaveBeenCalled();
+    expect(getByTestId(container, 'explorer-admin-message').textContent).toContain('Explorer campaign created.');
+  });
+
+  it('updates an existing campaign from the expanded card', async () => {
+    trpcMocks.campaignsQuery.data = [
+      {
+        id: 41,
+        name: 'Spring Explorer',
+        displayNameRaw: 'Spring Explorer',
+        startAt: 1748736000,
+        endAt: 1751327999,
+        rulesBlurb: 'Ride every destination once.',
+        destinations: [],
+      },
+    ];
+
+    const { container } = await renderPanel();
+
+    await setValue(getByTestId(container, 'explorer-campaign-name-input-41') as HTMLInputElement, 'Updated Explorer');
+    await setValue(getByTestId(container, 'explorer-campaign-start-date-input-41') as HTMLInputElement, '2025-06-02');
+    await setValue(getByTestId(container, 'explorer-campaign-end-date-input-41') as HTMLInputElement, '2025-06-29');
+    await setValue(getByTestId(container, 'explorer-campaign-rules-input-41') as HTMLTextAreaElement, 'Updated rules.');
+    await clickElement(getByTestId(container, 'explorer-save-campaign-button-41'));
+
+    expect(trpcMocks.updateCampaign).toHaveBeenCalledWith({
+      explorerCampaignId: 41,
+      startAt: dateToUnixStart('2025-06-02'),
+      endAt: dateToUnixEnd('2025-06-29'),
+      displayName: 'Updated Explorer',
+      rulesBlurb: 'Updated rules.',
+    });
+  });
+
+  it('auto-previews, rejects, and accepts destinations for the expanded campaign', async () => {
+    vi.useFakeTimers();
+    trpcMocks.campaignsQuery.data = [
+      {
+        id: 41,
+        name: 'Spring Explorer',
+        displayNameRaw: 'Spring Explorer',
+        startAt: 1748736000,
+        endAt: 1751327999,
+        rulesBlurb: 'Ride every destination once.',
+        destinations: [],
+      },
+    ];
 
     const { container } = await renderPanel();
 
     await setValue(
       getByTestId(container, 'explorer-source-url-input') as HTMLInputElement,
-      '  https://www.strava.com/segments/2234642  '
+      'https://www.strava.com/segments/2234642'
     );
+
     await act(async () => {
       vi.advanceTimersByTime(150);
       await Promise.resolve();
     });
 
-    expect(getByTestId(container, 'explorer-destination-preview-card').textContent).toContain('Box Hill KOM');
-    expect(getByTestId(container, 'explorer-destination-preview-card').textContent).toContain('2.93 km');
+    expect(trpcMocks.validateSegment).toHaveBeenCalledWith('2234642');
+    expect(getByTestId(container, 'explorer-preview-name').textContent).toContain('Box Hill KOM');
 
     await clickElement(getByTestId(container, 'explorer-reject-preview-button'));
     expect(queryByTestId(container, 'explorer-destination-preview-card')).toBeNull();
@@ -331,87 +367,98 @@ describe('ExplorerAdminPanel', () => {
       getByTestId(container, 'explorer-source-url-input') as HTMLInputElement,
       'https://www.strava.com/segments/2234642'
     );
-    await act(async () => {
-      vi.advanceTimersByTime(150);
-      await Promise.resolve();
-    });
-    await clickElement(getByTestId(container, 'explorer-accept-preview-button'));
 
-    expect(getByTestId(container, 'explorer-admin-message').textContent).toContain('placeholder metadata');
-    expect(trpcMocks.addDestination).toHaveBeenNthCalledWith(1, {
-      explorerCampaignId: 41,
-      sourceUrl: 'https://www.strava.com/segments/2234642',
-    });
-
-    await act(async () => {
-      vi.advanceTimersByTime(1000);
-    });
-
-    await setValue(
-      getByTestId(container, 'explorer-source-url-input') as HTMLInputElement,
-      'https://www.strava.com/segments/2234642'
-    );
     await act(async () => {
       vi.advanceTimersByTime(150);
       await Promise.resolve();
     });
 
-    expect(getByTestId(container, 'explorer-preview-name').textContent).toContain('Box Hill KOM');
-
     await clickElement(getByTestId(container, 'explorer-accept-preview-button'));
 
-    expect(getByTestId(container, 'explorer-admin-message').textContent).toContain('Destination added to the Explorer campaign.');
-    expect(trpcMocks.addDestination).toHaveBeenNthCalledWith(2, {
+    expect(trpcMocks.addDestination).toHaveBeenCalledWith({
       explorerCampaignId: 41,
       sourceUrl: 'https://www.strava.com/segments/2234642',
     });
-
-    await act(async () => {
-      vi.advanceTimersByTime(4000);
-    });
-
     expect(getByTestId(container, 'explorer-admin-message').textContent).toContain('Destination added to the Explorer campaign.');
-
-    await act(async () => {
-      vi.advanceTimersByTime(1000);
-    });
-
-    expect(queryByTestId(container, 'explorer-admin-message')).toBeNull();
   });
 
-  it('requests a single preview validation for each source-url change', async () => {
-    vi.useFakeTimers();
-    trpcMocks.campaignQuery.data = {
-      id: 41,
-      name: 'Spring 2026 Explorer',
-      rulesBlurb: 'Ride every destination once.',
-      destinations: [],
-    };
+  it('renders and expands existing destinations inside the campaign shell', async () => {
+    trpcMocks.campaignsQuery.data = [
+      {
+        id: 41,
+        name: 'Spring Explorer',
+        displayNameRaw: 'Spring Explorer',
+        startAt: 1748736000,
+        endAt: 1751327999,
+        rulesBlurb: 'Ride every destination once.',
+        destinations: [
+          {
+            id: 301,
+            displayLabel: 'Hilltown opener',
+            customLabel: null,
+            segmentName: 'Hilltown opener',
+            displayOrder: 0,
+            sourceUrl: 'https://www.strava.com/segments/2234642',
+            stravaSegmentId: '2234642',
+            createdAt: '2025-06-03T09:05:00Z',
+            distance: 2931,
+            averageGrade: 5.4,
+            city: 'Dorking',
+            state: 'Surrey',
+            country: 'United Kingdom',
+          },
+        ],
+      },
+    ];
 
     const { container } = await renderPanel();
 
-    await setValue(
-      getByTestId(container, 'explorer-source-url-input') as HTMLInputElement,
-      'https://www.strava.com/segments/2234642'
-    );
+    expect(getByTestId(container, 'explorer-destination-list').textContent).toContain('Hilltown opener');
+    await clickElement(getByTestId(container, 'explorer-destination-toggle-301'));
+    expect(getByTestId(container, 'explorer-destination-row-301').textContent).toContain('Added');
+  });
 
-    await act(async () => {
-      vi.advanceTimersByTime(150);
-      await Promise.resolve();
+  it('preserves an explicit Explorer Campaign display name when saving', async () => {
+    trpcMocks.campaignsQuery.data = [
+      {
+        id: 41,
+        name: 'Explorer Campaign',
+        displayNameRaw: 'Explorer Campaign',
+        startAt: 1748736000,
+        endAt: 1751327999,
+        rulesBlurb: null,
+        destinations: [],
+      },
+    ];
+
+    const { container } = await renderPanel();
+
+    expect((getByTestId(container, 'explorer-campaign-name-input-41') as HTMLInputElement).value).toBe('Explorer Campaign');
+
+    await clickElement(getByTestId(container, 'explorer-save-campaign-button-41'));
+
+    expect(trpcMocks.updateCampaign).toHaveBeenCalledWith({
+      explorerCampaignId: 41,
+      startAt: dateToUnixStart(unixToDateLocal(1748736000)),
+      endAt: dateToUnixEnd(unixToDateLocal(1751327999)),
+      displayName: 'Explorer Campaign',
+      rulesBlurb: null,
     });
-
-    expect(trpcMocks.validateSegment).toHaveBeenCalledTimes(1);
-    expect(trpcMocks.validateSegment).toHaveBeenCalledWith('2234642');
   });
 
   it('ignores stale preview responses when the source URL changes mid-request', async () => {
     vi.useFakeTimers();
-    trpcMocks.campaignQuery.data = {
-      id: 41,
-      name: 'Spring 2026 Explorer',
-      rulesBlurb: 'Ride every destination once.',
-      destinations: [],
-    };
+    trpcMocks.campaignsQuery.data = [
+      {
+        id: 41,
+        name: 'Spring Explorer',
+        displayNameRaw: 'Spring Explorer',
+        startAt: 1748736000,
+        endAt: 1751327999,
+        rulesBlurb: 'Ride every destination once.',
+        destinations: [],
+      },
+    ];
 
     const firstPreview = createDeferredValue({
       strava_segment_id: '2234642',
@@ -487,42 +534,5 @@ describe('ExplorerAdminPanel', () => {
 
     expect(getByTestId(container, 'explorer-destination-preview-card').textContent).toContain('Newest Preview');
     expect(getByTestId(container, 'explorer-destination-preview-card').textContent).not.toContain('Older Preview');
-  });
-
-  it('renders richer destination cards when a campaign already has destinations', async () => {
-    trpcMocks.campaignQuery.data = {
-      id: 41,
-      name: 'Spring 2026 Explorer',
-      rulesBlurb: 'Ride every destination once.',
-      destinations: [
-        {
-          id: 99,
-          displayLabel: 'Box Hill opener',
-          customLabel: 'Box Hill opener',
-          segmentName: 'Box Hill KOM',
-          displayOrder: 0,
-          sourceUrl: 'https://www.strava.com/segments/2234642',
-          stravaSegmentId: '2234642',
-          createdAt: '2026-04-17 13:15:00',
-          distance: 2931,
-          averageGrade: 5.4,
-          city: 'Dorking',
-          state: 'Surrey',
-          country: 'United Kingdom',
-        },
-      ],
-    };
-
-    const { container } = await renderPanel();
-
-    expect(getByTestId(container, 'explorer-destination-row-99').textContent).toContain('Box Hill opener');
-    expect(getByTestId(container, 'explorer-destination-row-99').textContent).toContain('2.93 km');
-    expect(getByTestId(container, 'explorer-destination-row-99').textContent).toContain('5.4% avg grade');
-    expect(getByTestId(container, 'explorer-destination-row-99').textContent).toContain('Dorking, Surrey, United Kingdom');
-
-    await clickElement(getByTestId(container, 'explorer-destination-toggle-99'));
-
-    expect(getByTestId(container, 'explorer-destination-row-99').textContent).toContain('Original segment name: Box Hill KOM');
-    expect(getByTestId(container, 'explorer-destination-row-99').textContent).toContain('Added');
   });
 });

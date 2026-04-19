@@ -6,7 +6,6 @@ import {
   createExplorerCampaign,
   createExplorerDestination,
   createParticipant,
-  createSeason,
   setupTestDb,
   teardownTestDb,
 } from './testDataHelpers';
@@ -40,12 +39,9 @@ describe('ExplorerMatchingService', () => {
 
   it('records one match per destination even when a ride repeats the same segment', async () => {
     createParticipant(drizzleDb, '2001', 'Explorer Rider');
-    const seasonRecord = createSeason(drizzleDb, 'Explorer Season', true, {
+    const campaign = createExplorerCampaign(drizzleDb, {
       startAt: 1748736000,
       endAt: 1751327999,
-    });
-    const campaign = createExplorerCampaign(drizzleDb, {
-      seasonId: seasonRecord.id,
       displayName: 'Summer Explorer',
     });
 
@@ -95,12 +91,9 @@ describe('ExplorerMatchingService', () => {
 
   it('is idempotent when the same activity is processed more than once', async () => {
     createParticipant(drizzleDb, '2002', 'Repeat Rider');
-    const seasonRecord = createSeason(drizzleDb, 'Explorer Season', true, {
+    const campaign = createExplorerCampaign(drizzleDb, {
       startAt: 1748736000,
       endAt: 1751327999,
-    });
-    const campaign = createExplorerCampaign(drizzleDb, {
-      seasonId: seasonRecord.id,
     });
 
     createExplorerDestination(drizzleDb, {
@@ -135,12 +128,9 @@ describe('ExplorerMatchingService', () => {
 
   it('hydrates missing segment efforts during campaign refresh and matches newly added destinations', async () => {
     createParticipant(drizzleDb, '2003', 'Refresh Rider');
-    const seasonRecord = createSeason(drizzleDb, 'Explorer Season', true, {
+    const campaign = createExplorerCampaign(drizzleDb, {
       startAt: 1749513600,
       endAt: 1750118399,
-    });
-    const campaign = createExplorerCampaign(drizzleDb, {
-      seasonId: seasonRecord.id,
     });
 
     createExplorerDestination(drizzleDb, {
