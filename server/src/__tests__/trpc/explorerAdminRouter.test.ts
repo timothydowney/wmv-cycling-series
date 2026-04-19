@@ -157,6 +157,14 @@ describe('explorerAdminRouter', () => {
     ).rejects.toThrow('UNAUTHORIZED');
   });
 
+  it('requires admin auth to delete a destination', async () => {
+    const caller = getCaller(false);
+
+    await expect(
+      caller.explorerAdmin.deleteDestination({ explorerDestinationId: 123 })
+    ).rejects.toThrow('UNAUTHORIZED');
+  });
+
   it('adds a destination and persists source URL plus cached metadata', async () => {
     const campaign = createExplorerCampaign(drizzleDb, { startAt: 1748736000, endAt: 1751327999 });
     const caller = getCaller(true);
@@ -276,6 +284,31 @@ describe('explorerAdminRouter', () => {
         sourceUrl: 'https://www.strava.com/routes/12744502',
       })
     ).rejects.toThrow('Please provide a valid Strava segment URL');
+  });
+
+  it('deletes a destination when called by an admin', async () => {
+    const campaign = createExplorerCampaign(drizzleDb, { startAt: 1748736000, endAt: 1751327999 });
+    const caller = getCaller(true);
+    jest.spyOn(SegmentService.prototype, 'fetchAndStoreSegmentMetadata').mockResolvedValue({
+      strava_segment_id: '12744502',
+      name: 'Mocked Segment',
+    } as any);
+
+    const destination = await caller.explorerAdmin.addDestination({
+      explorerCampaignId: campaign.id,
+      sourceUrl: 'https://www.strava.com/segments/12744502',
+    });
+
+    await expect(
+      caller.explorerAdmin.deleteDestination({ explorerDestinationId: destination.id })
+    ).resolves.toEqual({ explorerDestinationId: destination.id });
+
+    const stored = drizzleDb
+      .select()
+      .from(explorerDestination)
+      .where(eq(explorerDestination.id, destination.id))
+      .get();
+    expect(stored).toBeUndefined();
   });
 
   it('maps sqlite unique constraint errors to CONFLICT', async () => {

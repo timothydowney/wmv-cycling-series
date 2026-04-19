@@ -222,4 +222,34 @@ describe('ExplorerAdminService', () => {
       .get();
     expect(stored?.display_order).toBe(1);
   });
+
+  it('deletes an existing destination', async () => {
+    const campaign = service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
+    segmentMetadataService.fetchAndStoreSegmentMetadata.mockResolvedValue({
+      strava_segment_id: '12744502',
+      name: 'Mocked Segment',
+    } as any);
+
+    const destination = await service.addDestination({
+      explorerCampaignId: campaign.id,
+      sourceUrl: 'https://www.strava.com/segments/12744502',
+    });
+
+    expect(service.deleteDestination({ explorerDestinationId: destination.id })).toEqual({
+      explorerDestinationId: destination.id,
+    });
+
+    const stored = drizzleDb
+      .select()
+      .from(explorerDestination)
+      .where(eq(explorerDestination.id, destination.id))
+      .get();
+    expect(stored).toBeUndefined();
+  });
+
+  it('rejects deleting a missing destination', () => {
+    expect(() => service.deleteDestination({ explorerDestinationId: 999999 })).toThrow(
+      'Explorer destination not found'
+    );
+  });
 });
