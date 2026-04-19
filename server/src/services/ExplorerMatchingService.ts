@@ -4,7 +4,6 @@ import {
   explorerCampaign,
   explorerDestination,
   explorerDestinationMatch,
-  season,
 } from '../db/schema';
 import {
   getActivity,
@@ -27,11 +26,10 @@ interface RefreshAthleteCampaignResult {
 
 interface CampaignWindowRecord {
   id: number;
-  season_id: number;
+  start_at: number;
+  end_at: number;
   display_name: string | null;
   rules_blurb: string | null;
-  season_start_at: number;
-  season_end_at: number;
 }
 
 function getActivityTimestamp(activityData: StravaActivity): number | null {
@@ -80,18 +78,16 @@ export class ExplorerMatchingService {
     const activeCampaigns = this.db
       .select({
         id: explorerCampaign.id,
-        season_id: explorerCampaign.season_id,
+        start_at: explorerCampaign.start_at,
+        end_at: explorerCampaign.end_at,
         display_name: explorerCampaign.display_name,
         rules_blurb: explorerCampaign.rules_blurb,
-        season_start_at: season.start_at,
-        season_end_at: season.end_at,
       })
       .from(explorerCampaign)
-      .innerJoin(season, eq(explorerCampaign.season_id, season.id))
       .where(
         and(
-          lte(season.start_at, activityTimestamp),
-          gte(season.end_at, activityTimestamp)
+          lte(explorerCampaign.start_at, activityTimestamp),
+          gte(explorerCampaign.end_at, activityTimestamp)
         )
       )
       .all();
@@ -107,14 +103,12 @@ export class ExplorerMatchingService {
     const campaignRecord = this.db
       .select({
         id: explorerCampaign.id,
-        season_id: explorerCampaign.season_id,
+        start_at: explorerCampaign.start_at,
+        end_at: explorerCampaign.end_at,
         display_name: explorerCampaign.display_name,
         rules_blurb: explorerCampaign.rules_blurb,
-        season_start_at: season.start_at,
-        season_end_at: season.end_at,
       })
       .from(explorerCampaign)
-      .innerJoin(season, eq(explorerCampaign.season_id, season.id))
       .where(eq(explorerCampaign.id, explorerCampaignId))
       .get();
 
@@ -128,8 +122,8 @@ export class ExplorerMatchingService {
 
     const activities = await listAthleteActivities(
       accessToken,
-      campaignRecord.season_start_at,
-      campaignRecord.season_end_at,
+      campaignRecord.start_at,
+      campaignRecord.end_at,
       {
         includeAllEfforts: true,
       }

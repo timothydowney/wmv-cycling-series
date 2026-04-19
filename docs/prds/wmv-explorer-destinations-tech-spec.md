@@ -5,7 +5,7 @@
 This specification translates the Explorer Destinations PRD into an implementation-oriented design for the current WMV Cycling Series codebase. It preserves the key planning decisions:
 
 - Explorer is a separate product area from the current race leaderboard.
-- Explorer uses a separate season-attached campaign model rather than overloading the current competition week model.
+- Explorer uses a campaign-first model with campaign-owned date boundaries rather than overloading the current competition `Season` or week models.
 - Season UX is progress bar plus checklist plus completers summary.
 - Strava segments are the canonical destination type, regardless of whether they represent outdoor or virtual riding.
 - Webhook ingestion remains in-process but is refactored into delegated handlers so Explorer can be added without further overloading the current webhook processor.
@@ -14,15 +14,15 @@ This specification translates the Explorer Destinations PRD into an implementati
 
 ### In Scope
 
-- Separate Explorer campaign model attached to an existing WMV season
+- Separate Explorer campaign model with its own date boundaries
 - Admin-defined Explorer destinations from Strava segment URLs or IDs
 - Explorer matching from ingested Strava activities
 - One completion per destination per athlete per Explorer campaign
-- Season athlete progress queries
-- Season completers summary queries with all completer names
-- Stored Explorer history across the season
+- Campaign athlete progress queries
+- Campaign completers summary queries with all completer names
+- Stored Explorer history across campaigns
 - Reusable refresh or backfill path
-- Allowing admins to add destinations during the season without resetting progress
+- Allowing admins to add destinations during the campaign without resetting progress
 
 ### Out of Scope
 
@@ -50,7 +50,7 @@ This specification translates the Explorer Destinations PRD into an implementati
 - Do not modify the canonical race scoring model in [docs/SCORING.md](../SCORING.md).
 - Do not overload current competition week records with Explorer semantics.
 - Keep Explorer additive so existing leaderboard, season, and admin flows remain intact.
-- Prefer attaching Explorer to the existing `season` concept rather than inventing a second top-level season model for MVP.
+- Keep Explorer and competition `Season` separate at the product-model level; the MVP does not require a shared abstraction between them.
 
 ## 4. Recommended Architecture
 
@@ -100,7 +100,7 @@ The repository already has partially reusable building blocks for segment-based 
 - batch refresh handling in [server/src/services/BatchFetchService.ts](../../server/src/services/BatchFetchService.ts)
 - late metric hydration in [server/src/services/HydrationService.ts](../../server/src/services/HydrationService.ts)
 
-Explorer should not introduce a second copy of this segment-based matching flow. The first corrected implementation slice should extract only the shared seam needed for a season campaign model while preserving current Competition behavior.
+Explorer should not introduce a second copy of this segment-based matching flow. The corrected implementation slice should extract only the shared seam needed for a campaign-first model while preserving current Competition behavior.
 
 ### 4.3 MVP simplification
 
@@ -108,11 +108,12 @@ For MVP, do not introduce a separate Explorer week lifecycle or explicit `draft`
 
 Use these simpler rules instead:
 
-- the Explorer campaign attaches to an existing WMV season
-- the campaign is considered active when the parent season is open
+- the Explorer campaign owns its own start and end dates
+- the campaign is considered active when the current time falls inside its date window
 - the athlete-facing Explorer surface should only render when the campaign has at least one destination
-- admins may add destinations before or during the season
-- optional mini-campaigns within a season are deferred until after the season-first model is stable
+- admins may add destinations before or during the campaign
+- v1 disallows overlapping Explorer campaigns so active-campaign lookup stays unambiguous
+- optional sub-campaigns or templates are deferred until after the campaign-first model is stable
 
 ## 5. Proposed Data Model
 
@@ -122,14 +123,15 @@ Recommended Explorer tables or equivalent schema concepts:
 
 - ExplorerCampaign
   - id
-  - seasonId
+  - startAt
+  - endAt
   - optional displayName or rules blurb if needed later
   - createdAt
   - updatedAt
 
-MVP rule: an ExplorerCampaign is attached to one season. The campaign becomes athlete-visible only when its parent season is open and it has at least one ExplorerDestination.
+MVP rule: an ExplorerCampaign is its own top-level Explorer container. The campaign becomes athlete-visible only when its own date window is active and it has at least one ExplorerDestination.
 
-For v1 admin authoring, enforce one campaign per season. This should not block future support for multiple seasons each having their own campaign, but it should prevent multiple campaigns competing within the same season.
+For v1 admin authoring, disallow overlapping Explorer campaigns. This keeps active-campaign lookup deterministic without inventing a heavier publish-status or priority model.
 
 - ExplorerDestination
   - id
@@ -167,7 +169,7 @@ For v1, ExplorerAthleteCampaignSummary is computed on read. `ExplorerDestination
 
 - One athlete can match a given destination at most once per Explorer campaign.
 - Multiple rides over the same destination in the same campaign do not increase progress.
-- Matches are constrained to the parent season date range.
+- Matches are constrained to the campaign date range.
 - Explorer records must survive after the season ends so future rollups or optional mini-campaigns can aggregate them.
 
 ### 5.3 Segment source model
@@ -182,13 +184,13 @@ If URL parsing succeeds but live Strava metadata enrichment fails, 4A should sti
 
 ### 5.4 V1 decision lock
 
-- Primary product model: season-attached Explorer campaign
+- Primary product model: campaign-first Explorer model with campaign-owned dates
 - Summary model: computed on read
 - Destination metadata strategy: hybrid shared-segment reuse plus Explorer-local cached display metadata
-- Campaign cardinality per season: exactly one Explorer campaign per season in v1
+- Campaign overlap rule in v1: no overlapping Explorer campaigns
 - Admin destination authoring input for 4A: validated Strava segment URLs only
 - Metadata enrichment failure policy: allow creation when parsing succeeds and preserve segment ID plus source URL
-- Optional mini-campaigns within a season: deferred
+- Optional sub-campaigns or templates: deferred
 - Explicit Explorer publish-status workflow: deferred unless later implementation proves it is needed
 - Refresh or backfill admin mutations: deferred out of 4A
 
@@ -199,7 +201,7 @@ If URL parsing succeeds but live Strava metadata enrichment fails, 4A should sti
 Responsibilities:
 
 - Receive normalized activity data plus athlete context.
-- Determine which Explorer campaign is active for the activity timestamp by looking at the parent season.
+- Determine which Explorer campaign is active for the activity timestamp by looking at campaign-owned date boundaries.
 - Compare activity segment efforts to configured Explorer destination segment IDs for that campaign.
 - Create missing ExplorerDestinationMatch records idempotently.
 - Return summary information about newly matched destinations.
@@ -220,7 +222,7 @@ Responsibilities:
 
 Responsibilities:
 
-- Create and update Explorer campaigns for a season.
+- Create and update Explorer campaigns with their own dates.
 - Add, edit, remove, and reorder Explorer destinations.
 - Validate or enrich destination metadata from Strava where possible.
 - Trigger refresh or backfill actions.
@@ -266,7 +268,7 @@ This surface remains deferred until Explorer is approved for end-user release.
 Recommended user-facing sections:
 
 - Challenges hub route
-- Active Explorer season campaign header
+- Active Explorer campaign header
 - Progress bar
 - Destination checklist
 - Completers summary
@@ -277,20 +279,20 @@ During early admin slices, any Explorer UI should remain admin-gated and should 
 
 Recommended initial admin capabilities:
 
-- Attach Explorer campaign to a season
+- Create or edit one Explorer campaign with start and end dates
 - Add one destination at a time by pasting a Strava segment URL and parsing the segment ID
 - Edit destination display label and ordering
-- Allow adding destinations before or during the season
+- Allow adding destinations before or during the campaign
 - Run refresh for a campaign or athlete
 
-The first admin UI should optimize for repeated paste-and-add authoring sessions rather than heavy per-destination form filling, but that UX work belongs to 4B rather than 4A.
+The next admin UI should optimize for an all-in-one campaign editor with leaderboard-style card hierarchy, including an expandable campaign card for dates and campaign metadata plus repeated paste-and-add authoring beneath it.
 
 ## 9. Matching Rules
 
 ### V1 rules
 
-- A destination is a Strava segment configured on an Explorer campaign attached to a season.
-- A destination counts when the athlete has a qualifying activity containing that segment during the parent season window.
+- A destination is a Strava segment configured on an Explorer campaign.
+- A destination counts when the athlete has a qualifying activity containing that segment during the campaign date window.
 - Each destination is worth one point internally.
 - The athlete's visible progress is completed destinations divided by total destinations.
 - Repeated visits do not add progress beyond the first match.
@@ -301,7 +303,7 @@ The first admin UI should optimize for repeated paste-and-add authoring sessions
 - Whether to display segment source labels like virtual or outdoor in the checklist
 - Whether a deleted activity should remove an Explorer match if it was the only source of completion
 - Whether to compute historical rollups on read or cache them incrementally
-- Whether optional mini-campaigns should later exist as freestanding season-attached sub-campaigns
+- Whether optional sub-campaigns or campaign templates should later exist on top of the campaign-first model
 
 ## 10. Testing Strategy
 
@@ -309,9 +311,9 @@ The first admin UI should optimize for repeated paste-and-add authoring sessions
 
 Add tests for:
 
-- Explorer campaign boundary handling using the parent season dates
+- Explorer campaign boundary handling using campaign-owned dates
 - Destination match idempotency
-- Duplicate segment visits in one season campaign
+- Duplicate segment visits in one campaign
 - Multiple destinations in one activity
 - Virtual and outdoor segment parity
 - Strava URL parsing and validation
@@ -334,17 +336,17 @@ Add tests for:
 
 Recommended E2E journeys:
 
-- Admin creates Explorer campaign for a season and destinations
+- Admin creates an Explorer campaign with dates and destinations
 - Athlete views active Explorer campaign
 - Athlete completes one destination and sees progress update
-- Admin adds a new destination during the season and the checklist updates without resetting prior completions
-- Athlete completes full season set and sees completion state
+- Admin adds a new destination during the campaign and the checklist updates without resetting prior completions
+- Athlete completes the full campaign set and sees completion state
 - Completers summary reflects at least one full completer
 
 ## 11. Migration and Rollout Sequence
 
 1. Refactor webhook processor toward delegated handlers without changing current competition behavior.
-2. Correct the planning model to a season-attached Explorer campaign.
+2. Correct the planning model to a campaign-first Explorer model with campaign-owned dates.
 3. Add Explorer schema and backend services for the campaign model.
 4. Implement Explorer matching handler and shared refresh path.
 5. Add Explorer tRPC routes.
@@ -362,24 +364,24 @@ Recommended E2E journeys:
   Mitigation: mirror the existing admin-panel parsing approach and test it directly.
 
 - Risk: Explorer begins to inherit competition UX by accident.
-  Mitigation: avoid ranked lists in the primary season surface.
+  Mitigation: avoid ranked lists in the primary campaign surface.
 
-- Risk: the MVP is overcomplicated by adding mini-campaigns or explicit status workflows too early.
-  Mitigation: keep the first model season-first, attach it to the existing season, and defer mini-campaigns plus explicit publish states until they solve a real problem.
+- Risk: the MVP is overcomplicated by overlapping campaigns, sub-campaigns, or explicit status workflows too early.
+  Mitigation: keep the first model campaign-first, disallow overlap in v1, and defer sub-campaigns plus explicit publish states until they solve a real problem.
 
 - Risk: Webhook processor becomes more complex during transition.
   Mitigation: refactor to delegated handlers before layering in Explorer logic.
 
 ## 13. Suggested Handoff Notes
 
-If this moves to implementation after the planning correction, the first engineering slice should be the season-attached Explorer campaign schema plus matching and query corrections. That is the structural work that determines whether the rest of the feature can be added cleanly.
+If this moves to implementation after the planning correction, the first engineering slice should be Explorer campaign schema decoupling plus matching, query, and admin-flow corrections. That is the structural work that determines whether the rest of the feature can be added cleanly.
 
 The next slice should be the smallest end-to-end Explorer loop:
 
-- one Explorer campaign attached to a season
+- one Explorer campaign with its own dates
 - one or more destinations
 - one athlete progress query
 - one completers summary query
-- one admin refresh action
+- one campaign editor shell for dates and destination authoring
 
 That would validate the model before building more UI.

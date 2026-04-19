@@ -12,9 +12,9 @@
 
 ## 1. Executive Summary
 
-WMV Explorer Destinations is a new offseason participation feature for the WMV Cycling Series app. Instead of rewarding speed or rank, it gives athletes a season-long set of admin-curated Strava segment destinations to visit. Each matched destination counts once for the season campaign, and the primary experience is personal progress: how many destinations an athlete has completed, which ones remain, and whether they finished the full season set.
+WMV Explorer Destinations is a new offseason participation feature for the WMV Cycling Series app. Instead of rewarding speed or rank, it gives athletes a date-bounded set of admin-curated Strava segment destinations to visit. Each matched destination counts once for the active Explorer campaign, and the primary experience is personal progress: how many destinations an athlete has completed, which ones remain, and whether they finished the full set.
 
-The feature is designed to work for both outdoor and virtual riding, as long as the destination is represented by a Strava segment. This makes the experience more inclusive for riders doing real-world routes, Zwift routes, or a mix of both. The MVP should treat the season-long campaign as the primary unit. Smaller time-boxed mini-campaigns within a season are optional future work rather than required MVP structure.
+The feature is designed to work for both outdoor and virtual riding, as long as the destination is represented by a Strava segment. This makes the experience more inclusive for riders doing real-world routes, Zwift routes, or a mix of both. The MVP should treat the Explorer campaign as the primary unit, with campaign-owned start and end dates rather than inherited competition-season boundaries. Overlapping or nested Explorer campaign structures are optional future work rather than required MVP structure.
 
 ## 2. Problem Statement
 
@@ -24,21 +24,21 @@ Existing gaps include:
 
 - Participation is currently framed mainly as competition rather than exploration.
 - There is no product area for season-long destination-based riding goals.
-- There is no persistent record of exploration-style accomplishments across an entire season campaign.
+- There is no persistent record of exploration-style accomplishments across an entire Explorer campaign.
 - The current UI does not support a simple personal-progress model such as checklist completion or progress bars.
 - The current webhook processor is already serving multiple purposes and needs a cleaner extension path before adding Explorer matching.
 
-WMV Explorer Destinations addresses these problems by adding a progress-first season experience that reuses Strava activity data and admin curation without forcing riders into a race-style leaderboard.
+WMV Explorer Destinations addresses these problems by adding a progress-first campaign experience that reuses Strava activity data and admin curation without forcing riders into a race-style leaderboard.
 
 ## 3. Goals & Objectives
 
 | Goal | Description | Success Signal |
 | --- | --- | --- |
 | Inclusive offseason participation | Give riders a way to participate without needing to compete on speed | Riders can engage through weekly destination completion rather than race ranking |
-| Season-long motivation | Provide a clear set of season riding goals | Athletes can see season progress and a destination checklist across the active season |
-| Low admin friction | Let admins create a season Explorer campaign from Strava segments | Admin can attach an Explorer campaign to a season and configure destinations in one workflow |
+| Season-long motivation | Provide a clear set of riding goals across a bounded Explorer campaign | Athletes can see campaign progress and a destination checklist across the active campaign window |
+| Low admin friction | Let admins create an Explorer campaign from Strava segments | Admin can define campaign dates and configure destinations in one workflow |
 | Reuse current WMV systems | Build on existing Strava auth and ingestion patterns | No manual athlete submissions required for normal use |
-| Preserve future flexibility | Keep room for optional mini-campaigns later without complicating MVP | Future season-attached mini-campaigns can be added without rewriting core Explorer progress |
+| Preserve future flexibility | Keep room for optional sub-campaigns or campaign templates later without complicating MVP | Future campaign-first expansions can be added without rewriting core Explorer progress |
 | Avoid regression in competition features | Add Explorer without breaking current leaderboard and scoring behavior | Current competition routes and scoring remain unchanged |
 
 ## 4. Target Audience
@@ -56,32 +56,32 @@ WMV Explorer Destinations addresses these problems by adding a progress-first se
 
 | ID | User Story | Priority | Acceptance Criteria |
 | --- | --- | --- | --- |
-| US-01 | As an athlete, I want to see the active Explorer season campaign so I know what destinations are available now | Must | The current season Explorer campaign is clearly visible in the Challenges hub |
-| US-02 | As an athlete, I want to see the season destination list so I know what segments count | Must | Destination list shows all configured segments for the active season campaign |
-| US-03 | As an athlete, I want to see my Explorer progress as a progress bar so I can quickly tell how far along I am | Must | Progress bar shows completed destinations versus total destinations for the season campaign |
+| US-01 | As an athlete, I want to see the active Explorer campaign so I know what destinations are available now | Must | The current active Explorer campaign is clearly visible in the Challenges hub |
+| US-02 | As an athlete, I want to see the current campaign destination list so I know what segments count | Must | Destination list shows all configured segments for the active campaign |
+| US-03 | As an athlete, I want to see my Explorer progress as a progress bar so I can quickly tell how far along I am | Must | Progress bar shows completed destinations versus total destinations for the active campaign |
 | US-04 | As an athlete, I want a checklist of completed and remaining destinations so I can track what I still need | Must | Each destination shows complete or incomplete state for the logged-in athlete |
-| US-05 | As an athlete, I want each matched destination to count once for the season campaign so the rules are easy to understand | Must | Repeated visits to the same destination during the same season campaign do not increase progress |
+| US-05 | As an athlete, I want each matched destination to count once for the active campaign so the rules are easy to understand | Must | Repeated visits to the same destination during the same campaign do not increase progress |
 | US-06 | As an athlete, I want virtual and outdoor Strava segments to count equally as destinations so the feature feels inclusive | Must | Eligibility depends on matching configured Strava segments, not whether a ride is virtual or outdoor |
-| US-07 | As an athlete, I want to know if I completed all destinations for the season so I can celebrate finishing the set | Must | Full completion state is visible when all campaign destinations are matched |
+| US-07 | As an athlete, I want to know if I completed all destinations for the current campaign so I can celebrate finishing the set | Must | Full completion state is visible when all campaign destinations are matched |
 
 ### 5.2 Club Visibility
 
 | ID | User Story | Priority | Acceptance Criteria |
 | --- | --- | --- | --- |
-| US-08 | As a club member, I want to know whether anyone completed the full season destination set so the feature feels communal | Must | Explorer view includes a completers summary showing all athlete names who completed the full set |
+| US-08 | As a club member, I want to know whether anyone completed the full Explorer destination set so the feature feels communal | Must | Explorer view includes a completers summary showing all athlete names who completed the full set |
 | US-09 | As a club member, I do not want the Explorer hub to feel like another race leaderboard | Must | Weekly view emphasizes progress and completion, not rank ordering |
 
 ### 5.3 Admin Experience
 
 | ID | User Story | Priority | Acceptance Criteria |
 | --- | --- | --- | --- |
-| US-10 | As an admin, I want to create an Explorer campaign attached to a season so the feature can run for the entire season without depending on race weeks | Must | Admin can attach one Explorer campaign to a season and configure destinations for it |
+| US-10 | As an admin, I want to create an Explorer campaign with its own start and end dates so the feature can run independently from competition weeks and seasons | Must | Admin can create one date-bounded Explorer campaign, define its dates, and configure destinations for it |
 | US-11 | As an admin, I want to add destinations from Strava URLs so setup matches the regular admin panel workflow | Must | Admin can paste one Strava segment URL at a time and the system extracts the segment ID |
-| US-12 | As an admin, I want to add labels to destinations so the season campaign is presented clearly | Must | Destinations support optional labels in addition to the underlying segment metadata |
-| US-13 | As an admin, I want to reorder destinations so the season campaign is presented clearly | Should | Destinations support display order |
+| US-12 | As an admin, I want to add labels to destinations so the campaign is presented clearly | Must | Destinations support optional labels in addition to the underlying segment metadata |
+| US-13 | As an admin, I want to reorder destinations so the campaign is presented clearly | Should | Destinations support display order |
 | US-14 | As an admin, I want to refresh Explorer matching so I can recover missed or late-connected activities | Must | Admin can trigger a reprocess path for Explorer data |
 | US-15 | As an admin, I want Explorer setup to be separate from race week setup so the two products do not get mixed together | Must | Explorer management uses its own admin surface or clearly separated section |
-| US-16 | As an admin, I want to add new destinations during the season without resetting progress | Must | Newly added destinations become part of the current season campaign and existing completions remain intact |
+| US-16 | As an admin, I want to add new destinations during the campaign without resetting progress | Must | Newly added destinations become part of the current campaign and existing completions remain intact |
 
 ## 6. MoSCoW Prioritization
 
@@ -90,18 +90,18 @@ WMV Explorer Destinations addresses these problems by adding a progress-first se
 | Item | User Stories | Rationale |
 | --- | --- | --- |
 | Separate Challenges hub | US-01, US-10 | Explorer must feel distinct from race competition |
-| Active Explorer season campaign view | US-01, US-02 | Core season experience |
+| Active Explorer campaign view | US-01, US-02 | Core campaign experience |
 | Progress bar + checklist UX | US-03, US-04 | Primary interaction model |
 | One point per matched destination | US-05 | Simple, explainable rule set |
 | Virtual and outdoor segment support | US-06 | Inclusion requirement |
 | Season completion state | US-07 | Key motivator for the feature |
 | Completers summary with all athlete names | US-08 | Light communal visibility without ranking |
-| Separate Explorer season admin flow | US-10, US-15 | Keeps data model and UI boundaries clear |
+| Separate Explorer campaign admin flow | US-10, US-15 | Keeps data model and UI boundaries clear |
 | Strava URL-based destination setup | US-11 | Matches existing admin workflow |
 | Destination labels | US-12 | Needed for flexible curation and presentation |
-| Add destinations before or during the season | US-16 | Supports real admin workflows without extra status complexity |
+| Add destinations before or during the campaign | US-16 | Supports real admin workflows without extra status complexity |
 | Refresh or backfill action | US-14 | Operational recovery and late joins |
-| Persistent Explorer history across the season | — | Required for season progress and future optional sub-campaigns |
+| Persistent Explorer history across campaigns | — | Required for campaign progress and future optional sub-campaigns |
 | Delegated webhook ingestion path | — | Required to add Explorer without further overloading the webhook processor |
 
 ### Should Have (Enhanced Experience)
@@ -117,7 +117,7 @@ WMV Explorer Destinations addresses these problems by adding a progress-first se
 
 | Item | User Stories | Rationale |
 | --- | --- | --- |
-| Destination categories such as scenic, climb, or event | — | Adds editorial character to season Explorer campaigns |
+| Destination categories such as scenic, climb, or event | — | Adds editorial character to Explorer campaigns |
 | Celebration treatment on full completion | US-07 | Reinforces motivation without adding competition |
 | Destination category chips or themed labels | US-12 | Adds editorial polish without changing core rules |
 
@@ -127,7 +127,7 @@ WMV Explorer Destinations addresses these problems by adding a progress-first se
 | --- | --- |
 | Rank-ordered Explorer leaderboard | Explorer is progress-first in v1 |
 | Bonus scoring beyond one point per destination | Keep the rules simple first |
-| Weekly or mini-campaign Explorer UI | Deferred until the season campaign model is stable |
+| Overlapping or nested Explorer campaign structures | Deferred until the campaign-first model is stable |
 | Shared-segment mini-races | Separate future feature |
 | Badge system | Defer until core Explorer behavior is validated |
 | Out-of-process worker or CLI handoff for webhooks | In-process delegated handlers are sufficient for v1 |
@@ -136,9 +136,9 @@ WMV Explorer Destinations addresses these problems by adding a progress-first se
 
 ### 7.1 Layout
 
-The Explorer hub should present one season campaign at a time, with a progress-first layout:
+The Explorer hub should present one active campaign at a time, with a progress-first layout:
 
-- Header area with Explorer campaign title, season context, and short rules summary.
+- Header area with Explorer campaign title, date context, and short rules summary.
 - Progress section with a visible progress bar showing completed destinations versus total destinations.
 - Destination checklist showing all campaign destinations with completed or remaining state for the current athlete.
 - Completion summary showing all athletes who completed the full set.
@@ -149,7 +149,7 @@ The Explorer hub should present one season campaign at a time, with a progress-f
 | Principle | Description |
 | --- | --- |
 | Progress over ranking | The page should feel like a challenge checklist, not a leaderboard |
-| Clear season framing | Athletes should immediately understand what counts during the active season campaign |
+| Clear campaign framing | Athletes should immediately understand what counts during the active campaign window |
 | Inclusive destination model | Virtual and outdoor destinations should be presented as equally valid |
 | Low cognitive load | Rules should be understandable in seconds |
 | Additive navigation | Explorer should feel like a new section, not a replacement for competition views |
@@ -176,9 +176,9 @@ The Explorer hub should present one season campaign at a time, with a progress-f
 
 | Requirement | Target | Validation |
 | --- | --- | --- |
-| Durable season history | Explorer progress remains queryable after the season ends | Automated integration tests |
-| Correct season boundaries | Only activities inside the Explorer campaign's parent season count | Backend tests for start and end edge cases |
-| One completion per destination per athlete per season campaign | Multiple visits do not overcount | Backend tests |
+| Durable campaign history | Explorer progress remains queryable after a campaign ends | Automated integration tests |
+| Correct campaign boundaries | Only activities inside the Explorer campaign date window count | Backend tests for start and end edge cases |
+| One completion per destination per athlete per campaign | Multiple visits do not overcount | Backend tests |
 
 ### 8.3 Accessibility
 
@@ -209,23 +209,23 @@ The Explorer hub should present one season campaign at a time, with a progress-f
 
 The v1 release is successful if:
 
-1. Admins can create an Explorer campaign for a season and assign Strava segment destinations.
-2. Admins can add destinations before or during the season without resetting campaign progress.
-3. Athletes can see a season progress bar and destination checklist in the Challenges hub.
-4. Each matched destination counts once per athlete per season campaign.
+1. Admins can create an Explorer campaign with its own dates and assign Strava segment destinations.
+2. Admins can add destinations before or during the campaign without resetting campaign progress.
+3. Athletes can see a campaign progress bar and destination checklist in the Challenges hub.
+4. Each matched destination counts once per athlete per campaign.
 5. Virtual and outdoor segment destinations both work when configured.
 6. The hub includes a completers summary showing all completer names without presenting a rank-ordered leaderboard.
-7. Explorer history persists across the season and can support future optional mini-campaigns or later rollups.
+7. Explorer history persists across campaigns and can support future optional sub-campaigns or later rollups.
 8. Existing competition features continue to behave correctly.
 
 ## 11. Future Considerations (Post v1.0)
 
 | Future Item | Priority | Notes |
 | --- | --- | --- |
-| Optional mini-campaigns attached to a season | Medium | Deferred until the season campaign model is stable |
-| Season-wide Explorer rollups | Medium | Enabled by stored season campaign history |
+| Optional sub-campaigns or campaign templates | Medium | Deferred until the campaign-first model is stable |
+| Cross-campaign Explorer rollups | Medium | Enabled by stored campaign history |
 | Explorer badges and streaks | Medium | Depends on stable weekly participation data |
-| Themed destination campaigns | Medium | Adds editorial depth to season campaigns |
+| Themed destination campaigns | Medium | Adds editorial depth to Explorer campaigns |
 | Shared-segment mini-races | High | Requires broader segment aggregation strategy |
 | Destination search and richer admin tools | Medium | Improves authoring workflow after v1 |
 
@@ -247,9 +247,9 @@ The technical specification for Explorer Destinations is documented in [wmv-expl
 
 ### 13.2 Launch Checklist
 
-- Explorer campaign creation for a season works in admin UI.
+- Explorer campaign creation with start and end dates works in admin UI.
 - Destination setup accepts and validates Strava segment URLs.
-- Active Explorer season campaign renders in the Challenges hub.
+- Active Explorer campaign renders in the Challenges hub.
 - Athlete progress bar and checklist render correctly.
 - Completers summary is visible and shows names.
 - Manual refresh or backfill works.

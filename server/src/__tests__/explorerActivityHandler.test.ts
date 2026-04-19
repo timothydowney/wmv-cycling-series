@@ -5,7 +5,6 @@ import {
   createExplorerCampaign,
   createExplorerDestination,
   createParticipant,
-  createSeason,
   setupTestDb,
   teardownTestDb,
 } from './testDataHelpers';
@@ -38,12 +37,9 @@ describe('explorerActivityHandler', () => {
 
   it('records Explorer matches from webhook activity data', async () => {
     createParticipant(drizzleDb, '4001', 'Webhook Rider');
-    const seasonRecord = createSeason(drizzleDb, 'Explorer Season', true, {
+    const campaign = createExplorerCampaign(drizzleDb, {
       startAt: 1748736000,
       endAt: 1751327999,
-    });
-    const campaign = createExplorerCampaign(drizzleDb, {
-      seasonId: seasonRecord.id,
     });
 
     createExplorerDestination(drizzleDb, {

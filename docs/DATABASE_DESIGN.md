@@ -1,7 +1,7 @@
 # Database Design
 
 ## Overview
-This document describes the SQLite database schema for tracking weekly cycling competition results and the season-attached Explorer campaign feature based on Strava activities.
+This document describes the SQLite database schema for tracking weekly cycling competition results and the campaign-first Explorer feature based on Strava activities.
 
 **Scale:** Designed for <100 participants. SQLite is perfect for this - simple, fast, no separate database server needed.
 
@@ -18,7 +18,7 @@ The database is managed using **Drizzle ORM**. The source of truth for the schem
 - **`activity`**: The best qualifying Strava activity for a participant in a given week.
 - **`segment_effort`**: Individual laps/efforts extracted from a qualifying activity.
 - **`result`**: Calculated rankings and times (points are computed on-read).
-- **`explorer_campaign`**: A season-attached Explorer campaign that becomes athlete-visible when its parent season is open and the campaign has at least one destination.
+- **`explorer_campaign`**: A date-bounded Explorer campaign with its own `start_at` and `end_at` window that becomes athlete-visible when the campaign is currently active and has at least one destination.
 - **`explorer_destination`**: Ordered campaign destinations keyed to Strava segment IDs, with Explorer-local cached display metadata.
 - **`explorer_destination_match`**: Durable per-athlete destination completions within a campaign.
 - **`participant_token`**: Encrypted OAuth tokens for Strava API access.
@@ -131,17 +131,18 @@ ORDER BY total_points DESC;
 
 ### Explorer Campaign Matching
 1. A webhook or refresh path hydrates activity segment efforts.
-2. The system finds Explorer campaigns whose parent season contains the activity timestamp.
+2. The system finds Explorer campaigns whose own `start_at` and `end_at` window contains the activity timestamp.
 3. Activity segment IDs are compared against configured `explorer_destination.strava_segment_id` values.
 4. Each matching destination inserts at most one `explorer_destination_match` row per athlete per campaign.
 5. Explorer progress is computed on read from `explorer_destination_match` rather than a cached summary table in v1.
 
 ### Explorer Admin Authoring
-1. Admin setup creates at most one `explorer_campaign` row per season in v1.
-2. Destination authoring accepts validated Strava segment URLs and extracts the canonical segment ID from the URL path.
-3. `explorer_destination` stores both the source URL and Explorer-local cached display metadata so authoring and display stay stable even if shared segment metadata changes later.
-4. Destination creation can proceed with the parsed segment ID and source URL even if live metadata enrichment is temporarily unavailable.
-5. Each campaign can contain a given Strava segment only once, enforced by both service validation and a unique database index.
+1. Admin setup creates Explorer campaigns with their own `start_at` and `end_at` window in v1.
+2. Campaign windows must not overlap in v1.
+3. Destination authoring accepts validated Strava segment URLs and extracts the canonical segment ID from the URL path.
+4. `explorer_destination` stores both the source URL and Explorer-local cached display metadata so authoring and display stay stable even if shared segment metadata changes later.
+5. Destination creation can proceed with the parsed segment ID and source URL even if live metadata enrichment is temporarily unavailable.
+6. Each campaign can contain a given Strava segment only once, enforced by both service validation and a unique database index.
 
 ## Migration from Current Schema
 
@@ -169,7 +170,7 @@ CREATE INDEX idx_activity_week_participant ON activities(week_id, strava_athlete
 CREATE INDEX idx_segment_effort_activity ON segment_efforts(activity_id);
 CREATE INDEX idx_result_week ON results(week_id);
 CREATE INDEX idx_result_participant ON results(strava_athlete_id);
-CREATE UNIQUE INDEX idx_explorer_campaign_season ON explorer_campaign(season_id);
+CREATE INDEX idx_explorer_campaign_window ON explorer_campaign(start_at, end_at);
 CREATE INDEX idx_explorer_destination_campaign ON explorer_destination(explorer_campaign_id);
 CREATE UNIQUE INDEX idx_explorer_destination_campaign_segment ON explorer_destination(explorer_campaign_id, strava_segment_id);
 CREATE INDEX idx_explorer_match_campaign_athlete ON explorer_destination_match(explorer_campaign_id, strava_athlete_id);

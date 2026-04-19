@@ -3,7 +3,7 @@ import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { eq } from 'drizzle-orm';
 import { explorerCampaign, explorerDestination } from '../db/schema';
 import { ExplorerAdminService, type ExplorerSegmentMetadataService } from '../services/ExplorerAdminService';
-import { clearAllData, createSeason, setupTestDb, teardownTestDb } from './testDataHelpers';
+import { clearAllData, setupTestDb, teardownTestDb } from './testDataHelpers';
 
 describe('ExplorerAdminService', () => {
   let db: Database;
@@ -29,46 +29,85 @@ describe('ExplorerAdminService', () => {
     service = new ExplorerAdminService(drizzleDb, segmentMetadataService);
   });
 
-  it('creates one campaign for a season', () => {
-    const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
-
+  it('creates one campaign with its own date window', () => {
     const campaign = service.createCampaign({
-      seasonId: seasonRecord.id,
+      startAt: 1748736000,
+      endAt: 1751327999,
       displayName: 'Explorer 2026',
       rulesBlurb: 'Ride the set.',
     });
 
-    expect(campaign.season_id).toBe(seasonRecord.id);
+    expect(campaign.start_at).toBe(1748736000);
+    expect(campaign.end_at).toBe(1751327999);
     expect(campaign.display_name).toBe('Explorer 2026');
     expect(campaign.rules_blurb).toBe('Ride the set.');
   });
 
-  it('rejects a second campaign for the same season', () => {
-    const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
-    service.createCampaign({ seasonId: seasonRecord.id });
+  it('rejects overlapping campaign windows', () => {
+    service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
 
-    expect(() => service.createCampaign({ seasonId: seasonRecord.id })).toThrow(
-      'Explorer campaign already exists for this season'
-    );
+    expect(() => service.createCampaign({
+      startAt: 1750464000,
+      endAt: 1753055999,
+    })).toThrow('Explorer campaigns cannot overlap in v1');
   });
 
-  it('allows different seasons to have their own campaigns', () => {
-    const seasonOne = createSeason(drizzleDb, 'Season One');
-    const seasonTwo = createSeason(drizzleDb, 'Season Two', true, {
-      startAt: 1767225600,
-      endAt: 1798761599,
+  it('allows non-overlapping campaign windows', () => {
+    service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
+    const secondCampaign = service.createCampaign({
+      startAt: 1751414400,
+      endAt: 1754006399,
     });
 
-    service.createCampaign({ seasonId: seasonOne.id });
-    const secondCampaign = service.createCampaign({ seasonId: seasonTwo.id });
-
-    expect(secondCampaign.season_id).toBe(seasonTwo.id);
+    expect(secondCampaign.start_at).toBe(1751414400);
     expect(drizzleDb.select().from(explorerCampaign).all()).toHaveLength(2);
   });
 
+  it('rejects a campaign whose end is before its start', () => {
+    expect(() => service.createCampaign({
+      startAt: 1751327999,
+      endAt: 1748736000,
+    })).toThrow('Campaign end date must be on or after the start date');
+  });
+
+  it('updates an existing campaign and preserves non-overlap', () => {
+    const firstCampaign = service.createCampaign({
+      startAt: 1748736000,
+      endAt: 1751327999,
+      displayName: 'Spring Explorer',
+    });
+    service.createCampaign({
+      startAt: 1751414400,
+      endAt: 1754006399,
+      displayName: 'Summer Explorer',
+    });
+
+    const updatedCampaign = service.updateCampaign({
+      explorerCampaignId: firstCampaign.id,
+      startAt: 1748822400,
+      endAt: 1751241599,
+      displayName: 'Updated Spring Explorer',
+      rulesBlurb: 'Still no overlap.',
+    });
+
+    expect(updatedCampaign.display_name).toBe('Updated Spring Explorer');
+    expect(updatedCampaign.rules_blurb).toBe('Still no overlap.');
+    expect(updatedCampaign.start_at).toBe(1748822400);
+  });
+
+  it('rejects updates that would create overlap', () => {
+    const firstCampaign = service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
+    service.createCampaign({ startAt: 1751414400, endAt: 1754006399 });
+
+    expect(() => service.updateCampaign({
+      explorerCampaignId: firstCampaign.id,
+      startAt: 1750464000,
+      endAt: 1753055999,
+    })).toThrow('Explorer campaigns cannot overlap in v1');
+  });
+
   it('adds a destination from a valid Strava segment URL and assigns display order', async () => {
-    const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
-    const campaign = service.createCampaign({ seasonId: seasonRecord.id });
+    const campaign = service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
     segmentMetadataService.fetchAndStoreSegmentMetadata.mockResolvedValue({
       strava_segment_id: '12744502',
       name: 'Mocked Segment',
@@ -93,8 +132,7 @@ describe('ExplorerAdminService', () => {
   });
 
   it('allows creation when metadata enrichment falls back to placeholder data', async () => {
-    const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
-    const campaign = service.createCampaign({ seasonId: seasonRecord.id });
+    const campaign = service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
     segmentMetadataService.fetchAndStoreSegmentMetadata.mockResolvedValue({
       strava_segment_id: '12744502',
       name: 'Segment 12744502',
@@ -109,8 +147,7 @@ describe('ExplorerAdminService', () => {
   });
 
   it('rejects duplicate segment destinations in the same campaign', async () => {
-    const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
-    const campaign = service.createCampaign({ seasonId: seasonRecord.id });
+    const campaign = service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
     segmentMetadataService.fetchAndStoreSegmentMetadata.mockResolvedValue({
       strava_segment_id: '12744502',
       name: 'Mocked Segment',
@@ -130,8 +167,7 @@ describe('ExplorerAdminService', () => {
   });
 
   it('rejects invalid non-segment URLs', async () => {
-    const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
-    const campaign = service.createCampaign({ seasonId: seasonRecord.id });
+    const campaign = service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
 
     await expect(
       service.addDestination({
@@ -142,8 +178,7 @@ describe('ExplorerAdminService', () => {
   });
 
   it('accepts segment URLs with surrounding whitespace when called directly', async () => {
-    const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
-    const campaign = service.createCampaign({ seasonId: seasonRecord.id });
+    const campaign = service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
     segmentMetadataService.fetchAndStoreSegmentMetadata.mockResolvedValue({
       strava_segment_id: '12744502',
       name: 'Mocked Segment',
@@ -159,8 +194,7 @@ describe('ExplorerAdminService', () => {
   });
 
   it('increments display order for later destinations', async () => {
-    const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
-    const campaign = service.createCampaign({ seasonId: seasonRecord.id });
+    const campaign = service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
 
     segmentMetadataService.fetchAndStoreSegmentMetadata.mockResolvedValueOnce({
       strava_segment_id: '12744502',

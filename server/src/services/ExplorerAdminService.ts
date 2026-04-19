@@ -1,6 +1,6 @@
-import { and, eq, max } from 'drizzle-orm';
+import { and, eq, gte, lte, max, ne } from 'drizzle-orm';
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { explorerCampaign, explorerDestination, season, type Segment } from '../db/schema';
+import { explorerCampaign, explorerDestination, type Segment } from '../db/schema';
 import { SegmentService } from './SegmentService';
 
 interface ExplorerSegmentMetadataService {
@@ -13,7 +13,16 @@ interface ExplorerSegmentMetadataService {
 }
 
 interface CreateCampaignInput {
-  seasonId: number;
+  startAt: number;
+  endAt: number;
+  displayName?: string | null;
+  rulesBlurb?: string | null;
+}
+
+interface UpdateCampaignInput {
+  explorerCampaignId: number;
+  startAt: number;
+  endAt: number;
   displayName?: string | null;
   rulesBlurb?: string | null;
 }
@@ -39,6 +48,16 @@ interface AddDestinationResult {
 function normalizeNullableText(value?: string | null): string | null {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+}
+
+function validateCampaignWindow(startAt: number, endAt: number): void {
+  if (!Number.isInteger(startAt) || !Number.isInteger(endAt)) {
+    throw new Error('Campaign dates must be valid timestamps');
+  }
+
+  if (endAt < startAt) {
+    throw new Error('Campaign end date must be on or after the start date');
+  }
 }
 
 function parseStravaSegmentUrl(sourceUrl: string): string {
@@ -70,34 +89,65 @@ export class ExplorerAdminService {
     private readonly segmentService: ExplorerSegmentMetadataService = new SegmentService(db)
   ) {}
 
-  createCampaign(input: CreateCampaignInput) {
-    const seasonRecord = this.db
-      .select({ id: season.id })
-      .from(season)
-      .where(eq(season.id, input.seasonId))
-      .get();
-
-    if (!seasonRecord) {
-      throw new Error('Season not found');
-    }
-
-    const existingCampaign = this.db
+  private ensureNoOverlap(startAt: number, endAt: number, excludedCampaignId?: number): void {
+    const overlappingCampaign = this.db
       .select({ id: explorerCampaign.id })
       .from(explorerCampaign)
-      .where(eq(explorerCampaign.season_id, input.seasonId))
+      .where(
+        and(
+          lte(explorerCampaign.start_at, endAt),
+          gte(explorerCampaign.end_at, startAt),
+          excludedCampaignId === undefined ? undefined : ne(explorerCampaign.id, excludedCampaignId)
+        )
+      )
       .get();
 
-    if (existingCampaign) {
-      throw new Error('Explorer campaign already exists for this season');
+    if (overlappingCampaign) {
+      throw new Error('Explorer campaigns cannot overlap in v1');
     }
+  }
+
+  createCampaign(input: CreateCampaignInput) {
+    validateCampaignWindow(input.startAt, input.endAt);
+    this.ensureNoOverlap(input.startAt, input.endAt);
 
     return this.db
       .insert(explorerCampaign)
       .values({
-        season_id: input.seasonId,
+        start_at: input.startAt,
+        end_at: input.endAt,
         display_name: normalizeNullableText(input.displayName),
         rules_blurb: normalizeNullableText(input.rulesBlurb),
       })
+      .returning()
+      .get();
+  }
+
+  updateCampaign(input: UpdateCampaignInput) {
+    validateCampaignWindow(input.startAt, input.endAt);
+
+    const existingCampaign = this.db
+      .select({ id: explorerCampaign.id })
+      .from(explorerCampaign)
+      .where(eq(explorerCampaign.id, input.explorerCampaignId))
+      .get();
+
+    if (!existingCampaign) {
+      throw new Error('Explorer campaign not found');
+    }
+
+    this.ensureNoOverlap(input.startAt, input.endAt, input.explorerCampaignId);
+
+    return this.db
+      .update(explorerCampaign)
+      .set({
+        start_at: input.startAt,
+        end_at: input.endAt,
+        display_name: normalizeNullableText(input.displayName),
+        rules_blurb: normalizeNullableText(input.rulesBlurb),
+        updated_at: new Date().toISOString(),
+      })
+      .where(eq(explorerCampaign.id, input.explorerCampaignId))
       .returning()
       .get();
   }
@@ -168,4 +218,10 @@ export class ExplorerAdminService {
   }
 }
 
-export type { CreateCampaignInput, AddDestinationInput, AddDestinationResult, ExplorerSegmentMetadataService };
+export type {
+  CreateCampaignInput,
+  UpdateCampaignInput,
+  AddDestinationInput,
+  AddDestinationResult,
+  ExplorerSegmentMetadataService,
+};

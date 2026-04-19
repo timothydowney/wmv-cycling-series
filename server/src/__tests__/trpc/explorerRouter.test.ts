@@ -10,7 +10,6 @@ import {
   createExplorerDestination,
   createExplorerMatch,
   createParticipant,
-  createSeason,
   createSegment,
   setupTestDb,
   teardownTestDb,
@@ -66,12 +65,9 @@ describe('explorerRouter', () => {
 
   it('returns the active campaign with ordered destinations and resolved labels', async () => {
     createSegment(drizzleDb, 'seg-401', 'Segment Name From DB');
-    const seasonRecord = createSeason(drizzleDb, '2025 Explorer Season', true, {
+    const campaign = createExplorerCampaign(drizzleDb, {
       startAt: 1748736000,
       endAt: 4102444799,
-    });
-    const campaign = createExplorerCampaign(drizzleDb, {
-      seasonId: seasonRecord.id,
       displayName: 'Explorer Launch',
     });
 
@@ -92,7 +88,6 @@ describe('explorerRouter', () => {
     const result = await caller.explorer.getActiveCampaign();
 
     expect(result?.name).toBe('Explorer Launch');
-    expect(result?.seasonName).toBe('2025 Explorer Season');
     expect(result?.destinations).toHaveLength(2);
     expect(result?.destinations[0]).toMatchObject({
       stravaSegmentId: 'seg-401',
@@ -107,8 +102,7 @@ describe('explorerRouter', () => {
   });
 
   it('requires auth for getCampaignProgress', async () => {
-    const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
-    const campaign = createExplorerCampaign(drizzleDb, { seasonId: seasonRecord.id });
+    const campaign = createExplorerCampaign(drizzleDb, { startAt: 1748736000, endAt: 1751327999 });
     const caller = getCaller();
     await expect(caller.explorer.getCampaignProgress({ campaignId: campaign.id })).rejects.toThrow('UNAUTHORIZED');
   });
@@ -116,12 +110,9 @@ describe('explorerRouter', () => {
   it('returns athlete progress for a campaign', async () => {
     createParticipant(drizzleDb, '3001', 'Progress Rider');
     createSegment(drizzleDb, 'seg-501', 'Forest Road');
-    const seasonRecord = createSeason(drizzleDb, 'Explorer Season', true, {
+    const campaign = createExplorerCampaign(drizzleDb, {
       startAt: 1751328000,
       endAt: 1751932799,
-    });
-    const campaign = createExplorerCampaign(drizzleDb, {
-      seasonId: seasonRecord.id,
       displayName: 'Weekless Explorer',
     });
 

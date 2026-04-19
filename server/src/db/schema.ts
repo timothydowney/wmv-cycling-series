@@ -154,14 +154,15 @@ export const webhookSubscription = sqliteTable('webhook_subscription', {
 
 export const explorerCampaign = sqliteTable('explorer_campaign', {
   id: integer().primaryKey({ autoIncrement: true }),
-  season_id: integer('season_id').notNull().references(() => season.id, { onDelete: 'cascade' }),
+  start_at: integer('start_at').notNull(),
+  end_at: integer('end_at').notNull(),
   display_name: text('display_name'),
   rules_blurb: text('rules_blurb'),
   created_at: text('created_at').default('sql`(CURRENT_TIMESTAMP)`'),
   updated_at: text('updated_at').default('sql`(CURRENT_TIMESTAMP)`'),
 },
 (t) => [
-  uniqueIndex('idx_explorer_campaign_season').on(t.season_id),
+  index('idx_explorer_campaign_window').on(t.start_at, t.end_at),
 ]);
 
 export const explorerDestination = sqliteTable('explorer_destination', {

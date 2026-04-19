@@ -1,6 +1,6 @@
 .explorer-admin-panel {
   width: 100%;
-  max-width: 1080px;
+  max-width: 1120px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -8,19 +8,12 @@
 }
 
 .explorer-admin-access-denied,
-.explorer-empty-state,
-.explorer-season-summary {
+.explorer-empty-state {
   background: var(--wmv-white);
   border: 1px solid var(--wmv-border);
-  border-radius: 12px;
+  border-radius: 16px;
   padding: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.explorer-card,
-.explorer-preview-card,
-.explorer-destination-card {
-  padding: 1.5rem;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
 }
 
 .explorer-admin-access-denied {
@@ -28,16 +21,39 @@
 }
 
 .explorer-admin-access-denied h2,
-.explorer-empty-state h2,
+.explorer-empty-state h3,
+.explorer-card h2,
 .explorer-card h3,
-.explorer-season-summary h2 {
-  margin: 0 0 0.5rem;
-  color: var(--wmv-purple);
+.explorer-card h4 {
+  margin: 0;
+  color: var(--wmv-text-dark);
+}
+
+.explorer-card {
+  padding: 1.5rem;
+  border-radius: 20px;
+  border: 1px solid rgba(245, 96, 4, 0.14);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+}
+
+.explorer-admin-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 1.25rem;
+  background:
+    radial-gradient(circle at top left, rgba(245, 96, 4, 0.14), transparent 45%),
+    linear-gradient(135deg, rgba(255, 247, 237, 0.92), rgba(255, 255, 255, 0.98));
+}
+
+.explorer-create-shell {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 247, 237, 0.8)),
+    var(--wmv-white);
 }
 
 .explorer-message {
   padding: 0.9rem 1rem;
-  border-radius: 10px;
+  border-radius: 12px;
   font-weight: 600;
 }
 
@@ -59,29 +75,79 @@
   color: #9a3412;
 }
 
-.explorer-season-summary,
 .explorer-card-header,
-.explorer-preview-header {
+.explorer-preview-header,
+.explorer-campaign-toggle,
+.explorer-campaign-toggle-main {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
 }
 
+.explorer-campaign-toggle {
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.explorer-campaign-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.explorer-campaign-shell {
+  padding-bottom: 1.25rem;
+  background:
+    linear-gradient(180deg, rgba(255, 251, 235, 0.56), rgba(255, 255, 255, 0.98)),
+    var(--wmv-white);
+}
+
+.explorer-campaign-details {
+  margin-top: 1.25rem;
+  padding: 1.25rem 0 0;
+  border-top: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.explorer-campaign-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.explorer-campaign-editor-block,
+.explorer-destination-section,
+.explorer-preview-card {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 1.125rem;
+}
+
+.explorer-destination-section {
+  margin-top: 1rem;
+}
+
 .explorer-section-label {
   margin: 0 0 0.35rem;
   font-size: var(--font-xs);
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--wmv-orange);
 }
 
-.explorer-season-window,
 .explorer-card-header p,
 .explorer-muted-copy,
 .explorer-rules-blurb,
-.explorer-destination-meta {
+.explorer-destination-meta,
+.explorer-input-help,
+.explorer-preview-subtitle,
+.explorer-preview-status {
   margin: 0;
   color: var(--wmv-text-light);
 }
@@ -91,6 +157,16 @@
   flex-direction: column;
   gap: 1rem;
   margin-top: 1rem;
+}
+
+.explorer-form-tight {
+  margin-top: 0.875rem;
+}
+
+.explorer-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
 }
 
 .explorer-form-group {
@@ -108,11 +184,11 @@
 .explorer-form-group textarea {
   width: 100%;
   padding: 0.8rem 0.95rem;
-  border: 1px solid var(--wmv-border);
-  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 12px;
   font-size: var(--font-base);
   color: var(--wmv-text-dark);
-  background: var(--wmv-white);
+  background: rgba(255, 255, 255, 0.98);
 }
 
 .explorer-form-group input:focus,
@@ -122,27 +198,63 @@
   box-shadow: 0 0 0 3px rgba(245, 96, 4, 0.12);
 }
 
+.explorer-form-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.explorer-submit-button {
+  appearance: none;
+  border: none;
+  border-radius: 999px;
+  padding: 0.85rem 1.25rem;
+  background: linear-gradient(135deg, #ea580c, #f97316);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+  box-shadow: 0 10px 24px rgba(234, 88, 12, 0.24);
+}
+
+.explorer-submit-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.explorer-submit-button:disabled {
+  opacity: 0.68;
+  cursor: not-allowed;
+}
+
+.explorer-chip-cluster,
+.explorer-destination-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.explorer-chip-icon,
 .explorer-button-icon {
   width: 1rem;
   height: 1rem;
 }
 
-.explorer-spin {
-  animation: explorer-spin 1s linear infinite;
+.explorer-status-chip {
+  border-color: transparent;
 }
 
-.explorer-input-help,
-.explorer-preview-subtitle,
-.explorer-preview-error,
-.explorer-preview-status {
-  margin: 0;
-  font-size: 0.9rem;
+.explorer-status-active {
+  background: rgba(22, 163, 74, 0.12);
+  color: #166534;
 }
 
-.explorer-input-help,
-.explorer-preview-subtitle,
-.explorer-preview-status {
-  color: var(--wmv-text-light);
+.explorer-status-upcoming {
+  background: rgba(234, 88, 12, 0.12);
+  color: #9a3412;
+}
+
+.explorer-status-completed {
+  background: rgba(71, 85, 105, 0.12);
+  color: #334155;
 }
 
 .explorer-preview-status {
@@ -151,22 +263,16 @@
   gap: 0.5rem;
 }
 
+.explorer-inline-status {
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.04);
+}
+
 .explorer-preview-error {
+  margin: 0;
   color: #b91c1c;
   font-weight: 600;
-}
-
-.explorer-preview-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin-top: 1rem;
-}
-
-.explorer-destination-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
 }
 
 .explorer-preview-actions {
@@ -174,74 +280,23 @@
   gap: 0.75rem;
 }
 
-.explorer-destination-card {
-  margin-top: 1rem;
-}
-
-.explorer-destination-surface {
-  background-color: var(--wmv-white);
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  border: 1px solid transparent;
-}
-
-.explorer-destination-summary-card {
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-}
-
-.explorer-destination-summary-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.explorer-destination-card[data-expanded='true'] .explorer-destination-summary-card {
-  border-color: var(--wmv-orange);
-}
-
-.explorer-destination-hero-title {
-  margin: 0;
-  font-size: var(--font-2xl);
-  line-height: 1.2;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.explorer-destination-list-title {
-  padding-right: 16px;
-}
-
-.explorer-destination-surface-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--wmv-orange);
-  text-decoration: none;
-}
-
-.explorer-destination-surface-link:hover {
-  text-decoration: underline;
-}
-
-.explorer-destination-surface-link svg {
-  width: 20px;
-  height: 20px;
-}
-
 .explorer-icon-button {
   width: 2.75rem;
   height: 2.75rem;
   border-radius: 999px;
-  border: 1px solid var(--wmv-border);
-  background: var(--wmv-white);
+  border: 1px solid rgba(148, 163, 184, 0.34);
+  background: #fff;
   color: var(--wmv-text-dark);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.explorer-icon-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
 }
 
 .explorer-icon-button svg {
@@ -249,20 +304,9 @@
   height: 1.25rem;
 }
 
-.explorer-icon-button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
 .explorer-icon-button-accept {
   border-color: #86efac;
   color: #166534;
-}
-
-.explorer-icon-button-accept:disabled,
-.explorer-icon-button-reject:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
 }
 
 .explorer-icon-button-reject {
@@ -270,11 +314,25 @@
   color: #b91c1c;
 }
 
-.explorer-destination-chip-row {
+.explorer-icon-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.explorer-destination-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.explorer-destination-card {
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(248, 250, 252, 0.78);
+  border: 1px solid rgba(148, 163, 184, 0.16);
 }
 
 .explorer-destination-summary {
@@ -287,40 +345,61 @@
   outline: none;
 }
 
-.explorer-destination-list {
-  list-style: none;
+.explorer-destination-surface {
+  background-color: transparent;
+  padding: 1.1rem 1.15rem;
+}
+
+.explorer-destination-summary-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  transition: background-color 0.18s ease;
+}
+
+.explorer-destination-card[data-expanded='true'] .explorer-destination-summary-card {
+  background: rgba(255, 247, 237, 0.92);
+}
+
+.explorer-destination-hero-title {
   margin: 0;
-  padding: 0;
+  font-size: var(--font-xl);
+  line-height: 1.2;
+}
+
+.explorer-destination-list-title {
+  padding-right: 0.75rem;
+}
+
+.explorer-destination-surface-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--wmv-orange);
+  text-decoration: none;
+}
+
+.explorer-destination-surface-link:hover {
+  text-decoration: underline;
+}
+
+.explorer-destination-surface-link svg {
+  width: 1rem;
+  height: 1rem;
 }
 
 .explorer-destination-label {
   color: var(--wmv-text-dark);
-  font-weight: 600;
-  font-size: var(--font-2xl);
-  line-height: 1.2;
-}
-
-.explorer-destination-meta {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  margin: 0;
-  color: var(--wmv-text-light);
-  font-size: var(--font-sm);
-}
-
-.explorer-destination-meta svg {
-  width: 0.95rem;
-  height: 0.95rem;
-  flex-shrink: 0;
+  font-weight: 700;
 }
 
 .explorer-destination-chevron {
   flex-shrink: 0;
-  width: 24px;
-  height: 24px;
+  width: 1.4rem;
+  height: 1.4rem;
   color: var(--wmv-text-light);
-  transition: transform 0.2s ease;
+  transition: transform 0.18s ease;
 }
 
 .explorer-destination-chevron.is-expanded {
@@ -328,13 +407,13 @@
 }
 
 .explorer-destination-details {
-  margin: -8px 16px 16px;
-  border: 1px solid var(--wmv-border);
-  border-top: none;
-  border-bottom-left-radius: 16px;
-  border-bottom-right-radius: 16px;
-  background-color: #f9fafb;
-  padding-top: 32px;
+  padding: 0 1.15rem 1rem;
+}
+
+.explorer-destination-detail-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
 }
 
 .explorer-destination-detail-row {
@@ -344,10 +423,17 @@
   align-items: center;
 }
 
-.explorer-destination-detail-block {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
+.explorer-destination-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: var(--font-sm);
+}
+
+.explorer-destination-meta svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  flex-shrink: 0;
 }
 
 .explorer-detail-label {
@@ -357,6 +443,10 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--wmv-text-light);
+}
+
+.explorer-spin {
+  animation: explorer-spin 1s linear infinite;
 }
 
 @keyframes explorer-spin {
@@ -369,25 +459,25 @@
   }
 }
 
+@media (max-width: 900px) {
+  .explorer-admin-hero,
+  .explorer-campaign-editor-grid,
+  .explorer-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 768px) {
-  .explorer-season-summary,
   .explorer-card-header,
   .explorer-preview-header,
+  .explorer-campaign-toggle,
+  .explorer-campaign-toggle-main,
   .explorer-destination-summary-card {
     flex-direction: column;
-  }
-
-  .explorer-destination-surface {
-    padding: 20px;
   }
 
   .explorer-preview-actions {
     width: 100%;
     justify-content: flex-start;
-  }
-
-  .explorer-destination-hero-title,
-  .explorer-destination-label {
-    font-size: var(--font-xl);
   }
 }
