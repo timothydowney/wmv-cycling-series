@@ -197,7 +197,22 @@ function formatCoordinatePair(latitude?: number | null, longitude?: number | nul
   return `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
 }
 
+function hasStravaDetailMetadata(destination: AdminCampaignDestination): boolean {
+  return destination.distance != null
+    || destination.averageGrade != null
+    || destination.totalElevationGain != null
+    || (destination.climbCategory ?? 0) > 0
+    || formatLocation(destination.city, destination.state, destination.country) != null
+    || formatCoordinatePair(destination.startLatitude, destination.startLongitude) != null
+    || formatCoordinatePair(destination.endLatitude, destination.endLongitude) != null
+    || formatMetadataUpdatedAt(destination.metadataUpdatedAt) != null;
+}
+
 function getDestinationDetailItems(destination: AdminCampaignDestination, units: UnitSystem): DestinationDetailItem[] {
+  if (!hasStravaDetailMetadata(destination)) {
+    return [];
+  }
+
   const detailItems: DestinationDetailItem[] = [
     { label: 'Segment name', value: destination.segmentName },
   ];

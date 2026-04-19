@@ -597,6 +597,50 @@ describe('ExplorerAdminPanel', () => {
     expect(expandedDestination.textContent).not.toContain('381 ft');
   });
 
+  it('shows the Strava metadata fallback when only placeholder destination data exists', async () => {
+    trpcMocks.campaignsQuery.data = [
+      {
+        id: 41,
+        name: 'Spring Explorer',
+        displayNameRaw: 'Spring Explorer',
+        startAt: 1767225600,
+        endAt: 1798761599,
+        rulesBlurb: 'Ride every destination once.',
+        destinations: [
+          {
+            id: 302,
+            displayLabel: 'Placeholder climb',
+            customLabel: null,
+            segmentName: 'Placeholder climb',
+            displayOrder: 1,
+            sourceUrl: 'https://www.strava.com/segments/9999999',
+            stravaSegmentId: '9999999',
+            createdAt: '2025-06-03T09:05:00Z',
+            distance: null,
+            averageGrade: null,
+            totalElevationGain: null,
+            climbCategory: null,
+            startLatitude: null,
+            startLongitude: null,
+            endLatitude: null,
+            endLongitude: null,
+            metadataUpdatedAt: null,
+            city: null,
+            state: null,
+            country: null,
+          },
+        ],
+      },
+    ];
+
+    const { container } = await renderPanel();
+    await clickElement(getByTestId(container, 'explorer-destination-toggle-302'));
+
+    const expandedDestination = getByTestId(container, 'explorer-destination-row-302');
+    expect(expandedDestination.textContent).toContain('No Strava metadata cached yet.');
+    expect(expandedDestination.textContent).not.toContain('Segment name');
+  });
+
   it('uses icon-only summary actions and keeps the caret as a dedicated collapse control', async () => {
     trpcMocks.campaignsQuery.data = [
       {

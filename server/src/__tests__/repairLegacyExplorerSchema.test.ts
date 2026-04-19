@@ -278,7 +278,8 @@ describe('repairLegacyExplorerSchema', () => {
 
   it('still succeeds when the legacy schema has 0010 recorded and the later Explorer migrations are pending', () => {
     replaceExplorerTablesWithCampaignSchema(db);
-    db.exec('DELETE FROM __drizzle_migrations WHERE rowid = 12;');
+    replaceSegmentTableWithPreMetadataFidelitySchema(db);
+    db.exec('DELETE FROM __drizzle_migrations WHERE rowid >= 12;');
 
     const repairState = prepareLegacyExplorerSchemaRepair(db);
 
