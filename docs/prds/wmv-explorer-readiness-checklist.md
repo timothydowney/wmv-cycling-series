@@ -17,23 +17,23 @@ The ideas backlog is intentionally excluded from v1 implementation scope. It exi
 
 ## Current Go Decision
 
-**Status:** Phase 1 Complete; Campaign-First Explorer Correction Landed; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Phase 4B-3 Campaign Decoupling And Unified Admin Shell Merged; Ready For Phase 4B-4 Admin Workflow Hierarchy And Destination Management
+**Status:** Phase 1 Complete; Campaign-First Explorer Correction Landed; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Phase 4B-3 Campaign Decoupling And Unified Admin Shell Merged; Phase 4B-4 Admin Workflow Hierarchy And Destination Management Merged; Ready For Phase 4B-5 Segment Metadata Fidelity And Freshness
 
-Explorer has completed the narrow Phase 1 webhook-orchestration slice that preserves current competition behavior while introducing delegated in-process handlers. The planning set corrected Explorer to a campaign-first model with campaign-owned date boundaries, returned `Season` to competition-only semantics, deferred overlapping or nested campaign structures, and locked a no-overlap Explorer rule for v1. That structural correction is now implemented on `main`, so the next recommended work is a bounded 4B-4 admin workflow hierarchy slice that makes the current-or-next campaign the main working surface and moves destination management ahead of lower-priority planning controls.
+Explorer has completed the narrow Phase 1 webhook-orchestration slice that preserves current competition behavior while introducing delegated in-process handlers. The planning set corrected Explorer to a campaign-first model with campaign-owned date boundaries, returned `Season` to competition-only semantics, deferred overlapping or nested campaign structures, and locked a no-overlap Explorer rule for v1. The current-or-next admin workflow refinement is now also merged on `main`, so the next recommended work is a bounded 4B-5 metadata-fidelity slice that extends the shared segment model with the coordinates and freshness data needed for richer admin details and later map-safe follow-on work.
 
-The current 4B-4 boundary is explicit: treat the current active campaign, or the next upcoming campaign when none is active, as primary; keep campaign creation prominent only when no such campaign exists; make destination authoring and review the dominant workflow; keep metadata editing collapsed by default; allow simple confirmed destination removal; and avoid broadening into real search, reorder, reporting, or map work in the same slice.
+The current 4B-5 boundary is explicit: keep the merged 4B-4 workflow intact; extend the shared segment metadata path with start or end coordinates plus metadata freshness; make expanded admin details reliably show available timestamps instead of ambiguous placeholders; and avoid broadening into bespoke Explorer refresh controls, polyline storage, or map rendering in the same slice.
 
 ## Current Status Summary
 
 | Area | Status | Notes |
 | --- | --- | --- |
 | Product framing | Ready | The PRD is now aligned to a campaign-first Explorer model with campaign-owned dates and competition-only `Season` semantics. |
-| Execution phasing | Ready For Phase 4B-4 | The phases doc now records 4B-3 as merged and names 4B-4 as the admin workflow hierarchy and destination-management slice. |
-| Architecture closure | Ready For Bounded Admin Refinement | The campaign-first correction is merged, so follow-on work can focus on workflow hierarchy instead of reopening the structural model. |
+| Execution phasing | Ready For Phase 4B-5 | The phases doc now records 4B-4 as merged and names 4B-5 as the metadata-fidelity and freshness slice. |
+| Architecture closure | Ready For Shared Metadata Refinement | The campaign-first correction and current admin hierarchy are merged, so follow-on work can focus on segment-model fidelity instead of reopening the Explorer shell. |
 | Open questions handling | Ready | The worklog now records the superseded season-attached decision and the locked no-overlap rule. |
-| Blocking research closure | Ready For Phase 4B-4 | The product-model correction is closed and the next work is a bounded admin workflow refinement slice. |
-| Test planning | Ready For Phase 4B-4 | The next test-planning work is attached to workflow hierarchy, destination deletion, and admin-surface behavior rather than model correction. |
-| Documentation impact plan | Ready For Phase 4B-4 | The next documentation impact is slice-local planning-state maintenance plus any admin-flow notes created by 4B-4. |
+| Blocking research closure | Ready For Phase 4B-5 | The product-model correction is closed and the next work is a bounded shared-metadata refinement slice. |
+| Test planning | Ready For Phase 4B-5 | The next test-planning work is attached to coordinate persistence, metadata freshness, and admin detail rendering rather than more workflow hierarchy changes. |
+| Documentation impact plan | Ready For Phase 4B-5 | The next documentation impact is slice-local planning-state maintenance plus technical-spec and schema notes created by 4B-5. |
 
 ## Must Resolve Before Broad Implementation
 
@@ -66,9 +66,9 @@ The current 4B-4 boundary is explicit: treat the current active campaign, or the
 | Status | Ready |
 | Gate | Must Resolve |
 | Why it matters | Explorer destination setup depends on how segment data is validated, stored, and displayed over time. |
-| Evidence | The current UI already has real segment URL parsing and validation patterns in [src/components/SegmentInput.tsx](../../src/components/SegmentInput.tsx) and [src/components/ManageSegments.tsx](../../src/components/ManageSegments.tsx), but the Explorer spec still leaves room for multiple storage strategies. |
-| Acceptance criteria | The tech spec explicitly states whether Explorer reuses the existing segment table, stores Explorer-local cached metadata, or uses both with clear responsibilities for each. |
-| Next action | Carry the locked storage responsibilities and DB-first segment reuse policy into 4B-3, and treat any future coordinate or geometry storage for maps as a later non-blocking expansion rather than as part of this UI slice. |
+| Evidence | The current UI already has real segment URL parsing and validation patterns in [src/components/SegmentInput.tsx](../../src/components/SegmentInput.tsx) and [src/components/ManageSegments.tsx](../../src/components/ManageSegments.tsx), Explorer already reuses shared segment rows for distance and location reads, and the current Strava client package exposes `start_latlng` and `end_latlng` on segment responses even though the app does not store them yet. |
+| Acceptance criteria | The tech spec explicitly states that Explorer continues to reuse the shared segment table, that the shared table should now capture the available coordinate and metadata-freshness fields needed for later map-safe work, and that Explorer does not add bespoke refresh logic for those values. |
+| Next action | Carry the locked DB-first storage policy, coordinate capture, and metadata-freshness fields into 4B-5, while keeping polylines, true map rendering, and Explorer-specific refresh controls out of scope. |
 
 ### 4. Centralized Open Questions
 
@@ -87,9 +87,9 @@ The current 4B-4 boundary is explicit: treat the current active campaign, or the
 | --- | --- |
 | Status | Ready |
 | Gate | Must Resolve |
-| Why it matters | The team needs a shared rule for what can proceed now that the campaign-first correction has landed and the admin surface is entering a narrower workflow-refinement phase. |
-| Evidence | The implemented webhook seam remains valid, 4A, 4B-1, 4B-2, and 4B-3 are merged, and the next slice is now re-approved as Phase 4B-4 admin workflow hierarchy plus confirmed destination management. |
-| Acceptance criteria | The readiness artifacts clearly state that Explorer is ready for one bounded admin-refinement slice next and identify what remains out of scope. |
+| Why it matters | The team needs a shared rule for what can proceed now that the campaign-first correction and admin workflow hierarchy are both merged. |
+| Evidence | The implemented webhook seam remains valid, 4A, 4B-1, 4B-2, 4B-3, and 4B-4 are merged, and the next slice is now re-approved as Phase 4B-5 segment metadata fidelity plus freshness. |
+| Acceptance criteria | The readiness artifacts clearly state that Explorer is ready for one bounded shared-metadata slice next and identify what remains out of scope. |
 | Next action | Keep the current go decision updated as additional corrected Explorer slices are approved or deferred, and close slice-local planning state in the implementation PR when the slice changes readiness or phase status. |
 
 ## Should Resolve Before 4A And 4B Expand
@@ -114,18 +114,18 @@ The current 4B-4 boundary is explicit: treat the current active campaign, or the
 | Why it matters | Explorer admin UI flows and the existing Playwright suite need repeatable end-to-end coverage, and the current code path reaches outbound Strava services from the backend during destination authoring and some read flows. |
 | Evidence | The backend now has an explicit E2E mode in [server/src/config.ts](../../server/src/config.ts), the E2E database resets from the committed sanitized fixture [server/data/wmv_e2e_fixture.db](../../server/data/wmv_e2e_fixture.db), and deterministic read-side Strava behavior now flows through explicit providers in [server/src/services/segmentMetadataProvider.ts](../../server/src/services/segmentMetadataProvider.ts) and [server/src/services/stravaReadProvider.ts](../../server/src/services/stravaReadProvider.ts) rather than through scattered service-level `isE2EMode()` branches. Full validation is green, including `npm test`, `npm run test:e2e`, `npm run typecheck`, `npm run lint`, and `npm run build`. |
 | Acceptance criteria | Explorer and existing E2E scenarios run against an explicit backend E2E mode, deterministic campaign and leaderboard data are provisioned without copying a contributor's local development database, and outbound Strava-dependent behavior is selected through explicit providers rather than scattered feature-level short-circuits. |
-| Next action | Preserve the centralized E2E-mode and explicit-provider discipline as 4B-4 refines the admin workflow on top of the merged campaign-first baseline. |
+| Next action | Preserve the centralized E2E-mode and explicit-provider discipline as 4B-5 refines shared segment metadata on top of the merged campaign-first baseline. |
 
 ### 3. Documentation Impact Plan
 
 | Field | Value |
 | --- | --- |
-| Status | Ready For Phase 4B-4 |
+| Status | Ready For Phase 4B-5 |
 | Gate | Should Resolve |
 | Why it matters | Explorer touches admin, athlete, API, database, and release-note surfaces. That work should be visible before coding. |
-| Evidence | The 4A slice updated `docs/API.md`, `docs/DATABASE_DESIGN.md`, and the slice-local planning docs, while 4B-3 carried the structural correction. The 4B-4 slice is expected to update slice-local planning docs and any admin guidance touched by the workflow shift. |
+| Evidence | The 4A slice updated `docs/API.md`, `docs/DATABASE_DESIGN.md`, and the slice-local planning docs, while 4B-3 and 4B-4 carried the structural correction plus admin workflow refinement. The 4B-5 slice is expected to update slice-local planning docs, the technical spec, and schema documentation if shared segment fields expand. |
 | Acceptance criteria | The worklog or implementation slice names the docs expected to change when the slice lands, including any slice-local planning docs needed to close the state transition. |
-| Next action | Keep the documentation-impact checklist current and treat 4B-4 planning-state maintenance plus any admin-flow notes as the next expected update set. |
+| Next action | Keep the documentation-impact checklist current and treat 4B-5 planning-state maintenance plus any shared-segment schema notes as the next expected update set. |
 
 ### 4. Smallest End-To-End Slice
 
@@ -166,10 +166,11 @@ If a slice is expected to change the approved next step, readiness wording, or p
 | Phase 1 Complete | Yes |
 | Campaign-First Explorer Correction Landed | Yes |
 | Phase 4B-3 Campaign Decoupling And Unified Admin Shell Merged | Yes |
+| Phase 4B-4 Admin Workflow Hierarchy And Destination Management Merged | Yes |
 | Phase 4A Admin Backend Complete | Yes |
 | Phase 4B-1 E2E Harness Hardening Merged | Yes |
 | Phase 4B-2 Minimal Admin UI Merged | Yes |
-| Ready For Phase 4B-4 Admin Workflow Hierarchy And Destination Management | Yes |
+| Ready For Phase 4B-5 Segment Metadata Fidelity And Freshness | Yes |
 | Ready For Broad Feature Implementation | No |
 
-If this file says anything stronger than **Phase 1 Complete; Campaign-First Explorer Correction Landed; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Phase 4B-3 Campaign Decoupling And Unified Admin Shell Merged; Ready For Phase 4B-4 Admin Workflow Hierarchy And Destination Management**, the linked worklog should show exactly what changed to justify that shift.
+If this file says anything stronger than **Phase 1 Complete; Campaign-First Explorer Correction Landed; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Phase 4B-3 Campaign Decoupling And Unified Admin Shell Merged; Phase 4B-4 Admin Workflow Hierarchy And Destination Management Merged; Ready For Phase 4B-5 Segment Metadata Fidelity And Freshness**, the linked worklog should show exactly what changed to justify that shift.

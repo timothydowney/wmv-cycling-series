@@ -36,6 +36,8 @@ jest.mock('../stravaClient', () => ({
     total_elevation_gain: 150,
     average_grade: 5.5,
     climb_category: 2,
+    start_latlng: [42.3201, -72.6304],
+    end_latlng: [42.3315, -72.6122],
     city: 'Test City',
     state: 'TC',
     country: 'Test Country'
@@ -47,6 +49,11 @@ jest.mock('../stravaClient', () => ({
     total_elevation_gain: segment.total_elevation_gain,
     average_grade: segment.average_grade,
     climb_category: segment.climb_category,
+    start_latitude: segment.start_latlng?.[0] ?? null,
+    start_longitude: segment.start_latlng?.[1] ?? null,
+    end_latitude: segment.end_latlng?.[0] ?? null,
+    end_longitude: segment.end_latlng?.[1] ?? null,
+    metadata_updated_at: '2026-04-19T12:00:00Z',
     city: segment.city,
     state: segment.state,
     country: segment.country
@@ -100,6 +107,10 @@ describe('SegmentService', () => {
         total_elevation_gain: 150,
         average_grade: 5.5,
         climb_category: 2,
+        start_latitude: 42.3201,
+        start_longitude: -72.6304,
+        end_latitude: 42.3315,
+        end_longitude: -72.6122,
         city: 'Test City',
         state: 'TC',
         country: 'Test Country'
@@ -110,7 +121,10 @@ describe('SegmentService', () => {
       expect(stored).toMatchObject({
         strava_segment_id: TEST_SEGMENT_ID,
         name: 'Test Segment Name',
-        distance: 3000
+        distance: 3000,
+        start_latitude: 42.3201,
+        end_longitude: -72.6122,
+        metadata_updated_at: '2026-04-19T12:00:00Z'
       });
     });
 
@@ -311,6 +325,13 @@ describe('SegmentService', () => {
       createSegment(drizzleDb, TEST_SEGMENT_ID, 'Test Segment', {
         distance: 5000,
         averageGrade: 4.5,
+        totalElevationGain: 220,
+        climbCategory: 3,
+        startLatitude: 40.015,
+        startLongitude: -105.2705,
+        endLatitude: 40.025,
+        endLongitude: -105.255,
+        metadataUpdatedAt: '2026-04-18T16:45:00Z',
         city: 'Boulder',
         state: 'CO',
         country: 'USA'
@@ -322,6 +343,13 @@ describe('SegmentService', () => {
         name: 'Test Segment',
         distance: 5000,
         average_grade: 4.5,
+        total_elevation_gain: 220,
+        climb_category: 3,
+        start_latitude: 40.015,
+        start_longitude: -105.2705,
+        end_latitude: 40.025,
+        end_longitude: -105.255,
+        metadata_updated_at: '2026-04-18T16:45:00Z',
         city: 'Boulder',
         state: 'CO',
         country: 'USA'

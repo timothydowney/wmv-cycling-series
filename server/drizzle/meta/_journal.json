@@ -85,6 +85,20 @@
       "when": 1776600000000,
       "tag": "0011_explorer_campaign_dates",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1776607200000,
+      "tag": "0012_segment_metadata_fidelity",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1776610800000,
+      "tag": "0013_repair_explorer_timestamps",
+      "breakpoints": true
     }
   ]
 }

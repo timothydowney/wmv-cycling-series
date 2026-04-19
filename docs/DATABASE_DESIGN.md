@@ -12,7 +12,7 @@ The database is managed using **Drizzle ORM**. The source of truth for the schem
 ### Core Tables
 
 - **`participant`**: Stores athlete information and connection status.
-- **`segment`**: Cached Strava segment metadata (distance, grade, location).
+- **`segment`**: Cached Strava segment metadata shared across competition and Explorer, including distance, grade, location, coordinates, elevation, climb category, and metadata freshness.
 - **`season`**: Defines competition periods (e.g., "2025 Season").
 - **`week`**: Individual weekly events linked to a season and a segment.
 - **`activity`**: The best qualifying Strava activity for a participant in a given week.
@@ -159,7 +159,7 @@ ORDER BY total_points DESC;
    - Add `start_time` (NOT NULL, default: `{date}T00:00:00Z`)
    - Add `end_time` (NOT NULL, default: `{date}T22:00:00Z`)
 4. Alter `results` to add: `activity_id`, `total_time_seconds`, `rank`, `points`, `updated_at`
-5. Add segment metadata columns (distance, average_grade, city, state, country)
+5. Add segment metadata columns (distance, average_grade, coordinates, elevation, climb category, metadata freshness, city, state, country)
 6. Backfill: Convert existing `elapsed_seconds` to `total_time_seconds`
 7. Recalculate all ranks and points with corrected formula
 

@@ -13,12 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - A standalone Manage Roles admin screen for granting and revoking database-backed admin access for participants who have logged in.
 - Explorer admin now lets admins remove campaign destinations directly from the campaign workflow with a simple confirmation step.
+- Explorer admin now surfaces shared Strava segment detail fields including elevation, climb category, coordinates, and metadata refresh time inside expanded destination cards.
 
 ### Changed
 - Season openness is now treated as date-based in application logic, allowing overlapping seasons to remain open concurrently.
 - Admin authorization now evaluates database-backed admin roles in addition to the `ADMIN_ATHLETE_IDS` env var, which remains the break-glass fallback.
 - The navigation now exposes Manage Roles as its own first-class admin destination and keeps About clearly outside the admin menu grouping.
 - Explorer admin now centers the current or next campaign as the primary workspace, keeps campaign editing inline at the top of the expanded card, and demotes create-campaign planning until it is needed.
+- Shared segment metadata persistence now captures Strava start and end coordinates plus a freshness timestamp for reuse across Explorer and competition flows.
+- Explorer admin destination metadata now respects the app-wide imperial or metric unit preference instead of always rendering metric values.
 - Upgraded the frontend runtime and type packages to React 19 (`react`, `react-dom`, `@types/react`, and `@types/react-dom`) as the first major-version migration PR in the dependency modernization set.
 - Upgraded the next safe batch of major dependencies in one pass: Vite 8 + `@vitejs/plugin-react` 6, TypeScript 6 (frontend and backend), Express 5, `strava-v3` 4, and `@types/express` 5.
 - Clarified the Playwright e2e prerequisites and authentication flow in the e2e docs: normal logged-in tests use the backend e2e session helper, while manual Strava OAuth is now documented as optional exploratory setup.
@@ -26,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated the Explorer PRD implementation docs to reflect the Phase 1 handler order, shared context contract, and the decision to keep delete and athlete deauthorization adjacent to the processor for now.
 
 ### Fixed
+- Explorer destination add timestamps now store real database timestamps instead of a literal default-expression string, and existing broken local rows are repaired through migration.
+- Explorer admin no longer falls back to "Not recorded" for newly added destinations when the database has a valid add timestamp.
 - Made mobile navbar dropdown overflow protection verifiable with concrete E2E assertions (viewport-fit, scrollability, and reachable menu items), preventing false-positive test passes.
 - Repaired the real Strava integration after the `strava-v3` v4 upgrade by constructing authenticated client instances with `new strava.client(...)`, which restores WMV club membership checks and webhook activity enrichment in development.
 - Corrected the webhook admin event-history time filter to send an absolute Unix timestamp to the backend, so the selected 24-hour, 7-day, and 30-day windows now query the intended event range.

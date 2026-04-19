@@ -115,6 +115,55 @@ function replaceExplorerTablesWithCampaignSchema(db: Database) {
   `);
 }
 
+function replaceSegmentTableWithPreMetadataFidelitySchema(db: Database) {
+  db.exec(`
+    PRAGMA foreign_keys=OFF;
+
+    CREATE TABLE __new_segment (
+      strava_segment_id text PRIMARY KEY NOT NULL,
+      name text NOT NULL,
+      distance real,
+      average_grade real,
+      city text,
+      state text,
+      country text,
+      created_at text DEFAULT (CURRENT_TIMESTAMP),
+      total_elevation_gain real,
+      climb_category integer
+    );
+
+    INSERT INTO __new_segment (
+      strava_segment_id,
+      name,
+      distance,
+      average_grade,
+      city,
+      state,
+      country,
+      created_at,
+      total_elevation_gain,
+      climb_category
+    )
+    SELECT
+      strava_segment_id,
+      name,
+      distance,
+      average_grade,
+      city,
+      state,
+      country,
+      created_at,
+      total_elevation_gain,
+      climb_category
+    FROM segment;
+
+    DROP TABLE segment;
+    ALTER TABLE __new_segment RENAME TO segment;
+
+    PRAGMA foreign_keys=ON;
+  `);
+}
+
 describe('repairLegacyExplorerSchema', () => {
   let db: Database;
   let drizzleDb: BetterSQLite3Database;
@@ -142,6 +191,7 @@ describe('repairLegacyExplorerSchema', () => {
   it('repairs an empty legacy Explorer schema through the real migrate order', () => {
     replaceExplorerTablesWithLegacySchema(db);
     db.exec('DELETE FROM __drizzle_migrations WHERE rowid >= 10;');
+    replaceSegmentTableWithPreMetadataFidelitySchema(db);
 
     const repairState = prepareLegacyExplorerSchemaRepair(db);
     migrate(drizzleDb, { migrationsFolder });
@@ -162,6 +212,7 @@ describe('repairLegacyExplorerSchema', () => {
   it('migrates weekly Explorer data into the campaign model', () => {
     replaceExplorerTablesWithLegacySchema(db);
     db.exec('DELETE FROM __drizzle_migrations WHERE rowid >= 10;');
+    replaceSegmentTableWithPreMetadataFidelitySchema(db);
 
     const seasonRecord = createSeason(drizzleDb, 'Explorer Season');
     createParticipant(drizzleDb, '999001', 'Legacy Rider');
@@ -227,6 +278,7 @@ describe('repairLegacyExplorerSchema', () => {
 
   it('still succeeds when the legacy schema has 0010 recorded and the later Explorer migrations are pending', () => {
     replaceExplorerTablesWithCampaignSchema(db);
+    replaceSegmentTableWithPreMetadataFidelitySchema(db);
     db.exec('DELETE FROM __drizzle_migrations WHERE rowid >= 12;');
 
     const repairState = prepareLegacyExplorerSchemaRepair(db);
