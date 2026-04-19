@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, lte } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, lte } from 'drizzle-orm';
 import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
   explorerCampaign,
@@ -38,6 +38,7 @@ interface ActiveExplorerCampaignView extends ExplorerCampaignBaseView {
 }
 
 interface ExplorerAdminCampaignView extends ExplorerCampaignBaseView {
+  displayNameRaw: string | null;
   destinations: ExplorerDestinationView[];
 }
 
@@ -83,9 +84,56 @@ function resolveSegmentName(destination: {
 export class ExplorerQueryService {
   constructor(private readonly db: BetterSQLite3Database) {}
 
-  private listDestinations(explorerCampaignId: number): ExplorerDestinationView[] {
+  private mapDestination(destination: {
+    id: number;
+    strava_segment_id: string;
+    display_label: string | null;
+    cached_name: string | null;
+    source_url: string | null;
+    created_at: string | null;
+    surface_type: string | null;
+    category: string | null;
+    display_order: number;
+    segment_name: string | null;
+    distance: number | null;
+    average_grade: number | null;
+    city: string | null;
+    state: string | null;
+    country: string | null;
+  }): ExplorerDestinationView {
+    return {
+      id: destination.id,
+      stravaSegmentId: destination.strava_segment_id,
+      displayLabel: resolveDestinationLabel(destination),
+      customLabel: destination.display_label,
+      segmentName: resolveSegmentName(destination),
+      sourceUrl: destination.source_url,
+      createdAt: destination.created_at,
+      distance: destination.distance,
+      averageGrade: destination.average_grade,
+      city: destination.city,
+      state: destination.state,
+      country: destination.country,
+      surfaceType: destination.surface_type,
+      category: destination.category,
+      displayOrder: destination.display_order,
+    };
+  }
+
+  private listDestinationsByCampaignIds(explorerCampaignIds: number[]): Map<number, ExplorerDestinationView[]> {
+    const destinationsByCampaignId = new Map<number, ExplorerDestinationView[]>();
+
+    for (const explorerCampaignId of explorerCampaignIds) {
+      destinationsByCampaignId.set(explorerCampaignId, []);
+    }
+
+    if (explorerCampaignIds.length === 0) {
+      return destinationsByCampaignId;
+    }
+
     const destinations = this.db
       .select({
+        explorer_campaign_id: explorerDestination.explorer_campaign_id,
         id: explorerDestination.id,
         strava_segment_id: explorerDestination.strava_segment_id,
         display_label: explorerDestination.display_label,
@@ -104,27 +152,29 @@ export class ExplorerQueryService {
       })
       .from(explorerDestination)
       .leftJoin(segment, eq(explorerDestination.strava_segment_id, segment.strava_segment_id))
-      .where(eq(explorerDestination.explorer_campaign_id, explorerCampaignId))
-      .orderBy(asc(explorerDestination.display_order), asc(explorerDestination.id))
+      .where(inArray(explorerDestination.explorer_campaign_id, explorerCampaignIds))
+      .orderBy(
+        asc(explorerDestination.explorer_campaign_id),
+        asc(explorerDestination.display_order),
+        asc(explorerDestination.id)
+      )
       .all();
 
-    return destinations.map((destination) => ({
-      id: destination.id,
-      stravaSegmentId: destination.strava_segment_id,
-      displayLabel: resolveDestinationLabel(destination),
-      customLabel: destination.display_label,
-      segmentName: resolveSegmentName(destination),
-      sourceUrl: destination.source_url,
-      createdAt: destination.created_at,
-      distance: destination.distance,
-      averageGrade: destination.average_grade,
-      city: destination.city,
-      state: destination.state,
-      country: destination.country,
-      surfaceType: destination.surface_type,
-      category: destination.category,
-      displayOrder: destination.display_order,
-    }));
+    for (const destination of destinations) {
+      const campaignDestinations = destinationsByCampaignId.get(destination.explorer_campaign_id);
+
+      if (!campaignDestinations) {
+        continue;
+      }
+
+      campaignDestinations.push(this.mapDestination(destination));
+    }
+
+    return destinationsByCampaignId;
+  }
+
+  private listDestinations(explorerCampaignId: number): ExplorerDestinationView[] {
+    return this.listDestinationsByCampaignIds([explorerCampaignId]).get(explorerCampaignId) ?? [];
   }
 
   getAdminCampaigns(): ExplorerAdminCampaignView[] {
@@ -140,13 +190,18 @@ export class ExplorerQueryService {
       .orderBy(desc(explorerCampaign.start_at), desc(explorerCampaign.id))
       .all();
 
+    const destinationsByCampaignId = this.listDestinationsByCampaignIds(
+      campaigns.map((campaign) => campaign.id)
+    );
+
     return campaigns.map((campaign) => ({
       id: campaign.id,
       name: resolveCampaignName(campaign.display_name),
+      displayNameRaw: campaign.display_name,
       startAt: campaign.start_at,
       endAt: campaign.end_at,
       rulesBlurb: campaign.rules_blurb,
-      destinations: this.listDestinations(campaign.id),
+      destinations: destinationsByCampaignId.get(campaign.id) ?? [],
     }));
   }
 

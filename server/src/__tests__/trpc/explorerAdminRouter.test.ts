@@ -222,6 +222,7 @@ describe('explorerAdminRouter', () => {
 
     expect(result).toHaveLength(2);
     expect(result[1]?.name).toBe('Spring Explorer');
+    expect(result[1]?.displayNameRaw).toBe('Spring Explorer');
     expect(result[1]?.rulesBlurb).toBe('Ride every destination once.');
     expect(result[1]?.destinations).toHaveLength(1);
     expect(result[1]?.destinations[0]).toMatchObject({
@@ -233,6 +234,20 @@ describe('explorerAdminRouter', () => {
       state: 'MA',
       country: 'USA',
     });
+  });
+
+  it('preserves a null raw display name for unnamed campaigns', async () => {
+    createExplorerCampaign(drizzleDb, {
+      startAt: 1748736000,
+      endAt: 1751327999,
+      displayName: null,
+    });
+    const caller = getCaller(true);
+
+    const result = await caller.explorerAdmin.getCampaigns();
+
+    expect(result[0]?.name).toBe('Explorer Campaign');
+    expect(result[0]?.displayNameRaw).toBeNull();
   });
 
   it('allows destination creation when metadata enrichment falls back to placeholder data', async () => {

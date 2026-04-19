@@ -66,6 +66,7 @@ interface AdminCampaignDestination {
 interface AdminCampaign {
   id: number;
   name: string;
+  displayNameRaw: string | null;
   startAt: number;
   endAt: number;
   rulesBlurb: string | null;
@@ -154,7 +155,7 @@ function createEmptyCampaignForm(): CampaignFormState {
 
 function createCampaignFormFromRecord(campaign: AdminCampaign): CampaignFormState {
   return {
-    displayName: campaign.name === 'Explorer Campaign' ? '' : campaign.name,
+    displayName: campaign.displayNameRaw ?? '',
     rulesBlurb: campaign.rulesBlurb ?? '',
     startDate: unixToDateLocal(campaign.startAt),
     endDate: unixToDateLocal(campaign.endAt),

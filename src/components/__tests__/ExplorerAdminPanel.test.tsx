@@ -1,7 +1,7 @@
 import { act, type ComponentProps } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { dateToUnixEnd, dateToUnixStart } from '../../utils/dateUtils';
+import { dateToUnixEnd, dateToUnixStart, unixToDateLocal } from '../../utils/dateUtils';
 import ExplorerAdminPanel from '../ExplorerAdminPanel';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -151,7 +151,21 @@ interface RenderResult {
   root: Root;
 }
 
+interface DeferredValue<T> {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+}
+
 let renderResult: RenderResult | null = null;
+
+function createDeferredValue<T>(): DeferredValue<T> {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+
+  return { promise, resolve };
+}
 
 async function renderPanel(overrides: Partial<ComponentProps<typeof ExplorerAdminPanel>> = {}) {
   const container = document.createElement('div');
@@ -292,6 +306,7 @@ describe('ExplorerAdminPanel', () => {
       {
         id: 41,
         name: 'Spring Explorer',
+        displayNameRaw: 'Spring Explorer',
         startAt: 1748736000,
         endAt: 1751327999,
         rulesBlurb: 'Ride every destination once.',
@@ -322,6 +337,7 @@ describe('ExplorerAdminPanel', () => {
       {
         id: 41,
         name: 'Spring Explorer',
+        displayNameRaw: 'Spring Explorer',
         startAt: 1748736000,
         endAt: 1751327999,
         rulesBlurb: 'Ride every destination once.',
@@ -371,6 +387,7 @@ describe('ExplorerAdminPanel', () => {
       {
         id: 41,
         name: 'Spring Explorer',
+        displayNameRaw: 'Spring Explorer',
         startAt: 1748736000,
         endAt: 1751327999,
         rulesBlurb: 'Ride every destination once.',
@@ -399,5 +416,123 @@ describe('ExplorerAdminPanel', () => {
     expect(getByTestId(container, 'explorer-destination-list').textContent).toContain('Hilltown opener');
     await clickElement(getByTestId(container, 'explorer-destination-toggle-301'));
     expect(getByTestId(container, 'explorer-destination-row-301').textContent).toContain('Added');
+  });
+
+  it('preserves an explicit Explorer Campaign display name when saving', async () => {
+    trpcMocks.campaignsQuery.data = [
+      {
+        id: 41,
+        name: 'Explorer Campaign',
+        displayNameRaw: 'Explorer Campaign',
+        startAt: 1748736000,
+        endAt: 1751327999,
+        rulesBlurb: null,
+        destinations: [],
+      },
+    ];
+
+    const { container } = await renderPanel();
+
+    expect((getByTestId(container, 'explorer-campaign-name-input-41') as HTMLInputElement).value).toBe('Explorer Campaign');
+
+    await clickElement(getByTestId(container, 'explorer-save-campaign-button-41'));
+
+    expect(trpcMocks.updateCampaign).toHaveBeenCalledWith({
+      explorerCampaignId: 41,
+      startAt: dateToUnixStart(unixToDateLocal(1748736000)),
+      endAt: dateToUnixEnd(unixToDateLocal(1751327999)),
+      displayName: 'Explorer Campaign',
+      rulesBlurb: null,
+    });
+  });
+
+  it('ignores stale preview responses when the source URL changes mid-request', async () => {
+    vi.useFakeTimers();
+    trpcMocks.campaignsQuery.data = [
+      {
+        id: 41,
+        name: 'Spring Explorer',
+        displayNameRaw: 'Spring Explorer',
+        startAt: 1748736000,
+        endAt: 1751327999,
+        rulesBlurb: 'Ride every destination once.',
+        destinations: [],
+      },
+    ];
+
+    const firstPreview = createDeferredValue({
+      strava_segment_id: '2234642',
+      name: 'Older Preview',
+      distance: 1000,
+      average_grade: 2.1,
+      city: 'Oldtown',
+      state: 'MA',
+      country: 'USA',
+    });
+    const secondPreview = createDeferredValue({
+      strava_segment_id: '9999999',
+      name: 'Newest Preview',
+      distance: 4500,
+      average_grade: 6.2,
+      city: 'Newtown',
+      state: 'VT',
+      country: 'USA',
+    });
+
+    trpcMocks.validateSegment.mockReset();
+    trpcMocks.validateSegment
+      .mockReturnValueOnce(firstPreview.promise)
+      .mockReturnValueOnce(secondPreview.promise);
+
+    const { container } = await renderPanel();
+
+    await setValue(
+      getByTestId(container, 'explorer-source-url-input') as HTMLInputElement,
+      'https://www.strava.com/segments/2234642'
+    );
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+      await Promise.resolve();
+    });
+
+    await setValue(
+      getByTestId(container, 'explorer-source-url-input') as HTMLInputElement,
+      'https://www.strava.com/segments/9999999'
+    );
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      firstPreview.resolve({
+        strava_segment_id: '2234642',
+        name: 'Older Preview',
+        distance: 1000,
+        average_grade: 2.1,
+        city: 'Oldtown',
+        state: 'MA',
+        country: 'USA',
+      });
+      await Promise.resolve();
+    });
+
+    expect(queryByTestId(container, 'explorer-destination-preview-card')).toBeNull();
+
+    await act(async () => {
+      secondPreview.resolve({
+        strava_segment_id: '9999999',
+        name: 'Newest Preview',
+        distance: 4500,
+        average_grade: 6.2,
+        city: 'Newtown',
+        state: 'VT',
+        country: 'USA',
+      });
+      await Promise.resolve();
+    });
+
+    expect(getByTestId(container, 'explorer-destination-preview-card').textContent).toContain('Newest Preview');
+    expect(getByTestId(container, 'explorer-destination-preview-card').textContent).not.toContain('Older Preview');
   });
 });
