@@ -182,7 +182,7 @@ Implementation note:
 
 Goal: make the Explorer admin screen work primarily around the current or next campaign, demote campaign creation when a primary campaign already exists, and make destination management the dominant workflow.
 
-Status: approved as the next bounded follow-on slice after 4B-3.
+Status: merged on `main` as the current Explorer admin baseline.
 
 Scope:
 
@@ -206,6 +206,39 @@ Validation:
 - Backend tests for any new destination-management mutation added for this slice
 - Frontend unit tests covering current-or-next campaign promotion, secondary create placement, collapsed campaign details, and confirmed destination deletion
 - Targeted Playwright coverage for the adjusted admin hierarchy and destination removal flow
+- Slice-normal `npm run lint`, `npm run typecheck`, and targeted build verification
+
+### Slice 4B-5: Segment Metadata Fidelity And Freshness
+
+Goal: tighten the shared segment metadata model so Explorer admin cards can show stable destination details now and future map work can start from stored coordinates rather than from ad hoc Strava fetches.
+
+Status: approved as the next bounded follow-on slice after 4B-4.
+
+Scope:
+
+- Extend the shared `segment` storage path to persist Strava segment start and end coordinates when Strava returns them.
+- Add a metadata freshness timestamp for shared segment rows so the app can tell when segment details were last refreshed.
+- Keep Explorer destination reads DB-first and surface the metadata actually available in expanded admin details, including reliable destination added dates and segment metadata freshness when present.
+- Treat Strava-owned metadata in the Explorer details panel as read-only; only WMV editorial overrides such as a destination name or description override should remain editable, and those overrides should stay distinct from the raw Strava values.
+- Normalize the shared segment mapping and fixtures so the stored shape matches the Strava segment payload the app already fetches.
+- Capture those shared segment fields for all segment uses, including competition and Explorer, rather than creating an Explorer-only storage path.
+- Keep refresh strategy shared with the broader segment or athlete resync direction rather than introducing an Explorer-only Strava refresh workflow.
+
+Out of scope:
+
+- Explorer-specific refresh or backfill buttons
+- Bespoke Strava caching rules just for Explorer
+- Editing Strava-sourced metadata directly in Explorer admin
+- Polyline or full geometry storage
+- Map rendering
+- Destination reorder or search behavior
+- Athlete-facing Explorer hub work
+
+Validation:
+
+- Backend tests for shared segment metadata mapping and persistence, including coordinate and freshness fields
+- Focused Explorer service or query tests covering the detail fields returned to admin reads
+- Frontend unit tests for expanded destination detail rendering when added-at and metadata-freshness values are present or absent
 - Slice-normal `npm run lint`, `npm run typecheck`, and targeted build verification
 
 ## Phase 5: Explorer Hub MVP

@@ -41,6 +41,7 @@ This specification translates the Explorer Destinations PRD into an implementati
 - Webhook ingestion already fetches and normalizes activity data in [server/src/webhooks/processor.ts](../../server/src/webhooks/processor.ts).
 - Batch or explicit activity processing already exists in [server/src/services/BatchFetchService.ts](../../server/src/services/BatchFetchService.ts).
 - The existing shared `segment` table already persists Strava segment metadata such as name, distance, grade, elevation, and location, and Competition already joins against it for read paths.
+- The installed Strava client and segment endpoint also expose start and end lat or lng values, but the current shared `segment` storage path does not persist coordinates or a metadata freshness timestamp yet.
 - The current admin segment-validation flow already centralizes Strava segment fetch and persistence in [server/src/services/SegmentService.ts](../../server/src/services/SegmentService.ts).
 - App routing and top-level navigation patterns already exist in [src/App.tsx](../../src/App.tsx) and [src/components/NavBar.tsx](../../src/components/NavBar.tsx).
 - The regular admin panel already has a Strava URL input pattern worth mirroring for Explorer destination setup rather than exposing raw segment IDs only.
@@ -180,6 +181,14 @@ For 4A, the admin backend contract should accept validated Strava segment URLs r
 
 Explorer uses a hybrid destination metadata strategy for v1. The preferred policy is database-first reuse of the shared `segment` table, plus Explorer-local cached display metadata and source URL values for stable rendering and setup. Segment metadata should be treated as comparatively durable. Optional short-lived in-memory caching can be used for segment metadata during setup workflows, but that should not be generalized to activity details or segment efforts.
 
+Follow-on metadata-fidelity rule:
+
+- extend the shared `segment` table, not `ExplorerDestination`, when the app needs more durable Strava segment metadata such as start or end coordinates or a metadata freshness timestamp
+- keep Explorer-local storage focused on campaign-specific values such as source URL, editorial labels, ordering, and campaign add timestamps
+- treat Strava-sourced metadata as read-only in admin surfaces; if WMV adds an editorial name or description override later, store it separately from the raw shared segment fields
+- when new shared segment fields are added, they should be available to every segment consumer in the backend, including competition flows, even if the first visible UI use is in Explorer admin
+- do not add bespoke Explorer refresh logic for shared segment metadata; later refresh should continue to flow through the shared segment metadata service and broader resync paths
+
 If URL parsing succeeds but live Strava metadata enrichment fails, 4A should still allow destination creation as long as the parsed segment ID and original source URL are preserved. Missing or stale metadata can be repaired in a later slice without blocking initial authoring.
 
 ### 5.4 V1 decision lock
@@ -190,6 +199,7 @@ If URL parsing succeeds but live Strava metadata enrichment fails, 4A should sti
 - Campaign overlap rule in v1: no overlapping Explorer campaigns
 - Admin destination authoring input for 4A: validated Strava segment URLs only
 - Metadata enrichment failure policy: allow creation when parsing succeeds and preserve segment ID plus source URL
+- Shared segment fidelity direction after 4B-4: capture start or end coordinates plus metadata freshness in the shared `segment` table and keep polylines or full geometry deferred
 - Optional sub-campaigns or templates: deferred
 - Explicit Explorer publish-status workflow: deferred unless later implementation proves it is needed
 - Refresh or backfill admin mutations: deferred out of 4A
@@ -226,6 +236,11 @@ Responsibilities:
 - Add, edit, remove, and reorder Explorer destinations.
 - Validate or enrich destination metadata from Strava where possible.
 - Trigger refresh or backfill actions.
+
+Admin metadata rule:
+
+- Strava-owned segment fields shown in Explorer admin details should be read-only.
+- Explorer-specific editable fields should remain limited to WMV-owned campaign or destination presentation fields such as editorial name or description overrides, ordering, and campaign-specific notes if later approved.
 
 4A boundary:
 

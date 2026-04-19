@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import { sqliteTable, text, numeric, integer, index, real, uniqueIndex } from 'drizzle-orm/sqlite-core';
 // import { relations } from "drizzle-orm"
 
@@ -10,7 +11,7 @@ export const sessions = sqliteTable('sessions', {
 export const participant = sqliteTable('participant', {
   strava_athlete_id: text('strava_athlete_id').primaryKey(),
   name: text().notNull(),
-  created_at: text('created_at').default('sql`(CURRENT_TIMESTAMP)`'),
+  created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
   active: integer('active', { mode: 'boolean' }).default(true).notNull(),
   is_admin: integer('is_admin', { mode: 'boolean' }).default(false).notNull(),
   weight: real('weight'),  // Most recent weight in kg (Strava API format)
@@ -22,7 +23,7 @@ export const season = sqliteTable('season', {
   name: text().notNull(),
   start_at: integer('start_at').notNull(),
   end_at: integer('end_at').notNull(),
-  created_at: text('created_at').default('sql`(CURRENT_TIMESTAMP)`'),
+  created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
 });
 
 export const week = sqliteTable('week', {
@@ -34,7 +35,7 @@ export const week = sqliteTable('week', {
   start_at: integer('start_at').notNull(),
   end_at: integer('end_at').notNull(),
   multiplier: integer('multiplier').default(1).notNull(), // NEW: Scoring multiplier for week (default 1 = no change)
-  created_at: text('created_at').default('sql`(CURRENT_TIMESTAMP)`'),
+  created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
   notes: text().default(''),
 },
 (t) => [
@@ -50,8 +51,8 @@ export const activity = sqliteTable('activity', {
   device_name: text('device_name'),
   validation_status: text('validation_status').default('valid'),
   validation_message: text('validation_message'),
-  validated_at: text('validated_at').default('sql`(CURRENT_TIMESTAMP)`'),
-  created_at: text('created_at').default('sql`(CURRENT_TIMESTAMP)`'),
+  validated_at: text('validated_at').default(sql`(CURRENT_TIMESTAMP)`),
+  created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
   athlete_weight: real('athlete_weight'),  // Weight in kg at activity time (Strava API format, for w/kg calculation)
 },
 (t) => [
@@ -84,8 +85,8 @@ export const result = sqliteTable('result', {
   strava_athlete_id: text('strava_athlete_id').notNull().references(() => participant.strava_athlete_id),
   activity_id: integer('activity_id').references(() => activity.id),
   total_time_seconds: integer('total_time_seconds').notNull(),
-  created_at: text('created_at').default('sql`(CURRENT_TIMESTAMP)`'),
-  updated_at: text('updated_at').default('sql`(CURRENT_TIMESTAMP)`'),
+  created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
+  updated_at: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`),
 },
 (t) => [
   index('idx_result_participant').on(t.strava_athlete_id),
@@ -99,8 +100,8 @@ export const participantToken = sqliteTable('participant_token', {
   refresh_token: text('refresh_token').notNull(),
   expires_at: integer('expires_at').notNull(),
   scope: text(),
-  created_at: text('created_at').default('sql`(CURRENT_TIMESTAMP)`'),
-  updated_at: text('updated_at').default('sql`(CURRENT_TIMESTAMP)`'),
+  created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
+  updated_at: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`),
 },
 (t) => [
   index('idx_participant_token_participant').on(t.strava_athlete_id),
@@ -117,7 +118,7 @@ export const deletionRequest = sqliteTable('deletion_request', {
 export const schemaMigrations = sqliteTable('schema_migrations', {
   version: text().primaryKey(),
   name: text().notNull(),
-  executed_at: text('executed_at').default('sql`(CURRENT_TIMESTAMP)`'),
+  executed_at: text('executed_at').default(sql`(CURRENT_TIMESTAMP)`),
 });
 
 export const segment = sqliteTable('segment', {
@@ -125,10 +126,15 @@ export const segment = sqliteTable('segment', {
   name: text().notNull(),
   distance: real(),
   average_grade: real('average_grade'),
+  start_latitude: real('start_latitude'),
+  start_longitude: real('start_longitude'),
+  end_latitude: real('end_latitude'),
+  end_longitude: real('end_longitude'),
   city: text(),
   state: text(),
   country: text(),
-  created_at: text('created_at').default('sql`(CURRENT_TIMESTAMP)`'),
+  created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
+  metadata_updated_at: text('metadata_updated_at'),
   total_elevation_gain: real('total_elevation_gain'),
   climb_category: integer('climb_category'),
 });
@@ -138,7 +144,7 @@ export const webhookEvent = sqliteTable('webhook_event', {
   payload: text().notNull(),
   processed: integer(),
   error_message: text('error_message'),
-  created_at: text('created_at').default('sql`(CURRENT_TIMESTAMP)`'),
+  created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
 },
 (t) => [
   index('idx_webhook_event_created').on(t.created_at),
@@ -158,8 +164,8 @@ export const explorerCampaign = sqliteTable('explorer_campaign', {
   end_at: integer('end_at').notNull(),
   display_name: text('display_name'),
   rules_blurb: text('rules_blurb'),
-  created_at: text('created_at').default('sql`(CURRENT_TIMESTAMP)`'),
-  updated_at: text('updated_at').default('sql`(CURRENT_TIMESTAMP)`'),
+  created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
+  updated_at: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`),
 },
 (t) => [
   index('idx_explorer_campaign_window').on(t.start_at, t.end_at),
@@ -175,8 +181,8 @@ export const explorerDestination = sqliteTable('explorer_destination', {
   display_order: integer('display_order').default(0).notNull(),
   surface_type: text('surface_type'),
   category: text('category'),
-  created_at: text('created_at').default('sql`(CURRENT_TIMESTAMP)`'),
-  updated_at: text('updated_at').default('sql`(CURRENT_TIMESTAMP)`'),
+  created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
+  updated_at: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`),
 },
 (t) => [
   index('idx_explorer_destination_campaign').on(t.explorer_campaign_id),
@@ -191,7 +197,7 @@ export const explorerDestinationMatch = sqliteTable('explorer_destination_match'
   strava_athlete_id: text('strava_athlete_id').notNull().references(() => participant.strava_athlete_id, { onDelete: 'cascade' }),
   strava_activity_id: text('strava_activity_id').notNull(),
   matched_at: integer('matched_at').notNull(),
-  created_at: text('created_at').default('sql`(CURRENT_TIMESTAMP)`'),
+  created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
 },
 (t) => [
   index('idx_explorer_match_campaign_athlete').on(t.explorer_campaign_id, t.strava_athlete_id),

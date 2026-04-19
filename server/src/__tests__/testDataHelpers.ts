@@ -44,6 +44,13 @@ interface CreateSeasonOptions {
 interface CreateSegmentOptions {
   distance?: number | null;
   averageGrade?: number | null;
+  totalElevationGain?: number | null;
+  climbCategory?: number | null;
+  startLatitude?: number | null;
+  startLongitude?: number | null;
+  endLatitude?: number | null;
+  endLongitude?: number | null;
+  metadataUpdatedAt?: string | null;
   city?: string | null;
   state?: string | null;
   country?: string | null;
@@ -199,6 +206,13 @@ export function createSegment(db: TestDb, stravaSegmentId: string, name: string 
     name: segmentName,
     distance: options.distance,
     average_grade: options.averageGrade,
+    total_elevation_gain: options.totalElevationGain,
+    climb_category: options.climbCategory,
+    start_latitude: options.startLatitude,
+    start_longitude: options.startLongitude,
+    end_latitude: options.endLatitude,
+    end_longitude: options.endLongitude,
+    metadata_updated_at: options.metadataUpdatedAt,
     city: options.city,
     state: options.state,
     country: options.country

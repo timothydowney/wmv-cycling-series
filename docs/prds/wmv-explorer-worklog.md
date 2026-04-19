@@ -4,15 +4,15 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 
 ## Current Focus
 
-- Refine the merged Explorer admin shell so the current or next campaign becomes the clear primary working surface.
-- Make destination authoring and destination review the dominant workflow, with campaign metadata editing present but de-emphasized.
+- Refine the shared segment metadata model so Explorer admin details expose stable destination information and future map work starts from stored coordinates rather than from ad hoc Strava calls.
+- Capture the Strava segment coordinates and metadata freshness fields the app can store now, while keeping Explorer destination reads DB-first.
 - Keep any pre-release Explorer UI admin-gated until there is an explicit end-user release decision.
-- Keep the next handoff and implementation brief aligned with the existing `segment.validate` preview seam plus the merged campaign-first model.
+- Keep the next handoff and implementation brief aligned with the merged campaign-first model plus the existing shared `SegmentService` metadata seam.
 
 ## Current Go State
 
-- **Readiness:** Phase 1 Complete; Campaign-First Explorer Correction Landed; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Phase 4B-3 Campaign Decoupling And Unified Admin Shell Merged; Ready For Phase 4B-4 Admin Workflow Hierarchy And Destination Management
-- **Immediate scope:** refine the admin hierarchy so current-or-next campaign work is primary and destination management no longer competes with always-prominent campaign creation
+- **Readiness:** Phase 1 Complete; Campaign-First Explorer Correction Landed; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Phase 4B-3 Campaign Decoupling And Unified Admin Shell Merged; Phase 4B-4 Admin Workflow Hierarchy And Destination Management Merged; Ready For Phase 4B-5 Segment Metadata Fidelity And Freshness
+- **Immediate scope:** extend the shared segment model so Explorer can show reliable added-at and metadata detail now, and preserve coordinate data for later map-safe work without inventing Explorer-only Strava refresh behavior
 - **Not yet in scope:** public athlete-facing Explorer release, public navigation to Explorer, mini-campaigns, or explicit publish-status workflows
 
 ## Decisions Made
@@ -43,6 +43,11 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 - When a primary campaign exists, create-campaign controls should remain available but move below the main destination workflow.
 - The first post-4B-3 destination-management refinement should allow one-click remove with a standard confirmation dialog instead of introducing a heavier custom workflow.
 - A lightweight non-functional search stub is acceptable if it helps reserve UI space for later in-campaign destination filtering without implying Strava discovery support.
+- The next post-4B-4 slice should extend the shared `segment` record with Strava start and end coordinates plus a metadata freshness timestamp, rather than adding Explorer-local coordinate columns.
+- Strava-sourced segment details should render as read-only in the Explorer admin details panel; any future WMV override such as a destination name or description override should stay separate from the raw Strava fields.
+- Shared segment-field expansion should benefit both competition and Explorer because the backend segment model is shared, even if Explorer admin is the first surface to display the extra detail.
+- The next metadata slice should not introduce bespoke Explorer refresh controls; any future refresh should continue to ride through the shared segment metadata service and broader resync paths.
+- Polyline or full geometry storage remains deferred; start and end coordinates are the minimum useful map-safe capture for now.
 
 ## Open Questions
 
@@ -63,7 +68,8 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 | What happens if URL parsing succeeds but live metadata enrichment fails? | Closed | No | Allow creation and preserve segment ID plus source URL for later repair. |
 | Do refresh and backfill admin mutations belong in 4A? | Closed | No | No. Defer them to a later admin slice. |
 | Should already-added Explorer destination cards support persisted inline editing in the first UX-refinement slice? | Closed For 4B-3 | No | No. Keep 4B-3 to preview-add flow plus richer read-only cards. |
-| Does 4B-3 need true map-ready coordinate storage for accepted destination cards? | Open | No | No for 4B-3. Current location text plus source link are enough for this slice, but actual map rendering may require later schema or API expansion for coordinates or geometry. |
+| Does Explorer need true map-ready coordinate storage now? | Closed For 4B-5 | No | No. The next slice should capture Strava start and end coordinates plus metadata freshness in the shared `segment` table, while deferring polylines, geometry, and map rendering. |
+| Should Explorer introduce its own Strava metadata refresh workflow? | Closed For 4B-5 | No | No. Keep metadata refresh tied to the shared segment metadata service and later broader resync flows rather than adding Explorer-only refresh behavior. |
 
 ## Blockers
 
@@ -150,23 +156,26 @@ The current preservation target is backed by:
 ### Recommended Next PR
 
 - Start from updated `main` on a dedicated implementation branch.
-- Keep the next implementation PR scoped to the admin workflow hierarchy and destination-management slice:
-	- promote the current active campaign, or the next upcoming campaign when none is active, to the main working surface
-	- keep campaign creation prominent only when there is no current or upcoming campaign, and otherwise move it into a secondary planning area
-	- make destination authoring and destination-list review the dominant content area
-	- collapse campaign metadata editing by default so naming and date edits remain available but secondary
-	- add a simple confirmed remove flow for already-added destinations
-	- allow a lightweight non-functional search stub only if it helps reserve the interaction shape for later in-campaign filtering
+- Keep the next implementation PR scoped to the shared segment metadata-fidelity slice:
+	- extend the shared `segment` storage path to capture Strava start and end coordinates when available
+	- add a metadata freshness timestamp so segment detail reads can show when the cached metadata was last updated
+	- keep Explorer destination reads DB-first and surface reliable added-at and metadata freshness details in expanded admin cards
+	- show Strava-sourced detail fields as read-only and keep any future WMV override fields separate from the raw Strava values
+	- normalize Strava segment fixtures, mapping, and persistence so the stored shape matches what the existing client already returns
+	- make the shared segment-field expansion available to competition and Explorer alike instead of adding an Explorer-only persistence path
+	- do not add Explorer-only refresh or backfill controls in the same slice
 - Validation path for the next PR:
-	- focused backend tests for any new destination-management mutation added for this slice
-	- frontend unit tests for current-or-next campaign promotion, secondary create placement, collapsed campaign details, and confirmed deletion
-	- targeted Playwright for the adjusted admin hierarchy and destination removal flow
+	- backend tests for shared segment metadata mapping and persistence, including coordinate and freshness fields
+	- focused Explorer query or service tests for destination detail reads
+	- frontend unit tests for expanded destination detail rendering when added-at and metadata-freshness values are present or absent
 	- `npm run lint`, `npm run typecheck`, and targeted build verification
-- Planning and documentation surfaces likely to change when 4B-4 lands:
+	- targeted Playwright only if the admin detail presentation changes in a browser-significant way
+- Planning and documentation surfaces likely to change when 4B-5 lands:
 	- `docs/prds/wmv-explorer-destinations-phases.md`
 	- `docs/prds/wmv-explorer-worklog.md`
 	- `docs/prds/wmv-explorer-readiness-checklist.md`
-	- `ADMIN_GUIDE.md` or `docs-site/admin/*` only if the admin workflow changes require operator documentation
+	- `docs/prds/wmv-explorer-destinations-tech-spec.md`
+	- `docs/DATABASE_DESIGN.md` if shared segment fields expand
 
 ### 4B-3 Outcome
 
@@ -268,6 +277,50 @@ Documentation expectations when 4B-4 lands:
 - update `docs/prds/wmv-explorer-destinations-phases.md` if the slice lands as approved
 - update `docs/prds/wmv-explorer-worklog.md` and `docs/prds/wmv-explorer-readiness-checklist.md` to record the next approved step
 - update admin-facing documentation only if the changed workflow needs operator guidance
+
+### 4B-4 Outcome
+
+- Phase: 4B-4 Admin Workflow Hierarchy And Destination Management
+- Status: merged on `main`
+- Landed outcome:
+	- the current active campaign, or the next upcoming campaign when none is active, is now the primary admin working surface
+	- create-campaign planning is demoted when a primary campaign exists
+	- destination authoring and review are the dominant layout areas
+	- campaign metadata editing is available inline but collapsed by default
+	- destinations can be removed with a simple confirmation flow
+
+### 4B-5 Implementation Handoff
+
+- Slice: Phase 4B-5 only.
+- Branch start point: updated `main`, then a dedicated feature branch before coding.
+- Governing scope: tighten the shared segment metadata model so Explorer admin details and later map-safe follow-on work rely on stored data instead of bespoke Strava fetches.
+- Data rule: keep Explorer DB-first and reuse the shared `segment` table for durable segment metadata. Do not create Explorer-only coordinate storage for this slice.
+- Metadata recommendation:
+	- store Strava `start_latlng` and `end_latlng` when available
+	- store a metadata freshness timestamp for shared segment rows
+	- preserve the existing Explorer destination `created_at` meaning as the add-to-campaign timestamp
+	- fix ambiguous admin placeholders by ensuring the read path and formatter surface available timestamps consistently
+	- treat Strava-owned detail fields in the admin details panel as read-only
+	- keep future WMV-owned name or description overrides as separate editable fields rather than mixing them into the raw Strava metadata
+- Refresh recommendation:
+	- do not add an Explorer-only refresh button or bespoke cache policy
+	- keep future metadata refresh on the shared `SegmentService` and broader resync path
+- Expected code surfaces:
+	- `server/src/db/schema.ts`
+	- `server/src/services/SegmentService.ts`
+	- `server/src/stravaClient.ts`
+	- `server/src/services/segmentMetadataProvider.ts` and fixtures if needed
+	- `server/src/services/ExplorerQueryService.ts`
+	- `src/components/ExplorerAdminPanel.tsx` only if the admin detail presentation changes
+	- shared tests covering segment persistence and Explorer detail reads
+
+### 4B-5 Branch-Ready Task List
+
+1. Extend the shared segment storage contract with start and end coordinates plus metadata freshness.
+2. Update the Strava segment mapping and persistence path so those fields are populated whenever segment metadata is fetched.
+3. Keep Explorer admin destination details DB-first and expose the stable timestamps or freshness data worth showing.
+4. Preserve the no-bespoke-refresh rule by keeping refresh and resync responsibilities in the shared segment pipeline.
+5. Update the slice-local planning docs and technical spec to record the locked metadata model.
 
 ## 4A Planning Inputs Closed
 

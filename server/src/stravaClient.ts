@@ -87,6 +87,8 @@ interface StravaApiSegment {
   average_grade?: number;
   total_elevation_gain?: number;
   climb_category?: number | null;
+  start_latlng?: [number, number] | null;
+  end_latlng?: [number, number] | null;
   city?: string;
   state?: string;
   country?: string;
@@ -505,9 +507,14 @@ function mapStravaSegmentToSegmentRow(
     total_elevation_gain: stravaSegment.total_elevation_gain ?? null,
     average_grade: stravaSegment.average_grade ?? null,
     climb_category: stravaSegment.climb_category ?? null,
+    start_latitude: stravaSegment.start_latlng?.[0] ?? null,
+    start_longitude: stravaSegment.start_latlng?.[1] ?? null,
+    end_latitude: stravaSegment.end_latlng?.[0] ?? null,
+    end_longitude: stravaSegment.end_latlng?.[1] ?? null,
     city: stravaSegment.city ?? null,
     state: stravaSegment.state ?? null,
-    country: stravaSegment.country ?? null
+    country: stravaSegment.country ?? null,
+    metadata_updated_at: new Date().toISOString(),
   };
 }
 

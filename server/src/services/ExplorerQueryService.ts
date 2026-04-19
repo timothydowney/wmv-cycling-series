@@ -17,6 +17,13 @@ interface ExplorerDestinationView {
   createdAt: string | null;
   distance: number | null;
   averageGrade: number | null;
+  totalElevationGain: number | null;
+  climbCategory: number | null;
+  startLatitude: number | null;
+  startLongitude: number | null;
+  endLatitude: number | null;
+  endLongitude: number | null;
+  metadataUpdatedAt: string | null;
   city: string | null;
   state: string | null;
   country: string | null;
@@ -97,6 +104,13 @@ export class ExplorerQueryService {
     segment_name: string | null;
     distance: number | null;
     average_grade: number | null;
+    total_elevation_gain: number | null;
+    climb_category: number | null;
+    start_latitude: number | null;
+    start_longitude: number | null;
+    end_latitude: number | null;
+    end_longitude: number | null;
+    metadata_updated_at: string | null;
     city: string | null;
     state: string | null;
     country: string | null;
@@ -111,6 +125,13 @@ export class ExplorerQueryService {
       createdAt: destination.created_at,
       distance: destination.distance,
       averageGrade: destination.average_grade,
+      totalElevationGain: destination.total_elevation_gain,
+      climbCategory: destination.climb_category,
+      startLatitude: destination.start_latitude,
+      startLongitude: destination.start_longitude,
+      endLatitude: destination.end_latitude,
+      endLongitude: destination.end_longitude,
+      metadataUpdatedAt: destination.metadata_updated_at,
       city: destination.city,
       state: destination.state,
       country: destination.country,
@@ -146,6 +167,13 @@ export class ExplorerQueryService {
         segment_name: segment.name,
         distance: segment.distance,
         average_grade: segment.average_grade,
+        total_elevation_gain: segment.total_elevation_gain,
+        climb_category: segment.climb_category,
+        start_latitude: segment.start_latitude,
+        start_longitude: segment.start_longitude,
+        end_latitude: segment.end_latitude,
+        end_longitude: segment.end_longitude,
+        metadata_updated_at: segment.metadata_updated_at,
         city: segment.city,
         state: segment.state,
         country: segment.country,

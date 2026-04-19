@@ -129,6 +129,15 @@ describe('ExplorerAdminService', () => {
       undefined,
       '999001'
     );
+
+    const storedDestination = drizzleDb
+      .select()
+      .from(explorerDestination)
+      .where(eq(explorerDestination.id, destination.id))
+      .get();
+
+    expect(storedDestination?.created_at).toBeTruthy();
+    expect(storedDestination?.created_at).not.toBe('sql`(CURRENT_TIMESTAMP)`');
   });
 
   it('allows creation when metadata enrichment falls back to placeholder data', async () => {
