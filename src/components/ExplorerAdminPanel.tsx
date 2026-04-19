@@ -5,7 +5,6 @@ import {
   CalendarDaysIcon,
   CheckIcon,
   ChevronDownIcon,
-  ClockIcon,
   MagnifyingGlassIcon,
   PencilSquareIcon,
   TrashIcon,
@@ -19,6 +18,8 @@ import {
   formatUtcIsoDateTime,
   unixToDateLocal,
 } from '../utils/dateUtils';
+import { useUnits } from '../context/UnitContext';
+import { formatDistance, formatElevation, type UnitSystem } from '../utils/unitConversion';
 import './AdminPanel.css';
 import './Card.css';
 import './ExplorerAdminPanel.css';
@@ -60,9 +61,21 @@ interface AdminCampaignDestination {
   createdAt: string | null;
   distance: number | null;
   averageGrade: number | null;
+  totalElevationGain?: number | null;
+  climbCategory?: number | null;
+  startLatitude?: number | null;
+  startLongitude?: number | null;
+  endLatitude?: number | null;
+  endLongitude?: number | null;
+  metadataUpdatedAt?: string | null;
   city: string | null;
   state: string | null;
   country: string | null;
+}
+
+interface DestinationDetailItem {
+  label: string;
+  value: string;
 }
 
 interface AdminCampaign {
@@ -82,12 +95,12 @@ function parseSegmentId(sourceUrl: string): string | null {
   return segmentMatch?.[1] ?? null;
 }
 
-function formatSegmentDistance(distance?: number | null): string | null {
+function formatSegmentDistance(distance: number | null | undefined, units: UnitSystem): string | null {
   if (distance == null) {
     return null;
   }
 
-  return `${(distance / 1000).toFixed(2)} km`;
+  return formatDistance(distance, units);
 }
 
 function formatAverageGrade(averageGrade?: number | null): string | null {
@@ -104,13 +117,25 @@ function formatLocation(city?: string | null, state?: string | null, country?: s
   return locationParts.length > 0 ? locationParts.join(', ') : null;
 }
 
-function formatDestinationCreatedAt(createdAt?: string | null): string | null {
-  if (!createdAt) {
+function formatUtcLabel(timestamp?: string | null, trimTime = false): string | null {
+  if (!timestamp) {
     return null;
   }
 
-  const formatted = formatUtcIsoDateTime(createdAt);
-  return formatted === '—' ? null : formatted.replace(/,\s+\d{1,2}:\d{2}:\d{2}\s+[AP]M$/, '');
+  const formatted = formatUtcIsoDateTime(timestamp);
+  if (formatted === '—') {
+    return null;
+  }
+
+  return trimTime ? formatted.replace(/,\s+\d{1,2}:\d{2}:\d{2}\s+[AP]M$/, '') : formatted;
+}
+
+function formatDestinationCreatedAt(createdAt?: string | null): string | null {
+  return formatUtcLabel(createdAt, true);
+}
+
+function formatMetadataUpdatedAt(metadataUpdatedAt?: string | null): string | null {
+  return formatUtcLabel(metadataUpdatedAt);
 }
 
 function getDestinationStatItems({
@@ -119,15 +144,17 @@ function getDestinationStatItems({
   city,
   state,
   country,
+  units,
 }: {
   distance?: number | null;
   averageGrade?: number | null;
   city?: string | null;
   state?: string | null;
   country?: string | null;
+  units: UnitSystem;
 }): string[] {
   const statItems: string[] = [];
-  const distanceLabel = formatSegmentDistance(distance);
+  const distanceLabel = formatSegmentDistance(distance, units);
   const averageGradeLabel = formatAverageGrade(averageGrade);
   const locationLabel = formatLocation(city, state, country);
 
@@ -144,6 +171,78 @@ function getDestinationStatItems({
   }
 
   return statItems;
+}
+
+function formatElevationGain(totalElevationGain: number | null | undefined, units: UnitSystem): string | null {
+  if (totalElevationGain == null) {
+    return null;
+  }
+
+  return formatElevation(totalElevationGain, units);
+}
+
+function formatClimbCategory(climbCategory?: number | null): string | null {
+  if (climbCategory == null || climbCategory <= 0) {
+    return null;
+  }
+
+  return `Category ${climbCategory}`;
+}
+
+function formatCoordinatePair(latitude?: number | null, longitude?: number | null): string | null {
+  if (latitude == null || longitude == null) {
+    return null;
+  }
+
+  return `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+}
+
+function getDestinationDetailItems(destination: AdminCampaignDestination, units: UnitSystem): DestinationDetailItem[] {
+  const detailItems: DestinationDetailItem[] = [
+    { label: 'Segment name', value: destination.segmentName },
+  ];
+
+  const distanceLabel = formatSegmentDistance(destination.distance, units);
+  if (distanceLabel) {
+    detailItems.push({ label: 'Distance', value: distanceLabel });
+  }
+
+  const averageGradeLabel = formatAverageGrade(destination.averageGrade);
+  if (averageGradeLabel) {
+    detailItems.push({ label: 'Average grade', value: averageGradeLabel });
+  }
+
+  const elevationGainLabel = formatElevationGain(destination.totalElevationGain, units);
+  if (elevationGainLabel) {
+    detailItems.push({ label: 'Elevation gain', value: elevationGainLabel });
+  }
+
+  const climbCategoryLabel = formatClimbCategory(destination.climbCategory);
+  if (climbCategoryLabel) {
+    detailItems.push({ label: 'Climb category', value: climbCategoryLabel });
+  }
+
+  const locationLabel = formatLocation(destination.city, destination.state, destination.country);
+  if (locationLabel) {
+    detailItems.push({ label: 'Location', value: locationLabel });
+  }
+
+  const startCoordinatesLabel = formatCoordinatePair(destination.startLatitude, destination.startLongitude);
+  if (startCoordinatesLabel) {
+    detailItems.push({ label: 'Start coordinates', value: startCoordinatesLabel });
+  }
+
+  const endCoordinatesLabel = formatCoordinatePair(destination.endLatitude, destination.endLongitude);
+  if (endCoordinatesLabel) {
+    detailItems.push({ label: 'End coordinates', value: endCoordinatesLabel });
+  }
+
+  const metadataUpdatedAtLabel = formatMetadataUpdatedAt(destination.metadataUpdatedAt);
+  if (metadataUpdatedAtLabel) {
+    detailItems.push({ label: 'Metadata refreshed', value: metadataUpdatedAtLabel });
+  }
+
+  return detailItems;
 }
 
 function createEmptyCampaignForm(): CampaignFormState {
@@ -202,6 +301,7 @@ function getPrimaryCampaign(campaigns: AdminCampaign[], nowTimestamp: number): A
 }
 
 function ExplorerAdminPanel({ isAdmin }: ExplorerAdminPanelProps) {
+  const { units } = useUnits();
   const utils = trpc.useUtils();
   const messageTimeoutRef = useRef<number | null>(null);
   const previewRequestIdRef = useRef(0);
@@ -862,7 +962,10 @@ function ExplorerAdminPanel({ isAdmin }: ExplorerAdminPanelProps) {
 
                         {destinationPreviewVisible ? (
                           (() => {
-                            const previewStatItems = getDestinationStatItems(destinationPreviewVisible);
+                            const previewStatItems = getDestinationStatItems({
+                              ...destinationPreviewVisible,
+                              units,
+                            });
 
                             return (
                               <article className="explorer-preview-card" data-testid="explorer-destination-preview-card">
@@ -958,7 +1061,9 @@ function ExplorerAdminPanel({ isAdmin }: ExplorerAdminPanelProps) {
                               city: destination.city,
                               state: destination.state,
                               country: destination.country,
+                              units,
                             });
+                            const destinationDetailItems = getDestinationDetailItems(destination, units);
 
                             return (
                               <li
@@ -1028,22 +1133,40 @@ function ExplorerAdminPanel({ isAdmin }: ExplorerAdminPanelProps) {
                                 {isDestinationExpanded ? (
                                   <div className="card-expanded-details explorer-destination-details">
                                     <div className="explorer-destination-detail-block">
-                                      <p className="explorer-detail-label">Details</p>
+                                      <p className="explorer-detail-label">Explorer details</p>
 
                                       {destination.customLabel && destination.customLabel !== destination.segmentName ? (
                                         <p className="explorer-preview-subtitle">Original segment name: {destination.segmentName}</p>
                                       ) : null}
 
-                                      <div className="explorer-destination-detail-row">
-                                        {createdAtLabel ? (
-                                          <p className="explorer-destination-meta">
-                                            <ClockIcon aria-hidden="true" />
-                                            <span>Added {createdAtLabel}</span>
-                                          </p>
-                                        ) : (
-                                          <p className="explorer-muted-copy">Added date unavailable.</p>
-                                        )}
+                                      <div className="explorer-destination-detail-grid">
+                                        <div className="explorer-destination-detail-item">
+                                          <span className="explorer-destination-detail-name">Added</span>
+                                          <span>{createdAtLabel ?? 'Not recorded'}</span>
+                                        </div>
                                       </div>
+                                    </div>
+
+                                    <div className="explorer-destination-detail-block">
+                                      <div className="explorer-destination-detail-heading">
+                                        <p className="explorer-detail-label">Strava details</p>
+                                        <p className="explorer-muted-copy explorer-destination-readonly-note">
+                                          Read-only cached from Strava.
+                                        </p>
+                                      </div>
+
+                                      {destinationDetailItems.length > 0 ? (
+                                        <div className="explorer-destination-detail-grid">
+                                          {destinationDetailItems.map((item) => (
+                                            <div key={item.label} className="explorer-destination-detail-item">
+                                              <span className="explorer-destination-detail-name">{item.label}</span>
+                                              <span>{item.value}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <p className="explorer-muted-copy">No Strava metadata cached yet.</p>
+                                      )}
                                     </div>
                                   </div>
                                 ) : null}

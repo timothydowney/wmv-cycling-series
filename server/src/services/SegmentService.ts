@@ -51,6 +51,8 @@ class SegmentService {
   Elevation: ${segmentData.total_elevation_gain}m
   Grade: ${segmentData.average_grade}%
   Climb Category: ${segmentData.climb_category}
+  Start: ${segmentData.start_latitude ?? '?'}, ${segmentData.start_longitude ?? '?'}
+  End: ${segmentData.end_latitude ?? '?'}, ${segmentData.end_longitude ?? '?'}
   Location: ${segmentData.city || '?'}, ${segmentData.state || '?'}, ${segmentData.country || '?'}`);
 
       // Store in database
@@ -84,9 +86,14 @@ class SegmentService {
         total_elevation_gain: data.total_elevation_gain,
         average_grade: data.average_grade,
         climb_category: data.climb_category,
+        start_latitude: data.start_latitude,
+        start_longitude: data.start_longitude,
+        end_latitude: data.end_latitude,
+        end_longitude: data.end_longitude,
         city: data.city,
         state: data.state,
-        country: data.country
+        country: data.country,
+        metadata_updated_at: data.metadata_updated_at ?? new Date().toISOString(),
       })
       .onConflictDoUpdate({
         target: segment.strava_segment_id,
@@ -96,9 +103,14 @@ class SegmentService {
           total_elevation_gain: data.total_elevation_gain,
           average_grade: data.average_grade,
           climb_category: data.climb_category,
+          start_latitude: data.start_latitude,
+          start_longitude: data.start_longitude,
+          end_latitude: data.end_latitude,
+          end_longitude: data.end_longitude,
           city: data.city,
           state: data.state,
-          country: data.country
+          country: data.country,
+          metadata_updated_at: data.metadata_updated_at ?? new Date().toISOString(),
         }
       })
       .run();
@@ -163,6 +175,11 @@ class SegmentService {
     total_elevation_gain?: number;
     average_grade?: number;
     climb_category?: number | null;
+    start_latitude?: number | null;
+    start_longitude?: number | null;
+    end_latitude?: number | null;
+    end_longitude?: number | null;
+    metadata_updated_at?: string | null;
     city?: string;
     state?: string;
     country?: string;

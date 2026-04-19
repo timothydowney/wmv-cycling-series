@@ -179,8 +179,8 @@ Prompts should remain narrow and convenient.
 
 ### Slice-splitting note for 4B
 
-- The earlier 4B split is now complete: 4B-1 hardened the portable E2E harness and 4B-2 landed the minimal admin-only Explorer UI.
-- Follow-on work should now start from updated `main` on a fresh branch for the approved 4B-3 campaign decoupling and unified admin-shell slice rather than reopening the already-merged split work.
+- The earlier 4B split is now complete through 4B-4: 4B-1 hardened the portable E2E harness, 4B-2 landed the minimal admin-only Explorer UI, 4B-3 corrected the campaign model and unified admin shell, and 4B-4 refined the admin workflow hierarchy.
+- Follow-on work should now start from updated `main` on a fresh branch for the approved 4B-5 segment metadata fidelity and freshness slice rather than reopening the merged admin-shell work.
 
 ### Slice completion discipline
 

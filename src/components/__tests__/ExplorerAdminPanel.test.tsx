@@ -4,6 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { dateToUnixEnd, dateToUnixStart, unixToDateLocal } from '../../utils/dateUtils';
 import ExplorerAdminPanel from '../ExplorerAdminPanel';
 
+const unitMocks = vi.hoisted(() => ({
+  units: 'imperial' as 'imperial' | 'metric',
+  setUnits: vi.fn(),
+}));
+
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const trpcMocks = vi.hoisted(() => ({
@@ -26,6 +31,13 @@ const trpcMocks = vi.hoisted(() => ({
         createdAt: string | null;
         distance: number | null;
         averageGrade: number | null;
+        totalElevationGain?: number | null;
+        climbCategory?: number | null;
+        startLatitude?: number | null;
+        startLongitude?: number | null;
+        endLatitude?: number | null;
+        endLongitude?: number | null;
+        metadataUpdatedAt?: string | null;
         city: string | null;
         state: string | null;
         country: string | null;
@@ -168,6 +180,10 @@ vi.mock('../../utils/trpc', () => ({
   },
 }));
 
+vi.mock('../../context/UnitContext', () => ({
+  useUnits: () => unitMocks,
+}));
+
 interface RenderResult {
   container: HTMLDivElement;
   root: Root;
@@ -176,6 +192,16 @@ interface RenderResult {
 interface DeferredValue<T> {
   promise: Promise<T>;
   resolve: (value: T) => void;
+}
+
+interface PreviewResponse {
+  strava_segment_id: string;
+  name: string;
+  distance: number;
+  average_grade: number;
+  city: string;
+  state: string;
+  country: string;
 }
 
 let renderResult: RenderResult | null = null;
@@ -287,15 +313,18 @@ describe('ExplorerAdminPanel', () => {
     });
     trpcMocks.deleteDestination.mockReset();
     trpcMocks.deleteDestination.mockResolvedValue({ explorerDestinationId: 201 });
+    unitMocks.units = 'imperial';
+    unitMocks.setUnits.mockClear();
     vi.spyOn(window, 'confirm').mockReturnValue(true);
   });
 
   afterEach(async () => {
     if (renderResult) {
+      const currentRenderResult = renderResult;
       await act(async () => {
-        renderResult.root.unmount();
+        currentRenderResult.root.unmount();
       });
-      renderResult.container.remove();
+      currentRenderResult.container.remove();
       renderResult = null;
     }
 
@@ -489,6 +518,13 @@ describe('ExplorerAdminPanel', () => {
             createdAt: '2025-06-03T09:05:00Z',
             distance: 2931,
             averageGrade: 5.4,
+            totalElevationGain: 116,
+            climbCategory: 3,
+            startLatitude: 51.2526,
+            startLongitude: -0.3212,
+            endLatitude: 51.2427,
+            endLongitude: -0.3148,
+            metadataUpdatedAt: '2025-06-04T15:30:00Z',
             city: 'Dorking',
             state: 'Surrey',
             country: 'United Kingdom',
@@ -504,7 +540,61 @@ describe('ExplorerAdminPanel', () => {
     expect(searchInput.placeholder).toContain('already in this campaign');
     expect(getByTestId(container, 'explorer-destination-list').textContent).toContain('Hilltown opener');
     await clickElement(getByTestId(container, 'explorer-destination-toggle-301'));
-    expect(getByTestId(container, 'explorer-destination-row-301').textContent).toContain('Added');
+    const expandedDestination = getByTestId(container, 'explorer-destination-row-301');
+    expect(expandedDestination.textContent).toContain('Added');
+    expect(expandedDestination.textContent).toContain('Read-only cached from Strava');
+    expect(expandedDestination.textContent).toContain('Start coordinates');
+    expect(expandedDestination.textContent).toContain('51.25260, -0.32120');
+    expect(expandedDestination.textContent).toContain('Metadata refreshed');
+    expect(expandedDestination.textContent).toContain('1.82 mi');
+    expect(expandedDestination.textContent).toContain('381 ft');
+  });
+
+  it('respects the global metric setting for destination stats and details', async () => {
+    unitMocks.units = 'metric';
+    trpcMocks.campaignsQuery.data = [
+      {
+        id: 41,
+        name: 'Spring Explorer',
+        displayNameRaw: 'Spring Explorer',
+        startAt: 1767225600,
+        endAt: 1798761599,
+        rulesBlurb: 'Ride every destination once.',
+        destinations: [
+          {
+            id: 301,
+            displayLabel: 'Hilltown opener',
+            customLabel: null,
+            segmentName: 'Hilltown opener',
+            displayOrder: 0,
+            sourceUrl: 'https://www.strava.com/segments/2234642',
+            stravaSegmentId: '2234642',
+            createdAt: '2025-06-03T09:05:00Z',
+            distance: 2931,
+            averageGrade: 5.4,
+            totalElevationGain: 116,
+            climbCategory: 3,
+            startLatitude: 51.2526,
+            startLongitude: -0.3212,
+            endLatitude: 51.2427,
+            endLongitude: -0.3148,
+            metadataUpdatedAt: '2025-06-04T15:30:00Z',
+            city: 'Dorking',
+            state: 'Surrey',
+            country: 'United Kingdom',
+          },
+        ],
+      },
+    ];
+
+    const { container } = await renderPanel();
+    await clickElement(getByTestId(container, 'explorer-destination-toggle-301'));
+
+    const expandedDestination = getByTestId(container, 'explorer-destination-row-301');
+    expect(expandedDestination.textContent).toContain('2.93 km');
+    expect(expandedDestination.textContent).toContain('116 m');
+    expect(expandedDestination.textContent).not.toContain('1.82 mi');
+    expect(expandedDestination.textContent).not.toContain('381 ft');
   });
 
   it('uses icon-only summary actions and keeps the caret as a dedicated collapse control', async () => {
@@ -597,6 +687,13 @@ describe('ExplorerAdminPanel', () => {
             createdAt: '2025-06-03T09:05:00Z',
             distance: 2931,
             averageGrade: 5.4,
+            totalElevationGain: 116,
+            climbCategory: 3,
+            startLatitude: 51.2526,
+            startLongitude: -0.3212,
+            endLatitude: 51.2427,
+            endLongitude: -0.3148,
+            metadataUpdatedAt: '2025-06-04T15:30:00Z',
             city: 'Dorking',
             state: 'Surrey',
             country: 'United Kingdom',
@@ -657,24 +754,8 @@ describe('ExplorerAdminPanel', () => {
       },
     ];
 
-    const firstPreview = createDeferredValue({
-      strava_segment_id: '2234642',
-      name: 'Older Preview',
-      distance: 1000,
-      average_grade: 2.1,
-      city: 'Oldtown',
-      state: 'MA',
-      country: 'USA',
-    });
-    const secondPreview = createDeferredValue({
-      strava_segment_id: '9999999',
-      name: 'Newest Preview',
-      distance: 4500,
-      average_grade: 6.2,
-      city: 'Newtown',
-      state: 'VT',
-      country: 'USA',
-    });
+    const firstPreview = createDeferredValue<PreviewResponse>();
+    const secondPreview = createDeferredValue<PreviewResponse>();
 
     trpcMocks.validateSegment.mockReset();
     trpcMocks.validateSegment
