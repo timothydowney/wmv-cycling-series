@@ -480,7 +480,11 @@ function ExplorerAdminPanel({ isAdmin }: ExplorerAdminPanelProps) {
       return;
     }
 
-    await deleteDestinationMutation.mutateAsync({ explorerDestinationId: destinationId });
+    try {
+      await deleteDestinationMutation.mutateAsync({ explorerDestinationId: destinationId });
+    } catch {
+      // Mutation error UI is already handled by the mutation onError callback.
+    }
   };
 
   if (!isAdmin) {
@@ -963,22 +967,7 @@ function ExplorerAdminPanel({ isAdmin }: ExplorerAdminPanelProps) {
                                 data-expanded={isDestinationExpanded}
                                 data-testid={`explorer-destination-row-${destination.id}`}
                               >
-                                <div
-                                  role="button"
-                                  tabIndex={0}
-                                  className="explorer-destination-summary"
-                                  onClick={() => {
-                                    setExpandedDestinationId((current) => current === destination.id ? null : destination.id);
-                                  }}
-                                  onKeyDown={(event) => {
-                                    if (event.key === 'Enter' || event.key === ' ') {
-                                      event.preventDefault();
-                                      setExpandedDestinationId((current) => current === destination.id ? null : destination.id);
-                                    }
-                                  }}
-                                  aria-expanded={isDestinationExpanded}
-                                  data-testid={`explorer-destination-toggle-${destination.id}`}
-                                >
+                                <div className="explorer-destination-summary">
                                   <div className="explorer-destination-surface explorer-destination-summary-card">
                                     <div>
                                       <h5 className="explorer-destination-hero-title explorer-destination-list-title">
@@ -988,9 +977,6 @@ function ExplorerAdminPanel({ isAdmin }: ExplorerAdminPanelProps) {
                                             href={destination.sourceUrl}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            onClick={(event) => {
-                                              event.stopPropagation();
-                                            }}
                                           >
                                             {destination.displayLabel}
                                             <ArrowTopRightOnSquareIcon aria-hidden="true" />
@@ -1023,7 +1009,18 @@ function ExplorerAdminPanel({ isAdmin }: ExplorerAdminPanelProps) {
                                       >
                                         <TrashIcon aria-hidden="true" />
                                       </button>
-                                      <ChevronDownIcon className={`explorer-destination-chevron${isDestinationExpanded ? ' is-expanded' : ''}`} aria-hidden="true" />
+                                      <button
+                                        type="button"
+                                        className="explorer-icon-button explorer-icon-button-summary"
+                                        data-testid={`explorer-destination-toggle-${destination.id}`}
+                                        aria-label={`${isDestinationExpanded ? 'Collapse' : 'Expand'} ${destination.displayLabel}`}
+                                        aria-expanded={isDestinationExpanded}
+                                        onClick={() => {
+                                          setExpandedDestinationId((current) => current === destination.id ? null : destination.id);
+                                        }}
+                                      >
+                                        <ChevronDownIcon className={`explorer-destination-chevron${isDestinationExpanded ? ' is-expanded' : ''}`} aria-hidden="true" />
+                                      </button>
                                     </div>
                                   </div>
                                 </div>

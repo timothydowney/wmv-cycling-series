@@ -179,6 +179,7 @@ interface DeferredValue<T> {
 }
 
 let renderResult: RenderResult | null = null;
+const FIXED_NOW = new Date('2026-06-15T12:00:00Z');
 
 function createDeferredValue<T>(): DeferredValue<T> {
   let resolve!: (value: T) => void;
@@ -246,6 +247,9 @@ async function clickElement(element: HTMLElement) {
 
 describe('ExplorerAdminPanel', () => {
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FIXED_NOW);
+
     trpcMocks.campaignsQuery.data = [];
     trpcMocks.campaignsQuery.error = null;
     trpcMocks.campaignsQuery.isLoading = false;
@@ -284,7 +288,6 @@ describe('ExplorerAdminPanel', () => {
     trpcMocks.deleteDestination.mockReset();
     trpcMocks.deleteDestination.mockResolvedValue({ explorerDestinationId: 201 });
     vi.spyOn(window, 'confirm').mockReturnValue(true);
-    vi.useRealTimers();
   });
 
   afterEach(async () => {
@@ -416,7 +419,6 @@ describe('ExplorerAdminPanel', () => {
   });
 
   it('auto-previews, rejects, and accepts destinations for the expanded campaign', async () => {
-    vi.useFakeTimers();
     trpcMocks.campaignsQuery.data = [
       {
         id: 41,
@@ -643,7 +645,6 @@ describe('ExplorerAdminPanel', () => {
   });
 
   it('ignores stale preview responses when the source URL changes mid-request', async () => {
-    vi.useFakeTimers();
     trpcMocks.campaignsQuery.data = [
       {
         id: 41,
