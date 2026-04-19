@@ -12,11 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - A standalone Manage Roles admin screen for granting and revoking database-backed admin access for participants who have logged in.
+- Explorer admin now lets admins remove campaign destinations directly from the campaign workflow with a simple confirmation step.
 
 ### Changed
 - Season openness is now treated as date-based in application logic, allowing overlapping seasons to remain open concurrently.
 - Admin authorization now evaluates database-backed admin roles in addition to the `ADMIN_ATHLETE_IDS` env var, which remains the break-glass fallback.
 - The navigation now exposes Manage Roles as its own first-class admin destination and keeps About clearly outside the admin menu grouping.
+- Explorer admin now centers the current or next campaign as the primary workspace, keeps campaign editing inline at the top of the expanded card, and demotes create-campaign planning until it is needed.
 - Upgraded the frontend runtime and type packages to React 19 (`react`, `react-dom`, `@types/react`, and `@types/react-dom`) as the first major-version migration PR in the dependency modernization set.
 - Upgraded the next safe batch of major dependencies in one pass: Vite 8 + `@vitejs/plugin-react` 6, TypeScript 6 (frontend and backend), Express 5, `strava-v3` 4, and `@types/express` 5.
 - Clarified the Playwright e2e prerequisites and authentication flow in the e2e docs: normal logged-in tests use the backend e2e session helper, while manual Strava OAuth is now documented as optional exploratory setup.

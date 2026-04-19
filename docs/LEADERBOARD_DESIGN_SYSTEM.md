@@ -1,6 +1,10 @@
 # Leaderboard Design System
 
-This document defines the current gold-standard UI language for the end-user leaderboard experience only.
+This document defines the current gold-standard UI language for the app's modern surfaces.
+
+Historical note:
+- the file keeps the leaderboard name because the Weekly, Season, and Schedule surfaces established the strongest baseline first
+- going forward, new Explorer and admin work should also use this system as the default reference unless a better documented pattern replaces it
 
 Scope:
 - Weekly leaderboard
@@ -10,9 +14,9 @@ Scope:
 - Shared primitives those tabs already use
 
 Out of scope:
-- Legacy admin screens
-- Explorer admin UX except where it intentionally reuses leaderboard primitives
-- New form-control systems that do not yet exist in the public leaderboard
+- Legacy admin screens that have not yet been brought forward into this system
+- Undocumented one-off admin styling used only for historical compatibility
+- New form-control systems that do not yet exist in the documented app design system
 
 ## Source Of Truth
 
@@ -154,6 +158,11 @@ Common traits:
 - animation is modest and short-lived
 - the expanded layer should not visually compete with the main card shell
 
+Interaction rules:
+- the caret is the dedicated expand or collapse affordance when a surface exposes one
+- on row-like or card-header surfaces with multiple actions, place the caret at the far right unless there is a strong, documented reason not to
+- do not place a primary edit action to the right of the caret on the same row, because that weakens the collapse affordance
+
 ### Segment And Destination Metadata Card Pattern
 
 `src/components/SegmentCard.tsx` and `src/components/SegmentCard.css` define a compact metadata card that is not the same thing as a leaderboard row.
@@ -252,6 +261,20 @@ Rules:
 - avoid button-styling normal navigation or outbound links when a text link is clearer
 - choose between the `WeeklyHeader` link treatment and the `SegmentCard` link treatment based on hierarchy, not personal preference
 
+## Action Controls
+
+The app is still normalizing older admin screens, but the preferred pattern for modern compact actions is now explicit.
+
+Rules:
+- use icon-only action buttons when the action is obvious from context and an accessible name is provided through `aria-label`
+- prefer circular icon buttons for compact row or card actions such as edit, delete, accept, reject, and collapse triggers
+- keep action-button shape consistent within the same row or card; do not mix a rounded rectangle edit control with circular destructive or collapse controls unless the different weight is intentional and documented
+- destructive actions should remain visually distinct through color treatment, not through a different button shape alone
+- when an action opens a temporary editor, keep save as an explicit button and allow the editor to close back down after save or cancel
+
+Current status note:
+- older admin screens are still inconsistent, so this should be treated as the direction for new or touched surfaces rather than as a claim that every historical screen already matches it
+
 ## Reuse Rules For Explorer
 
 Explorer should default to the leaderboard system in this order:
@@ -282,6 +305,10 @@ When new Explorer or admin work needs these patterns:
 - prefer tokenized colors and existing spacing rhythm
 - document the new primitive once it stabilizes
 - do not backfill from old admin CSS by default
+
+Explorer-specific note:
+- lightweight filter stubs should prefer a single full-width field treatment over stacked label-plus-field placeholders when the behavior does not exist yet
+- placeholder copy should carry the contextual explanation, for example by clarifying that the future filter applies only within the current campaign
 
 ## Design Audit Checklist
 

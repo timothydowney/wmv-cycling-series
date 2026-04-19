@@ -51,6 +51,10 @@
     var(--wmv-white);
 }
 
+.explorer-create-shell-secondary {
+  opacity: 0.98;
+}
+
 .explorer-message {
   padding: 0.9rem 1rem;
   border-radius: 12px;
@@ -85,8 +89,21 @@
   gap: 1rem;
 }
 
+.explorer-campaign-summary-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.85rem;
+}
+
+.explorer-summary-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-shrink: 0;
+}
+
 .explorer-campaign-toggle {
-  width: 100%;
+  flex: 1 1 auto;
   padding: 0;
   border: none;
   background: transparent;
@@ -107,16 +124,15 @@
     var(--wmv-white);
 }
 
+.explorer-primary-campaign-shell {
+  border-color: rgba(245, 96, 4, 0.28);
+  box-shadow: 0 20px 44px rgba(15, 23, 42, 0.1);
+}
+
 .explorer-campaign-details {
   margin-top: 1.25rem;
   padding: 1.25rem 0 0;
   border-top: 1px solid rgba(148, 163, 184, 0.22);
-}
-
-.explorer-campaign-editor-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
 }
 
 .explorer-campaign-editor-block,
@@ -132,12 +148,30 @@
   margin-top: 1rem;
 }
 
+.explorer-destination-authoring-block,
+.explorer-campaign-editing-block {
+  margin-top: 0;
+}
+
 .explorer-section-label {
   margin: 0 0 0.35rem;
   font-size: var(--font-xs);
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  color: var(--wmv-orange);
+}
+
+.explorer-section-label-inline {
+  margin-bottom: 0.85rem;
+}
+
+.explorer-campaign-name-kicker {
+  margin: 0;
+  font-size: var(--font-lg);
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: 0;
   color: var(--wmv-orange);
 }
 
@@ -201,6 +235,8 @@
 .explorer-form-actions {
   display: flex;
   justify-content: flex-start;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .explorer-submit-button {
@@ -223,6 +259,24 @@
 .explorer-submit-button:disabled {
   opacity: 0.68;
   cursor: not-allowed;
+}
+
+.explorer-secondary-button {
+  appearance: none;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 999px;
+  padding: 0.85rem 1.15rem;
+  background: rgba(255, 255, 255, 0.98);
+  color: var(--wmv-text-dark);
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.explorer-secondary-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+  border-color: rgba(148, 163, 184, 0.5);
 }
 
 .explorer-chip-cluster,
@@ -314,9 +368,53 @@
   color: #b91c1c;
 }
 
+.explorer-icon-button-delete {
+  border-color: rgba(248, 113, 113, 0.45);
+  color: #b91c1c;
+}
+
+.explorer-icon-button-summary {
+  border-color: rgba(245, 96, 4, 0.22);
+  background: rgba(255, 247, 237, 0.92);
+}
+
 .explorer-icon-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.explorer-search-stub {
+  margin: 1rem 0 1.15rem;
+}
+
+.explorer-search-stub-input {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.8rem 0.95rem;
+  border: 1px dashed rgba(148, 163, 184, 0.4);
+  border-radius: 12px;
+  background: rgba(248, 250, 252, 0.95);
+  color: var(--wmv-text-light);
+}
+
+.explorer-search-stub-input svg {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+.explorer-search-stub-input input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: var(--font-base);
+}
+
+.explorer-search-stub-input input:disabled {
+  opacity: 1;
+  -webkit-text-fill-color: currentColor;
 }
 
 .explorer-destination-list {
@@ -356,6 +454,13 @@
   gap: 1rem;
   align-items: flex-start;
   transition: background-color 0.18s ease;
+}
+
+.explorer-destination-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-shrink: 0;
 }
 
 .explorer-destination-card[data-expanded='true'] .explorer-destination-summary-card {
@@ -461,7 +566,6 @@
 
 @media (max-width: 900px) {
   .explorer-admin-hero,
-  .explorer-campaign-editor-grid,
   .explorer-form-grid {
     grid-template-columns: 1fr;
   }
@@ -470,10 +574,16 @@
 @media (max-width: 768px) {
   .explorer-card-header,
   .explorer-preview-header,
+  .explorer-campaign-summary-row,
   .explorer-campaign-toggle,
   .explorer-campaign-toggle-main,
   .explorer-destination-summary-card {
     flex-direction: column;
+  }
+
+  .explorer-summary-actions {
+    width: 100%;
+    justify-content: flex-end;
   }
 
   .explorer-preview-actions {

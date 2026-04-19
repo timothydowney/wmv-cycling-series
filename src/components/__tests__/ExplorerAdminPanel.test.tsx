@@ -11,6 +11,7 @@ const trpcMocks = vi.hoisted(() => ({
     data: [] as Array<{
       id: number;
       name: string;
+      displayNameRaw: string | null;
       startAt: number;
       endAt: number;
       rulesBlurb: string | null;
@@ -60,6 +61,9 @@ const trpcMocks = vi.hoisted(() => ({
     cached_name: 'Box Hill KOM',
     strava_segment_id: '2234642',
     usedPlaceholderMetadata: false,
+  })),
+  deleteDestination: vi.fn(async (_input?: unknown) => ({
+    explorerDestinationId: 201,
   })),
 }));
 
@@ -133,6 +137,24 @@ vi.mock('../../utils/trpc', () => ({
           mutateAsync: async (input: unknown) => {
             try {
               const result = await trpcMocks.addDestination(input);
+              await options.onSuccess?.(result);
+              return result;
+            } catch (error) {
+              options.onError?.(error as Error);
+              throw error;
+            }
+          },
+        }),
+      },
+      deleteDestination: {
+        useMutation: (options: {
+          onError?: (error: Error) => void;
+          onSuccess?: (result: { explorerDestinationId: number }) => Promise<void> | void;
+        }) => ({
+          isPending: false,
+          mutateAsync: async (input: unknown) => {
+            try {
+              const result = await trpcMocks.deleteDestination(input);
               await options.onSuccess?.(result);
               return result;
             } catch (error) {
@@ -259,6 +281,9 @@ describe('ExplorerAdminPanel', () => {
       strava_segment_id: '2234642',
       usedPlaceholderMetadata: false,
     });
+    trpcMocks.deleteDestination.mockReset();
+    trpcMocks.deleteDestination.mockResolvedValue({ explorerDestinationId: 201 });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
     vi.useRealTimers();
   });
 
@@ -271,6 +296,7 @@ describe('ExplorerAdminPanel', () => {
       renderResult = null;
     }
 
+    vi.restoreAllMocks();
     vi.useRealTimers();
   });
 
@@ -307,14 +333,22 @@ describe('ExplorerAdminPanel', () => {
         id: 41,
         name: 'Spring Explorer',
         displayNameRaw: 'Spring Explorer',
-        startAt: 1748736000,
-        endAt: 1751327999,
+        startAt: 1767225600,
+        endAt: 1798761599,
         rulesBlurb: 'Ride every destination once.',
         destinations: [],
       },
     ];
 
     const { container } = await renderPanel();
+
+    expect(queryByTestId(container, 'explorer-campaign-name-input-41')).toBeNull();
+
+    await clickElement(getByTestId(container, 'explorer-edit-campaign-button-41'));
+
+    const editForm = getByTestId(container, 'explorer-campaign-edit-form-41');
+    const destinationCard = getByTestId(container, 'explorer-add-destination-card');
+    expect(editForm.compareDocumentPosition(destinationCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     await setValue(getByTestId(container, 'explorer-campaign-name-input-41') as HTMLInputElement, 'Updated Explorer');
     await setValue(getByTestId(container, 'explorer-campaign-start-date-input-41') as HTMLInputElement, '2025-06-02');
@@ -329,6 +363,56 @@ describe('ExplorerAdminPanel', () => {
       displayName: 'Updated Explorer',
       rulesBlurb: 'Updated rules.',
     });
+    expect(queryByTestId(container, 'explorer-campaign-name-input-41')).toBeNull();
+  });
+
+  it('cancels campaign edits and restores the saved values', async () => {
+    trpcMocks.campaignsQuery.data = [
+      {
+        id: 41,
+        name: 'Spring Explorer',
+        displayNameRaw: 'Spring Explorer',
+        startAt: 1767225600,
+        endAt: 1798761599,
+        rulesBlurb: 'Ride every destination once.',
+        destinations: [],
+      },
+    ];
+
+    const { container } = await renderPanel();
+
+    await clickElement(getByTestId(container, 'explorer-edit-campaign-button-41'));
+    await setValue(getByTestId(container, 'explorer-campaign-name-input-41') as HTMLInputElement, 'Changed title');
+    await setValue(getByTestId(container, 'explorer-campaign-rules-input-41') as HTMLTextAreaElement, 'Changed rules.');
+
+    await clickElement(getByTestId(container, 'explorer-cancel-campaign-button-41'));
+
+    expect(queryByTestId(container, 'explorer-campaign-name-input-41')).toBeNull();
+    expect(trpcMocks.updateCampaign).not.toHaveBeenCalled();
+
+    await clickElement(getByTestId(container, 'explorer-edit-campaign-button-41'));
+
+    expect((getByTestId(container, 'explorer-campaign-name-input-41') as HTMLInputElement).value).toBe('Spring Explorer');
+    expect((getByTestId(container, 'explorer-campaign-rules-input-41') as HTMLTextAreaElement).value).toBe('Ride every destination once.');
+  });
+
+  it('does not render a separate campaign details panel when not editing', async () => {
+    trpcMocks.campaignsQuery.data = [
+      {
+        id: 41,
+        name: 'Spring Explorer',
+        displayNameRaw: 'Spring Explorer',
+        startAt: 1767225600,
+        endAt: 1798761599,
+        rulesBlurb: 'Ride every destination once.',
+        destinations: [],
+      },
+    ];
+
+    const { container } = await renderPanel();
+
+    expect(queryByTestId(container, 'explorer-campaign-edit-form-41')).toBeNull();
+    expect(queryByTestId(container, 'explorer-campaign-details-toggle-41')).toBeNull();
   });
 
   it('auto-previews, rejects, and accepts destinations for the expanded campaign', async () => {
@@ -388,8 +472,8 @@ describe('ExplorerAdminPanel', () => {
         id: 41,
         name: 'Spring Explorer',
         displayNameRaw: 'Spring Explorer',
-        startAt: 1748736000,
-        endAt: 1751327999,
+        startAt: 1767225600,
+        endAt: 1798761599,
         rulesBlurb: 'Ride every destination once.',
         destinations: [
           {
@@ -413,9 +497,119 @@ describe('ExplorerAdminPanel', () => {
 
     const { container } = await renderPanel();
 
+    expect(getByTestId(container, 'explorer-primary-campaign-label').textContent).toContain('Current campaign');
+    const searchInput = getByTestId(container, 'explorer-destination-search-stub-41').querySelector('input') as HTMLInputElement;
+    expect(searchInput.placeholder).toContain('already in this campaign');
     expect(getByTestId(container, 'explorer-destination-list').textContent).toContain('Hilltown opener');
     await clickElement(getByTestId(container, 'explorer-destination-toggle-301'));
     expect(getByTestId(container, 'explorer-destination-row-301').textContent).toContain('Added');
+  });
+
+  it('uses icon-only summary actions and keeps the caret as a dedicated collapse control', async () => {
+    trpcMocks.campaignsQuery.data = [
+      {
+        id: 41,
+        name: 'Spring Explorer',
+        displayNameRaw: 'Spring Explorer',
+        startAt: 1767225600,
+        endAt: 1798761599,
+        rulesBlurb: 'Ride every destination once.',
+        destinations: [],
+      },
+    ];
+
+    const { container } = await renderPanel();
+
+    expect(getByTestId(container, 'explorer-edit-campaign-button-41').textContent).toBe('');
+
+    await clickElement(getByTestId(container, 'explorer-campaign-summary-caret-41'));
+
+    expect(queryByTestId(container, 'explorer-add-destination-card')).toBeNull();
+  });
+
+  it('promotes the next upcoming campaign when none is currently active', async () => {
+    trpcMocks.campaignsQuery.data = [
+      {
+        id: 52,
+        name: 'Past Explorer',
+        displayNameRaw: 'Past Explorer',
+        startAt: 1704067200,
+        endAt: 1706659199,
+        rulesBlurb: null,
+        destinations: [],
+      },
+      {
+        id: 53,
+        name: 'Next Explorer',
+        displayNameRaw: 'Next Explorer',
+        startAt: 1893456000,
+        endAt: 1896047999,
+        rulesBlurb: null,
+        destinations: [],
+      },
+    ];
+
+    const { container } = await renderPanel();
+
+    expect(getByTestId(container, 'explorer-campaign-name').textContent).toContain('Next Explorer');
+    expect(getByTestId(container, 'explorer-primary-campaign-label').textContent).toContain('Next campaign');
+  });
+
+  it('shows create campaign near the top when there is no current or upcoming campaign', async () => {
+    trpcMocks.campaignsQuery.data = [
+      {
+        id: 52,
+        name: 'Past Explorer',
+        displayNameRaw: 'Past Explorer',
+        startAt: 1704067200,
+        endAt: 1706659199,
+        rulesBlurb: null,
+        destinations: [],
+      },
+    ];
+
+    const { container } = await renderPanel();
+
+    expect(getByTestId(container, 'explorer-display-name-input')).not.toBeNull();
+    expect(queryByTestId(container, 'explorer-primary-campaign-label')).toBeNull();
+  });
+
+  it('deletes a destination after confirmation', async () => {
+    trpcMocks.campaignsQuery.data = [
+      {
+        id: 41,
+        name: 'Spring Explorer',
+        displayNameRaw: 'Spring Explorer',
+        startAt: 1748736000,
+        endAt: 1751327999,
+        rulesBlurb: 'Ride every destination once.',
+        destinations: [
+          {
+            id: 201,
+            displayLabel: 'Box Hill KOM',
+            customLabel: null,
+            segmentName: 'Box Hill KOM',
+            displayOrder: 0,
+            sourceUrl: 'https://www.strava.com/segments/2234642',
+            stravaSegmentId: '2234642',
+            createdAt: '2025-06-03T09:05:00Z',
+            distance: 2931,
+            averageGrade: 5.4,
+            city: 'Dorking',
+            state: 'Surrey',
+            country: 'United Kingdom',
+          },
+        ],
+      },
+    ];
+
+    const { container } = await renderPanel();
+
+    await clickElement(getByTestId(container, 'explorer-delete-destination-button-201'));
+
+    expect(window.confirm).toHaveBeenCalledWith('Remove Box Hill KOM from this Explorer campaign?');
+    expect(trpcMocks.deleteDestination).toHaveBeenCalledWith({ explorerDestinationId: 201 });
+    expect(getByTestId(container, 'explorer-admin-message').textContent).toContain('Destination removed');
   });
 
   it('preserves an explicit Explorer Campaign display name when saving', async () => {
@@ -432,6 +626,8 @@ describe('ExplorerAdminPanel', () => {
     ];
 
     const { container } = await renderPanel();
+
+    await clickElement(getByTestId(container, 'explorer-edit-campaign-button-41'));
 
     expect((getByTestId(container, 'explorer-campaign-name-input-41') as HTMLInputElement).value).toBe('Explorer Campaign');
 
