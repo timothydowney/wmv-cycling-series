@@ -144,7 +144,7 @@ Follow-on planning note:
 
 Goal: correct the shipped season-attached Explorer model by moving Explorer campaigns onto their own date boundaries, then reshape the admin surface into a more all-in-one leaderboard-style campaign editor before additional Explorer UI polish continues.
 
-Status: ready for implementation from updated `main` on a dedicated feature branch now that the campaign-first correction is closed in planning.
+Status: merged on `main` as the corrected Explorer baseline. Follow-on admin work should treat this slice as complete and build the next refinement from updated `main` on a dedicated feature branch.
 
 Scope:
 
@@ -177,6 +177,36 @@ Implementation note:
 
 - Production Explorer data does not currently justify compatibility scaffolding. Migrations should prioritize boot safety and a clean model correction over preserving disposable Explorer campaign rows.
 - True map plotting is not part of 4B-3. The current shared segment model carries location text fields, but a future map slice may still require coordinate or geometry storage if the product needs real map pins rather than text-only place context.
+
+### Slice 4B-4: Admin Workflow Hierarchy And Destination Management
+
+Goal: make the Explorer admin screen work primarily around the current or next campaign, demote campaign creation when a primary campaign already exists, and make destination management the dominant workflow.
+
+Status: approved as the next bounded follow-on slice after 4B-3.
+
+Scope:
+
+- Promote the current active campaign, or the next upcoming campaign when none is active, to the primary working surface.
+- Keep campaign creation prominent only when there is no current or upcoming campaign, and otherwise move it into a lower-priority planning section.
+- Make destination authoring and destination-list review the main content area for the primary campaign.
+- Collapse campaign metadata editing by default so date and naming edits remain available but secondary.
+- Add a simple confirmed remove flow for already-added destinations.
+- Allow a lightweight non-functional stub for future destination search if it helps reserve the interaction shape without implying Strava discovery support.
+
+Out of scope:
+
+- Real destination search or discovery across Strava or other Explorer campaigns
+- Destination reorder flows
+- Persisted inline editing for accepted destination cards
+- Athlete-facing Explorer release work
+- Map rendering or coordinate storage
+
+Validation:
+
+- Backend tests for any new destination-management mutation added for this slice
+- Frontend unit tests covering current-or-next campaign promotion, secondary create placement, collapsed campaign details, and confirmed destination deletion
+- Targeted Playwright coverage for the adjusted admin hierarchy and destination removal flow
+- Slice-normal `npm run lint`, `npm run typecheck`, and targeted build verification
 
 ## Phase 5: Explorer Hub MVP
 

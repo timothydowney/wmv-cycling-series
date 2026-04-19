@@ -12,6 +12,18 @@ async function ensureCampaignExists(page: Page) {
   await expect(page.getByTestId('explorer-campaign-stack')).toBeVisible();
 }
 
+async function ensureDestinationExists(page: Page, sourceUrl: string) {
+  if (await page.getByTestId('explorer-destination-list').count() > 0) {
+    return;
+  }
+
+  await page.getByTestId('explorer-source-url-input').fill(sourceUrl);
+  await page.getByTestId('explorer-source-url-input').blur();
+  await expect(page.getByTestId('explorer-destination-preview-card')).toBeVisible();
+  await page.getByTestId('explorer-accept-preview-button').click();
+  await expect(page.getByTestId('explorer-admin-message')).toContainText('Destination added');
+}
+
 test.describe('Explorer Admin Setup', () => {
   test.beforeEach(async ({ page }) => {
     await loginAsE2EUser(page);
@@ -38,7 +50,7 @@ test.describe('Explorer Admin Setup', () => {
     await page.getByTestId('explorer-create-campaign-button').click();
 
     await expect(page.getByTestId('explorer-admin-message')).toContainText('Explorer campaign created');
-    await expect(page.getByTestId('explorer-campaign-name')).toContainText('Fall 2025 Explorer');
+    await expect(page.getByTestId('explorer-campaign-stack').getByText('Fall 2025 Explorer').first()).toBeVisible();
 
     await page.getByTestId('explorer-source-url-input').fill('https://www.strava.com/segments/2234642');
     await page.getByTestId('explorer-source-url-input').blur();
@@ -70,5 +82,24 @@ test.describe('Explorer Admin Setup', () => {
     await page.getByTestId('explorer-source-url-input').blur();
     await page.getByTestId('explorer-accept-preview-button').click();
     await expect(page.getByTestId('explorer-admin-message')).toContainText('already exists');
+  });
+
+  test('admin can delete a destination with confirmation', async ({ page }) => {
+    await page.goto('/explorer-admin');
+
+    await ensureCampaignExists(page);
+    await ensureDestinationExists(page, 'https://www.strava.com/segments/2234642');
+
+    const deleteButton = page.locator('[data-testid^="explorer-delete-destination-button-"]').first();
+    const deleteLabel = await deleteButton.getAttribute('aria-label');
+    const destinationLabel = deleteLabel?.replace(/^Delete\s+/, '') ?? 'destination';
+
+    page.once('dialog', async (dialog) => {
+      expect(dialog.message()).toContain(`Remove ${destinationLabel} from this Explorer campaign?`);
+      await dialog.accept();
+    });
+
+    await deleteButton.click();
+    await expect(page.getByTestId('explorer-admin-message')).toContainText('Destination removed');
   });
 });

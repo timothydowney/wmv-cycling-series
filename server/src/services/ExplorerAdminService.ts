@@ -45,6 +45,10 @@ interface AddDestinationResult {
   usedPlaceholderMetadata: boolean;
 }
 
+interface DeleteDestinationInput {
+  explorerDestinationId: number;
+}
+
 function normalizeNullableText(value?: string | null): string | null {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
@@ -216,6 +220,25 @@ export class ExplorerAdminService {
       usedPlaceholderMetadata: !metadata?.name,
     };
   }
+
+  deleteDestination(input: DeleteDestinationInput) {
+    const existingDestination = this.db
+      .select({ id: explorerDestination.id })
+      .from(explorerDestination)
+      .where(eq(explorerDestination.id, input.explorerDestinationId))
+      .get();
+
+    if (!existingDestination) {
+      throw new Error('Explorer destination not found');
+    }
+
+    this.db
+      .delete(explorerDestination)
+      .where(eq(explorerDestination.id, input.explorerDestinationId))
+      .run();
+
+    return { explorerDestinationId: input.explorerDestinationId };
+  }
 }
 
 export type {
@@ -223,5 +246,6 @@ export type {
   UpdateCampaignInput,
   AddDestinationInput,
   AddDestinationResult,
+  DeleteDestinationInput,
   ExplorerSegmentMetadataService,
 };

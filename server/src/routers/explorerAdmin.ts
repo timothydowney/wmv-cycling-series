@@ -101,4 +101,18 @@ export const explorerAdminRouter = router({
         throw mapExplorerAdminError(error);
       }
     }),
+
+  deleteDestination: adminProcedure
+    .input(z.object({
+      explorerDestinationId: z.number().int().positive(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const service = new ExplorerAdminService(ctx.orm);
+
+      try {
+        return service.deleteDestination(input);
+      } catch (error) {
+        throw mapExplorerAdminError(error);
+      }
+    }),
 });
