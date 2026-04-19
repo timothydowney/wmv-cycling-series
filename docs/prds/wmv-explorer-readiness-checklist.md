@@ -17,23 +17,23 @@ The ideas backlog is intentionally excluded from v1 implementation scope. It exi
 
 ## Current Go Decision
 
-**Status:** Phase 1 Complete; Season-Campaign Correction Landed; Backend Campaign Slice Merged; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Ready For Phase 4B-3 Admin UX Refinement
+**Status:** Phase 1 Complete; Campaign-First Explorer Correction Landed; Explorer Structural Decoupling Required; Ready For Phase 4B-3 Campaign Decoupling And Unified Admin Shell
 
-Explorer has completed the narrow Phase 1 webhook-orchestration slice that preserves current competition behavior while introducing delegated in-process handlers. The planning set on this branch now corrects the MVP to a season-campaign-first model attached to an existing WMV season, with optional mini-campaigns and explicit publish-status workflows deferred. The backend campaign slice is merged, the 4A admin backend slice is landed, the 4B-1 portable harness work is merged, and the 4B-2 admin-gated UI is now merged as a minimal setup surface. The next recommended work is a bounded 4B-3 admin UX refinement slice that improves repeated paste-and-add authoring and card presentation without widening into the later admin-management backlog.
+Explorer has completed the narrow Phase 1 webhook-orchestration slice that preserves current competition behavior while introducing delegated in-process handlers. The planning set now corrects Explorer to a campaign-first model with campaign-owned date boundaries, returns `Season` to competition-only semantics, defers overlapping or nested campaign structures, and locks a no-overlap Explorer rule for v1. The previously merged backend and minimal admin UI slices were implemented on the older season-attached model, so the next recommended work is a bounded 4B-3 structural correction slice that decouples Explorer from competition seasons and reshapes the admin surface into a unified campaign editor before more Explorer UI expansion continues.
 
-The current 4B-3 boundary is now explicit: no persisted inline card editing in this slice, icon-first preview actions with accessible labels, accepted destination cards that surface the existing distance, average grade, location, and source-link metadata, and no attempt to solve true map plotting until a later slice defines any needed coordinate or geometry storage.
+The current 4B-3 boundary is now explicit: move campaign boundaries onto Explorer campaigns, enforce the no-overlap rule, keep the admin surface all-in-one and leaderboard-styled, preserve preview-first destination authoring, and avoid adding broader management, reporting, or map-geometry work in the same slice.
 
 ## Current Status Summary
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| Product framing | Ready | The PRD is clear on goals, users, must-haves, non-goals, and success criteria. |
-| Execution phasing | Ready For Phase 4B-3 | The phases doc now treats 4B-2 as merged and names 4B-3 as the bounded admin UX refinement slice. |
-| Architecture closure | Ready For Phase 4B-3 | The technical spec and landed slices are sufficient for the next admin UX improvement slice without reopening the campaign model or harness work, though true map rendering remains a later non-blocking data-shape question. |
-| Open questions handling | Ready | The worklog now records the corrected model plus the remaining non-blocking questions. |
-| Blocking research closure | Ready For Phase 4B-3 | The product-intent correction is closed for this branch. |
-| Test planning | Ready For Phase 4B-3 | The next test-planning work is attached to the bounded admin UX refinement slice rather than to a broad continuation of 4B-2. |
-| Documentation impact plan | Ready For Phase 4B-3 | The next documentation impact is the 4B-3 planning handoff plus any Explorer admin read-contract notes needed for richer destination cards. |
+| Product framing | Ready | The PRD is now aligned to a campaign-first Explorer model with campaign-owned dates and competition-only `Season` semantics. |
+| Execution phasing | Ready For Phase 4B-3 | The phases doc now names 4B-3 as the campaign decoupling and unified admin-shell slice. |
+| Architecture closure | Needs 4B-3 Structural Correction | The current shipped Explorer backend and admin UI still reflect the older season-attached model and should be corrected before broader Explorer UI work resumes. |
+| Open questions handling | Ready | The worklog now records the superseded season-attached decision and the locked no-overlap rule. |
+| Blocking research closure | Ready For Phase 4B-3 | The product-model correction is closed for this branch. |
+| Test planning | Ready For Phase 4B-3 | The next test-planning work is attached to the bounded campaign-decoupling slice rather than to more season-based UI refinement. |
+| Documentation impact plan | Ready For Phase 4B-3 | The next documentation impact is the 4B-3 planning handoff plus any Explorer API or schema notes needed for campaign-owned date boundaries. |
 
 ## Must Resolve Before Broad Implementation
 
@@ -87,9 +87,9 @@ The current 4B-3 boundary is now explicit: no persisted inline card editing in t
 | --- | --- |
 | Status | Ready |
 | Gate | Must Resolve |
-| Why it matters | The team needs a shared rule for what can proceed now versus what must wait for the season-model correction. |
-| Evidence | The implemented webhook seam remains valid, the backend campaign slice is merged, the 4A admin backend contract is landed, the 4B-2 minimal admin UI is merged, and the next slice is now re-approved as Phase 4B-3 admin UX refinement against the corrected season campaign model. |
-| Acceptance criteria | The readiness artifacts clearly state that Explorer is ready for one bounded admin-UX slice next and identify what remains out of scope. |
+| Why it matters | The team needs a shared rule for what can proceed now versus what must wait for the campaign-first correction to land in code. |
+| Evidence | The implemented webhook seam remains valid, the older backend campaign slice is merged, the 4A admin backend contract and 4B-2 minimal admin UI are landed on the superseded season-attached model, and the next slice is now re-approved as Phase 4B-3 campaign decoupling plus unified admin shell. |
+| Acceptance criteria | The readiness artifacts clearly state that Explorer is ready for one bounded structural-correction slice next and identify what remains out of scope. |
 | Next action | Keep the current go decision updated as additional corrected Explorer slices are approved or deferred, and close slice-local planning state in the implementation PR when the slice changes readiness or phase status. |
 
 ## Should Resolve Before 4A And 4B Expand
@@ -114,7 +114,7 @@ The current 4B-3 boundary is now explicit: no persisted inline card editing in t
 | Why it matters | Explorer admin UI flows and the existing Playwright suite need repeatable end-to-end coverage, and the current code path reaches outbound Strava services from the backend during destination authoring and some read flows. |
 | Evidence | The backend now has an explicit E2E mode in [server/src/config.ts](../../server/src/config.ts), the E2E database resets from the committed sanitized fixture [server/data/wmv_e2e_fixture.db](../../server/data/wmv_e2e_fixture.db), and deterministic read-side Strava behavior now flows through explicit providers in [server/src/services/segmentMetadataProvider.ts](../../server/src/services/segmentMetadataProvider.ts) and [server/src/services/stravaReadProvider.ts](../../server/src/services/stravaReadProvider.ts) rather than through scattered service-level `isE2EMode()` branches. Full validation is green, including `npm test`, `npm run test:e2e`, `npm run typecheck`, `npm run lint`, and `npm run build`. |
 | Acceptance criteria | Explorer and existing E2E scenarios run against an explicit backend E2E mode, deterministic campaign and leaderboard data are provisioned without copying a contributor's local development database, and outbound Strava-dependent behavior is selected through explicit providers rather than scattered feature-level short-circuits. |
-| Next action | Preserve the centralized E2E-mode and explicit-provider discipline as 4B-3 refines the admin UX on top of the merged harness baseline. |
+| Next action | Preserve the centralized E2E-mode and explicit-provider discipline as 4B-3 corrects the campaign model and unified admin shell on top of the merged harness baseline. |
 
 ### 3. Documentation Impact Plan
 
@@ -123,9 +123,9 @@ The current 4B-3 boundary is now explicit: no persisted inline card editing in t
 | Status | Ready For Phase 4B-3 |
 | Gate | Should Resolve |
 | Why it matters | Explorer touches admin, athlete, API, database, and release-note surfaces. That work should be visible before coding. |
-| Evidence | The 4A slice updated `docs/API.md`, `docs/DATABASE_DESIGN.md`, and the slice-local planning docs while still deferring user-facing release-note files. The 4B-3 slice may also need `docs/API.md` updates if richer Explorer admin destination cards require extra read-side fields. |
+| Evidence | The 4A slice updated `docs/API.md`, `docs/DATABASE_DESIGN.md`, and the slice-local planning docs while still deferring user-facing release-note files. The 4B-3 slice may also need `docs/API.md` and schema notes if campaign-owned Explorer date fields or overlap constraints change the backend contract. |
 | Acceptance criteria | The worklog or implementation slice names the docs expected to change when the slice lands, including any slice-local planning docs needed to close the state transition. |
-| Next action | Keep the documentation-impact checklist current and treat 4B-3 planning-state maintenance plus any slice-local API notes as the next expected update set. |
+| Next action | Keep the documentation-impact checklist current and treat 4B-3 planning-state maintenance plus any slice-local API or schema notes as the next expected update set. |
 
 ### 4. Smallest End-To-End Slice
 
@@ -144,7 +144,7 @@ The current 4B-3 boundary is now explicit: no persisted inline card editing in t
 | --- | --- | --- | --- |
 | Virtual versus outdoor labels in the checklist | Deferred | Safe To Defer | Not required for v1 matching correctness. |
 | Match retraction when a source activity is deleted | Partial | Safe To Defer | Can remain an explicit unresolved rule if v1 behavior is documented. |
-| Season-wide rollup caching strategy | Deferred | Safe To Defer | Campaign history durability matters first. |
+| Cross-campaign rollup caching strategy | Deferred | Safe To Defer | Campaign history durability matters first. |
 | Post-MVP ideas from the ideas backlog | Deferred | Safe To Defer | Keep them isolated in the ideas file. |
 
 ## Execution Preconditions For The Next Slice
@@ -164,12 +164,12 @@ If a slice is expected to change the approved next step, readiness wording, or p
 | Decision | Current State |
 | --- | --- |
 | Phase 1 Complete | Yes |
-| Season-Campaign Correction Landed | Yes |
-| Backend Campaign Slice Merged | Yes |
+| Campaign-First Explorer Correction Landed | Yes |
+| Explorer Structural Decoupling Required | Yes |
 | Phase 4A Admin Backend Complete | Yes |
 | Phase 4B-1 E2E Harness Hardening Merged | Yes |
 | Phase 4B-2 Minimal Admin UI Merged | Yes |
-| Ready For Phase 4B-3 Admin UX Refinement | Yes |
+| Ready For Phase 4B-3 Campaign Decoupling And Unified Admin Shell | Yes |
 | Ready For Broad Feature Implementation | No |
 
-If this file says anything stronger than **Phase 1 Complete; Season-Campaign Correction Landed; Backend Campaign Slice Merged; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Ready For Phase 4B-3 Admin UX Refinement**, the linked worklog should show exactly what changed to justify that shift.
+If this file says anything stronger than **Phase 1 Complete; Campaign-First Explorer Correction Landed; Explorer Structural Decoupling Required; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Ready For Phase 4B-3 Campaign Decoupling And Unified Admin Shell**, the linked worklog should show exactly what changed to justify that shift.

@@ -191,22 +191,25 @@ The `webhookAdminRouter` provides procedures for monitoring and managing Strava 
 
 ## Explorer (tRPC)
 
-The `explorerRouter` provides the read paths for the season-attached Explorer campaign MVP.
+The `explorerRouter` provides the read paths for the campaign-first Explorer MVP.
 
-- `trpc.explorer.getActiveCampaign` — Returns the currently active Explorer campaign for the open season, including ordered destinations. Campaigns without destinations are hidden from the athlete-facing surface.
+- `trpc.explorer.getActiveCampaign` — Returns the currently active Explorer campaign by campaign-owned date window, including ordered destinations. Campaigns without destinations are hidden from the athlete-facing surface.
 - `trpc.explorer.getCampaignProgress` — Returns the authenticated athlete's completion state for a campaign, including completed destinations and the source Strava activity IDs for recorded matches.
 
 ## Explorer Admin (tRPC)
 
-The `explorerAdminRouter` provides the Phase 4A admin-only write paths for Explorer campaign setup.
+The `explorerAdminRouter` provides the admin-only campaign management paths for Explorer setup.
 
 Relationship model:
 
-- One season can have one Explorer campaign in v1.
+- Explorer campaigns own their own `startAt` and `endAt` window in v1.
+- Explorer campaigns must not overlap in v1.
 - One Explorer campaign can contain many destinations.
 - A given Strava segment can appear only once within the same campaign.
 
-- `trpc.explorerAdmin.createCampaign` — Creates the single Explorer campaign allowed for a season in v1. Rejects duplicate campaigns for the same season.
+- `trpc.explorerAdmin.getCampaigns` — Returns all Explorer campaigns for admin editing, ordered by campaign start date with nested destinations.
+- `trpc.explorerAdmin.createCampaign` — Creates a new Explorer campaign from a date window plus optional display copy. Rejects overlapping campaign windows.
+- `trpc.explorerAdmin.updateCampaign` — Updates an Explorer campaign's date window and display copy while enforcing the no-overlap rule.
 - `trpc.explorerAdmin.addDestination` — Adds a destination to an Explorer campaign from a validated Strava segment URL, persists the source URL plus Explorer-local cached display metadata, and appends the destination at the next display order.
 
 Current 4A contract notes:

@@ -34,10 +34,6 @@ interface LegacyMatchRow {
   matched_at: number;
 }
 
-interface SeasonRow {
-  id: number;
-}
-
 function tableExists(db: SqliteDatabase, tableName: string): boolean {
   const row = db.prepare(
     'SELECT name FROM sqlite_master WHERE type = \'table\' AND name = ?'
@@ -68,13 +64,15 @@ function createCampaignExplorerTables(db: SqliteDatabase) {
   db.exec(`
     CREATE TABLE explorer_campaign (
       id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-      season_id integer NOT NULL,
+      start_at integer NOT NULL,
+      end_at integer NOT NULL,
       display_name text,
       rules_blurb text,
       created_at text DEFAULT (CURRENT_TIMESTAMP),
-      updated_at text DEFAULT (CURRENT_TIMESTAMP),
-      FOREIGN KEY (season_id) REFERENCES season(id) ON UPDATE no action ON DELETE cascade
+      updated_at text DEFAULT (CURRENT_TIMESTAMP)
     );
+
+    CREATE INDEX idx_explorer_campaign_window ON explorer_campaign(start_at, end_at);
 
     CREATE TABLE explorer_destination (
       id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -127,15 +125,8 @@ function migrateLegacyExplorerRows(db: SqliteDatabase) {
      ORDER BY id ASC`
   ).all() as LegacyMatchRow[];
 
-  const findSeasonForWeek = db.prepare(
-    `SELECT id
-     FROM season
-     WHERE start_at <= ? AND end_at >= ?
-     ORDER BY start_at DESC, id DESC
-     LIMIT 1`
-  );
   const insertCampaign = db.prepare(
-    'INSERT INTO explorer_campaign (season_id, display_name, rules_blurb) VALUES (?, ?, ?)'
+    'INSERT INTO explorer_campaign (start_at, end_at, display_name, rules_blurb) VALUES (?, ?, ?, ?)'
   );
   const insertDestination = db.prepare(
     `INSERT INTO explorer_destination (
@@ -159,27 +150,17 @@ function migrateLegacyExplorerRows(db: SqliteDatabase) {
     ) VALUES (?, ?, ?, ?, ?)`
   );
 
-  const campaignIdBySeasonId = new Map<number, number>();
   const campaignIdByLegacyWeekId = new Map<number, number>();
   const nextDisplayOrderByCampaignId = new Map<number, number>();
   const destinationIdByLegacyDestinationId = new Map<number, number>();
   const destinationIdByCampaignSegmentKey = new Map<string, number>();
 
   for (const legacyWeek of legacyWeeks) {
-    const seasonRecord = findSeasonForWeek.get(legacyWeek.start_at, legacyWeek.end_at) as SeasonRow | undefined;
-    if (!seasonRecord) {
-      continue;
-    }
-
-    let campaignId = campaignIdBySeasonId.get(seasonRecord.id);
-    if (!campaignId) {
-      const inserted = insertCampaign.run(seasonRecord.id, legacyWeek.name, null);
-      campaignId = Number(inserted.lastInsertRowid);
-      campaignIdBySeasonId.set(seasonRecord.id, campaignId);
-      nextDisplayOrderByCampaignId.set(campaignId, 0);
-    }
+    const inserted = insertCampaign.run(legacyWeek.start_at, legacyWeek.end_at, legacyWeek.name, null);
+    const campaignId = Number(inserted.lastInsertRowid);
 
     campaignIdByLegacyWeekId.set(legacyWeek.id, campaignId);
+    nextDisplayOrderByCampaignId.set(campaignId, 0);
   }
 
   for (const legacyDestination of legacyDestinations) {

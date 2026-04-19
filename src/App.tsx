@@ -265,12 +265,7 @@ function AppContent() {
             />
           } />
           <Route path="/explorer-admin" element={
-            <ExplorerAdminPanel
-              isAdmin={isAdmin}
-              seasons={seasons}
-              selectedSeasonId={adminSeasonId}
-              onSeasonChange={setAdminSeasonId}
-            />
+            <ExplorerAdminPanel isAdmin={isAdmin} />
           } />
           <Route path="/roles" element={<AdminRoleManager />} />
           <Route path="/participants" element={<ParticipantStatus />} />
