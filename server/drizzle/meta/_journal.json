@@ -99,6 +99,13 @@
       "when": 1776610800000,
       "tag": "0013_repair_explorer_timestamps",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1776613200000,
+      "tag": "0014_repair_core_timestamp_defaults",
+      "breakpoints": true
     }
   ]
 }
