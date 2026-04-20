@@ -169,6 +169,20 @@ export const NavBar: React.FC<NavBarProps> = ({
                       Leaderboard
                     </NavLink>
                     
+                    {isAdmin && (
+                      <NavLink 
+                        to="/explorer"
+                        className={({ isActive }) => `menu-item ${isActive ? 'active' : ''}`}
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="menu-icon">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 01.553-.894L9 2m0 18l6-3m-6 3V2m6 15l6 3m-6-3V6m6 14V8.618a1 1 0 00-.553-.894L15 5m0 1L9 2" />
+                        </svg>
+                        Explorer
+                      </NavLink>
+                    )}
+
                     <NavLink 
                       to={userAthleteId ? `/profile/${userAthleteId}` : "/profile"} 
                       className={({ isActive }) => `menu-item ${isActive ? 'active' : ''}`}

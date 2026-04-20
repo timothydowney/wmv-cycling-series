@@ -29,6 +29,8 @@
   max-width: 168px;
   min-width: 64px;
   transition: color 0.2s;
+  text-decoration: none;
+  font: inherit;
 }
 
 .bottom-nav-item svg {
@@ -44,6 +46,19 @@
   color: var(--wmv-orange, #f56004);
 }
 
+.bottom-nav-item.disabled,
+.bottom-nav-item:disabled,
+.bottom-nav-item[aria-disabled='true'] {
+  color: #9a9a9a;
+  cursor: default;
+}
+
 .bottom-nav-item:active {
   background-color: rgba(0, 0, 0, 0.05);
+}
+
+.bottom-nav-item:disabled:active,
+.bottom-nav-item.disabled:active,
+.bottom-nav-item[aria-disabled='true']:active {
+  background-color: transparent;
 }

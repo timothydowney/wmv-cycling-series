@@ -212,7 +212,7 @@ Validation:
 
 Goal: tighten the shared segment metadata model so Explorer admin cards can show stable destination details now and future map work can start from stored coordinates rather than from ad hoc Strava fetches.
 
-Status: approved as the next bounded follow-on slice after 4B-4.
+Status: merged on `main` as the shared segment metadata baseline for later athlete-facing Explorer work.
 
 Scope:
 
@@ -241,16 +241,74 @@ Validation:
 - Frontend unit tests for expanded destination detail rendering when added-at and metadata-freshness values are present or absent
 - Slice-normal `npm run lint`, `npm run typecheck`, and targeted build verification
 
-## Phase 5: Explorer Hub MVP
+## Phase 5: Athlete Explorer Rollout
 
-Goal: ship the athlete-facing Explorer view only after the admin flow is stable and Explorer is approved for end-user release.
+Goal: introduce the athlete-facing Explorer experience in deliberately small, progress-first slices after the admin flow and shared segment metadata baseline are stable.
+
+### Slice 5A: Athlete Hub Read Surface
+
+Goal: ship the smallest useful athlete Explorer page, still admin-gated, so logged-in athletes can understand the active campaign and their own completion state without opening map or social scope yet.
+
+Status: approved as the next bounded slice after 4B-5.
+
 
 Scope:
+- Add a new Explorer page or route, still admin-gated for now, that can later become the public Explorer entry surface.
+- Reuse the documented leaderboard design system for hierarchy, hero framing, chips, compact destination metadata, and empty-state rhythm instead of falling back to legacy admin styling.
+- Show the active Explorer campaign with campaign title, date context, and a short rules summary.
+- Show the logged-in athlete's progress summary for the active campaign, including completed destinations versus total destinations.
+- Render a list-first destination experience that makes remaining versus completed destinations easy to scan without introducing rank-order semantics.
+- Keep the page focused on current-athlete understanding first: what destinations exist, what has been completed, and what remains.
+- Keep the route and data shape compatible with later ungated release, but do not add public navigation yet.
 
-- Challenges hub route
-- Active campaign header
-- Progress bar
-- Destination checklist
+Out of scope:
+
+- Map rendering, location permission prompts, proximity search, or map-provider selection
+- Social-feed behavior, destination activity feed, or broader athlete-to-athlete visibility
+- Rich browse or search behavior beyond the minimum list organization needed to keep the page understandable
+- Public release exposure to non-admin users
+- Ranking, leaderboard semantics, or competition-style ordering
+
+Validation:
+
+- Backend tests for active-campaign athlete progress and destination-list reads if new Explorer query surfaces are added
+- Frontend unit tests for the athlete Explorer page, including progress summary, completed or remaining destination rendering, and empty states
+- Targeted Playwright coverage for the admin-gated Explorer page if a new protected route is added
+- Slice-normal `npm run lint`, `npm run typecheck`, and targeted build verification
+
+Implementation note:
+
+- Prefer a list-first page for 5A. The shared segment coordinates captured in 4B-5 enable later map planning, but they do not force map rendering into the first athlete-facing slice.
+
+### Slice 5B: Checklist And Browse Refinement
+
+Goal: improve the athlete checklist experience once the 5A page exists and real campaign volume exposes where scanning or filtering starts to break down.
+
+Candidate scope:
+
+- Refine list organization for larger destination sets
+- Add lightweight search, filtering, or grouping only if 5A usage shows the list needs it
+- Improve destination card detail hierarchy while preserving the progress-first model
+
+### Slice 5C: Map Discovery
+
+Goal: add map-based discovery only after the list-first athlete page exists and the map product questions are explicitly answered.
+
+Candidate scope:
+
+- Choose a map provider and document licensing, hosting, and mobile behavior tradeoffs
+- Define how a destination should appear on the map, including whether the UI centers on a segment start point, end point, midpoint, or later geometry
+- Add a clear relationship between the map and the destination list instead of forcing both into one overloaded first page
+
+### Slice 5D: Social Visibility
+
+Goal: add lightweight communal visibility only after the athlete's personal-progress experience is stable.
+
+Candidate scope:
+
+- Completers summary expansion beyond the minimum MVP treatment
+- Recent completion activity or other social visibility patterns if they still fit the progress-first product intent
+- Explicit guardrails to avoid drifting into a second race-style leaderboard
 - Completers summary with all names
 
 ## Phase 6: Hardening And Follow-on Expansion

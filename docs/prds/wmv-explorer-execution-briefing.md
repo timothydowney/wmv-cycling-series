@@ -177,10 +177,11 @@ Prompts should remain narrow and convenient.
 - Run local validation.
 - Update docs if the slice changes visible behavior or planning state.
 
-### Slice-splitting note for 4B
+### Slice-splitting note for Explorer follow-on work
 
-- The earlier 4B split is now complete through 4B-4: 4B-1 hardened the portable E2E harness, 4B-2 landed the minimal admin-only Explorer UI, 4B-3 corrected the campaign model and unified admin shell, and 4B-4 refined the admin workflow hierarchy.
-- Follow-on work should now start from updated `main` on a fresh branch for the approved 4B-5 segment metadata fidelity and freshness slice rather than reopening the merged admin-shell work.
+- The earlier 4B split is now complete through 4B-5: 4B-1 hardened the portable E2E harness, 4B-2 landed the minimal admin-only Explorer UI, 4B-3 corrected the campaign model and unified admin shell, 4B-4 refined the admin workflow hierarchy, and 4B-5 landed the shared segment metadata fidelity baseline.
+- Follow-on work should now start from updated `main` on a fresh branch for the approved 5A athlete hub read surface rather than reopening the merged admin-shell work or broadening immediately into map and social features.
+- Treat map-provider research, location-aware discovery, and social-feed ideas as separate later slices unless the planning docs explicitly re-approve them as part of a new bounded implementation brief.
 
 ### Slice completion discipline
 
