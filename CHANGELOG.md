@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated the Explorer PRD implementation docs to reflect the Phase 1 handler order, shared context contract, and the decision to keep delete and athlete deauthorization adjacent to the processor for now.
 
 ### Fixed
+- Core SQLite tables created from the early migration chain now repair broken timestamp defaults to real database timestamps, covering non-Explorer inserts and existing legacy rows.
 - Explorer destination add timestamps now store real database timestamps instead of a literal default-expression string, and existing broken local rows are repaired through migration.
 - Explorer admin no longer falls back to "Not recorded" for newly added destinations when the database has a valid add timestamp.
 - Made mobile navbar dropdown overflow protection verifiable with concrete E2E assertions (viewport-fit, scrollability, and reachable menu items), preventing false-positive test passes.

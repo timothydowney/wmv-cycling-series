@@ -2,9 +2,18 @@ import { Database } from 'better-sqlite3';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import path from 'path';
-import { createParticipant, setupTestDb, teardownTestDb } from './testDataHelpers';
+import {
+  createActivity,
+  createParticipant,
+  createResult,
+  createSeason,
+  createSegment,
+  createWeek,
+  setupTestDb,
+  teardownTestDb,
+} from './testDataHelpers';
 
-const BROKEN_TIMESTAMP_DEFAULT = 'sql`(CURRENT_TIMESTAMP)`';
+const LEGACY_BROKEN_TIMESTAMP_LITERAL = 'sql`(CURRENT_TIMESTAMP)`';
 
 function replaceCoreTablesWithLegacyTimestampDefaults(db: Database) {
   db.exec(`
@@ -182,6 +191,8 @@ describe('repairCoreTimestampDefaults', () => {
 
   it('audits and repairs broken non-Explorer timestamp defaults', () => {
     replaceCoreTablesWithLegacyTimestampDefaults(db);
+    // Remove migration 0014 from the applied journal so this test can replay the legacy
+    // pre-repair schema state and prove the new migration fixes it.
     db.exec('DELETE FROM __drizzle_migrations WHERE rowid >= 15;');
 
     db.prepare('INSERT INTO participant (strava_athlete_id, name) VALUES (?, ?)').run('legacy-rider', 'Legacy Rider');
@@ -205,10 +216,31 @@ describe('repairCoreTimestampDefaults', () => {
     const repairedLegacyParticipant = db.prepare(
       'SELECT created_at FROM participant WHERE strava_athlete_id = ?'
     ).get('legacy-rider') as { created_at: string };
-    expect(repairedLegacyParticipant.created_at).not.toBe(BROKEN_TIMESTAMP_DEFAULT);
+    expect(repairedLegacyParticipant.created_at).not.toBe(LEGACY_BROKEN_TIMESTAMP_LITERAL);
 
     const newParticipant = createParticipant(drizzleDb, 'fresh-rider', 'Fresh Rider');
-    expect(newParticipant.created_at).not.toBe(BROKEN_TIMESTAMP_DEFAULT);
+    expect(newParticipant.created_at).not.toBe(LEGACY_BROKEN_TIMESTAMP_LITERAL);
+
+    const season = createSeason(drizzleDb, 'Timestamp Repair Season');
+    const segment = createSegment(drizzleDb, 'timestamp-segment', 'Timestamp Segment');
+    const week = createWeek(drizzleDb, {
+      seasonId: season.id,
+      stravaSegmentId: segment.strava_segment_id,
+      weekName: 'Timestamp Repair Week',
+    });
+    const activity = createActivity(drizzleDb, {
+      weekId: week.id,
+      stravaAthleteId: newParticipant.strava_athlete_id,
+    });
+    const result = createResult(drizzleDb, {
+      weekId: week.id,
+      stravaAthleteId: newParticipant.strava_athlete_id,
+      activityId: activity.id,
+      totalTimeSeconds: 321,
+    });
+
+    expect(result.created_at).not.toBe(LEGACY_BROKEN_TIMESTAMP_LITERAL);
+    expect(result.updated_at).not.toBe(LEGACY_BROKEN_TIMESTAMP_LITERAL);
 
     const participantSql = db.prepare(
       'SELECT sql FROM sqlite_master WHERE type = \'table\' AND name = \'participant\''

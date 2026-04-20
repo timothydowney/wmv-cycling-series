@@ -2,6 +2,8 @@
 -- that were created before the Drizzle schema declarations were fixed.
 -- Runtime insert risk: participant, season, week, activity, result, participant_token,
 -- segment, and webhook_event. Audited for completeness: schema_migrations.
+-- For paired timestamp columns, keep the valid sibling timestamp when only one side
+-- contains the broken literal string; otherwise fall back to CURRENT_TIMESTAMP.
 
 PRAGMA foreign_keys=OFF;
 --> statement-breakpoint
