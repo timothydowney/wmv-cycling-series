@@ -72,20 +72,24 @@ describe('NavBar Explorer admin link', () => {
     }
   });
 
-  it('shows Manage Explorer in the admin menu for admins', async () => {
+  it('shows Explorer links in the admin menu for admins', async () => {
     const { container } = await renderNavBar();
 
     await openMenu(container);
 
-    const explorerLink = container.querySelector('a[href="/explorer-admin"]');
-    expect(explorerLink?.textContent).toContain('Manage Explorer');
+    const explorerPreviewLink = container.querySelector('a[href="/explorer"]');
+    expect(explorerPreviewLink?.textContent).toContain('Explorer');
+
+    const explorerAdminLink = container.querySelector('a[href="/explorer-admin"]');
+    expect(explorerAdminLink?.textContent).toContain('Manage Explorer');
   });
 
-  it('hides Manage Explorer for non-admin users', async () => {
+  it('hides Explorer links for non-admin users', async () => {
     const { container } = await renderNavBar({ isAdmin: false });
 
     await openMenu(container);
 
+    expect(container.querySelector('a[href="/explorer"]')).toBeNull();
     expect(container.querySelector('a[href="/explorer-admin"]')).toBeNull();
   });
 });
