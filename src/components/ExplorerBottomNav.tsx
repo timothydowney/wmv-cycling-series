@@ -10,7 +10,7 @@ interface ExplorerBottomNavProps {
 
 const ExplorerBottomNav: React.FC<ExplorerBottomNavProps> = ({ activeTab, onSelect }) => {
   return (
-    <div className="bottom-nav" data-testid="explorer-bottom-nav" aria-label="Explorer views">
+    <nav className="bottom-nav" data-testid="explorer-bottom-nav" aria-label="Explorer views">
       <button
         type="button"
         className={`bottom-nav-item ${activeTab === 'hub' ? 'active' : ''}`}
@@ -55,7 +55,7 @@ const ExplorerBottomNav: React.FC<ExplorerBottomNavProps> = ({ activeTab, onSele
         </svg>
         <span>Map</span>
       </button>
-    </div>
+    </nav>
   );
 };
 

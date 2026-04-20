@@ -11,6 +11,8 @@ const unitMocks = vi.hoisted(() => ({
 }));
 
 const trpcMocks = vi.hoisted(() => ({
+  activeCampaignUseQuery: vi.fn(),
+  progressUseQuery: vi.fn(),
   activeCampaignQuery: {
     data: null as null | {
       id: number;
@@ -73,10 +75,16 @@ vi.mock('../../utils/trpc', () => ({
   trpc: {
     explorer: {
       getActiveCampaign: {
-        useQuery: () => trpcMocks.activeCampaignQuery,
+        useQuery: (...args: unknown[]) => {
+          trpcMocks.activeCampaignUseQuery(...args);
+          return trpcMocks.activeCampaignQuery;
+        },
       },
       getCampaignProgress: {
-        useQuery: () => trpcMocks.progressQuery,
+        useQuery: (...args: unknown[]) => {
+          trpcMocks.progressUseQuery(...args);
+          return trpcMocks.progressQuery;
+        },
       },
     },
   },
@@ -118,6 +126,8 @@ async function clickElement(element: Element | null) {
 
 describe('ExplorerHubPage', () => {
   beforeEach(() => {
+    trpcMocks.activeCampaignUseQuery.mockReset();
+    trpcMocks.progressUseQuery.mockReset();
     trpcMocks.activeCampaignQuery.data = null;
     trpcMocks.activeCampaignQuery.error = null;
     trpcMocks.activeCampaignQuery.isLoading = false;
@@ -141,6 +151,8 @@ describe('ExplorerHubPage', () => {
     const { container } = await renderPage({ isAdmin: false });
 
     expect(container.querySelector('[data-testid="explorer-hub-access-denied"]')?.textContent).toContain('Access Denied');
+    expect(trpcMocks.activeCampaignUseQuery).toHaveBeenCalledWith(undefined, expect.objectContaining({ enabled: false }));
+    expect(trpcMocks.progressUseQuery).toHaveBeenCalledWith({ campaignId: 0 }, expect.objectContaining({ enabled: false }));
   });
 
   it('shows an empty state when there is no active campaign', async () => {

@@ -153,6 +153,7 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
   const [showAllCompleted, setShowAllCompleted] = useState(false);
 
   const activeCampaignQuery = trpc.explorer.getActiveCampaign.useQuery(undefined, {
+    enabled: isAdmin,
     refetchOnWindowFocus: false,
   });
 
@@ -160,7 +161,7 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
   const progressQuery = trpc.explorer.getCampaignProgress.useQuery(
     { campaignId: activeCampaignId ?? 0 },
     {
-      enabled: Boolean(isConnected && activeCampaignId),
+      enabled: Boolean(isAdmin && isConnected && activeCampaignId),
       refetchOnWindowFocus: false,
     }
   );
