@@ -164,6 +164,15 @@ function replaceSegmentTableWithPreMetadataFidelitySchema(db: Database) {
   `);
 }
 
+function runMigrationsWithForeignKeysDisabled(db: Database, drizzleDb: BetterSQLite3Database, migrationsFolder: string) {
+  db.pragma('foreign_keys = OFF');
+  try {
+    migrate(drizzleDb, { migrationsFolder });
+  } finally {
+    db.pragma('foreign_keys = ON');
+  }
+}
+
 describe('repairLegacyExplorerSchema', () => {
   let db: Database;
   let drizzleDb: BetterSQLite3Database;
@@ -194,7 +203,7 @@ describe('repairLegacyExplorerSchema', () => {
     replaceSegmentTableWithPreMetadataFidelitySchema(db);
 
     const repairState = prepareLegacyExplorerSchemaRepair(db);
-    migrate(drizzleDb, { migrationsFolder });
+    runMigrationsWithForeignKeysDisabled(db, drizzleDb, migrationsFolder);
     const repaired = finalizeLegacyExplorerSchemaRepair(db, repairState);
 
     expect(repaired).toBe(true);
@@ -252,7 +261,7 @@ describe('repairLegacyExplorerSchema', () => {
     ).run(legacyWeekId, legacyDestinationId, '999001', 'activity-1', seasonRecord.start_at + 3600);
 
     const repairState = prepareLegacyExplorerSchemaRepair(db);
-    migrate(drizzleDb, { migrationsFolder });
+    runMigrationsWithForeignKeysDisabled(db, drizzleDb, migrationsFolder);
     const repaired = finalizeLegacyExplorerSchemaRepair(db, repairState);
 
     expect(repaired).toBe(true);
@@ -284,7 +293,7 @@ describe('repairLegacyExplorerSchema', () => {
     const repairState = prepareLegacyExplorerSchemaRepair(db);
 
     expect(repairState).toBeNull();
-    expect(() => migrate(drizzleDb, { migrationsFolder })).not.toThrow();
+    expect(() => runMigrationsWithForeignKeysDisabled(db, drizzleDb, migrationsFolder)).not.toThrow();
     expect(finalizeLegacyExplorerSchemaRepair(db, repairState)).toBe(false);
 
     const campaignTable = db.prepare(

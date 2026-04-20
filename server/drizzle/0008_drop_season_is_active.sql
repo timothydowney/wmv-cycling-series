@@ -5,7 +5,7 @@ CREATE TABLE `__new_season` (
 	`name` text NOT NULL,
 	`start_at` integer NOT NULL,
 	`end_at` integer NOT NULL,
-	`created_at` text DEFAULT 'sql`(CURRENT_TIMESTAMP)`'
+	`created_at` text DEFAULT (CURRENT_TIMESTAMP)
 );
 --> statement-breakpoint
 INSERT INTO `__new_season` (`id`, `name`, `start_at`, `end_at`, `created_at`)

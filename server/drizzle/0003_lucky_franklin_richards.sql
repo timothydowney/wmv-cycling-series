@@ -7,8 +7,8 @@ CREATE TABLE `__new_activity` (
 	`device_name` text,
 	`validation_status` text DEFAULT 'valid',
 	`validation_message` text,
-	`validated_at` text DEFAULT 'sql`(CURRENT_TIMESTAMP)`',
-	`created_at` text DEFAULT 'sql`(CURRENT_TIMESTAMP)`',
+	`validated_at` text DEFAULT (CURRENT_TIMESTAMP),
+	`created_at` text DEFAULT (CURRENT_TIMESTAMP),
 	FOREIGN KEY (`week_id`) REFERENCES `week`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`strava_athlete_id`) REFERENCES `participant`(`strava_athlete_id`) ON UPDATE no action ON DELETE no action
 );
@@ -32,7 +32,7 @@ ALTER TABLE `__new_deletion_request` RENAME TO `deletion_request`;--> statement-
 CREATE TABLE `__new_participant` (
 	`strava_athlete_id` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
-	`created_at` text DEFAULT 'sql`(CURRENT_TIMESTAMP)`',
+	`created_at` text DEFAULT (CURRENT_TIMESTAMP),
 	`active` integer DEFAULT true NOT NULL
 );
 --> statement-breakpoint
@@ -45,8 +45,8 @@ CREATE TABLE `__new_participant_token` (
 	`refresh_token` text NOT NULL,
 	`expires_at` integer NOT NULL,
 	`scope` text,
-	`created_at` text DEFAULT 'sql`(CURRENT_TIMESTAMP)`',
-	`updated_at` text DEFAULT 'sql`(CURRENT_TIMESTAMP)`',
+	`created_at` text DEFAULT (CURRENT_TIMESTAMP),
+	`updated_at` text DEFAULT (CURRENT_TIMESTAMP),
 	FOREIGN KEY (`strava_athlete_id`) REFERENCES `participant`(`strava_athlete_id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
@@ -60,8 +60,8 @@ CREATE TABLE `__new_result` (
 	`strava_athlete_id` text NOT NULL,
 	`activity_id` integer,
 	`total_time_seconds` integer NOT NULL,
-	`created_at` text DEFAULT 'sql`(CURRENT_TIMESTAMP)`',
-	`updated_at` text DEFAULT 'sql`(CURRENT_TIMESTAMP)`',
+	`created_at` text DEFAULT (CURRENT_TIMESTAMP),
+	`updated_at` text DEFAULT (CURRENT_TIMESTAMP),
 	FOREIGN KEY (`week_id`) REFERENCES `week`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`strava_athlete_id`) REFERENCES `participant`(`strava_athlete_id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`activity_id`) REFERENCES `activity`(`id`) ON UPDATE no action ON DELETE no action
@@ -81,7 +81,7 @@ CREATE TABLE `__new_segment` (
 	`city` text,
 	`state` text,
 	`country` text,
-	`created_at` text DEFAULT 'sql`(CURRENT_TIMESTAMP)`',
+	`created_at` text DEFAULT (CURRENT_TIMESTAMP),
 	`total_elevation_gain` real,
 	`climb_category` integer
 );
@@ -115,7 +115,7 @@ CREATE TABLE `__new_week` (
 	`start_at` integer NOT NULL,
 	`end_at` integer NOT NULL,
 	`multiplier` integer DEFAULT 1 NOT NULL,
-	`created_at` text DEFAULT 'sql`(CURRENT_TIMESTAMP)`',
+	`created_at` text DEFAULT (CURRENT_TIMESTAMP),
 	`notes` text DEFAULT '',
 	FOREIGN KEY (`season_id`) REFERENCES `season`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`strava_segment_id`) REFERENCES `segment`(`strava_segment_id`) ON UPDATE no action ON DELETE no action
