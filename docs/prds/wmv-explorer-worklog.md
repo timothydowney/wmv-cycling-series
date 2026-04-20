@@ -4,16 +4,17 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 
 ## Current Focus
 
-- Refine the shared segment metadata model so Explorer admin details expose stable destination information and future map work starts from stored coordinates rather than from ad hoc Strava calls.
-- Capture the Strava segment coordinates and metadata freshness fields the app can store now, while keeping Explorer destination reads DB-first.
+- Define the smallest athlete-facing Explorer page that is still useful while keeping the route admin-gated for now.
+- Use a list-first progress model so athletes can see what destinations are available, what they have completed, and what remains without opening map or social scope yet.
+- Carry the modern leaderboard design system into the first athlete Explorer page instead of drifting back toward legacy admin styling.
 - Keep any pre-release Explorer UI admin-gated until there is an explicit end-user release decision.
-- Keep the next handoff and implementation brief aligned with the merged campaign-first model plus the existing shared `SegmentService` metadata seam.
+- Keep the next handoff and implementation brief aligned with the merged campaign-first model, the shared segment metadata baseline, and a route that can later become the public Explorer page.
 
 ## Current Go State
 
-- **Readiness:** Phase 1 Complete; Campaign-First Explorer Correction Landed; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Phase 4B-3 Campaign Decoupling And Unified Admin Shell Merged; Phase 4B-4 Admin Workflow Hierarchy And Destination Management Merged; Ready For Phase 4B-5 Segment Metadata Fidelity And Freshness
-- **Immediate scope:** extend the shared segment model so Explorer can show reliable added-at and metadata detail now, and preserve coordinate data for later map-safe work without inventing Explorer-only Strava refresh behavior
-- **Not yet in scope:** public athlete-facing Explorer release, public navigation to Explorer, mini-campaigns, or explicit publish-status workflows
+- **Readiness:** Phase 1 Complete; Campaign-First Explorer Correction Landed; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Phase 4B-3 Campaign Decoupling And Unified Admin Shell Merged; Phase 4B-4 Admin Workflow Hierarchy And Destination Management Merged; Phase 4B-5 Segment Metadata Fidelity And Freshness Merged; Ready For Phase 5A Athlete Hub Read Surface
+- **Immediate scope:** add one admin-gated athlete Explorer page that shows the active campaign, the current athlete's progress summary, and a list-first destination checklist
+- **Not yet in scope:** public athlete-facing Explorer release, public navigation to Explorer, map rendering, location-based discovery, social-feed behavior, mini-campaigns, or explicit publish-status workflows
 
 ## Decisions Made
 
@@ -48,6 +49,9 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 - Shared segment-field expansion should benefit both competition and Explorer because the backend segment model is shared, even if Explorer admin is the first surface to display the extra detail.
 - The next metadata slice should not introduce bespoke Explorer refresh controls; any future refresh should continue to ride through the shared segment metadata service and broader resync paths.
 - Polyline or full geometry storage remains deferred; start and end coordinates are the minimum useful map-safe capture for now.
+- The first athlete-facing Explorer slice should stay admin-gated, centered on the active campaign plus the current athlete's own progress, and reuse the documented leaderboard design system rather than legacy admin styling.
+- Map-based discovery is important follow-on work, but it should start only after the list-first athlete page exists and the map product questions are answered explicitly.
+- Social visibility can grow later, but a social feed is not the smallest useful first athlete-facing Explorer surface.
 
 ## Open Questions
 
@@ -70,6 +74,9 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 | Should already-added Explorer destination cards support persisted inline editing in the first UX-refinement slice? | Closed For 4B-3 | No | No. Keep 4B-3 to preview-add flow plus richer read-only cards. |
 | Does Explorer need true map-ready coordinate storage now? | Closed For 4B-5 | No | No. The next slice should capture Strava start and end coordinates plus metadata freshness in the shared `segment` table, while deferring polylines, geometry, and map rendering. |
 | Should Explorer introduce its own Strava metadata refresh workflow? | Closed For 4B-5 | No | No. Keep metadata refresh tied to the shared segment metadata service and later broader resync flows rather than adding Explorer-only refresh behavior. |
+| What is the smallest useful first athlete-facing Explorer page after 4B-5? | Closed For 5A | No | A list-first, admin-gated athlete page showing the active campaign, personal progress, and completed versus remaining destinations. |
+| Should map-based destination discovery be part of the first athlete-facing slice? | Closed For 5A | No | No. Defer map-provider selection, geolocation behavior, and map/list interaction design to a later Phase 5 slice. |
+| Should a social feed or broader athlete activity visibility be part of the first athlete-facing slice? | Closed For 5A | No | No. Defer social expansion until after the personal-progress page is stable. |
 
 ## Blockers
 
@@ -156,26 +163,25 @@ The current preservation target is backed by:
 ### Recommended Next PR
 
 - Start from updated `main` on a dedicated implementation branch.
-- Keep the next implementation PR scoped to the shared segment metadata-fidelity slice:
-	- extend the shared `segment` storage path to capture Strava start and end coordinates when available
-	- add a metadata freshness timestamp so segment detail reads can show when the cached metadata was last updated
-	- keep Explorer destination reads DB-first and surface reliable added-at and metadata freshness details in expanded admin cards
-	- show Strava-sourced detail fields as read-only and keep any future WMV override fields separate from the raw Strava values
-	- normalize Strava segment fixtures, mapping, and persistence so the stored shape matches what the existing client already returns
-	- make the shared segment-field expansion available to competition and Explorer alike instead of adding an Explorer-only persistence path
-	- do not add Explorer-only refresh or backfill controls in the same slice
+- Keep the next implementation PR scoped to Phase 5A athlete hub read surface:
+	- add a new Explorer page or route that remains admin-gated for now and can later become the public Explorer surface
+	- show the active campaign header with date context and a short rules summary
+	- show the current athlete's progress summary for the active campaign
+	- render a list-first destination experience that clearly separates completed versus remaining destinations without rank-order semantics
+	- reuse the documented leaderboard design system for header hierarchy, chips, compact destination metadata, and empty states instead of legacy admin styling
+	- preserve the shared segment metadata baseline from 4B-5 without adding map rendering, location prompts, or Explorer-only browse logic
+	- do not add social-feed behavior or broader athlete-to-athlete visibility in the same slice
 - Validation path for the next PR:
-	- backend tests for shared segment metadata mapping and persistence, including coordinate and freshness fields
-	- focused Explorer query or service tests for destination detail reads
-	- frontend unit tests for expanded destination detail rendering when added-at and metadata-freshness values are present or absent
+	- backend tests for active-campaign athlete progress and destination-list reads if 5A needs new Explorer query procedures
+	- frontend unit tests for the athlete Explorer page, including progress summary, completed or remaining destination rendering, and empty states
+	- targeted Playwright for the new admin-gated page if the slice adds a protected route
 	- `npm run lint`, `npm run typecheck`, and targeted build verification
-	- targeted Playwright only if the admin detail presentation changes in a browser-significant way
-- Planning and documentation surfaces likely to change when 4B-5 lands:
+- Planning and documentation surfaces likely to change when 5A lands:
 	- `docs/prds/wmv-explorer-destinations-phases.md`
 	- `docs/prds/wmv-explorer-worklog.md`
 	- `docs/prds/wmv-explorer-readiness-checklist.md`
 	- `docs/prds/wmv-explorer-destinations-tech-spec.md`
-	- `docs/DATABASE_DESIGN.md` if shared segment fields expand
+	- `docs/API.md` if new athlete Explorer procedures are added
 
 ### 4B-3 Outcome
 
@@ -208,6 +214,36 @@ The current preservation target is backed by:
 - Existing Playwright impact:
 	- preserve the admin-only route and navigation behavior
 	- add or adjust browser coverage for the new hierarchy and destination removal flow
+	- continue using the hardened E2E harness rather than local-only assumptions
+
+### 4B-5 Outcome
+
+- Phase: 4B-5 Segment Metadata Fidelity And Freshness
+- Status: merged on `main`
+- Landed outcome:
+	- shared `segment` rows now carry the Strava coordinate and metadata-freshness fields needed for later athlete-facing Explorer follow-on work
+	- Explorer admin detail reads now surface stable destination timestamps and read-only Strava metadata more clearly
+	- the shared segment metadata path remains the single persistence seam for both Explorer and competition consumers
+
+### 5A Implementation Handoff
+
+- Slice: Phase 5A only.
+- Branch start point: updated `main`, then a dedicated feature branch before coding.
+- Governing scope: add the first athlete-facing Explorer page while keeping it admin-gated and list-first.
+- UI rule: use the documented leaderboard design system as the source of truth for the page shell, header hierarchy, chips, and destination metadata cards; do not fall back to legacy admin page styling.
+- Product recommendation:
+	- make one active campaign the clear focus of the page
+	- show the current athlete's progress immediately near the top of the page
+	- make the destination list the primary content area
+	- organize the page around remaining and completed destinations rather than around rank, feed events, or map controls
+	- keep the route ready to become the future public Explorer page, but do not add public navigation yet
+- Data recommendation:
+	- use the computed-on-read athlete summary model already approved in the tech spec
+	- reuse existing shared segment and Explorer destination metadata rather than inventing map-specific or feed-specific data for 5A
+	- defer map-provider selection, geolocation, and richer browse controls to later slices
+- Existing Playwright impact:
+	- preserve current admin gating behavior until release approval changes
+	- add targeted browser coverage only for the new protected Explorer page and its core read state if a route is introduced
 	- continue using the hardened E2E harness rather than local-only assumptions
 
 ### 4B-4 Branch-Ready Task List

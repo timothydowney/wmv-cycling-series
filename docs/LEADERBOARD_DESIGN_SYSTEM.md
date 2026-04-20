@@ -34,6 +34,7 @@ Use these files in this order when building or reviewing leaderboard-style UI:
 | Segment profile wrapper | `src/components/CollapsibleSegmentProfile.tsx` | Collapsible segment-detail heading and reveal pattern |
 | Weekly tab composition | `src/components/WeeklyLeaderboard.tsx` | Card stacking, expansion rhythm, no-results state |
 | Schedule tab composition | `src/components/ScheduleTable.tsx` and `src/components/ScheduleTable.css` | Week-list rhythm, next-up badge, schedule expansion layout |
+| Bottom navigation | `src/components/BottomNav.tsx` and `src/components/BottomNav.css` | Fixed mobile-first peer-view navigation for Weekly, Season, Schedule, and analogous Explorer subviews |
 
 If a new UI conflicts with these files, the new UI should usually change before the leaderboard primitives do.
 
@@ -76,7 +77,10 @@ The global type system lives in `src/index.css`.
 Rules:
 - Prefer the tokenized font scale over hardcoded pixel values.
 - For card titles and key metadata, reuse existing leaderboard classes before inventing new font rules.
+- Let section, hero, and card headings keep the default WMV purple unless the surface is intentionally acting like a dense row or compact object title.
+- Reserve `var(--wmv-text-dark)` for primary values, participant identity, compact destination or segment titles, and other dense data surfaces rather than flattening every heading to dark body text.
 - Secondary metadata should usually sit on `var(--wmv-text-light)` and `var(--font-sm)` or smaller.
+- Progress annotations, completion copy, helper text, and empty-state body copy should usually stay on `var(--wmv-text-light)` unless product meaning requires stronger emphasis.
 
 ### Layout And Spacing
 
@@ -198,6 +202,25 @@ Rules:
 
 ## Tab-Specific Patterns
 
+### Bottom Navigation
+
+Source files:
+- `src/components/BottomNav.tsx`
+- `src/components/BottomNav.css`
+
+Defining traits:
+- fixed to the bottom edge of the viewport
+- three peer views presented as icon-plus-label items
+- active item uses orange highlight while inactive items stay muted
+- built for app-level mode switching, not for inline filtering or segmented control behavior
+- supported by a spacer in content flow so the last card is not hidden behind the nav
+
+Rules:
+- when a leaderboard-inspired surface needs switching between peer views such as Weekly, Season, Schedule, Hub, Destinations, or a future Map, prefer this bottom-nav pattern first
+- do not replace this with pill tabs, chip toggles, or a top-of-card segmented control unless a new navigation primitive is intentionally documented
+- if one destination or mode is not ready yet, keep the item visually present but clearly disabled rather than inventing a different navigation container
+- keep icon weight, label scale, and active-state treatment aligned with `BottomNav.css`
+
 ### Weekly
 
 Source files:
@@ -209,6 +232,7 @@ Source files:
 Defining traits:
 - the week header is the hero surface for the page
 - the week name itself is the Strava link, styled in orange with an inline external-link icon
+- surrounding headings retain the WMV purple hierarchy instead of being reset to body-dark
 - metadata directly under the title is quiet and compact
 - detailed rider rows use the shared card shell, not bespoke component framing
 - expanded rider details keep metrics and links compact, not dashboard-like
@@ -285,8 +309,15 @@ Explorer should default to the leaderboard system in this order:
 4. Reuse `SegmentCard` title and metadata treatment whenever an Explorer destination is behaving like a compact segment object.
 5. Reuse the linked-title pattern from `WeeklyHeader.tsx` for hero-level Explorer headers or destination surfaces that are acting like weekly-header analogs.
 6. Reuse the `Schedule` segment-entry hierarchy for Explorer destination rows when they are the primary objects in a list and need the larger title, inline arrow affordance, and flatter single-surface card treatment.
-7. Reuse `CollapsibleSegmentProfile` as the default reference for deeper segment or destination detail reveals inside expanded surfaces.
-8. Only add Explorer-specific classes for layout or semantics the leaderboard primitives do not already express.
+7. Reuse `BottomNav` as the default reference when Explorer needs local peer-view switching between Hub, Destinations, Map, or similar sections.
+8. Reuse `CollapsibleSegmentProfile` as the default reference for deeper segment or destination detail reveals inside expanded surfaces.
+9. Only add Explorer-specific classes for layout or semantics the leaderboard primitives do not already express.
+
+Explorer typography note:
+- do not reset all Explorer headings to `var(--wmv-text-dark)` just because the page is data-heavy
+- keep hero and section headings in the standard purple hierarchy
+- use dark text more selectively for compact destination titles and numeric values
+- keep supporting copy, completion text, and helper states quieter on `var(--wmv-text-light)`
 
 Do not treat legacy admin components as the source of truth for public Explorer UI.
 
@@ -318,9 +349,10 @@ Before approving a new leaderboard-inspired UI, check:
 2. Does it reuse `leaderboard-card`, `card-*`, or `week-header-chip` where the semantics match?
 3. Does it use `SegmentCard` conventions when the surface is fundamentally a segment or destination object rather than a ranking row?
 4. Does the title, metadata, and value hierarchy feel consistent with Weekly, Season, Schedule, or Segment patterns?
-5. Is the link treatment consistent with the public leaderboard rather than legacy admin?
-6. Are any new classes truly new primitives, or are they accidental duplicates of existing ones?
-7. If a new primitive is real, has it been documented here or in a companion UI standard?
+5. If the surface switches between peer views, does it reuse the fixed bottom-nav pattern rather than inventing a local pill-tab system?
+6. Is the link treatment consistent with the public leaderboard rather than legacy admin?
+7. Are any new classes truly new primitives, or are they accidental duplicates of existing ones?
+8. If a new primitive is real, has it been documented here or in a companion UI standard?
 
 ## Non-Authoritative References
 

@@ -27,6 +27,8 @@ argument-hint: 'Describe the UI surface to audit or design and whether you want 
 - `src/components/CollapsibleSegmentProfile.tsx`
 - `src/components/WeeklyLeaderboard.tsx`
 - `src/components/ScheduleTable.tsx`
+- `src/components/BottomNav.tsx`
+- `src/components/BottomNav.css`
 
 ## Procedure
 
@@ -34,8 +36,9 @@ argument-hint: 'Describe the UI surface to audit or design and whether you want 
 2. Read `docs/LEADERBOARD_DESIGN_SYSTEM.md` first.
 3. Identify which leaderboard source files are the closest analog for the target UI.
 4. Decide whether the target surface is primarily a ranking card, a hero header, a compact segment-object card, or a reveal panel.
-5. Call out any gaps where the current design system does not define a stable pattern, especially forms and admin controls.
-6. Recommend the smallest set of new styles necessary after reuse is exhausted.
+5. If the surface switches between peer app views such as Weekly, Season, Schedule, Hub, or Destinations, check whether it should reuse the fixed bottom-nav pattern instead of introducing pill tabs, segmented controls, or ad hoc local nav.
+6. Call out any gaps where the current design system does not define a stable pattern, especially forms and admin controls.
+7. Recommend the smallest set of new styles necessary after reuse is exhausted.
 
 ## Output Expectations
 
@@ -53,6 +56,8 @@ Return a compact result with:
 - Prefer tokenized colors and font scale from `src/index.css` over hardcoded values.
 - Prefer `leaderboard-card`, `card-*`, and `week-header-chip` over bespoke replacements when the semantics match.
 - Prefer `SegmentCard` for compact segment or destination-object title and metadata styling when there is no ranking-row hierarchy.
+- Prefer the existing fixed bottom-nav pattern for switching between top-level peer views inside a leaderboard-inspired surface; do not replace it with pill tabs unless the design system explicitly documents a new navigation primitive.
+- Preserve the leaderboard heading hierarchy: hero and section headings should usually remain WMV purple, while `var(--wmv-text-dark)` should be reserved for dense values, participant identity, and compact destination titles.
 - Prefer icon-only circular action buttons for obvious row or card actions when accessible labels are provided.
 - Keep carets as the dedicated expand or collapse affordance and place them at the far right of mixed-action rows unless there is a documented reason not to.
 - If the leaderboard does not yet define a pattern, name that gap explicitly instead of guessing.

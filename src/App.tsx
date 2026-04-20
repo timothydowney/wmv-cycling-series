@@ -14,6 +14,7 @@ import ManageSegments from './components/ManageSegments';
 import SeasonManager from './components/SeasonManager';
 import WebhookManagementPanel from './components/WebhookManagementPanel';
 import ExplorerAdminPanel from './components/ExplorerAdminPanel';
+import ExplorerHubPage from './components/ExplorerHubPage';
 import StravaConnectInfoBox from './components/StravaConnectInfoBox';
 import StravaClubJoinPrompt from './components/StravaClubJoinPrompt';
 import AboutPage from './components/AboutPage';
@@ -29,7 +30,7 @@ import { httpBatchLink } from '@trpc/client';
 import { trpc } from './utils/trpc';
 import { Season, Week } from './types'; // Import shared types
 
-type ViewMode = 'leaderboard' | 'admin' | 'explorer-admin' | 'roles' | 'participants' | 'segments' | 'seasons' | 'webhooks' | 'about' | 'profile' | 'chat' | 'chain-checker';
+type ViewMode = 'leaderboard' | 'admin' | 'explorer' | 'explorer-admin' | 'roles' | 'participants' | 'segments' | 'seasons' | 'webhooks' | 'about' | 'profile' | 'chat' | 'chain-checker';
 
 interface LeaderboardViewProps {
   seasons: Season[];
@@ -189,6 +190,7 @@ function AppContent() {
     const path = location.pathname;
     if (path.startsWith('/admin')) return 'admin';
     if (path.startsWith('/explorer-admin')) return 'explorer-admin';
+    if (path.startsWith('/explorer')) return 'explorer';
     if (path.startsWith('/roles')) return 'roles';
     if (path.startsWith('/participants')) return 'participants';
     if (path.startsWith('/segments')) return 'segments';
@@ -208,6 +210,7 @@ function AppContent() {
   const getPageTitle = (mode: ViewMode) => {
     switch (mode) {
       case 'admin': return 'Manage Competition';
+      case 'explorer': return 'Explorer';
       case 'explorer-admin': return 'Manage Explorer';
       case 'roles': return 'Manage Roles';
       case 'participants': return 'Participant Status';
@@ -266,6 +269,9 @@ function AppContent() {
           } />
           <Route path="/explorer-admin" element={
             <ExplorerAdminPanel isAdmin={isAdmin} />
+          } />
+          <Route path="/explorer" element={
+            <ExplorerHubPage isAdmin={isAdmin} isConnected={isConnected} />
           } />
           <Route path="/roles" element={<AdminRoleManager />} />
           <Route path="/participants" element={<ParticipantStatus />} />

@@ -17,23 +17,23 @@ The ideas backlog is intentionally excluded from v1 implementation scope. It exi
 
 ## Current Go Decision
 
-**Status:** Phase 1 Complete; Campaign-First Explorer Correction Landed; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Phase 4B-3 Campaign Decoupling And Unified Admin Shell Merged; Phase 4B-4 Admin Workflow Hierarchy And Destination Management Merged; Ready For Phase 4B-5 Segment Metadata Fidelity And Freshness
+**Status:** Phase 1 Complete; Campaign-First Explorer Correction Landed; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Phase 4B-3 Campaign Decoupling And Unified Admin Shell Merged; Phase 4B-4 Admin Workflow Hierarchy And Destination Management Merged; Phase 4B-5 Segment Metadata Fidelity And Freshness Merged; Ready For Phase 5A Athlete Hub Read Surface
 
-Explorer has completed the narrow Phase 1 webhook-orchestration slice that preserves current competition behavior while introducing delegated in-process handlers. The planning set corrected Explorer to a campaign-first model with campaign-owned date boundaries, returned `Season` to competition-only semantics, deferred overlapping or nested campaign structures, and locked a no-overlap Explorer rule for v1. The current-or-next admin workflow refinement is now also merged on `main`, so the next recommended work is a bounded 4B-5 metadata-fidelity slice that extends the shared segment model with the coordinates and freshness data needed for richer admin details and later map-safe follow-on work.
+Explorer has completed the narrow Phase 1 webhook-orchestration slice that preserves current competition behavior while introducing delegated in-process handlers. The planning set corrected Explorer to a campaign-first model with campaign-owned date boundaries, returned `Season` to competition-only semantics, deferred overlapping or nested campaign structures, and locked a no-overlap Explorer rule for v1. The shared segment metadata-fidelity slice is now also merged on `main`, so the next recommended work is a deliberately small 5A athlete read surface that stays admin-gated, reuses the modern leaderboard design system, and proves the active-campaign plus personal-progress experience before the project opens map or social scope.
 
-The current 4B-5 boundary is explicit: keep the merged 4B-4 workflow intact; extend the shared segment metadata path with start or end coordinates plus metadata freshness; make expanded admin details reliably show available timestamps instead of ambiguous placeholders; and avoid broadening into bespoke Explorer refresh controls, polyline storage, or map rendering in the same slice.
+The current 5A boundary is explicit: keep the merged admin flow and shared segment metadata baseline intact; add one athlete-facing Explorer page that explains the active campaign and the current athlete's completion state; organize destinations through a list-first progress model; remain admin-gated until release approval; and avoid broadening into map-provider decisions, location-based discovery, or social-feed behavior in the same slice.
 
 ## Current Status Summary
 
 | Area | Status | Notes |
 | --- | --- | --- |
 | Product framing | Ready | The PRD is now aligned to a campaign-first Explorer model with campaign-owned dates and competition-only `Season` semantics. |
-| Execution phasing | Ready For Phase 4B-5 | The phases doc now records 4B-4 as merged and names 4B-5 as the metadata-fidelity and freshness slice. |
-| Architecture closure | Ready For Shared Metadata Refinement | The campaign-first correction and current admin hierarchy are merged, so follow-on work can focus on segment-model fidelity instead of reopening the Explorer shell. |
+| Execution phasing | Ready For Phase 5A | The phases doc now records 4B-5 as merged and names 5A as the smallest athlete-facing read surface. |
+| Architecture closure | Ready For Athlete Read Surface | The campaign-first correction, current admin hierarchy, and shared segment metadata baseline are merged, so follow-on work can focus on athlete progress presentation instead of reopening the admin shell. |
 | Open questions handling | Ready | The worklog now records the superseded season-attached decision and the locked no-overlap rule. |
-| Blocking research closure | Ready For Phase 4B-5 | The product-model correction is closed and the next work is a bounded shared-metadata refinement slice. |
-| Test planning | Ready For Phase 4B-5 | The next test-planning work is attached to coordinate persistence, metadata freshness, and admin detail rendering rather than more workflow hierarchy changes. |
-| Documentation impact plan | Ready For Phase 4B-5 | The next documentation impact is slice-local planning-state maintenance plus technical-spec and schema notes created by 4B-5. |
+| Blocking research closure | Ready For Phase 5A | The next slice is intentionally list-first and admin-gated, so map-provider and social-feed questions are recorded as deferred rather than blocking the first athlete surface. |
+| Test planning | Ready For Phase 5A | The next test-planning work is attached to athlete progress reads, destination-list presentation, and protected-route behavior rather than more admin-shell changes. |
+| Documentation impact plan | Ready For Phase 5A | The next documentation impact is slice-local planning-state maintenance plus any athlete Explorer API or UX notes created by 5A. |
 
 ## Must Resolve Before Broad Implementation
 
@@ -52,23 +52,23 @@ The current 4B-5 boundary is explicit: keep the merged 4B-4 workflow intact; ext
 
 | Field | Value |
 | --- | --- |
-| Status | Ready |
+| Status | Ready For 5A |
 | Gate | Must Resolve |
 | Why it matters | Engineering should not start building around two competing summary models. |
-| Evidence | The corrected technical spec now explicitly chooses computed on read for `ExplorerAthleteCampaignSummary`, with `ExplorerDestinationMatch` as the durable source of truth. |
-| Acceptance criteria | The tech spec explicitly chooses one v1 approach: computed on read or cached summary. It also states the reason for that choice and what is deferred. |
-| Next action | Carry the locked decision into the corrected implementation brief and tests. |
+| Evidence | The corrected technical spec explicitly chooses computed on read for `ExplorerAthleteCampaignSummary`, with `ExplorerDestinationMatch` as the durable source of truth, which is the right foundation for a read-only first athlete page. |
+| Acceptance criteria | The 5A slice uses the computed-on-read summary model for the active campaign and does not introduce a cached-summary table just to power the first athlete page. |
+| Next action | Carry the locked summary decision into the 5A implementation brief and tests. |
 
 ### 3. Explorer Destination Metadata Strategy
 
 | Field | Value |
 | --- | --- |
-| Status | Ready |
+| Status | Ready For 5A |
 | Gate | Must Resolve |
 | Why it matters | Explorer destination setup depends on how segment data is validated, stored, and displayed over time. |
-| Evidence | The current UI already has real segment URL parsing and validation patterns in [src/components/SegmentInput.tsx](../../src/components/SegmentInput.tsx) and [src/components/ManageSegments.tsx](../../src/components/ManageSegments.tsx), Explorer already reuses shared segment rows for distance and location reads, and the current Strava client package exposes `start_latlng` and `end_latlng` on segment responses even though the app does not store them yet. |
-| Acceptance criteria | The tech spec explicitly states that Explorer continues to reuse the shared segment table, that the shared table should now capture the available coordinate and metadata-freshness fields needed for later map-safe work, and that Explorer does not add bespoke refresh logic for those values. |
-| Next action | Carry the locked DB-first storage policy, coordinate capture, and metadata-freshness fields into 4B-5, while keeping polylines, true map rendering, and Explorer-specific refresh controls out of scope. |
+| Evidence | Explorer continues to reuse shared segment rows for distance and location reads, and 4B-5 has now landed the stored coordinate and metadata-freshness baseline needed for later map-safe work without forcing map rendering into the first athlete slice. |
+| Acceptance criteria | The 5A page reads from the existing DB-first destination and progress model, uses the shared segment metadata already captured, and does not introduce new map-specific storage, geolocation prompts, or Explorer-only refresh logic. |
+| Next action | Carry the locked DB-first storage policy and existing shared segment metadata into 5A while keeping map-provider, geometry, and browse-discovery work deferred to later Phase 5 slices. |
 
 ### 4. Centralized Open Questions
 
@@ -77,7 +77,7 @@ The current 4B-5 boundary is explicit: keep the merged 4B-4 workflow intact; ext
 | Status | Ready |
 | Gate | Must Resolve |
 | Why it matters | Scattered uncertainty forces implementation chats to rediscover unresolved design choices. |
-| Evidence | The worklog open-questions table now reflects the corrected campaign model and remaining non-blocking questions. |
+| Evidence | The worklog open-questions table now reflects the corrected campaign model, the admin-gated athlete-page decision for 5A, and the remaining non-blocking map or social follow-on questions. |
 | Acceptance criteria | One section in the worklog or readiness checklist lists all unresolved questions, their current status, and whether they block implementation. |
 | Next action | Seed the worklog with a dedicated open-questions section and keep it current. |
 
@@ -85,12 +85,12 @@ The current 4B-5 boundary is explicit: keep the merged 4B-4 workflow intact; ext
 
 | Field | Value |
 | --- | --- |
-| Status | Ready |
+| Status | Ready For 5A |
 | Gate | Must Resolve |
-| Why it matters | The team needs a shared rule for what can proceed now that the campaign-first correction and admin workflow hierarchy are both merged. |
-| Evidence | The implemented webhook seam remains valid, 4A, 4B-1, 4B-2, 4B-3, and 4B-4 are merged, and the next slice is now re-approved as Phase 4B-5 segment metadata fidelity plus freshness. |
-| Acceptance criteria | The readiness artifacts clearly state that Explorer is ready for one bounded shared-metadata slice next and identify what remains out of scope. |
-| Next action | Keep the current go decision updated as additional corrected Explorer slices are approved or deferred, and close slice-local planning state in the implementation PR when the slice changes readiness or phase status. |
+| Why it matters | The team needs a shared rule for what can proceed now that the campaign-first correction, admin workflow hierarchy, and shared segment metadata baseline are all merged. |
+| Evidence | The implemented webhook seam remains valid, 4A through 4B-5 are merged, and the next slice is now approved as Phase 5A athlete hub read surface. |
+| Acceptance criteria | The readiness artifacts clearly state that Explorer is ready for one bounded athlete read-surface slice next and identify map, browse, and social follow-ons as out of scope. |
+| Next action | Keep the current go decision updated as additional athlete-facing Explorer slices are approved or deferred, and close slice-local planning state in the implementation PR when the slice changes readiness or phase status. |
 
 ## Should Resolve Before 4A And 4B Expand
 
@@ -120,12 +120,12 @@ The current 4B-5 boundary is explicit: keep the merged 4B-4 workflow intact; ext
 
 | Field | Value |
 | --- | --- |
-| Status | Ready For Phase 4B-5 |
+| Status | Ready For Phase 5A |
 | Gate | Should Resolve |
 | Why it matters | Explorer touches admin, athlete, API, database, and release-note surfaces. That work should be visible before coding. |
-| Evidence | The 4A slice updated `docs/API.md`, `docs/DATABASE_DESIGN.md`, and the slice-local planning docs, while 4B-3 and 4B-4 carried the structural correction plus admin workflow refinement. The 4B-5 slice is expected to update slice-local planning docs, the technical spec, and schema documentation if shared segment fields expand. |
-| Acceptance criteria | The worklog or implementation slice names the docs expected to change when the slice lands, including any slice-local planning docs needed to close the state transition. |
-| Next action | Keep the documentation-impact checklist current and treat 4B-5 planning-state maintenance plus any shared-segment schema notes as the next expected update set. |
+| Evidence | The 4A slice updated `docs/API.md`, `docs/DATABASE_DESIGN.md`, and the slice-local planning docs, while 4B-3 through 4B-5 carried the structural correction, admin workflow refinement, and shared segment metadata baseline. The 5A slice is expected to update slice-local planning docs and any athlete Explorer API or UX documentation that changes when the first athlete page lands. |
+| Acceptance criteria | The worklog or implementation slice names the docs expected to change when 5A lands, including any slice-local planning docs needed to close the state transition. |
+| Next action | Keep the documentation-impact checklist current and treat 5A planning-state maintenance plus any athlete Explorer API or UX notes as the next expected update set. |
 
 ### 4. Smallest End-To-End Slice
 
@@ -170,7 +170,8 @@ If a slice is expected to change the approved next step, readiness wording, or p
 | Phase 4A Admin Backend Complete | Yes |
 | Phase 4B-1 E2E Harness Hardening Merged | Yes |
 | Phase 4B-2 Minimal Admin UI Merged | Yes |
-| Ready For Phase 4B-5 Segment Metadata Fidelity And Freshness | Yes |
+| Phase 4B-5 Segment Metadata Fidelity And Freshness Merged | Yes |
+| Ready For Phase 5A Athlete Hub Read Surface | Yes |
 | Ready For Broad Feature Implementation | No |
 
-If this file says anything stronger than **Phase 1 Complete; Campaign-First Explorer Correction Landed; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Phase 4B-3 Campaign Decoupling And Unified Admin Shell Merged; Phase 4B-4 Admin Workflow Hierarchy And Destination Management Merged; Ready For Phase 4B-5 Segment Metadata Fidelity And Freshness**, the linked worklog should show exactly what changed to justify that shift.
+If this file says anything stronger than **Phase 1 Complete; Campaign-First Explorer Correction Landed; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Phase 4B-3 Campaign Decoupling And Unified Admin Shell Merged; Phase 4B-4 Admin Workflow Hierarchy And Destination Management Merged; Phase 4B-5 Segment Metadata Fidelity And Freshness Merged; Ready For Phase 5A Athlete Hub Read Surface**, the linked worklog should show exactly what changed to justify that shift.
