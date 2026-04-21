@@ -39,7 +39,7 @@ Use the shared repo instructions rather than restating them here:
 
 1. Check `git status` and `git branch --show-current` before substantial work.
 2. If the task is a new phase or feature slice, start from updated `main` on a dedicated feature branch.
-3. For pull requests, review comments, issue lookups, labels, and repository metadata, prefer GitHub MCP and workspace-integrated GitHub tools first; use `gh` only when that path is blocked or incomplete.
+3. For pull requests, issue lookups, labels, and repository metadata, prefer GitHub MCP and workspace-integrated GitHub tools first. For pull request review comments and review-thread triage, default to `gh` first, preferably via `gh api graphql`, because the active-PR and MCP paths have been unreliable at returning the full thread state in this repo.
 4. Implement with minimal, focused changes that match the existing architecture.
 5. If the approved slice changes Explorer planning state, such as marking a phase complete, advancing the recommended next slice, or aligning readiness wording with merged code, include those narrow planning-doc updates in the same PR rather than leaving them for a later cleanup.
 6. Hand back to `explorer-planner` only if closing the slice requires new product decisions, broader readiness re-evaluation, or reshaping later slice boundaries rather than straightforward planning-state maintenance.
