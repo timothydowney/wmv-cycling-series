@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useDeferredValue, useId, useMemo, useState } from 'react';
 import {
   ArrowTopRightOnSquareIcon,
   CalendarDaysIcon,
@@ -47,6 +47,7 @@ type DestinationFilter = 'all' | 'remaining' | 'completed';
 
 const DEFAULT_REMAINING_VISIBLE = 10;
 const DEFAULT_COMPLETED_VISIBLE = 10;
+const EMPTY_DESTINATIONS: ExplorerDestinationSummary[] = [];
 
 function formatAverageGrade(averageGrade: number | null | undefined): string | null {
   if (averageGrade == null) {
@@ -95,9 +96,9 @@ function matchesDestinationSearch(destination: ExplorerProgressDestinationSummar
     destination.customLabel,
     destination.segmentName,
     location,
-  ].filter(Boolean);
+  ].filter((part): part is string => Boolean(part));
 
-  return searchableParts.some((part) => part!.toLowerCase().includes(normalizedQuery));
+  return searchableParts.some((part) => part.toLowerCase().includes(normalizedQuery));
 }
 
 function ExplorerDestinationCard({
@@ -173,6 +174,7 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
   const [showAllCompleted, setShowAllCompleted] = useState(false);
   const [destinationSearchQuery, setDestinationSearchQuery] = useState('');
   const [destinationFilter, setDestinationFilter] = useState<DestinationFilter>('all');
+  const deferredDestinationSearchQuery = useDeferredValue(destinationSearchQuery);
 
   const activeCampaignQuery = trpc.explorer.getActiveCampaign.useQuery(undefined, {
     enabled: isAdmin,
@@ -187,6 +189,62 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
       refetchOnWindowFocus: false,
     }
   );
+
+  const activeCampaign = activeCampaignQuery.data;
+  const progress = progressQuery.data;
+  const activeCampaignDestinations = activeCampaign?.destinations ?? EMPTY_DESTINATIONS;
+  const destinations: ExplorerProgressDestinationSummary[] = useMemo(
+    () => progress?.destinations ?? activeCampaignDestinations.map((destination) => ({
+      ...destination,
+      completed: false,
+      matchedAt: null,
+      stravaActivityId: null,
+    })),
+    [activeCampaignDestinations, progress?.destinations]
+  );
+  const completedDestinations = progress?.completedDestinations ?? 0;
+  const totalDestinations = progress?.totalDestinations ?? activeCampaignDestinations.length;
+  const remainingDestinations = useMemo(
+    () => destinations
+      .filter((destination) => !destination.completed)
+      .sort((left, right) => left.displayOrder - right.displayOrder || left.id - right.id),
+    [destinations]
+  );
+  const finishedDestinations = useMemo(
+    () => destinations
+      .filter((destination) => destination.completed)
+      .sort((left, right) => (right.matchedAt ?? 0) - (left.matchedAt ?? 0) || left.displayOrder - right.displayOrder || left.id - right.id),
+    [destinations]
+  );
+  const progressPercent = totalDestinations > 0 ? Math.round((completedDestinations / totalDestinations) * 100) : 0;
+  const visibleRemainingDestinations = showAllRemaining
+    ? remainingDestinations
+    : remainingDestinations.slice(0, DEFAULT_REMAINING_VISIBLE);
+  const visibleCompletedDestinations = showAllCompleted
+    ? finishedDestinations
+    : finishedDestinations.slice(0, DEFAULT_COMPLETED_VISIBLE);
+  const destinationsByCampaignOrder = useMemo(
+    () => [...destinations].sort((left, right) => left.displayOrder - right.displayOrder || left.id - right.id),
+    [destinations]
+  );
+  const filteredDestinations = useMemo(
+    () => destinationsByCampaignOrder.filter((destination) => {
+      if (destinationFilter === 'remaining' && destination.completed) {
+        return false;
+      }
+
+      if (destinationFilter === 'completed' && !destination.completed) {
+        return false;
+      }
+
+      return matchesDestinationSearch(destination, deferredDestinationSearchQuery);
+    }),
+    [deferredDestinationSearchQuery, destinationFilter, destinationsByCampaignOrder]
+  );
+  const isBrowseFiltered = destinationFilter !== 'all' || deferredDestinationSearchQuery.trim().length > 0;
+  const destinationResultsLabel = isBrowseFiltered
+    ? `${filteredDestinations.length} of ${destinationsByCampaignOrder.length}`
+    : `${destinationsByCampaignOrder.length}`;
 
   if (!isAdmin) {
     return (
@@ -222,8 +280,6 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
     );
   }
 
-  const activeCampaign = activeCampaignQuery.data;
-
   if (!activeCampaign) {
     return (
       <div className="explorer-hub-page" data-testid="explorer-hub-page">
@@ -242,46 +298,6 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
       </div>
     );
   }
-
-  const progress = progressQuery.data;
-  const destinations: ExplorerProgressDestinationSummary[] = progress?.destinations ?? activeCampaign.destinations.map((destination) => ({
-    ...destination,
-    completed: false,
-    matchedAt: null,
-    stravaActivityId: null,
-  }));
-  const completedDestinations = progress?.completedDestinations ?? 0;
-  const totalDestinations = progress?.totalDestinations ?? activeCampaign.destinations.length;
-  const remainingDestinations = destinations
-    .filter((destination) => !destination.completed)
-    .sort((left, right) => left.displayOrder - right.displayOrder || left.id - right.id);
-  const finishedDestinations = destinations
-    .filter((destination) => destination.completed)
-    .sort((left, right) => (right.matchedAt ?? 0) - (left.matchedAt ?? 0) || left.displayOrder - right.displayOrder || left.id - right.id);
-  const progressPercent = totalDestinations > 0 ? Math.round((completedDestinations / totalDestinations) * 100) : 0;
-  const visibleRemainingDestinations = showAllRemaining
-    ? remainingDestinations
-    : remainingDestinations.slice(0, DEFAULT_REMAINING_VISIBLE);
-  const visibleCompletedDestinations = showAllCompleted
-    ? finishedDestinations
-    : finishedDestinations.slice(0, DEFAULT_COMPLETED_VISIBLE);
-  const destinationsByCampaignOrder = [...destinations]
-    .sort((left, right) => left.displayOrder - right.displayOrder || left.id - right.id);
-  const filteredDestinations = destinationsByCampaignOrder.filter((destination) => {
-    if (destinationFilter === 'remaining' && destination.completed) {
-      return false;
-    }
-
-    if (destinationFilter === 'completed' && !destination.completed) {
-      return false;
-    }
-
-    return matchesDestinationSearch(destination, destinationSearchQuery);
-  });
-  const isBrowseFiltered = destinationFilter !== 'all' || destinationSearchQuery.trim().length > 0;
-  const destinationResultsLabel = isBrowseFiltered
-    ? `${filteredDestinations.length} of ${destinationsByCampaignOrder.length}`
-    : `${destinationsByCampaignOrder.length}`;
 
   return (
     <div className="explorer-hub-page" data-testid="explorer-hub-page">

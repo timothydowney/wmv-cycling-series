@@ -330,7 +330,12 @@
   font-size: var(--font-base);
 }
 
-.explorer-search-stub-input input:focus {
+.explorer-search-stub-input:focus-within {
+  border-color: rgba(245, 96, 4, 0.55);
+  box-shadow: 0 0 0 3px rgba(245, 96, 4, 0.16);
+}
+
+.explorer-search-stub-input input:focus-visible {
   outline: none;
 }
 
