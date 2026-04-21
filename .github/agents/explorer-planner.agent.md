@@ -7,7 +7,7 @@ argument-hint: Review the Explorer docs or prepare the next implementation slice
 handoffs:
   - label: Start Implementation With Dev Agent
     agent: dev-agent
-    prompt: Implement the approved Explorer slice described above. Follow the readiness checklist, worklog, and repo validation rules.
+    prompt: Implement the approved Explorer slice described above. Follow the readiness checklist, worklog, and repo validation rules. If the slice lands and changes readiness wording, phase completion, or the recommended next slice, include the narrow planning-doc closeout updates in the same PR.
     send: false
 ---
 

@@ -41,5 +41,7 @@ Use the shared repo instructions rather than restating them here:
 2. If the task is a new phase or feature slice, start from updated `main` on a dedicated feature branch.
 3. For pull requests, review comments, issue lookups, labels, and repository metadata, prefer GitHub MCP and workspace-integrated GitHub tools first; use `gh` only when that path is blocked or incomplete.
 4. Implement with minimal, focused changes that match the existing architecture.
-5. Validate with `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build` before calling the work complete.
-6. Stage files explicitly with `git add <file>` rather than broad staging.
+5. If the approved slice changes Explorer planning state, such as marking a phase complete, advancing the recommended next slice, or aligning readiness wording with merged code, include those narrow planning-doc updates in the same PR rather than leaving them for a later cleanup.
+6. Hand back to `explorer-planner` only if closing the slice requires new product decisions, broader readiness re-evaluation, or reshaping later slice boundaries rather than straightforward planning-state maintenance.
+7. Validate with `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build` before calling the work complete.
+8. Stage files explicitly with `git add <file>` rather than broad staging.

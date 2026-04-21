@@ -249,7 +249,7 @@ Goal: introduce the athlete-facing Explorer experience in deliberately small, pr
 
 Goal: ship the smallest useful athlete Explorer page, still admin-gated, so logged-in athletes can understand the active campaign and their own completion state without opening map or social scope yet.
 
-Status: approved as the next bounded slice after 4B-5.
+Status: merged on `main` as the first athlete-facing Explorer page.
 
 
 Scope:
@@ -280,15 +280,38 @@ Implementation note:
 
 - Prefer a list-first page for 5A. The shared segment coordinates captured in 4B-5 enable later map planning, but they do not force map rendering into the first athlete-facing slice.
 
+Landed outcome:
+
+- the first athlete-facing Explorer page now exists as an admin-gated route on top of the campaign-first Explorer model
+- active campaign framing, athlete progress summary, and list-first destination views are now established as the baseline athlete Explorer experience
+- the shared leaderboard-inspired navigation and typography rules now explicitly cover this Explorer surface
+
 ### Slice 5B: Checklist And Browse Refinement
 
 Goal: improve the athlete checklist experience once the 5A page exists and real campaign volume exposes where scanning or filtering starts to break down.
 
-Candidate scope:
+Status: approved as the next bounded slice after 5A.
 
-- Refine list organization for larger destination sets
-- Add lightweight search, filtering, or grouping only if 5A usage shows the list needs it
-- Improve destination card detail hierarchy while preserving the progress-first model
+Scope:
+
+- Preserve the merged 5A route, admin gate, and Hub versus Destinations structure.
+- Refine list organization for larger destination sets inside the existing athlete page.
+- Add lightweight search, filtering, or grouping only if it is the smallest clean way to improve scanning.
+- Improve destination card detail hierarchy only where it helps longer lists remain understandable within the progress-first model.
+
+Out of scope:
+
+- Public release exposure to non-admin users
+- Map rendering, map-provider selection, geolocation prompts, or proximity search
+- Social-feed behavior or broader athlete-to-athlete visibility
+- Reframing Explorer as a leaderboard or rank-ordered surface
+
+Validation:
+
+- Frontend unit tests for longer-list presentation, browse aids, and protected-route behavior in the merged athlete page
+- Backend tests only if 5B adds or changes Explorer query procedures to support browse refinement
+- Targeted Playwright only if the chosen browse interaction is meaningfully browser-dependent
+- Slice-normal `npm run lint`, `npm run typecheck`, and targeted build verification
 
 ### Slice 5C: Map Discovery
 

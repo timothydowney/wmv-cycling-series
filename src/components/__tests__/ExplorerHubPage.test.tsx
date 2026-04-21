@@ -124,6 +124,23 @@ async function clickElement(element: Element | null) {
   });
 }
 
+async function changeInputValue(element: Element | null, value: string) {
+  if (!(element instanceof HTMLInputElement)) {
+    throw new Error('Expected HTMLInputElement');
+  }
+
+  const valueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+
+  if (!valueSetter) {
+    throw new Error('Expected HTMLInputElement value setter');
+  }
+
+  await act(async () => {
+    valueSetter.call(element, value);
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+}
+
 describe('ExplorerHubPage', () => {
   beforeEach(() => {
     trpcMocks.activeCampaignUseQuery.mockReset();
@@ -452,7 +469,7 @@ describe('ExplorerHubPage', () => {
     expect(completedSection?.textContent).not.toContain('Show all');
   });
 
-  it('shows the disabled search stub and full list in Destinations', async () => {
+  it('supports local search and completion filters in Destinations', async () => {
     trpcMocks.activeCampaignQuery.data = {
       id: 99,
       name: 'Destination Browser',
@@ -484,9 +501,9 @@ describe('ExplorerHubPage', () => {
           sourceUrl: null,
           distance: null,
           averageGrade: null,
-          city: null,
-          state: null,
-          country: null,
+          city: 'Greenfield',
+          state: 'MA',
+          country: 'USA',
         },
       ],
     };
@@ -529,9 +546,9 @@ describe('ExplorerHubPage', () => {
           sourceUrl: null,
           distance: null,
           averageGrade: null,
-          city: null,
-          state: null,
-          country: null,
+          city: 'Greenfield',
+          state: 'MA',
+          country: 'USA',
           completed: true,
           matchedAt: 1751400000,
           stravaActivityId: 'act-901',
@@ -550,13 +567,35 @@ describe('ExplorerHubPage', () => {
 
     const searchInput = container.querySelector('[data-testid="explorer-search-stub"] input');
     expect(searchInput).not.toBeNull();
-    expect((searchInput as HTMLInputElement).disabled).toBe(true);
+    expect((searchInput as HTMLInputElement).disabled).toBe(false);
 
     const allDestinations = container.querySelector('[data-testid="explorer-all-destinations-section"]');
     expect(allDestinations?.textContent).toContain('Alpha Climb');
     expect(allDestinations?.textContent).toContain('Beta Rollers');
     expect(allDestinations?.textContent).toContain('Remaining');
     expect(allDestinations?.textContent).toContain('Completed');
+
+    expect(container.querySelector('[data-testid="explorer-results-count"]')?.textContent).toContain('2');
+
+    await changeInputValue(container.querySelector('[data-testid="explorer-search-input"]'), 'beta');
+
+    expect(allDestinations?.textContent).toContain('Beta Rollers');
+    expect(allDestinations?.textContent).not.toContain('Alpha Climb');
+    expect(container.querySelector('[data-testid="explorer-results-count"]')?.textContent).toContain('1 of 2');
+    expect(container.querySelector('[data-testid="explorer-results-note"]')?.textContent).toContain('Showing 1 matching destinations');
+
+    await clickElement(container.querySelector('[data-testid="explorer-filter-remaining"]'));
+
+    expect(container.querySelector('[data-testid="explorer-filter-remaining"]')?.getAttribute('aria-pressed')).toBe('true');
+    expect(container.querySelector('[data-testid="explorer-filtered-empty-state"]')?.textContent).toContain('No destinations match this view');
+
+    await changeInputValue(container.querySelector('[data-testid="explorer-search-input"]'), 'greenfield');
+    await clickElement(container.querySelector('[data-testid="explorer-filter-completed"]'));
+
+    expect(container.querySelector('[data-testid="explorer-filter-completed"]')?.getAttribute('aria-pressed')).toBe('true');
+    expect(allDestinations?.textContent).toContain('Beta Rollers');
+    expect(allDestinations?.textContent).not.toContain('Alpha Climb');
+    expect(container.querySelector('[data-testid="explorer-results-count"]')?.textContent).toContain('1 of 2');
   });
 
   it('shows a connect prompt when the athlete is not connected', async () => {

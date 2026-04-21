@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import {
   ArrowTopRightOnSquareIcon,
   CalendarDaysIcon,
@@ -43,6 +43,7 @@ interface ExplorerProgressDestinationSummary extends ExplorerDestinationSummary 
 }
 
 type ExplorerTab = 'hub' | 'destinations';
+type DestinationFilter = 'all' | 'remaining' | 'completed';
 
 const DEFAULT_REMAINING_VISIBLE = 10;
 const DEFAULT_COMPLETED_VISIBLE = 10;
@@ -79,6 +80,24 @@ function getDestinationChips(destination: ExplorerDestinationSummary, units: Uni
   }
 
   return chips;
+}
+
+function matchesDestinationSearch(destination: ExplorerProgressDestinationSummary, query: string): boolean {
+  const normalizedQuery = query.trim().toLowerCase();
+
+  if (!normalizedQuery) {
+    return true;
+  }
+
+  const location = formatLocation(destination.city, destination.state, destination.country);
+  const searchableParts = [
+    destination.displayLabel,
+    destination.customLabel,
+    destination.segmentName,
+    location,
+  ].filter(Boolean);
+
+  return searchableParts.some((part) => part!.toLowerCase().includes(normalizedQuery));
 }
 
 function ExplorerDestinationCard({
@@ -148,9 +167,12 @@ function ExplorerDestinationCard({
 }
 
 function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
+  const browseSearchId = useId();
   const [activeTab, setActiveTab] = useState<ExplorerTab>('hub');
   const [showAllRemaining, setShowAllRemaining] = useState(false);
   const [showAllCompleted, setShowAllCompleted] = useState(false);
+  const [destinationSearchQuery, setDestinationSearchQuery] = useState('');
+  const [destinationFilter, setDestinationFilter] = useState<DestinationFilter>('all');
 
   const activeCampaignQuery = trpc.explorer.getActiveCampaign.useQuery(undefined, {
     enabled: isAdmin,
@@ -245,6 +267,21 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
     : finishedDestinations.slice(0, DEFAULT_COMPLETED_VISIBLE);
   const destinationsByCampaignOrder = [...destinations]
     .sort((left, right) => left.displayOrder - right.displayOrder || left.id - right.id);
+  const filteredDestinations = destinationsByCampaignOrder.filter((destination) => {
+    if (destinationFilter === 'remaining' && destination.completed) {
+      return false;
+    }
+
+    if (destinationFilter === 'completed' && !destination.completed) {
+      return false;
+    }
+
+    return matchesDestinationSearch(destination, destinationSearchQuery);
+  });
+  const isBrowseFiltered = destinationFilter !== 'all' || destinationSearchQuery.trim().length > 0;
+  const destinationResultsLabel = isBrowseFiltered
+    ? `${filteredDestinations.length} of ${destinationsByCampaignOrder.length}`
+    : `${destinationsByCampaignOrder.length}`;
 
   return (
     <div className="explorer-hub-page" data-testid="explorer-hub-page">
@@ -426,22 +463,55 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
           <section className="leaderboard-card explorer-hub-search-card" data-testid="explorer-search-card">
             <div className="explorer-hub-section-header">
               <div>
-                <p className="explorer-section-label">Browse stub</p>
+                <p className="explorer-section-label">Browse controls</p>
                 <h3>Search and filters</h3>
               </div>
             </div>
             <p className="explorer-hub-secondary-copy">
-              This stays disabled for 5A, but it reserves the shape for later browse and location-aware discovery work.
+              Filter the current campaign list by destination name, segment name, location, or completion status.
             </p>
             <div className="explorer-search-stub" data-testid="explorer-search-stub">
               <div className="explorer-search-stub-input">
                 <MagnifyingGlassIcon aria-hidden="true" />
+                <label className="explorer-hub-sr-only" htmlFor={browseSearchId}>Search destinations</label>
                 <input
+                  id={browseSearchId}
                   type="text"
-                  placeholder="Search by destination name or location coming soon"
-                  disabled
+                  data-testid="explorer-search-input"
+                  placeholder="Search by destination name, segment, or location"
+                  value={destinationSearchQuery}
+                  onChange={(event) => setDestinationSearchQuery(event.target.value)}
                 />
               </div>
+            </div>
+            <div className="explorer-hub-filter-row" data-testid="explorer-filter-row">
+              <button
+                type="button"
+                className={`week-header-chip explorer-hub-filter-chip ${destinationFilter === 'all' ? 'active' : ''}`}
+                data-testid="explorer-filter-all"
+                aria-pressed={destinationFilter === 'all'}
+                onClick={() => setDestinationFilter('all')}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                className={`week-header-chip explorer-hub-filter-chip ${destinationFilter === 'remaining' ? 'active' : ''}`}
+                data-testid="explorer-filter-remaining"
+                aria-pressed={destinationFilter === 'remaining'}
+                onClick={() => setDestinationFilter('remaining')}
+              >
+                Remaining
+              </button>
+              <button
+                type="button"
+                className={`week-header-chip explorer-hub-filter-chip ${destinationFilter === 'completed' ? 'active' : ''}`}
+                data-testid="explorer-filter-completed"
+                aria-pressed={destinationFilter === 'completed'}
+                onClick={() => setDestinationFilter('completed')}
+              >
+                Completed
+              </button>
             </div>
           </section>
 
@@ -450,21 +520,32 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
               <div>
                 <p className="explorer-section-label">Campaign list</p>
                 <h3>All destinations</h3>
-                <p className="explorer-hub-section-note">Full campaign order with completion state.</p>
+                <p className="explorer-hub-section-note" data-testid="explorer-results-note">
+                  {isBrowseFiltered
+                    ? `Showing ${filteredDestinations.length} matching destinations in campaign order.`
+                    : 'Full campaign order with completion state.'}
+                </p>
               </div>
-              <span className="explorer-hub-section-count">{destinationsByCampaignOrder.length}</span>
+              <span className="explorer-hub-section-count" data-testid="explorer-results-count">{destinationResultsLabel}</span>
             </div>
 
-            <div className="explorer-hub-destination-list">
-              {destinationsByCampaignOrder.map((destination) => (
-                <ExplorerDestinationCard
-                  key={destination.id}
-                  destination={destination}
-                  completed={destination.completed}
-                  matchedAt={destination.matchedAt}
-                />
-              ))}
-            </div>
+            {filteredDestinations.length === 0 ? (
+              <div className="explorer-hub-empty-state compact" data-testid="explorer-filtered-empty-state">
+                <h4>No destinations match this view</h4>
+                <p>Try a different search or switch the completion filter to see more destinations.</p>
+              </div>
+            ) : (
+              <div className="explorer-hub-destination-list">
+                {filteredDestinations.map((destination) => (
+                  <ExplorerDestinationCard
+                    key={destination.id}
+                    destination={destination}
+                    completed={destination.completed}
+                    matchedAt={destination.matchedAt}
+                  />
+                ))}
+              </div>
+            )}
           </section>
         </section>
       )}
