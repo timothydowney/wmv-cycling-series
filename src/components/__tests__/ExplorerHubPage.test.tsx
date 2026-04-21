@@ -753,5 +753,59 @@ describe('ExplorerHubPage', () => {
     const { container } = await renderPage({ isConnected: false });
 
     expect(container.querySelector('[data-testid="explorer-hub-connect-state"]')?.textContent).toContain('Connect Strava');
+    expect(container.querySelector('[data-testid="explorer-remaining-note"]')?.textContent).toContain('Connect Strava to pin destinations and track progress.');
+  });
+
+  it('shows a recoverable error message when pinning fails', async () => {
+    trpcMocks.activeCampaignQuery.data = {
+      id: 123,
+      name: 'Pin Failure Explorer',
+      startAt: 1751328000,
+      endAt: 1753919999,
+      rulesBlurb: null,
+      destinations: [],
+    };
+
+    trpcMocks.progressQuery.data = {
+      campaign: {
+        id: 123,
+        name: 'Pin Failure Explorer',
+        startAt: 1751328000,
+        endAt: 1753919999,
+        rulesBlurb: null,
+      },
+      completedDestinations: 0,
+      totalDestinations: 1,
+      destinations: [
+        {
+          id: 2001,
+          stravaSegmentId: 'seg-2001',
+          displayOrder: 1,
+          displayLabel: 'Failure Climb',
+          customLabel: null,
+          segmentName: 'Failure Climb',
+          sourceUrl: null,
+          distance: null,
+          averageGrade: null,
+          city: null,
+          state: null,
+          country: null,
+          completed: false,
+          pinned: false,
+          matchedAt: null,
+          stravaActivityId: null,
+        },
+      ],
+    };
+
+    trpcMocks.pinMutateAsync.mockRejectedValueOnce(new Error('network failed'));
+
+    const { container } = await renderPage();
+
+    await clickElement(container.querySelector('[data-testid="explorer-tab-destinations"]'));
+    await clickElement(container.querySelector('[data-testid="explorer-pin-toggle-2001"]'));
+
+    expect(container.querySelector('[data-testid="explorer-pin-toggle-error"]')?.textContent).toContain('Could not update that destination right now. Please try again.');
+    expect(trpcMocks.invalidateCampaignProgress).not.toHaveBeenCalled();
   });
 });

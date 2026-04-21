@@ -1,4 +1,4 @@
-import { useDeferredValue, useId, useMemo, useState } from 'react';
+import { useDeferredValue, useId, useMemo, useRef, useState } from 'react';
 import {
   ArrowTopRightOnSquareIcon,
   BookmarkIcon,
@@ -224,7 +224,9 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
   const [showAllCompleted, setShowAllCompleted] = useState(false);
   const [destinationSearchQuery, setDestinationSearchQuery] = useState('');
   const [destinationFilter, setDestinationFilter] = useState<DestinationFilter>('all');
-  const [pendingPinDestinationId, setPendingPinDestinationId] = useState<number | null>(null);
+  const [pendingPinDestinationIds, setPendingPinDestinationIds] = useState<number[]>([]);
+  const [pinToggleError, setPinToggleError] = useState<string | null>(null);
+  const pendingPinDestinationIdsRef = useRef<Set<number>>(new Set());
   const deferredDestinationSearchQuery = useDeferredValue(destinationSearchQuery);
 
   const activeCampaignQuery = trpc.explorer.getActiveCampaign.useQuery(undefined, {
@@ -312,11 +314,13 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
     : `${destinationsByCampaignOrder.length}`;
 
   async function handleTogglePin(destinationId: number, pinned: boolean) {
-    if (!activeCampaignId) {
+    if (!activeCampaignId || pendingPinDestinationIdsRef.current.has(destinationId)) {
       return;
     }
 
-    setPendingPinDestinationId(destinationId);
+    setPinToggleError(null);
+    pendingPinDestinationIdsRef.current = new Set(pendingPinDestinationIdsRef.current).add(destinationId);
+    setPendingPinDestinationIds(Array.from(pendingPinDestinationIdsRef.current));
 
     try {
       if (pinned) {
@@ -326,8 +330,14 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
       }
 
       await utils.explorer.getCampaignProgress.invalidate({ campaignId: activeCampaignId });
+    } catch (error) {
+      console.error('Failed to toggle Explorer destination pin', error);
+      setPinToggleError('Could not update that destination right now. Please try again.');
     } finally {
-      setPendingPinDestinationId(null);
+      const nextPendingDestinationIds = new Set(pendingPinDestinationIdsRef.current);
+      nextPendingDestinationIds.delete(destinationId);
+      pendingPinDestinationIdsRef.current = nextPendingDestinationIds;
+      setPendingPinDestinationIds(Array.from(nextPendingDestinationIds));
     }
   }
 
@@ -464,7 +474,9 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
                   <p className="explorer-hub-section-note" data-testid="explorer-remaining-note">
                     {pinnedRemainingDestinations.length > 0
                       ? 'Pinned destinations surface first, then the rest stay in campaign order.'
-                      : 'Use the Destinations tab to pin what you want to ride next.'}
+                      : isConnected
+                        ? 'Use the Destinations tab to pin what you want to ride next.'
+                        : 'Connect Strava to pin destinations and track progress.'}
                   </p>
                 </div>
                 <span className="explorer-hub-section-count">{remainingDestinations.length}</span>
@@ -668,6 +680,12 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
               <span className="explorer-hub-section-count" data-testid="explorer-results-count">{destinationResultsLabel}</span>
             </div>
 
+            {pinToggleError ? (
+              <div className="explorer-hub-inline-alert" data-testid="explorer-pin-toggle-error">
+                <p>{pinToggleError}</p>
+              </div>
+            ) : null}
+
             {filteredDestinations.length === 0 ? (
               <div className="explorer-hub-empty-state compact" data-testid="explorer-filtered-empty-state">
                 <h4>No destinations match this view</h4>
@@ -683,7 +701,7 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
                     pinned={destination.pinned}
                     matchedAt={destination.matchedAt}
                     showPinAction={isConnected}
-                    pinDisabled={pendingPinDestinationId === destination.id}
+                    pinDisabled={pendingPinDestinationIds.includes(destination.id)}
                     onTogglePin={handleTogglePin}
                   />
                 ))}

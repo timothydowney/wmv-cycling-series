@@ -9,6 +9,7 @@ import { clearAllData, createParticipant, createSeason, setupTestDb, teardownTes
 
 function replaceExplorerTablesWithLegacySchema(db: Database) {
   db.exec(`
+    DROP TABLE IF EXISTS explorer_destination_pin;
     DROP TABLE IF EXISTS explorer_destination_match;
     DROP TABLE IF EXISTS explorer_destination;
     DROP TABLE IF EXISTS explorer_campaign;
@@ -62,6 +63,7 @@ function replaceExplorerTablesWithLegacySchema(db: Database) {
 
 function replaceExplorerTablesWithCampaignSchema(db: Database) {
   db.exec(`
+    DROP TABLE IF EXISTS explorer_destination_pin;
     DROP TABLE IF EXISTS explorer_destination_match;
     DROP TABLE IF EXISTS explorer_destination;
     DROP TABLE IF EXISTS explorer_campaign;

@@ -41,6 +41,21 @@
   color: var(--wmv-text-light);
 }
 
+.explorer-hub-inline-alert {
+  margin-bottom: 1rem;
+  border: 1px solid rgba(245, 96, 4, 0.24);
+  background: rgba(245, 96, 4, 0.08);
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+}
+
+.explorer-hub-inline-alert p {
+  margin: 0;
+  color: var(--wmv-orange);
+  font-size: var(--font-sm);
+  font-weight: 600;
+}
+
 .explorer-hub-empty-state.compact {
   padding: 1.25rem;
   box-shadow: none;
