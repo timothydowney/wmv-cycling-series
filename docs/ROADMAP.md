@@ -16,12 +16,14 @@
 - Align the entire app around one clear logged-out posture before more athlete-facing personalization lands
 - Improve the signed-out entry experience with clearer onboarding instead of a sparse prompt
 
+**Current Branch Status:** Implemented in the current auth-access branch; keep this item here until the branch merges.
+
 **Implementation Notes:**
 - Reuse the existing signed-out banner pattern but rewrite the body copy as a generic invitation to join Western Mass Velo with Strava
 - Add supporting signed-out body content and optional WMV branding such as the WMV SVG so the page is not visually bare
 - Make the signed-out shell the only available experience before login, with no About page or alternate public routes
 - Keep logged-in behavior unchanged
-- Prefer a focused auth-access PR before returning to Explorer pinning or other athlete personalization
+- After this branch merges, return to planning before approving any later Explorer rollout or other athlete personalization work
 
 **Effort:** 2-4 hours
 **Breaking Changes:** Yes, intentional user-visible access tightening for signed-out users

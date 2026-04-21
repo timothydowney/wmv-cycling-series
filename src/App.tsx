@@ -18,6 +18,7 @@ import ExplorerHubPage from './components/ExplorerHubPage';
 import StravaConnectInfoBox from './components/StravaConnectInfoBox';
 import StravaClubJoinPrompt from './components/StravaClubJoinPrompt';
 import AboutPage from './components/AboutPage';
+import SignedOutHomePage from './components/SignedOutHomePage';
 import MyProfilePage from './components/MyProfilePage';
 import ChatPanel from './components/ChatPanel';
 import ChainChecker from './components/ChainChecker';
@@ -152,7 +153,7 @@ const LeaderboardView: React.FC<LeaderboardViewProps> = ({ seasons, userAthleteI
   );
 };
 
-function AppContent() {
+export function AppContent() {
   const utils = trpc.useUtils();
   const location = useLocation();
   
@@ -231,6 +232,8 @@ function AppContent() {
     }
   };
 
+  const pageTitle = isConnected ? getPageTitle(viewMode) : 'Join WMV';
+
   if (seasonsQuery.isLoading || authStatusQuery.isLoading) {
     return (
       <div className="app app-content">
@@ -250,7 +253,7 @@ function AppContent() {
   return (
     <UnitProvider>
       <NavBar 
-        title={getPageTitle(viewMode)}
+        title={pageTitle}
         isAdmin={isAdmin}
         isConnected={isConnected}
         athleteInfo={athleteInfo}
@@ -259,6 +262,9 @@ function AppContent() {
       
       <div className="app app-content">
         <Routes>
+          {!isConnected && <Route path="*" element={<SignedOutHomePage />} />}
+          {isConnected && (
+            <>
           <Route path="/admin" element={
             <AdminPanel 
               onFetchResults={() => utils.leaderboard.getWeekLeaderboard.invalidate()}
@@ -291,6 +297,8 @@ function AppContent() {
           
           <Route path="/" element={<Navigate to="/leaderboard" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
+            </>
+          )}
         </Routes>
       </div>
     </UnitProvider>

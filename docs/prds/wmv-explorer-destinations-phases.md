@@ -321,13 +321,13 @@ Landed outcome:
 
 Ordering note:
 
-- Before more athlete-facing Explorer personalization lands, the broader app should tighten its default signed-out behavior so logged-out users see a richer sign-in or join shell instead of leaderboard or Explorer data. That cross-product auth-access slice is outside Explorer phase numbering but should go first in implementation order.
+- The current auth-access branch now tightens the default signed-out posture so logged-out users see one WMV sign-in or join shell instead of leaderboard or Explorer data. That cross-product slice remains outside Explorer phase numbering.
 
 ### Slice 5C: Pinned Destinations And Hub Prioritization
 
 Goal: help logged-in athletes turn the merged browse surface into a lightweight planning tool by letting them pin destinations they want to visit and surfacing those pinned choices first on the Hub page.
 
-Status: merged on this branch as the next bounded Explorer personalization slice after 5B.
+Status: merged on `main` as the next bounded Explorer personalization slice after 5B.
 
 Scope:
 
@@ -357,6 +357,10 @@ Landed outcome:
 - the Destinations tab now lets the current athlete pin and unpin destinations without turning the browse surface into a recommendation feed
 - athlete-specific pin state now persists for the active campaign
 - the Hub page now surfaces pinned remaining destinations first and explains the no-pins-yet state without changing completion math or default browse order
+
+Ordering note:
+
+- No later Explorer athlete rollout slice is approved yet; after the auth-access branch merges, return to planning before naming the next implementation slice.
 
 ### Slice 5D: Map Discovery
 

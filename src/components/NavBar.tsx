@@ -314,17 +314,6 @@ export const NavBar: React.FC<NavBarProps> = ({
                   </>
                 ) : (
                   <>
-                    <NavLink 
-                      to="/about" 
-                      className={({ isActive }) => `menu-item ${isActive ? 'active' : ''}`}
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="menu-icon">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      About
-                    </NavLink>
                     <button className="menu-item strava-connect-menu-item" onClick={handleConnect}>
                       <img src="/assets/strava/btn_strava_connectwith_orange.svg" alt="Connect with Strava" className="strava-connect-button" />
                     </button>

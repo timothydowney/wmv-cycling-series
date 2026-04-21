@@ -1,0 +1,127 @@
+.signed-out-home {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.signed-out-home-hero {
+  display: grid;
+  gap: 1.5rem;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(123, 63, 242, 0.14), transparent 36%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 245, 240, 0.95));
+}
+
+.signed-out-home-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.signed-out-home-chip {
+  align-self: flex-start;
+}
+
+.signed-out-home-hero h2 {
+  margin: 0;
+}
+
+.signed-out-home-lead {
+  margin: 0;
+  max-width: 42rem;
+  color: var(--wmv-text-light);
+  font-size: var(--font-lg);
+}
+
+.signed-out-home-note {
+  margin: 0;
+  max-width: 42rem;
+  color: var(--wmv-text-light);
+  font-size: var(--font-sm);
+}
+
+.signed-out-home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.signed-out-home-connect {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.signed-out-home-connect img {
+  display: block;
+  height: 48px;
+}
+
+.signed-out-home-branding {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.signed-out-home-logo {
+  width: min(180px, 40vw);
+  height: auto;
+  filter: drop-shadow(0 10px 18px rgba(123, 63, 242, 0.12));
+}
+
+.signed-out-home-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.signed-out-home-card {
+  padding: 20px;
+}
+
+.signed-out-home-card h3 {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+}
+
+.signed-out-home-card p,
+.signed-out-home-card ul {
+  margin: 0;
+  color: var(--wmv-text-light);
+}
+
+.signed-out-home-card ul {
+  padding-left: 1.125rem;
+}
+
+.signed-out-home-card li + li {
+  margin-top: 0.5rem;
+}
+
+.signed-out-home-link {
+  display: inline-flex;
+  margin-top: 1rem;
+  color: var(--wmv-orange);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.signed-out-home-link:hover {
+  color: var(--wmv-orange-hover);
+  text-decoration: underline;
+}
+
+@media (min-width: 768px) {
+  .signed-out-home-hero {
+    grid-template-columns: minmax(0, 2.1fr) minmax(180px, 0.9fr);
+    align-items: center;
+  }
+
+  .signed-out-home-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -19,9 +19,9 @@ The ideas backlog is intentionally excluded from v1 implementation scope. It exi
 
 **Status:** Phase 1 Complete; Campaign-First Explorer Correction Landed; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Phase 4B-3 Campaign Decoupling And Unified Admin Shell Merged; Phase 4B-4 Admin Workflow Hierarchy And Destination Management Merged; Phase 4B-5 Segment Metadata Fidelity And Freshness Merged; Phase 5A Athlete Hub Read Surface Merged; Phase 5B Checklist And Browse Refinement Merged; Phase 5C Pinned Destinations And Hub Prioritization Merged
 
-Explorer has completed the narrow Phase 1 webhook-orchestration slice that preserves current competition behavior while introducing delegated in-process handlers. The planning set corrected Explorer to a campaign-first model with campaign-owned date boundaries, returned `Season` to competition-only semantics, deferred overlapping or nested campaign structures, and locked a no-overlap Explorer rule for v1. The shared segment metadata-fidelity slice, the first admin-gated athlete hub read surface, the lightweight browse refinement, and athlete-specific pinned-destination prioritization are now merged on this branch. The recommended overall next step remains the broader app auth-access tightening slice so logged-out users no longer see leaderboard or Explorer data by default before further athlete-facing rollout decisions are approved.
+Explorer has completed the narrow Phase 1 webhook-orchestration slice that preserves current competition behavior while introducing delegated in-process handlers. The planning set corrected Explorer to a campaign-first model with campaign-owned date boundaries, returned `Season` to competition-only semantics, deferred overlapping or nested campaign structures, and locked a no-overlap Explorer rule for v1. The shared segment metadata-fidelity slice, the first admin-gated athlete hub read surface, the lightweight browse refinement, and athlete-specific pinned-destination prioritization are now merged on `main`. The current auth-access change set also locks signed-out users to one branded WMV sign-in or join shell instead of exposing leaderboard or Explorer data by default.
 
-The current post-5C boundary is explicit: keep the merged admin flow, shared segment metadata baseline, and 5A through 5C athlete page intact; do not broaden into public release, map-provider decisions, geolocation, or social-feed behavior until the broader auth-access posture is resolved and a later Explorer slice is explicitly re-approved.
+The current post-auth boundary is explicit: keep the merged admin flow, shared segment metadata baseline, 5A through 5C athlete page, and tighter signed-out app posture intact; do not broaden into public release, map-provider decisions, geolocation, or social-feed behavior until a later Explorer slice is explicitly re-approved through planning.
 
 ## Current Status Summary
 
@@ -31,9 +31,9 @@ The current post-5C boundary is explicit: keep the merged admin flow, shared seg
 | Execution phasing | Phase 5C Merged | The phases doc now records 5C as merged and leaves later Explorer rollout slices in candidate status pending renewed approval. |
 | Architecture closure | Personalization Baseline Landed | The campaign-first correction, current admin hierarchy, shared segment metadata baseline, and merged athlete browse plus pinning surface are in place, so future Explorer work can build from a stable personalization baseline rather than reopening the admin shell or browse foundations. |
 | Open questions handling | Ready | The worklog now records the superseded season-attached decision and the locked no-overlap rule. |
-| Blocking research closure | Deferred Pending Re-approval | Public-release, map-provider, and social-feed questions remain explicitly deferred and should be re-evaluated only after the broader auth-access slice lands. |
-| Test planning | Ready For Auth Slice | The next test-planning work now shifts to locked signed-out entry behavior rather than more Explorer personalization. |
-| Documentation impact plan | Ready For Slice Closeout | The current documentation impact is limited to recording 5C as merged and leaving later Explorer slices unapproved until planning resumes. |
+| Blocking research closure | Deferred Pending Re-approval | Public-release, map-provider, and social-feed questions remain explicitly deferred and should be re-evaluated only after this auth-access slice is merged and Explorer planning resumes. |
+| Test planning | Auth Slice Implemented | The current change set covers locked signed-out entry behavior; the next test-planning work should wait for a newly approved Explorer slice. |
+| Documentation impact plan | Auth Closeout In Progress | The current documentation impact is the narrow auth-slice closeout and the return-to-planning boundary for later Explorer work. |
 
 ## Must Resolve Before Broad Implementation
 
@@ -88,9 +88,9 @@ The current post-5C boundary is explicit: keep the merged admin flow, shared seg
 | Status | Ready For 5B |
 | Gate | Must Resolve |
 | Why it matters | The team needs a shared rule for what can proceed now that the campaign-first correction, admin workflow hierarchy, shared segment metadata baseline, and pinned personalization slice are all merged. |
-| Evidence | The implemented webhook seam remains valid, 4A through 5C are now merged on this branch, and no further Explorer rollout slice is currently re-approved ahead of the broader auth-access work. |
-| Acceptance criteria | The readiness artifacts clearly state that 5C has landed and that further Explorer rollout work still needs renewed approval after the auth-access slice. |
-| Next action | Keep the current go decision updated as additional athlete-facing Explorer slices are approved or deferred, and close slice-local planning state in the implementation PR when the slice changes readiness or phase status. |
+| Evidence | The implemented webhook seam remains valid, 4A through 5C are now merged on `main`, the current branch locks signed-out users to a single WMV join shell, and no further Explorer rollout slice is currently re-approved. |
+| Acceptance criteria | The readiness artifacts clearly state that 5C has landed, the auth-access slice has been closed out in the implementation PR, and later Explorer rollout still needs renewed approval through planning. |
+| Next action | Keep the current go decision updated as additional athlete-facing Explorer slices are approved or deferred, and return to planning before naming another implementation PR. |
 
 ## Should Resolve Before 4A And 4B Expand
 
@@ -120,12 +120,12 @@ The current post-5C boundary is explicit: keep the merged admin flow, shared seg
 
 | Field | Value |
 | --- | --- |
-| Status | Completed Through Phase 5C |
+| Status | Auth Closeout In Progress |
 | Gate | Should Resolve |
 | Why it matters | Explorer touches admin, athlete, API, database, and release-note surfaces. That work should be visible before coding. |
-| Evidence | The 4A slice updated `docs/API.md`, `docs/DATABASE_DESIGN.md`, and the slice-local planning docs, while 4B-3 through 5C carried the structural correction, admin workflow refinement, shared segment metadata baseline, athlete read surface, browse refinement, and pinned-destination prioritization. The current change set closes out the 5C planning state. |
-| Acceptance criteria | The worklog or implementation slice records 5C as merged and leaves later Explorer rollout work unapproved until planning resumes. |
-| Next action | Keep the documentation-impact checklist current if the auth-access slice or a later Explorer slice is approved. |
+| Evidence | The 4A slice updated `docs/API.md`, `docs/DATABASE_DESIGN.md`, and the slice-local planning docs, while 4B-3 through 5C carried the structural correction, admin workflow refinement, shared segment metadata baseline, athlete read surface, browse refinement, and pinned-destination prioritization. The current change set also closes out the auth-access slice and restores the return-to-planning boundary. |
+| Acceptance criteria | The worklog or implementation slice records 5C as merged, records the auth-access outcome in the same branch, and leaves later Explorer rollout work unapproved until planning resumes. |
+| Next action | Keep the documentation-impact checklist current if a later Explorer slice is approved. |
 
 ### 4. Smallest End-To-End Slice
 
