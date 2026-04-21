@@ -92,4 +92,16 @@ describe('NavBar Explorer admin link', () => {
     expect(container.querySelector('a[href="/explorer"]')).toBeNull();
     expect(container.querySelector('a[href="/explorer-admin"]')).toBeNull();
   });
+
+  it('does not show About in the signed-out menu', async () => {
+    const { container } = await renderNavBar({
+      isConnected: false,
+      athleteInfo: null,
+      userAthleteId: null,
+    });
+
+    await openMenu(container);
+
+    expect(container.querySelector('a[href="/about"]')).toBeNull();
+  });
 });
