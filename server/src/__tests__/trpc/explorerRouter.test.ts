@@ -9,6 +9,7 @@ import {
   createExplorerCampaign,
   createExplorerDestination,
   createExplorerMatch,
+  createExplorerPin,
   createParticipant,
   createSegment,
   setupTestDb,
@@ -107,6 +108,15 @@ describe('explorerRouter', () => {
     await expect(caller.explorer.getCampaignProgress({ campaignId: campaign.id })).rejects.toThrow('UNAUTHORIZED');
   });
 
+  it('requires auth for pinning and unpinning', async () => {
+    const campaign = createExplorerCampaign(drizzleDb, { startAt: 1748736000, endAt: 1751327999 });
+    const destination = createExplorerDestination(drizzleDb, { explorerCampaignId: campaign.id, stravaSegmentId: 'seg-900' });
+    const caller = getCaller();
+
+    await expect(caller.explorer.pinDestination({ campaignId: campaign.id, destinationId: destination.id })).rejects.toThrow('UNAUTHORIZED');
+    await expect(caller.explorer.unpinDestination({ campaignId: campaign.id, destinationId: destination.id })).rejects.toThrow('UNAUTHORIZED');
+  });
+
   it('returns athlete progress for a campaign', async () => {
     createParticipant(drizzleDb, '3001', 'Progress Rider');
     createSegment(drizzleDb, 'seg-501', 'Forest Road');
@@ -144,13 +154,89 @@ describe('explorerRouter', () => {
     expect(result?.destinations[0]).toMatchObject({
       stravaSegmentId: 'seg-501',
       completed: true,
+      pinned: false,
       stravaActivityId: 'activity-501',
       displayLabel: 'Forest Road',
     });
     expect(result?.destinations[1]).toMatchObject({
       stravaSegmentId: 'seg-502',
       completed: false,
+      pinned: false,
       displayLabel: 'River Road',
     });
+  });
+
+  it('returns athlete pin state in campaign progress', async () => {
+    createParticipant(drizzleDb, '3002', 'Pin Rider');
+    const campaign = createExplorerCampaign(drizzleDb, {
+      startAt: 1751328000,
+      endAt: 1751932799,
+      displayName: 'Pinned Explorer',
+    });
+
+    const pinnedDestination = createExplorerDestination(drizzleDb, {
+      explorerCampaignId: campaign.id,
+      stravaSegmentId: 'seg-601',
+      cachedName: 'Pinned Road',
+      displayOrder: 1,
+    });
+    const otherDestination = createExplorerDestination(drizzleDb, {
+      explorerCampaignId: campaign.id,
+      stravaSegmentId: 'seg-602',
+      cachedName: 'Other Road',
+      displayOrder: 2,
+    });
+
+    createExplorerPin(drizzleDb, {
+      explorerCampaignId: campaign.id,
+      explorerDestinationId: pinnedDestination.id,
+      stravaAthleteId: '3002',
+    });
+
+    const caller = getCaller('3002');
+    const result = await caller.explorer.getCampaignProgress({ campaignId: campaign.id });
+
+    expect(result?.destinations[0]).toMatchObject({ displayLabel: 'Pinned Road', pinned: true });
+    expect(result?.destinations[1]).toMatchObject({ displayLabel: 'Other Road', pinned: false });
+  });
+
+  it('pins and unpins a destination for the authenticated athlete', async () => {
+    const athleteId = '3003';
+    createParticipant(drizzleDb, athleteId, 'Mutation Rider');
+    const campaign = createExplorerCampaign(drizzleDb, {
+      startAt: 1751328000,
+      endAt: 1751932799,
+      displayName: 'Mutation Explorer',
+    });
+    const destination = createExplorerDestination(drizzleDb, {
+      explorerCampaignId: campaign.id,
+      stravaSegmentId: 'seg-701',
+      cachedName: 'Pin Target',
+      displayOrder: 1,
+    });
+
+    const caller = getCaller(athleteId);
+
+    await expect(caller.explorer.pinDestination({ campaignId: campaign.id, destinationId: destination.id })).resolves.toEqual({ success: true });
+
+    let progress = await caller.explorer.getCampaignProgress({ campaignId: campaign.id });
+    expect(progress?.destinations[0]?.pinned).toBe(true);
+
+    await expect(caller.explorer.unpinDestination({ campaignId: campaign.id, destinationId: destination.id })).resolves.toEqual({ success: true });
+
+    progress = await caller.explorer.getCampaignProgress({ campaignId: campaign.id });
+    expect(progress?.destinations[0]?.pinned).toBe(false);
+  });
+
+  it('rejects pinning a destination outside the campaign', async () => {
+    const athleteId = '3004';
+    createParticipant(drizzleDb, athleteId, 'Mismatch Rider');
+    const campaign = createExplorerCampaign(drizzleDb, { startAt: 1751328000, endAt: 1751932799 });
+    const otherCampaign = createExplorerCampaign(drizzleDb, { startAt: 1752000000, endAt: 1752600000 });
+    const destination = createExplorerDestination(drizzleDb, { explorerCampaignId: otherCampaign.id, stravaSegmentId: 'seg-801' });
+
+    const caller = getCaller(athleteId);
+
+    await expect(caller.explorer.pinDestination({ campaignId: campaign.id, destinationId: destination.id })).rejects.toThrow('Destination not found for campaign');
   });
 });
