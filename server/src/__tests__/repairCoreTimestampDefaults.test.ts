@@ -17,6 +17,7 @@ const LEGACY_BROKEN_TIMESTAMP_LITERAL = 'sql`(CURRENT_TIMESTAMP)`';
 
 function replaceCoreTablesWithLegacyTimestampDefaults(db: Database) {
   db.exec(`
+    DROP TABLE IF EXISTS explorer_destination_pin;
     DROP TABLE IF EXISTS participant_token;
     DROP TABLE IF EXISTS result;
     DROP TABLE IF EXISTS activity;

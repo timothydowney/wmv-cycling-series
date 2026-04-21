@@ -1,13 +1,32 @@
 # Roadmap & Future Features
 
-**Last Updated:** November 22, 2025  
+**Last Updated:** April 21, 2026  
 **Current Status:** Feature-complete and production-ready. Code quality improvements in progress (Priority 4-5: Database types, UI testing). Below are enhancement ideas for future seasons.
 
 ---
 
 ## Priority: High (Season 2+)
 
-### 1. Season Archival / Data Retention
+### 1. Authenticated-Only App Access
+
+**Description:** Require login before showing any in-app content, and make the signed-out experience a richer WMV sign-in or join shell instead of a nearly empty page.
+
+**Why:**
+- Keep participant data behind authentication by default
+- Align the entire app around one clear logged-out posture before more athlete-facing personalization lands
+- Improve the signed-out entry experience with clearer onboarding instead of a sparse prompt
+
+**Implementation Notes:**
+- Reuse the existing signed-out banner pattern but rewrite the body copy as a generic invitation to join Western Mass Velo with Strava
+- Add supporting signed-out body content and optional WMV branding such as the WMV SVG so the page is not visually bare
+- Make the signed-out shell the only available experience before login, with no About page or alternate public routes
+- Keep logged-in behavior unchanged
+- Prefer a focused auth-access PR before returning to Explorer pinning or other athlete personalization
+
+**Effort:** 2-4 hours
+**Breaking Changes:** Yes, intentional user-visible access tightening for signed-out users
+
+### 2. Season Archival / Data Retention
 
 **Description:** Archive final season standings as immutable snapshots when a season ends.
 
@@ -27,7 +46,7 @@
 
 ---
 
-### 2. Strava Webhook Integration
+### 3. Strava Webhook Integration
 
 **Description:** Replace manual "Fetch Results" button with real-time webhooks from Strava.
 
@@ -51,7 +70,7 @@
 
 ---
 
-### 3. Email Notifications
+### 4. Email Notifications
 
 **Description:** Send weekly notifications to participants (optional opt-in).
 
@@ -75,7 +94,7 @@
 
 ---
 
-### 4. Admin UI for Week Creation
+### 5. Admin UI for Week Creation
 
 **Description:** Web form instead of curl commands for creating weeks.
 
@@ -100,7 +119,7 @@
 
 ## Priority: Medium (Season 3+)
 
-### 5. Activity Audit & Manual Overrides
+### 6. Activity Audit & Manual Overrides
 
 **Description:** Admin can view activity details and manually adjust/exclude activities if needed.
 
@@ -120,7 +139,7 @@
 
 ---
 
-### 6. Leaderboard Filters & Search
+### 7. Leaderboard Filters & Search
 
 **Description:** Filter leaderboards by week, season, participant name.
 
@@ -138,7 +157,7 @@
 
 ---
 
-### 7. Activity Description Enhancement
+### 8. Activity Description Enhancement
 
 **Description:** Show more details on leaderboards (route, weather, etc. from Strava).
 
@@ -157,7 +176,7 @@
 
 ## Priority: Low (Future)
 
-### 8. Mobile App
+### 9. Mobile App
 
 **Description:** Native iOS/Android app for viewing leaderboards.
 
@@ -173,7 +192,7 @@
 
 ---
 
-### 9. Analytics Dashboard
+### 10. Analytics Dashboard
 
 **Description:** Admin view of participation trends, speed trends, etc.
 
@@ -191,7 +210,7 @@
 
 ---
 
-### 10. Integration with Strava Clubs
+### 11. Integration with Strava Clubs
 
 **Description:** List WMV as a "club" on Strava, auto-sync members.
 

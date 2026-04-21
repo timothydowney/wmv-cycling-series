@@ -13,6 +13,9 @@ const unitMocks = vi.hoisted(() => ({
 const trpcMocks = vi.hoisted(() => ({
   activeCampaignUseQuery: vi.fn(),
   progressUseQuery: vi.fn(),
+  pinMutateAsync: vi.fn(),
+  unpinMutateAsync: vi.fn(),
+  invalidateCampaignProgress: vi.fn(),
   activeCampaignQuery: {
     data: null as null | {
       id: number;
@@ -63,6 +66,7 @@ const trpcMocks = vi.hoisted(() => ({
         state: string | null;
         country: string | null;
         completed: boolean;
+        pinned: boolean;
         matchedAt: number | null;
         stravaActivityId: string | null;
       }>;
@@ -73,6 +77,13 @@ const trpcMocks = vi.hoisted(() => ({
 
 vi.mock('../../utils/trpc', () => ({
   trpc: {
+    useUtils: () => ({
+      explorer: {
+        getCampaignProgress: {
+          invalidate: trpcMocks.invalidateCampaignProgress,
+        },
+      },
+    }),
     explorer: {
       getActiveCampaign: {
         useQuery: (...args: unknown[]) => {
@@ -85,6 +96,18 @@ vi.mock('../../utils/trpc', () => ({
           trpcMocks.progressUseQuery(...args);
           return trpcMocks.progressQuery;
         },
+      },
+      pinDestination: {
+        useMutation: () => ({
+          mutateAsync: trpcMocks.pinMutateAsync,
+          isPending: false,
+        }),
+      },
+      unpinDestination: {
+        useMutation: () => ({
+          mutateAsync: trpcMocks.unpinMutateAsync,
+          isPending: false,
+        }),
       },
     },
   },
@@ -150,6 +173,12 @@ describe('ExplorerHubPage', () => {
     trpcMocks.activeCampaignQuery.isLoading = false;
     trpcMocks.progressQuery.data = null;
     trpcMocks.progressQuery.isLoading = false;
+    trpcMocks.pinMutateAsync.mockReset();
+    trpcMocks.pinMutateAsync.mockResolvedValue({ success: true });
+    trpcMocks.unpinMutateAsync.mockReset();
+    trpcMocks.unpinMutateAsync.mockResolvedValue({ success: true });
+    trpcMocks.invalidateCampaignProgress.mockReset();
+    trpcMocks.invalidateCampaignProgress.mockResolvedValue(undefined);
     unitMocks.units = 'imperial';
   });
 
@@ -242,6 +271,7 @@ describe('ExplorerHubPage', () => {
           state: 'MA',
           country: 'USA',
           completed: false,
+          pinned: true,
           matchedAt: null,
           stravaActivityId: null,
         },
@@ -259,6 +289,7 @@ describe('ExplorerHubPage', () => {
           state: 'MA',
           country: 'USA',
           completed: true,
+          pinned: false,
           matchedAt: 1751673600,
           stravaActivityId: 'activity-502',
         },
@@ -273,8 +304,11 @@ describe('ExplorerHubPage', () => {
     expect(container.querySelector('[data-testid="explorer-progress-percent"]')?.textContent).toContain('50%');
     expect(container.querySelector('[data-testid="explorer-remaining-section"]')?.textContent).toContain('North Road Climb');
     expect(container.querySelector('[data-testid="explorer-completed-section"]')?.textContent).toContain('River Valley Spin');
-    expect(container.querySelector('[data-testid="explorer-destination-status-501"]')?.textContent).toContain('Remaining');
-    expect(container.querySelector('[data-testid="explorer-destination-status-502"]')?.textContent).toContain('Completed');
+    expect(container.querySelector('[data-testid="explorer-remaining-note"]')?.textContent).toContain('Pinned destinations surface first');
+    expect(container.querySelector('[data-testid="explorer-destination-status-501"]')?.getAttribute('aria-label')).toBe('Remaining destination');
+    expect(container.querySelector('[data-testid="explorer-destination-status-502"]')?.getAttribute('aria-label')).toBe('Completed destination');
+    expect(container.querySelector('[data-testid="explorer-destination-pin-indicator-501"]')?.getAttribute('aria-label')).toBe('Flagged destination');
+    expect(container.querySelector('[data-testid="explorer-destination-pin-indicator-502"]')).toBeNull();
     expect(container.querySelector('[data-testid="explorer-search-card"]')).toBeNull();
   });
 
@@ -313,6 +347,7 @@ describe('ExplorerHubPage', () => {
           state: null,
           country: null,
           completed: false,
+          pinned: false,
           matchedAt: null,
           stravaActivityId: null,
         },
@@ -330,6 +365,7 @@ describe('ExplorerHubPage', () => {
           state: null,
           country: null,
           completed: false,
+          pinned: false,
           matchedAt: null,
           stravaActivityId: null,
         },
@@ -347,6 +383,7 @@ describe('ExplorerHubPage', () => {
           state: null,
           country: null,
           completed: false,
+          pinned: false,
           matchedAt: null,
           stravaActivityId: null,
         },
@@ -364,6 +401,7 @@ describe('ExplorerHubPage', () => {
           state: null,
           country: null,
           completed: false,
+          pinned: false,
           matchedAt: null,
           stravaActivityId: null,
         },
@@ -381,6 +419,7 @@ describe('ExplorerHubPage', () => {
           state: null,
           country: null,
           completed: false,
+          pinned: false,
           matchedAt: null,
           stravaActivityId: null,
         },
@@ -398,6 +437,7 @@ describe('ExplorerHubPage', () => {
           state: null,
           country: null,
           completed: true,
+          pinned: false,
           matchedAt: 1751500000,
           stravaActivityId: 'act-6',
         },
@@ -415,6 +455,7 @@ describe('ExplorerHubPage', () => {
           state: null,
           country: null,
           completed: true,
+          pinned: false,
           matchedAt: 1751800000,
           stravaActivityId: 'act-7',
         },
@@ -432,6 +473,7 @@ describe('ExplorerHubPage', () => {
           state: null,
           country: null,
           completed: true,
+          pinned: false,
           matchedAt: 1751600000,
           stravaActivityId: 'act-8',
         },
@@ -449,6 +491,7 @@ describe('ExplorerHubPage', () => {
           state: null,
           country: null,
           completed: true,
+          pinned: false,
           matchedAt: 1751400000,
           stravaActivityId: 'act-9',
         },
@@ -458,6 +501,7 @@ describe('ExplorerHubPage', () => {
     const { container } = await renderPage();
 
     const remainingSection = container.querySelector('[data-testid="explorer-remaining-section"]');
+    expect(container.querySelector('[data-testid="explorer-pinned-empty-state"]')?.textContent).toContain('No pinned destinations yet');
     expect(remainingSection?.textContent).toContain('Remaining 5');
     expect(remainingSection?.textContent).not.toContain('Show all');
 
@@ -533,6 +577,7 @@ describe('ExplorerHubPage', () => {
           state: null,
           country: null,
           completed: false,
+          pinned: false,
           matchedAt: null,
           stravaActivityId: null,
         },
@@ -550,6 +595,7 @@ describe('ExplorerHubPage', () => {
           state: 'MA',
           country: 'USA',
           completed: true,
+          pinned: true,
           matchedAt: 1751400000,
           stravaActivityId: 'act-901',
         },
@@ -572,8 +618,9 @@ describe('ExplorerHubPage', () => {
     const allDestinations = container.querySelector('[data-testid="explorer-all-destinations-section"]');
     expect(allDestinations?.textContent).toContain('Alpha Climb');
     expect(allDestinations?.textContent).toContain('Beta Rollers');
-    expect(allDestinations?.textContent).toContain('Remaining');
-    expect(allDestinations?.textContent).toContain('Completed');
+    expect(container.querySelector('[data-testid="explorer-destination-status-900"]')?.getAttribute('aria-label')).toBe('Remaining destination');
+    expect(container.querySelector('[data-testid="explorer-destination-status-901"]')?.getAttribute('aria-label')).toBe('Completed destination');
+    expect(container.querySelector('[data-testid="explorer-destination-pin-indicator-901"]')).toBeNull();
 
     expect(container.querySelector('[data-testid="explorer-results-count"]')?.textContent).toContain('2');
 
@@ -596,6 +643,86 @@ describe('ExplorerHubPage', () => {
     expect(allDestinations?.textContent).toContain('Beta Rollers');
     expect(allDestinations?.textContent).not.toContain('Alpha Climb');
     expect(container.querySelector('[data-testid="explorer-results-count"]')?.textContent).toContain('1 of 2');
+
+    await clickElement(container.querySelector('[data-testid="explorer-pin-toggle-901"]'));
+
+    expect(trpcMocks.unpinMutateAsync).toHaveBeenCalledWith({ campaignId: 99, destinationId: 901 });
+    expect(trpcMocks.invalidateCampaignProgress).toHaveBeenCalledWith({ campaignId: 99 });
+  });
+
+  it('pins destinations from Destinations and prioritizes pinned remaining destinations on Hub', async () => {
+    trpcMocks.activeCampaignQuery.data = {
+      id: 111,
+      name: 'Pinned Planning Explorer',
+      startAt: 1751328000,
+      endAt: 1753919999,
+      rulesBlurb: null,
+      destinations: [],
+    };
+
+    trpcMocks.progressQuery.data = {
+      campaign: {
+        id: 111,
+        name: 'Pinned Planning Explorer',
+        startAt: 1751328000,
+        endAt: 1753919999,
+        rulesBlurb: null,
+      },
+      completedDestinations: 0,
+      totalDestinations: 2,
+      destinations: [
+        {
+          id: 1001,
+          stravaSegmentId: 'seg-1001',
+          displayOrder: 1,
+          displayLabel: 'Unpinned First',
+          customLabel: null,
+          segmentName: 'Unpinned First',
+          sourceUrl: null,
+          distance: null,
+          averageGrade: null,
+          city: null,
+          state: null,
+          country: null,
+          completed: false,
+          pinned: false,
+          matchedAt: null,
+          stravaActivityId: null,
+        },
+        {
+          id: 1002,
+          stravaSegmentId: 'seg-1002',
+          displayOrder: 2,
+          displayLabel: 'Pinned Second',
+          customLabel: null,
+          segmentName: 'Pinned Second',
+          sourceUrl: null,
+          distance: null,
+          averageGrade: null,
+          city: null,
+          state: null,
+          country: null,
+          completed: false,
+          pinned: true,
+          matchedAt: null,
+          stravaActivityId: null,
+        },
+      ],
+    };
+
+    const { container } = await renderPage();
+
+    const remainingCards = Array.from(container.querySelectorAll('[data-testid^="explorer-destination-card-"]'));
+    expect(remainingCards[0]?.textContent).toContain('Pinned Second');
+    expect(remainingCards[1]?.textContent).toContain('Unpinned First');
+    expect(container.querySelector('[data-testid="explorer-destination-pin-indicator-1002"]')?.getAttribute('aria-label')).toBe('Flagged destination');
+
+    await clickElement(container.querySelector('[data-testid="explorer-tab-destinations"]'));
+    expect(container.querySelector('[data-testid="explorer-destination-pin-indicator-1002"]')).toBeNull();
+    await clickElement(container.querySelector('[data-testid="explorer-pin-toggle-1001"]'));
+
+    expect(trpcMocks.pinMutateAsync).toHaveBeenCalledWith({ campaignId: 111, destinationId: 1001 });
+    expect(trpcMocks.invalidateCampaignProgress).toHaveBeenCalledWith({ campaignId: 111 });
   });
 
   it('shows a connect prompt when the athlete is not connected', async () => {
@@ -626,5 +753,59 @@ describe('ExplorerHubPage', () => {
     const { container } = await renderPage({ isConnected: false });
 
     expect(container.querySelector('[data-testid="explorer-hub-connect-state"]')?.textContent).toContain('Connect Strava');
+    expect(container.querySelector('[data-testid="explorer-remaining-note"]')?.textContent).toContain('Connect Strava to pin destinations and track progress.');
+  });
+
+  it('shows a recoverable error message when pinning fails', async () => {
+    trpcMocks.activeCampaignQuery.data = {
+      id: 123,
+      name: 'Pin Failure Explorer',
+      startAt: 1751328000,
+      endAt: 1753919999,
+      rulesBlurb: null,
+      destinations: [],
+    };
+
+    trpcMocks.progressQuery.data = {
+      campaign: {
+        id: 123,
+        name: 'Pin Failure Explorer',
+        startAt: 1751328000,
+        endAt: 1753919999,
+        rulesBlurb: null,
+      },
+      completedDestinations: 0,
+      totalDestinations: 1,
+      destinations: [
+        {
+          id: 2001,
+          stravaSegmentId: 'seg-2001',
+          displayOrder: 1,
+          displayLabel: 'Failure Climb',
+          customLabel: null,
+          segmentName: 'Failure Climb',
+          sourceUrl: null,
+          distance: null,
+          averageGrade: null,
+          city: null,
+          state: null,
+          country: null,
+          completed: false,
+          pinned: false,
+          matchedAt: null,
+          stravaActivityId: null,
+        },
+      ],
+    };
+
+    trpcMocks.pinMutateAsync.mockRejectedValueOnce(new Error('network failed'));
+
+    const { container } = await renderPage();
+
+    await clickElement(container.querySelector('[data-testid="explorer-tab-destinations"]'));
+    await clickElement(container.querySelector('[data-testid="explorer-pin-toggle-2001"]'));
+
+    expect(container.querySelector('[data-testid="explorer-pin-toggle-error"]')?.textContent).toContain('Could not update that destination right now. Please try again.');
+    expect(trpcMocks.invalidateCampaignProgress).not.toHaveBeenCalled();
   });
 });

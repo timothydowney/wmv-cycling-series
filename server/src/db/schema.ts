@@ -205,6 +205,18 @@ export const explorerDestinationMatch = sqliteTable('explorer_destination_match'
   uniqueIndex('idx_explorer_match_unique').on(t.explorer_campaign_id, t.explorer_destination_id, t.strava_athlete_id),
 ]);
 
+export const explorerDestinationPin = sqliteTable('explorer_destination_pin', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  explorer_campaign_id: integer('explorer_campaign_id').notNull().references(() => explorerCampaign.id, { onDelete: 'cascade' }),
+  explorer_destination_id: integer('explorer_destination_id').notNull().references(() => explorerDestination.id, { onDelete: 'cascade' }),
+  strava_athlete_id: text('strava_athlete_id').notNull().references(() => participant.strava_athlete_id, { onDelete: 'cascade' }),
+  created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
+},
+(t) => [
+  index('idx_explorer_pin_campaign_athlete').on(t.explorer_campaign_id, t.strava_athlete_id),
+  uniqueIndex('idx_explorer_pin_unique').on(t.explorer_campaign_id, t.explorer_destination_id, t.strava_athlete_id),
+]);
+
 // Chain Wax Tracking tables
 export const chainWaxPeriod = sqliteTable('chain_wax_period', {
   id: integer().primaryKey({ autoIncrement: true }),
@@ -257,6 +269,8 @@ export type NewSegment = typeof segment.$inferInsert;
 
 export type ExplorerCampaign = typeof explorerCampaign.$inferSelect;
 export type NewExplorerCampaign = typeof explorerCampaign.$inferInsert;
+export type ExplorerDestinationPin = typeof explorerDestinationPin.$inferSelect;
+export type NewExplorerDestinationPin = typeof explorerDestinationPin.$inferInsert;
 
 export type ExplorerDestination = typeof explorerDestination.$inferSelect;
 export type NewExplorerDestination = typeof explorerDestination.$inferInsert;
