@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Explorer admin now surfaces shared Strava segment detail fields including elevation, climb category, coordinates, and metadata refresh time inside expanded destination cards.
 
 ### Changed
+- Signed-out visitors now see a branded WMV join shell instead of leaderboard or About routes, and the page clarifies that "Connect with Strava" is also how returning members reconnect.
 - Explorer destination cards now use consistent icon-based completion and flagged status cues across the Hub and Destinations views.
 - Explorer's athlete-facing Destinations tab now supports local destination search and completion filters using the existing campaign progress data, making larger campaign checklists easier to browse without adding a new backend contract.
 - Season openness is now treated as date-based in application logic, allowing overlapping seasons to remain open concurrently.

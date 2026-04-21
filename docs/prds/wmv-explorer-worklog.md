@@ -4,16 +4,16 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 
 ## Current Focus
 
-- Record 5C as merged on this branch and close out the Explorer personalization slice.
-- Keep the broader app auth-access tightening as the recommended next overall implementation step so logged-out users no longer see leaderboard or Explorer data by default.
-- Leave later Explorer rollout work unapproved until planning resumes after the auth-access slice.
+- Record 5C as merged on `main` and close out the Explorer personalization slice.
+- Record the broader app auth-access tightening as implemented in this branch so logged-out users now see one WMV sign-in or join shell by default.
+- Leave later Explorer rollout work unapproved until planning resumes after this auth-access branch is reviewed and merged.
 - Keep any pre-release Explorer UI admin-gated until there is an explicit end-user release decision.
-- Keep the next planning handoff aligned with the merged campaign-first model, the shared segment metadata baseline, and the merged 5A through 5C athlete page.
+- Keep the next planning handoff aligned with the merged campaign-first model, the shared segment metadata baseline, the merged 5A through 5C athlete page, and the tighter signed-out app posture.
 
 ## Current Go State
 
 - **Readiness:** Phase 1 Complete; Campaign-First Explorer Correction Landed; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Phase 4B-3 Campaign Decoupling And Unified Admin Shell Merged; Phase 4B-4 Admin Workflow Hierarchy And Destination Management Merged; Phase 4B-5 Segment Metadata Fidelity And Freshness Merged; Phase 5A Athlete Hub Read Surface Merged; Phase 5B Checklist And Browse Refinement Merged; Phase 5C Pinned Destinations And Hub Prioritization Merged
-- **Immediate scope:** land the broader app auth gate so logged-out users see a richer sign-in or join shell instead of leaderboard data; no further Explorer rollout slice is approved yet
+- **Immediate scope:** close out the current auth-access branch, then return to planning before approving any later Explorer rollout slice
 - **Not yet in scope:** public athlete-facing Explorer release, public navigation to Explorer, map rendering, location-based discovery, social-feed behavior, mini-campaigns, or explicit publish-status workflows
 
 ## Decisions Made
@@ -25,7 +25,7 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 - Skills should carry the reusable workflow knowledge because they are portable across VS Code, Copilot CLI, and cloud agents.
 - GitHub issues remain secondary for now; local planning docs stay primary until slices are stable enough to externalize cleanly.
 - Phase 1 is approved only as a structural webhook slice: preserve current behavior first, add Explorer matching later.
-- Phase 1 is complete on this branch: the shared activity-ingestion context, sequential delegated handlers, explicit handler order, and preservation tests are in place.
+- Phase 1 is complete on `main`: the shared activity-ingestion context, sequential delegated handlers, explicit handler order, and preservation tests are in place.
 - The previous Explorer planning set and PR #23 used the wrong primary model: weekly Explorer challenges first, with season-wide support deferred.
 - MVP should instead be campaign-first, with campaign-owned date boundaries and optional sub-campaigns deferred.
 - MVP does not currently justify explicit Explorer `draft` / `active` / `archived` workflow complexity; campaign dates and destination presence should control visibility unless later implementation proves otherwise.
@@ -54,6 +54,7 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 - The next athlete-facing slice should focus on larger-list usability inside the existing Hub and Destinations views before adding any new top-level Explorer mode.
 - Lightweight browse aids are acceptable in 5B only if they improve list scanning without implying public release, full search, map discovery, or a shift toward leaderboard semantics.
 - Logged-out users should not see leaderboard or Explorer data by default; the default signed-out shell should reuse the existing login prompt language, remove leaderboard-specific copy, and add enough WMV join context that the page does not feel empty.
+- The current auth-access branch now enforces that signed-out users see one WMV join shell instead of leaderboard or About routes, while preserving the logged-in app shell.
 - The 5C slice now lets a logged-in athlete pin destinations from the Destinations tab and uses that preference state to prioritize remaining destinations on the Hub page without changing campaign order or completion semantics elsewhere.
 - Map-based discovery is important follow-on work, but it should start only after the list-first athlete page exists and the map product questions are answered explicitly.
 - Social visibility can grow later, but a social feed is not the smallest useful first athlete-facing Explorer surface.
@@ -168,65 +169,20 @@ The current preservation target is backed by:
 	- Destination creation can proceed when URL parsing succeeds even if live metadata enrichment is temporarily unavailable.
 	- Backend coverage now includes focused admin service and router tests for auth, validation, duplicate protection, metadata fallback, and in-campaign additions.
 
-### Recommended Next PR
-
-- Start from updated `main` on a dedicated implementation branch.
-- Keep the next overall implementation PR scoped to the broader app auth-access tightening:
-	- make the signed-out experience a generic WMV sign-in or join shell rather than a data-preview surface
-	- use Strava sign-in language that invites people to join Western Mass Velo without mentioning leaderboards or competition
-	- add supporting signed-out body content, and optional WMV branding such as the WMV SVG, so the page does not feel bare
-	- make that signed-out shell the only experience available before login, with no About page or other alternate public routes
-	- preserve logged-in behavior and avoid bundling Explorer personalization into the same PR
-- Validation path for the next overall PR:
-	- frontend unit tests for the locked signed-out shell and the absence of alternate signed-out destinations
-	- targeted Playwright for the signed-out entry flow if the route lock or sign-in shell behavior becomes browser-significant
-	- `npm run lint`, `npm run typecheck`, and targeted build verification
-- After the auth-access PR lands, keep the next Explorer implementation PR scoped to Phase 5C pinned destinations and hub prioritization:
-	- preserve the merged 5A/5B route, admin gate, progress summary, and Hub versus Destinations structure
-	- let logged-in athletes pin destinations from the existing Destinations tab and unpin them without changing completion status
-	- use that pinned state to prioritize what the Hub page shows first for remaining destinations
-	- keep campaign order and completion semantics intact outside the explicit pinned-priority behavior
-	- avoid adding public release behavior, map rendering, location prompts, or social-feed behavior in the same slice
-- Planning and documentation surfaces likely to change across those next steps:
-	- `docs/ROADMAP.md`
-	- `docs/prds/wmv-explorer-destinations-phases.md`
-	- `docs/prds/wmv-explorer-worklog.md`
-	- `docs/prds/wmv-explorer-readiness-checklist.md`
-	- `docs/prds/wmv-explorer-destinations-tech-spec.md` only if a later Explorer slice changes the query or persistence contract
-	- `docs/API.md` only if new auth or athlete Explorer procedures are added
-
-### Auth-Access Implementation Brief
+### Auth-Access Outcome
 
 - Slice: cross-product auth-access tightening only.
-- Branch start point: updated `main`, then a dedicated feature branch before coding.
-- Governing scope: change the default signed-out experience so unauthenticated visitors see only a branded WMV sign-in or join shell.
-- Product recommendation:
-	- keep the primary message generic and invitation-based: sign in with Strava to join Western Mass Velo
-	- avoid mentioning leaderboards, competition, or any other internal app surface in the signed-out copy
-	- keep the page visually complete with supporting body copy and optional WMV branding such as the WMV SVG
-	- do not leave alternate signed-out destinations available; no About page or similar fallback should remain reachable before login
-	- preserve the current signed-in experience so this slice is about access posture, not a broader app redesign
-- UX recommendation:
-	- the signed-out view should feel intentional rather than empty
-	- the sign-in call to action should remain the dominant action on the page
-	- any supporting text should frame WMV as something to join, not as a dashboard preview
-
-Exact acceptance:
-
-- When a user is not logged in, the app shows a signed-out WMV sign-in or join shell instead of any data-bearing page.
-- The signed-out shell uses generic Strava sign-in language oriented around joining Western Mass Velo.
-- The signed-out shell does not mention leaderboards or competition.
-- The signed-out shell includes enough supporting content and or WMV branding that it does not feel visually bare.
-- Signed-out users cannot access alternate informational or navigation destinations such as the About page.
-- After login, the existing in-app experience remains available without the auth slice also taking on Explorer personalization work.
-
-Validation path:
-
-- Frontend unit tests covering the signed-out shell, its primary call to action, and the absence of alternate signed-out destinations
-- targeted Playwright only if the signed-out route lock or sign-in flow behavior becomes meaningfully browser-dependent
-- `npm run lint`
-- `npm run typecheck`
-- targeted build verification for the touched entry surfaces
+- Status: implemented in this branch; expected to close out with the same PR.
+- Landed outcome:
+	- signed-out users now see one branded WMV sign-in or join shell instead of leaderboard, Explorer, or About routes
+	- the signed-out shell uses generic WMV and Strava join language rather than leaderboard or competition framing
+	- the signed-out shell includes supporting content and WMV branding so the app does not feel sparse before login
+	- the logged-in app shell and logged-in navigation remain intact
+- Validation expectation for this branch:
+	- frontend unit tests for signed-out route gating and the absence of alternate signed-out destinations
+	- slice-normal `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`
+- Next planning handoff after merge:
+	- return to planning before approving any later Explorer rollout slice such as map or social follow-on work
 
 ### 4B-3 Outcome
 
@@ -291,7 +247,7 @@ Validation path:
 ### 5C Outcome
 
 - Phase: 5C Pinned Destinations And Hub Prioritization
-- Status: merged on this branch
+- Status: merged on `main`
 - Landed outcome:
 	- logged-in athletes can now pin and unpin destinations from the existing Destinations tab without changing browse ordering there
 	- pinned state is athlete-specific and persists for the active campaign
