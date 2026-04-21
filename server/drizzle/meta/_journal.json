@@ -106,6 +106,13 @@
       "when": 1776613200000,
       "tag": "0014_repair_core_timestamp_defaults",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1776703200000,
+      "tag": "0015_explorer_destination_pins",
+      "breakpoints": true
     }
   ]
 }

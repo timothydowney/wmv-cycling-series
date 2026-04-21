@@ -290,7 +290,7 @@ Landed outcome:
 
 Goal: improve the athlete checklist experience once the 5A page exists and real campaign volume exposes where scanning or filtering starts to break down.
 
-Status: approved as the next bounded slice after 5A.
+Status: merged on `main` as the first browse-refinement slice.
 
 Scope:
 
@@ -313,7 +313,52 @@ Validation:
 - Targeted Playwright only if the chosen browse interaction is meaningfully browser-dependent
 - Slice-normal `npm run lint`, `npm run typecheck`, and targeted build verification
 
-### Slice 5C: Map Discovery
+Landed outcome:
+
+- the Destinations tab now supports local search and completion-state filtering on top of the merged athlete-facing Explorer page
+- filtered counts and a dedicated filtered empty state now make larger destination sets easier to scan without a new backend contract
+- the browse surface remains list-first, progress-first, and admin-gated while reserving map and social work for later phases
+
+Ordering note:
+
+- Before more athlete-facing Explorer personalization lands, the broader app should tighten its default signed-out behavior so logged-out users see a richer sign-in or join shell instead of leaderboard or Explorer data. That cross-product auth-access slice is outside Explorer phase numbering but should go first in implementation order.
+
+### Slice 5C: Pinned Destinations And Hub Prioritization
+
+Goal: help logged-in athletes turn the merged browse surface into a lightweight planning tool by letting them pin destinations they want to visit and surfacing those pinned choices first on the Hub page.
+
+Status: merged on this branch as the next bounded Explorer personalization slice after 5B.
+
+Scope:
+
+- Preserve the merged 5A/5B route, admin gate, search, and completion filters.
+- Let the logged-in athlete pin and unpin destinations from the existing Destinations tab.
+- Add athlete-specific persistence for pinned destinations only if it is required to keep the preference stable across sessions.
+- Prioritize pinned remaining destinations on the Hub page without changing completion math or destination-match rules.
+- Keep the non-pinned experience understandable when an athlete has not pinned anything yet.
+
+Out of scope:
+
+- Public release exposure to non-admin users
+- Shared pin lists, social visibility, or athlete-to-athlete recommendation behavior
+- Map rendering, map-provider selection, geolocation prompts, or proximity search
+- Reframing Explorer as a leaderboard or rank-ordered surface
+- Changing the default campaign ordering in the main Destinations browse list outside explicit pinned-priority surfaces
+
+Validation:
+
+- Frontend unit tests for pin and unpin interactions, empty and populated pinned states, and Hub prioritization behavior
+- Backend tests for athlete-specific pin persistence or query shaping if the chosen implementation adds a new Explorer procedure or storage table
+- Targeted Playwright only if the chosen pinning workflow is meaningfully browser-dependent
+- Slice-normal `npm run lint`, `npm run typecheck`, and targeted build verification
+
+Landed outcome:
+
+- the Destinations tab now lets the current athlete pin and unpin destinations without turning the browse surface into a recommendation feed
+- athlete-specific pin state now persists for the active campaign
+- the Hub page now surfaces pinned remaining destinations first and explains the no-pins-yet state without changing completion math or default browse order
+
+### Slice 5D: Map Discovery
 
 Goal: add map-based discovery only after the list-first athlete page exists and the map product questions are explicitly answered.
 
@@ -323,7 +368,7 @@ Candidate scope:
 - Define how a destination should appear on the map, including whether the UI centers on a segment start point, end point, midpoint, or later geometry
 - Add a clear relationship between the map and the destination list instead of forcing both into one overloaded first page
 
-### Slice 5D: Social Visibility
+### Slice 5E: Social Visibility
 
 Goal: add lightweight communal visibility only after the athlete's personal-progress experience is stable.
 

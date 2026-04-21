@@ -4,16 +4,16 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 
 ## Current Focus
 
-- Tighten the athlete checklist experience now that the first Explorer hub page exists on `main`.
-- Improve scanning for larger destination sets without turning the page into a map, search-heavy browser, or social feed.
-- Keep the existing Hub and Destinations structure intact while refining grouping, progressive disclosure, or other lightweight browse aids only where they help real campaign volume.
+- Record 5C as merged on this branch and close out the Explorer personalization slice.
+- Keep the broader app auth-access tightening as the recommended next overall implementation step so logged-out users no longer see leaderboard or Explorer data by default.
+- Leave later Explorer rollout work unapproved until planning resumes after the auth-access slice.
 - Keep any pre-release Explorer UI admin-gated until there is an explicit end-user release decision.
-- Keep the next handoff and implementation brief aligned with the merged campaign-first model, the shared segment metadata baseline, and the merged 5A athlete page.
+- Keep the next planning handoff aligned with the merged campaign-first model, the shared segment metadata baseline, and the merged 5A through 5C athlete page.
 
 ## Current Go State
 
-- **Readiness:** Phase 1 Complete; Campaign-First Explorer Correction Landed; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Phase 4B-3 Campaign Decoupling And Unified Admin Shell Merged; Phase 4B-4 Admin Workflow Hierarchy And Destination Management Merged; Phase 4B-5 Segment Metadata Fidelity And Freshness Merged; Phase 5A Athlete Hub Read Surface Merged; Ready For Phase 5B Checklist And Browse Refinement
-- **Immediate scope:** refine the merged athlete Explorer page so larger destination lists are easier to scan, browse, and understand without changing the product model or release gate
+- **Readiness:** Phase 1 Complete; Campaign-First Explorer Correction Landed; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Phase 4B-3 Campaign Decoupling And Unified Admin Shell Merged; Phase 4B-4 Admin Workflow Hierarchy And Destination Management Merged; Phase 4B-5 Segment Metadata Fidelity And Freshness Merged; Phase 5A Athlete Hub Read Surface Merged; Phase 5B Checklist And Browse Refinement Merged; Phase 5C Pinned Destinations And Hub Prioritization Merged
+- **Immediate scope:** land the broader app auth gate so logged-out users see a richer sign-in or join shell instead of leaderboard data; no further Explorer rollout slice is approved yet
 - **Not yet in scope:** public athlete-facing Explorer release, public navigation to Explorer, map rendering, location-based discovery, social-feed behavior, mini-campaigns, or explicit publish-status workflows
 
 ## Decisions Made
@@ -53,6 +53,8 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 - The merged 5A athlete hub is the baseline for later athlete-facing Explorer work; follow-on slices should refine it rather than reopening the first-page route, access model, or progress summary contract without a new planning decision.
 - The next athlete-facing slice should focus on larger-list usability inside the existing Hub and Destinations views before adding any new top-level Explorer mode.
 - Lightweight browse aids are acceptable in 5B only if they improve list scanning without implying public release, full search, map discovery, or a shift toward leaderboard semantics.
+- Logged-out users should not see leaderboard or Explorer data by default; the default signed-out shell should reuse the existing login prompt language, remove leaderboard-specific copy, and add enough WMV join context that the page does not feel empty.
+- The 5C slice now lets a logged-in athlete pin destinations from the Destinations tab and uses that preference state to prioritize remaining destinations on the Hub page without changing campaign order or completion semantics elsewhere.
 - Map-based discovery is important follow-on work, but it should start only after the list-first athlete page exists and the map product questions are answered explicitly.
 - Social visibility can grow later, but a social feed is not the smallest useful first athlete-facing Explorer surface.
 
@@ -79,6 +81,8 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 | Should Explorer introduce its own Strava metadata refresh workflow? | Closed For 4B-5 | No | No. Keep metadata refresh tied to the shared segment metadata service and later broader resync flows rather than adding Explorer-only refresh behavior. |
 | What is the smallest useful first athlete-facing Explorer page after 4B-5? | Closed For 5A | No | A list-first, admin-gated athlete page showing the active campaign, personal progress, and completed versus remaining destinations. |
 | What is the smallest useful follow-on slice after the merged 5A athlete page? | Closed For 5B | No | Refine checklist scanning for larger destination sets inside the existing Hub and Destinations structure before map or social work. |
+| Should logged-out athletes continue to see leaderboard or Explorer data by default? | Closed | No | No. The broader app should default to a sign-in or join shell for unauthenticated users, and that cross-product access change should land before more athlete-facing Explorer personalization. |
+| What is the smallest useful follow-on slice after the merged 5B athlete browse refinement? | Closed For 5C | No | Let logged-in athletes pin destinations from the Destinations tab and prioritize those pinned destinations on the Hub page before map or social work. |
 | Should map-based destination discovery be part of the first athlete-facing slice? | Closed For 5A | No | No. Defer map-provider selection, geolocation behavior, and map/list interaction design to a later Phase 5 slice. |
 | Should a social feed or broader athlete activity visibility be part of the first athlete-facing slice? | Closed For 5A | No | No. Defer social expansion until after the personal-progress page is stable. |
 
@@ -167,23 +171,62 @@ The current preservation target is backed by:
 ### Recommended Next PR
 
 - Start from updated `main` on a dedicated implementation branch.
-- Keep the next implementation PR scoped to Phase 5B checklist and browse refinement:
-	- preserve the merged 5A route, admin gate, progress summary, and Hub versus Destinations structure
-	- activate the existing Destinations browse stub as a lightweight local browse surface using the already-loaded campaign progress data
-	- add client-side search and completion-state filtering only; do not introduce a new discovery model, public release behavior, or server-driven browse contract in this slice
-	- preserve campaign order inside filtered results and keep destination-card semantics aligned with the existing progress-first model
-	- keep the experience list-first and do not add map rendering, location prompts, or social-feed behavior in the same slice
-- Validation path for the next PR:
-	- frontend unit tests for local search, completion-state filtering, filtered counts, filtered empty states, and protected-route behavior in the merged athlete page
-	- backend tests only if implementation proves a new Explorer query procedure is unavoidable, which is not the planned path for this slice
-	- targeted Playwright only if the browse interaction becomes meaningfully browser-dependent after implementation
+- Keep the next overall implementation PR scoped to the broader app auth-access tightening:
+	- make the signed-out experience a generic WMV sign-in or join shell rather than a data-preview surface
+	- use Strava sign-in language that invites people to join Western Mass Velo without mentioning leaderboards or competition
+	- add supporting signed-out body content, and optional WMV branding such as the WMV SVG, so the page does not feel bare
+	- make that signed-out shell the only experience available before login, with no About page or other alternate public routes
+	- preserve logged-in behavior and avoid bundling Explorer personalization into the same PR
+- Validation path for the next overall PR:
+	- frontend unit tests for the locked signed-out shell and the absence of alternate signed-out destinations
+	- targeted Playwright for the signed-out entry flow if the route lock or sign-in shell behavior becomes browser-significant
 	- `npm run lint`, `npm run typecheck`, and targeted build verification
-- Planning and documentation surfaces likely to change when 5B lands:
+- After the auth-access PR lands, keep the next Explorer implementation PR scoped to Phase 5C pinned destinations and hub prioritization:
+	- preserve the merged 5A/5B route, admin gate, progress summary, and Hub versus Destinations structure
+	- let logged-in athletes pin destinations from the existing Destinations tab and unpin them without changing completion status
+	- use that pinned state to prioritize what the Hub page shows first for remaining destinations
+	- keep campaign order and completion semantics intact outside the explicit pinned-priority behavior
+	- avoid adding public release behavior, map rendering, location prompts, or social-feed behavior in the same slice
+- Planning and documentation surfaces likely to change across those next steps:
+	- `docs/ROADMAP.md`
 	- `docs/prds/wmv-explorer-destinations-phases.md`
 	- `docs/prds/wmv-explorer-worklog.md`
 	- `docs/prds/wmv-explorer-readiness-checklist.md`
-	- `docs/prds/wmv-explorer-destinations-tech-spec.md` only if the slice changes the browse/query contract
-	- `docs/API.md` only if new athlete Explorer procedures are added, which is not expected for this slice
+	- `docs/prds/wmv-explorer-destinations-tech-spec.md` only if a later Explorer slice changes the query or persistence contract
+	- `docs/API.md` only if new auth or athlete Explorer procedures are added
+
+### Auth-Access Implementation Brief
+
+- Slice: cross-product auth-access tightening only.
+- Branch start point: updated `main`, then a dedicated feature branch before coding.
+- Governing scope: change the default signed-out experience so unauthenticated visitors see only a branded WMV sign-in or join shell.
+- Product recommendation:
+	- keep the primary message generic and invitation-based: sign in with Strava to join Western Mass Velo
+	- avoid mentioning leaderboards, competition, or any other internal app surface in the signed-out copy
+	- keep the page visually complete with supporting body copy and optional WMV branding such as the WMV SVG
+	- do not leave alternate signed-out destinations available; no About page or similar fallback should remain reachable before login
+	- preserve the current signed-in experience so this slice is about access posture, not a broader app redesign
+- UX recommendation:
+	- the signed-out view should feel intentional rather than empty
+	- the sign-in call to action should remain the dominant action on the page
+	- any supporting text should frame WMV as something to join, not as a dashboard preview
+
+Exact acceptance:
+
+- When a user is not logged in, the app shows a signed-out WMV sign-in or join shell instead of any data-bearing page.
+- The signed-out shell uses generic Strava sign-in language oriented around joining Western Mass Velo.
+- The signed-out shell does not mention leaderboards or competition.
+- The signed-out shell includes enough supporting content and or WMV branding that it does not feel visually bare.
+- Signed-out users cannot access alternate informational or navigation destinations such as the About page.
+- After login, the existing in-app experience remains available without the auth slice also taking on Explorer personalization work.
+
+Validation path:
+
+- Frontend unit tests covering the signed-out shell, its primary call to action, and the absence of alternate signed-out destinations
+- targeted Playwright only if the signed-out route lock or sign-in flow behavior becomes meaningfully browser-dependent
+- `npm run lint`
+- `npm run typecheck`
+- targeted build verification for the touched entry surfaces
 
 ### 4B-3 Outcome
 
@@ -236,105 +279,24 @@ The current preservation target is backed by:
 	- the active campaign, current-athlete progress summary, and list-first destination views now form the baseline athlete Explorer experience
 	- the leaderboard design system now explicitly governs the shared navigation and typography patterns reused by Explorer athlete surfaces
 
-### 5B Implementation Handoff
-
-- Slice: Phase 5B only.
-- Branch start point: updated `main`, then a dedicated feature branch before coding.
-- Governing scope: refine the merged athlete Explorer page so larger destination sets are easier to scan without changing the underlying product boundary.
-- UI rule: keep the documented leaderboard design system and the merged Hub versus Destinations structure as the source of truth; refine hierarchy and browse aids inside that shell rather than inventing a new top-level Explorer mode.
-- Product recommendation:
-	- preserve the active campaign hero and current-athlete progress summary from 5A
-	- make larger destination lists easier to scan first, before adding new discovery primitives
-	- use the existing Destinations tab as the browse surface and activate lightweight local browse controls there
-	- keep the page list-first and progress-first rather than drifting into rank, feed, or map behavior
-	- keep the route admin-gated until an explicit release decision changes that rule
-- Data recommendation:
-	- keep using the computed-on-read athlete summary model already approved in the tech spec
-	- reuse the existing shared segment and Explorer destination metadata returned by the current read surfaces where possible
-	- do not plan on a new Explorer query shape for this slice; prefer client-side filtering over the existing merged read payload
-	- defer map-provider selection, geolocation, public release work, and social visibility to later slices
-- Existing Playwright impact:
-	- preserve current admin gating behavior until release approval changes
-	- add targeted browser coverage only if the chosen browse refinement relies on meaningful interactive behavior beyond what focused unit tests can prove
-	- continue using the hardened E2E harness rather than local-only assumptions
-
-### 5B Branch-Ready Task List
-
-1. Replace the disabled Destinations browse stub with a real local search input that filters the already-loaded campaign destinations.
-2. Add a compact completion-state filter for `All`, `Remaining`, and `Completed` inside the existing Destinations tab.
-3. Keep filtered results in campaign order and show a filtered result count without changing the underlying progress model.
-4. Add a filtered empty state that explains when no destinations match the current browse controls.
-5. Update focused tests and slice-local planning docs to record the exact 5B scope and the next approved follow-on slice.
-
-### 5B Implementation Brief
+### 5B Outcome
 
 - Phase: 5B Checklist And Browse Refinement
-- Readiness state: approved to implement now; no blocking planning questions remain for this slice
-- Branch start point: updated `main`, then create a fresh feature branch before any product-code changes
+- Status: merged on `main`
+- Landed outcome:
+	- the Destinations tab now supports local search and completion-state filtering on top of the merged athlete Explorer page
+	- filtered counts and a dedicated filtered empty state now make larger destination sets easier to scan without a new backend contract
+	- the athlete-facing Explorer browse surface remains list-first, admin-gated, and aligned with the existing progress-first model
 
-Primary governing references:
+### 5C Outcome
 
-- `docs/prds/wmv-explorer-destinations-phases.md`
-- `docs/prds/wmv-explorer-readiness-checklist.md`
-- `docs/prds/wmv-explorer-destinations-tech-spec.md` sections `6.2 Explorer query service`, `7. API Surface`, `8.1 User-facing hub`, and `9. Matching Rules`
-
-Goal:
-
-- Turn the merged Destinations browse stub into a minimal, real browse surface for larger destination sets without introducing a new backend contract or changing the product boundary established by 5A.
-
-Exact acceptance:
-
-- The existing Destinations tab keeps its current route, tab structure, and admin gate.
-- The disabled browse stub is replaced with an enabled local search control.
-- Search runs entirely client-side against the destinations already returned by the current active-campaign and progress queries.
-- Search matches destination label, raw segment name when present, and available location text.
-- A completion-state filter is available with exactly three options: `All`, `Remaining`, and `Completed`.
-- Filtered results preserve campaign display order instead of re-sorting by match date or relevance.
-- The Destinations header shows the filtered result count for the current browse state.
-- When browse controls yield no matches, the page shows a dedicated filtered empty state rather than a blank list.
-- Existing destination-card metadata, completion badges, and progress semantics remain intact.
-- The Hub tab behavior, hero section, progress summary, and bottom-nav structure remain unchanged except for any refactoring required to support shared browse helpers.
-- The Map tab remains visibly present and disabled.
-- No new tRPC procedure, backend service method, or database change is required for the planned implementation path.
-
-Expected code surfaces:
-
-- Frontend likely:
-	- `src/components/ExplorerHubPage.tsx`
-	- `src/components/ExplorerHubPage.css`
-- Tests likely:
-	- `src/components/__tests__/ExplorerHubPage.test.tsx`
-- Backend only if implementation proves a hard blocker:
-	- `server/src/services/ExplorerQueryService.ts`
-	- `server/src/routers/explorer.ts`
-	- `server/src/__tests__/trpc/explorerRouter.test.ts`
-
-Implementation constraints:
-
-- Do not reopen the campaign-first structural model.
-- Do not add public Explorer exposure or non-admin navigation.
-- Do not introduce server-side search, pagination, ranking, or a new browse API in this slice unless a concrete blocker is found and re-approved.
-- Do not add map rendering, geolocation, route discovery, or social activity visibility.
-- Do not change the current progress math, completion semantics, or destination-match rules.
-
-Validation path:
-
-- Frontend unit tests covering:
-	- local search matching by label and location text
-	- `All`, `Remaining`, and `Completed` filter behavior
-	- filtered result count updates
-	- filtered empty state rendering
-	- existing protected-route and admin-gated behavior
-- `npm run lint`
-- `npm run typecheck`
-- targeted build verification for the touched Explorer UI
-- targeted Playwright only if implementation adds browser-significant interaction that focused unit tests do not prove reliably
-
-Documentation expectations when 5B lands:
-
-- update `docs/prds/wmv-explorer-destinations-phases.md` if the slice lands as approved
-- update `docs/prds/wmv-explorer-worklog.md` and `docs/prds/wmv-explorer-readiness-checklist.md` to record 5B completion and the next approved slice
-- update `docs/prds/wmv-explorer-destinations-tech-spec.md` or `docs/API.md` only if implementation actually changes the current browse/query contract
+- Phase: 5C Pinned Destinations And Hub Prioritization
+- Status: merged on this branch
+- Landed outcome:
+	- logged-in athletes can now pin and unpin destinations from the existing Destinations tab without changing browse ordering there
+	- pinned state is athlete-specific and persists for the active campaign
+	- the Hub page now surfaces pinned remaining destinations first and explains when no pins exist yet
+	- the browse and personalization surface remains list-first, progress-first, and admin-gated while leaving map and social work deferred
 
 ### 4B-4 Branch-Ready Task List
 

@@ -4,6 +4,7 @@ import {
   explorerCampaign,
   explorerDestination,
   explorerDestinationMatch,
+  explorerDestinationPin,
   segment,
 } from '../db/schema';
 
@@ -51,6 +52,7 @@ interface ExplorerAdminCampaignView extends ExplorerCampaignBaseView {
 
 interface ExplorerProgressDestinationView extends ExplorerDestinationView {
   completed: boolean;
+  pinned: boolean;
   matchedAt: number | null;
   stravaActivityId: string | null;
 }
@@ -309,14 +311,28 @@ export class ExplorerQueryService {
         )
       )
       .all();
+    const pins = this.db
+      .select({
+        explorer_destination_id: explorerDestinationPin.explorer_destination_id,
+      })
+      .from(explorerDestinationPin)
+      .where(
+        and(
+          eq(explorerDestinationPin.explorer_campaign_id, explorerCampaignId),
+          eq(explorerDestinationPin.strava_athlete_id, athleteId)
+        )
+      )
+      .all();
 
     const matchesByDestinationId = new Map(matches.map((match) => [match.explorer_destination_id, match]));
+    const pinnedDestinationIds = new Set(pins.map((pin) => pin.explorer_destination_id));
     const progressDestinations = destinations.map((destination) => {
       const match = matchesByDestinationId.get(destination.id);
 
       return {
         ...destination,
         completed: Boolean(match),
+        pinned: pinnedDestinationIds.has(destination.id),
         matchedAt: match?.matched_at ?? null,
         stravaActivityId: match?.strava_activity_id ?? null,
       };

@@ -1,9 +1,11 @@
-import { useDeferredValue, useId, useMemo, useState } from 'react';
+import { useDeferredValue, useId, useMemo, useRef, useState } from 'react';
 import {
   ArrowTopRightOnSquareIcon,
+  BookmarkIcon,
   CalendarDaysIcon,
   CheckBadgeIcon,
   CheckCircleIcon,
+  ClockIcon,
   FlagIcon,
   MagnifyingGlassIcon,
   MapPinIcon,
@@ -38,6 +40,7 @@ interface ExplorerDestinationSummary {
 
 interface ExplorerProgressDestinationSummary extends ExplorerDestinationSummary {
   completed: boolean;
+  pinned: boolean;
   matchedAt: number | null;
   stravaActivityId: string | null;
 }
@@ -104,15 +107,25 @@ function matchesDestinationSearch(destination: ExplorerProgressDestinationSummar
 function ExplorerDestinationCard({
   destination,
   completed,
+  pinned,
   matchedAt,
+  showPinAction = false,
+  pinDisabled = false,
+  onTogglePin,
 }: {
   destination: ExplorerDestinationSummary;
   completed: boolean;
+  pinned: boolean;
   matchedAt: number | null;
+  showPinAction?: boolean;
+  pinDisabled?: boolean;
+  onTogglePin?: (destinationId: number, pinned: boolean) => void | Promise<void>;
 }) {
   const { units } = useUnits();
   const chips = getDestinationChips(destination, units);
   const showRawSegmentName = destination.customLabel && destination.customLabel !== destination.segmentName;
+  const completionLabel = completed ? 'Completed destination' : 'Remaining destination';
+  const CompletionStatusIcon = completed ? CheckCircleIcon : ClockIcon;
 
   return (
     <article className="leaderboard-card explorer-hub-destination-card" data-testid={`explorer-destination-card-${destination.id}`}>
@@ -139,12 +152,48 @@ function ExplorerDestinationCard({
           ) : null}
         </div>
 
-        <span
-          className={`explorer-hub-status-pill ${completed ? 'completed' : 'remaining'}`}
-          data-testid={`explorer-destination-status-${destination.id}`}
-        >
-          {completed ? 'Completed' : 'Remaining'}
-        </span>
+        <div className="explorer-hub-destination-actions">
+          <div className="explorer-hub-status-icons" data-testid={`explorer-destination-status-icons-${destination.id}`}>
+            {pinned && !showPinAction ? (
+              <span
+                className="explorer-hub-status-icon flagged"
+                data-testid={`explorer-destination-pin-indicator-${destination.id}`}
+                aria-label="Flagged destination"
+                title="Flagged destination"
+              >
+                <FlagIcon aria-hidden="true" />
+                <span className="explorer-hub-sr-only">Flagged destination</span>
+              </span>
+            ) : null}
+
+            <span
+              className={`explorer-hub-status-icon ${completed ? 'completed' : 'remaining'}`}
+              data-testid={`explorer-destination-status-${destination.id}`}
+              aria-label={completionLabel}
+              title={completionLabel}
+            >
+              <CompletionStatusIcon aria-hidden="true" />
+              <span className="explorer-hub-sr-only">{completionLabel}</span>
+            </span>
+          </div>
+
+          {showPinAction ? (
+            <button
+              type="button"
+              className={`explorer-hub-pin-button ${pinned ? 'active' : ''}`}
+              data-testid={`explorer-pin-toggle-${destination.id}`}
+              aria-label={pinned ? `Unpin ${destination.displayLabel}` : `Pin ${destination.displayLabel}`}
+              aria-pressed={pinned}
+              disabled={pinDisabled}
+              onClick={() => {
+                void onTogglePin?.(destination.id, pinned);
+              }}
+            >
+              <BookmarkIcon aria-hidden="true" />
+              <span className="explorer-hub-sr-only">{pinned ? 'Unpin destination' : 'Pin destination'}</span>
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {chips.length > 0 ? (
@@ -169,11 +218,15 @@ function ExplorerDestinationCard({
 
 function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
   const browseSearchId = useId();
+  const utils = trpc.useUtils();
   const [activeTab, setActiveTab] = useState<ExplorerTab>('hub');
   const [showAllRemaining, setShowAllRemaining] = useState(false);
   const [showAllCompleted, setShowAllCompleted] = useState(false);
   const [destinationSearchQuery, setDestinationSearchQuery] = useState('');
   const [destinationFilter, setDestinationFilter] = useState<DestinationFilter>('all');
+  const [pendingPinDestinationIds, setPendingPinDestinationIds] = useState<number[]>([]);
+  const [pinToggleError, setPinToggleError] = useState<string | null>(null);
+  const pendingPinDestinationIdsRef = useRef<Set<number>>(new Set());
   const deferredDestinationSearchQuery = useDeferredValue(destinationSearchQuery);
 
   const activeCampaignQuery = trpc.explorer.getActiveCampaign.useQuery(undefined, {
@@ -192,11 +245,14 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
 
   const activeCampaign = activeCampaignQuery.data;
   const progress = progressQuery.data;
+  const pinDestinationMutation = trpc.explorer.pinDestination.useMutation();
+  const unpinDestinationMutation = trpc.explorer.unpinDestination.useMutation();
   const activeCampaignDestinations = activeCampaign?.destinations ?? EMPTY_DESTINATIONS;
   const destinations: ExplorerProgressDestinationSummary[] = useMemo(
     () => progress?.destinations ?? activeCampaignDestinations.map((destination) => ({
       ...destination,
       completed: false,
+      pinned: false,
       matchedAt: null,
       stravaActivityId: null,
     })),
@@ -210,6 +266,17 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
       .sort((left, right) => left.displayOrder - right.displayOrder || left.id - right.id),
     [destinations]
   );
+  const pinnedRemainingDestinations = useMemo(
+    () => remainingDestinations.filter((destination) => destination.pinned),
+    [remainingDestinations]
+  );
+  const prioritizedRemainingDestinations = useMemo(
+    () => [
+      ...remainingDestinations.filter((destination) => destination.pinned),
+      ...remainingDestinations.filter((destination) => !destination.pinned),
+    ],
+    [remainingDestinations]
+  );
   const finishedDestinations = useMemo(
     () => destinations
       .filter((destination) => destination.completed)
@@ -218,8 +285,8 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
   );
   const progressPercent = totalDestinations > 0 ? Math.round((completedDestinations / totalDestinations) * 100) : 0;
   const visibleRemainingDestinations = showAllRemaining
-    ? remainingDestinations
-    : remainingDestinations.slice(0, DEFAULT_REMAINING_VISIBLE);
+    ? prioritizedRemainingDestinations
+    : prioritizedRemainingDestinations.slice(0, DEFAULT_REMAINING_VISIBLE);
   const visibleCompletedDestinations = showAllCompleted
     ? finishedDestinations
     : finishedDestinations.slice(0, DEFAULT_COMPLETED_VISIBLE);
@@ -245,6 +312,34 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
   const destinationResultsLabel = isBrowseFiltered
     ? `${filteredDestinations.length} of ${destinationsByCampaignOrder.length}`
     : `${destinationsByCampaignOrder.length}`;
+
+  async function handleTogglePin(destinationId: number, pinned: boolean) {
+    if (!activeCampaignId || pendingPinDestinationIdsRef.current.has(destinationId)) {
+      return;
+    }
+
+    setPinToggleError(null);
+    pendingPinDestinationIdsRef.current = new Set(pendingPinDestinationIdsRef.current).add(destinationId);
+    setPendingPinDestinationIds(Array.from(pendingPinDestinationIdsRef.current));
+
+    try {
+      if (pinned) {
+        await unpinDestinationMutation.mutateAsync({ campaignId: activeCampaignId, destinationId });
+      } else {
+        await pinDestinationMutation.mutateAsync({ campaignId: activeCampaignId, destinationId });
+      }
+
+      await utils.explorer.getCampaignProgress.invalidate({ campaignId: activeCampaignId });
+    } catch (error) {
+      console.error('Failed to toggle Explorer destination pin', error);
+      setPinToggleError('Could not update that destination right now. Please try again.');
+    } finally {
+      const nextPendingDestinationIds = new Set(pendingPinDestinationIdsRef.current);
+      nextPendingDestinationIds.delete(destinationId);
+      pendingPinDestinationIdsRef.current = nextPendingDestinationIds;
+      setPendingPinDestinationIds(Array.from(nextPendingDestinationIds));
+    }
+  }
 
   if (!isAdmin) {
     return (
@@ -376,7 +471,13 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
                 <div>
                   <p className="explorer-section-label">Next up</p>
                   <h3>Remaining destinations</h3>
-                  <p className="explorer-hub-section-note">Showing campaign order for now.</p>
+                  <p className="explorer-hub-section-note" data-testid="explorer-remaining-note">
+                    {pinnedRemainingDestinations.length > 0
+                      ? 'Pinned destinations surface first, then the rest stay in campaign order.'
+                      : isConnected
+                        ? 'Use the Destinations tab to pin what you want to ride next.'
+                        : 'Connect Strava to pin destinations and track progress.'}
+                  </p>
                 </div>
                 <span className="explorer-hub-section-count">{remainingDestinations.length}</span>
               </div>
@@ -386,6 +487,38 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
                   <h4>All destinations completed</h4>
                   <p>This athlete has checked off every destination in the active campaign.</p>
                 </div>
+              ) : pinnedRemainingDestinations.length === 0 ? (
+                <>
+                  <div className="explorer-hub-empty-state compact" data-testid="explorer-pinned-empty-state">
+                    <h4>No pinned destinations yet</h4>
+                    <p>Switch to Destinations to pin places you want to visit next.</p>
+                  </div>
+
+                  <div className="explorer-hub-destination-list">
+                    {visibleRemainingDestinations.map((destination) => (
+                      <ExplorerDestinationCard
+                        key={destination.id}
+                        destination={destination}
+                        completed={false}
+                        pinned={destination.pinned}
+                        matchedAt={null}
+                      />
+                    ))}
+
+                    {remainingDestinations.length > DEFAULT_REMAINING_VISIBLE ? (
+                      <button
+                        type="button"
+                        className="explorer-hub-show-more"
+                        data-testid="explorer-remaining-toggle"
+                        onClick={() => setShowAllRemaining((current) => !current)}
+                      >
+                        {showAllRemaining
+                          ? 'Show fewer remaining destinations'
+                          : `Show all ${remainingDestinations.length} remaining destinations`}
+                      </button>
+                    ) : null}
+                  </div>
+                </>
               ) : (
                 <div className="explorer-hub-destination-list">
                   {visibleRemainingDestinations.map((destination) => (
@@ -393,6 +526,7 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
                       key={destination.id}
                       destination={destination}
                       completed={false}
+                      pinned={destination.pinned}
                       matchedAt={null}
                     />
                   ))}
@@ -440,6 +574,7 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
                       key={destination.id}
                       destination={destination}
                       completed
+                      pinned={destination.pinned}
                       matchedAt={destination.matchedAt}
                     />
                   ))}
@@ -545,6 +680,12 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
               <span className="explorer-hub-section-count" data-testid="explorer-results-count">{destinationResultsLabel}</span>
             </div>
 
+            {pinToggleError ? (
+              <div className="explorer-hub-inline-alert" data-testid="explorer-pin-toggle-error">
+                <p>{pinToggleError}</p>
+              </div>
+            ) : null}
+
             {filteredDestinations.length === 0 ? (
               <div className="explorer-hub-empty-state compact" data-testid="explorer-filtered-empty-state">
                 <h4>No destinations match this view</h4>
@@ -557,7 +698,11 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
                     key={destination.id}
                     destination={destination}
                     completed={destination.completed}
+                    pinned={destination.pinned}
                     matchedAt={destination.matchedAt}
+                    showPinAction={isConnected}
+                    pinDisabled={pendingPinDestinationIds.includes(destination.id)}
+                    onTogglePin={handleTogglePin}
                   />
                 ))}
               </div>

@@ -126,6 +126,7 @@ export function teardownTestDb(db: Database.Database) {
       DELETE FROM deletion_request;
       DELETE FROM schema_migrations;
       DELETE FROM explorer_destination_match;
+      DELETE FROM explorer_destination_pin;
       DELETE FROM explorer_destination;
       DELETE FROM explorer_campaign;
       DELETE FROM segment_effort;

@@ -1,7 +1,7 @@
 import { BetterSQLite3Database as DrizzleBetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { isoToUnix } from '../dateUtils';
-import { season, activity, participant, participantToken, result, segment, segmentEffort, week, deletionRequest, explorerCampaign, explorerDestination, explorerDestinationMatch } from '../db/schema';
-import { eq } from 'drizzle-orm';
+import { season, activity, participant, participantToken, result, segment, segmentEffort, week, deletionRequest, explorerCampaign, explorerDestination, explorerDestinationMatch, explorerDestinationPin } from '../db/schema';
+import { eq, sql } from 'drizzle-orm';
 import { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 
 // Type definitions for Drizzle models
@@ -19,6 +19,8 @@ export type InsertExplorerDestination = InferInsertModel<typeof explorerDestinat
 export type SelectExplorerDestination = InferSelectModel<typeof explorerDestination>;
 export type InsertExplorerDestinationMatch = InferInsertModel<typeof explorerDestinationMatch>;
 export type SelectExplorerDestinationMatch = InferSelectModel<typeof explorerDestinationMatch>;
+export type InsertExplorerDestinationPin = InferInsertModel<typeof explorerDestinationPin>;
+export type SelectExplorerDestinationPin = InferSelectModel<typeof explorerDestinationPin>;
 export type InsertActivity = InferInsertModel<typeof activity>;   // Exported
 export type SelectActivity = InferSelectModel<typeof activity>;
 export type InsertResult = InferInsertModel<typeof result>;       // Exported
@@ -125,6 +127,12 @@ interface CreateExplorerMatchOptions {
   stravaAthleteId: string;
   stravaActivityId?: string;
   matchedAt?: number;
+}
+
+interface CreateExplorerPinOptions {
+  explorerCampaignId: number;
+  explorerDestinationId: number;
+  stravaAthleteId: string;
 }
 
 /**
@@ -359,6 +367,19 @@ export function createExplorerMatch(
   return db.insert(explorerDestinationMatch).values(newMatchData).returning().get();
 }
 
+export function createExplorerPin(
+  db: TestDb,
+  options: CreateExplorerPinOptions
+): SelectExplorerDestinationPin {
+  const newPinData: InsertExplorerDestinationPin = {
+    explorer_campaign_id: options.explorerCampaignId,
+    explorer_destination_id: options.explorerDestinationId,
+    strava_athlete_id: options.stravaAthleteId,
+  };
+
+  return db.insert(explorerDestinationPin).values(newPinData).returning().get();
+}
+
 /**
  * Create a test activity with optional segment efforts
  */
@@ -534,11 +555,28 @@ export function createFullUserWithActivity(db: TestDb, options: CreateFullUserOp
  * Useful for test cleanup
  */
 export function clearAllData(db: TestDb) {
+  const hasTable = (tableName: string) =>
+    db.get<{ name: string }>(sql`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ${tableName}`) !== null;
+
   // Use Drizzle to delete from tables
   db.delete(deletionRequest).run();
-  db.delete(explorerDestinationMatch).run();
-  db.delete(explorerDestination).run();
-  db.delete(explorerCampaign).run();
+
+  if (hasTable('explorer_destination_pin')) {
+    db.delete(explorerDestinationPin).run();
+  }
+
+  if (hasTable('explorer_destination_match')) {
+    db.delete(explorerDestinationMatch).run();
+  }
+
+  if (hasTable('explorer_destination')) {
+    db.delete(explorerDestination).run();
+  }
+
+  if (hasTable('explorer_campaign')) {
+    db.delete(explorerCampaign).run();
+  }
+
   db.delete(segmentEffort).run();
   db.delete(result).run();
   db.delete(activity).run();
