@@ -180,12 +180,14 @@ Prompts should remain narrow and convenient.
 ### Slice-splitting note for Explorer follow-on work
 
 - The earlier 4B split is now complete through 4B-5: 4B-1 hardened the portable E2E harness, 4B-2 landed the minimal admin-only Explorer UI, 4B-3 corrected the campaign model and unified admin shell, 4B-4 refined the admin workflow hierarchy, and 4B-5 landed the shared segment metadata fidelity baseline.
-- Follow-on work should now start from updated `main` on a fresh branch for the approved 5A athlete hub read surface rather than reopening the merged admin-shell work or broadening immediately into map and social features.
+- The first athlete-facing slice is also now merged: 5A landed the admin-gated Explorer hub read surface on top of that baseline.
+- Follow-on work should now start from updated `main` on a fresh branch for the approved 5B checklist and browse refinement slice rather than reopening the merged admin-shell work or broadening immediately into public release, map, or social features.
 - Treat map-provider research, location-aware discovery, and social-feed ideas as separate later slices unless the planning docs explicitly re-approve them as part of a new bounded implementation brief.
 
 ### Slice completion discipline
 
 - If an approved implementation slice only requires narrow planning-state maintenance, such as marking the slice complete, updating the recommended next slice, or aligning readiness wording with merged code, the implementation PR should include those planning doc edits before it is considered done.
+- If a merged implementation slice changes the approved next step, readiness wording, or phase completion state, the implementation PR is expected to record that closeout directly rather than leaving the planning set stale until a later cleanup pass.
 - Hand back to `explorer-planner` when closing the slice requires new product decisions, broader readiness re-evaluation, or reshaping later slice boundaries rather than simply recording the completed state.
 - This keeps implementation PRs from leaving stale planning guidance behind while still reserving real planning work for the planning agent.
 
