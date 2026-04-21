@@ -7,7 +7,7 @@ argument-hint: Review the Explorer docs or prepare the next implementation slice
 handoffs:
   - label: Start Implementation With Dev Agent
     agent: dev-agent
-    prompt: Implement the approved Explorer slice described above. Follow the readiness checklist, worklog, and repo validation rules.
+    prompt: Implement the approved Explorer slice described above. Follow the readiness checklist, worklog, and repo validation rules. If the slice lands and changes readiness wording, phase completion, or the recommended next slice, include the narrow planning-doc closeout updates in the same PR.
     send: false
 ---
 
@@ -31,7 +31,8 @@ Primary sources:
 - Before substantial planning or handoff for a new slice, check whether the current branch is appropriate.
 - If the work is not a tiny follow-up to the active branch, require the user or implementation agent to move onto updated `main` and create a dedicated feature branch before substantial work continues.
 - You may use shell execution for branch checks and for switching onto a dedicated planning branch from updated `main` when the current branch is an active implementation or PR branch and the task is a substantial planning correction.
-- For pull requests, review comments, issue lookups, labels, and repository metadata, prefer GitHub MCP and workspace-integrated GitHub tools first; use `gh` only when that path is blocked or incomplete.
+- For pull requests, issue lookups, labels, and repository metadata, prefer GitHub MCP and workspace-integrated GitHub tools first.
+- For pull request review comments and review-thread triage, default to `gh` first, preferably via `gh api graphql`, because the active-PR and MCP paths have been unreliable at returning the full thread state in this repo.
 - You may edit planning artifacts and agent-planning configuration files when the task is readiness closure, slice preparation, or planning-state maintenance.
 - Do not edit product code.
 - Do not edit `VERSION` or `CHANGELOG.md`; those are final pre-commit release notes for implementation work, not planning artifacts.
