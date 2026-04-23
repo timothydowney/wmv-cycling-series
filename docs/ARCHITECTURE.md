@@ -236,11 +236,11 @@ The middleware ensures that the user is authenticated and their athlete ID is pr
 
 Development:
 ```bash
-# Edit server/.env
+# Edit .env
 ADMIN_ATHLETE_IDS=12345678,87654321
 
 # Restart servers
-npm run dev:all
+npm run dev
 ```
 
 Production (Railway):
@@ -313,7 +313,7 @@ Details: `docs/SCORING.md`
 
 ```bash
 npm install          # Install both frontend & backend deps
-npm run dev:all      # Start both servers
+npm run dev          # Start both servers
 npm test             # Run tests
 npm run build        # Build for production
 ```

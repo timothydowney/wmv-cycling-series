@@ -15,6 +15,7 @@
     "dev:server:e2e": "test -f e2e/.env.e2e && ENV_FILE=e2e/.env.e2e PORT=3002 npm --prefix server run dev",
     "dev:frontend:e2e": "test -f e2e/.env.e2e && VITE_PORT=5174 REACT_APP_BACKEND_URL=http://localhost:3002 vite",
     "dev": "concurrently -n \"backend,frontend\" -c \"blue,green\" \"npm:dev:server\" \"npm:dev:frontend\"",
+    "dev:prod-data": "test -f .env.prod && ENV_FILE=.env.prod npm run dev",
     "dev:cleanup": "node scripts/dev-server.cjs cleanup",
     "clean": "rm -rf dist server/dist",
     "prebuild": "npm run clean",

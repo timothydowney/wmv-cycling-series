@@ -193,11 +193,9 @@ async function findBestQualifyingActivity(
     );
 
     try {
-      // Fetch full activity details (includes all segment efforts)
-      const fullActivity = await getActivity(
-        String(activity.id),
-        accessToken
-      );
+      const fullActivity = Array.isArray(activity.segment_efforts) && activity.segment_efforts.length > 0
+        ? activity
+        : await getActivity(String(activity.id), accessToken);
 
       if (!fullActivity.segment_efforts || fullActivity.segment_efforts.length === 0) {
         console.log(

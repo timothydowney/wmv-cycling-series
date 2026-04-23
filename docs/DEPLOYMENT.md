@@ -743,7 +743,7 @@ Copy the output and paste it as `SESSION_SECRET` value in Railway dashboard.
 
 1. **Develop locally:**
    ```bash
-   npm run dev:all  # Both servers running
+   npm run dev      # Both servers running
    # Make changes, test thoroughly
    npm test         # Ensure tests pass
    ```

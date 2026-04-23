@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import './WebhookManagementPanel.css';
 import { trpc } from '../utils/trpc'; // Import trpc
 
@@ -56,7 +56,7 @@ export const WebhookManagementPanel: React.FC = () => {
   const handleRefresh = useCallback(async () => {
     refetchSubscription();
     refetchStorage();
-  }, [refetchSubscription, refetchStorage]);
+  }, [refetchStorage, refetchSubscription]);
 
   if (isLoading) {
     return (

@@ -5,6 +5,7 @@ import { participantToken } from '../db/schema';
 import { getActivity, getAthleteProfile, getLoggedInAthlete } from '../stravaClient';
 import * as stravaClientModule from '../stravaClient';
 import { getValidAccessToken } from '../tokenManager';
+import { fetchWebhookActivity, hasWebhookActivityFixture } from './webhookActivityProvider';
 
 interface CachedProfile {
   profile: string | null;
@@ -29,6 +30,21 @@ interface WebhookActivityDetails {
   device_name: string | null;
   segment_effort_count: number;
   visibility: string | null;
+}
+
+function mapWebhookActivityDetails(activityData: Awaited<ReturnType<typeof fetchWebhookActivity>>): WebhookActivityDetails {
+  return {
+    activity_id: String(activityData.id),
+    name: activityData.name,
+    type: activityData.type || activityData.sport_type || 'Unknown',
+    distance_m: activityData.distance ?? 0,
+    moving_time_sec: activityData.moving_time ?? 0,
+    elevation_gain_m: activityData.elevation_gain ?? activityData.total_elevation_gain ?? null,
+    start_date_iso: activityData.start_date,
+    device_name: activityData.device_name || null,
+    segment_effort_count: activityData.segment_efforts?.length || 0,
+    visibility: activityData.visibility || null,
+  };
 }
 
 const profileCache = new Map<string, CachedProfile>();
@@ -219,6 +235,11 @@ async function getWebhookActivityDetails(
   athleteId: string,
   activityId: string
 ): Promise<WebhookActivityDetails | null> {
+  if (hasWebhookActivityFixture(activityId)) {
+    const activityData = await fetchWebhookActivity(activityId, 'fixture-token');
+    return mapWebhookActivityDetails(activityData);
+  }
+
   if (usesDeterministicStravaReads()) {
     return null;
   }
@@ -227,18 +248,7 @@ async function getWebhookActivityDetails(
     const token = await getValidAccessToken(db, stravaClientModule, athleteId);
     const activityData = await getActivity(activityId, token);
 
-    return {
-      activity_id: String(activityData.id),
-      name: activityData.name,
-      type: activityData.type || 'Unknown',
-      distance_m: activityData.distance ?? 0,
-      moving_time_sec: activityData.moving_time ?? 0,
-      elevation_gain_m: activityData.elevation_gain ?? null,
-      start_date_iso: activityData.start_date,
-      device_name: activityData.device_name || null,
-      segment_effort_count: activityData.segment_efforts?.length || 0,
-      visibility: activityData.visibility || null,
-    };
+    return mapWebhookActivityDetails(activityData);
   } catch (error) {
     console.warn(
       `[WebhookAdmin] Activity fetch from Strava failed: ${error instanceof Error ? error.message : String(error)}`

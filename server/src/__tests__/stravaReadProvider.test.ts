@@ -4,6 +4,10 @@ import { setupTestDb, teardownTestDb } from './setupTestDb';
 import { createParticipant } from './testDataHelpers';
 import * as stravaClientModule from '../stravaClient';
 import {
+  resetWebhookActivityFixtures,
+  seedWebhookActivityFixture,
+} from '../services/webhookActivityProvider';
+import {
   checkClubMembership,
   getAuthStatusProfilePicture,
   getWebhookActivityDetails,
@@ -19,11 +23,13 @@ describe('stravaReadProvider', () => {
   beforeEach(() => {
     originalEnv = { ...process.env };
     jest.clearAllMocks();
+    resetWebhookActivityFixtures();
   });
 
   afterEach(() => {
     process.env = originalEnv;
     reloadConfig();
+    resetWebhookActivityFixtures();
   });
 
   it('returns deterministic auth status profile pictures in fixture mode', async () => {
@@ -68,6 +74,52 @@ describe('stravaReadProvider', () => {
       const details = await getWebhookActivityDetails(testDb.drizzleDb, '123456', '999888777');
 
       expect(details).toBeNull();
+      expect(mockStravaClient.getActivity).not.toHaveBeenCalled();
+    } finally {
+      teardownTestDb(testDb.db);
+    }
+  });
+
+  it('returns seeded harness webhook activity details in live mode without calling Strava', async () => {
+    process.env.STRAVA_API_MODE = 'live';
+    reloadConfig();
+
+    const testDb = setupTestDb({ seed: false });
+
+    try {
+      seedWebhookActivityFixture('999888777', {
+        id: '999888777',
+        name: 'Harness Admin Preview',
+        start_date: '2025-10-28T12:00:00Z',
+        sport_type: 'Ride',
+        distance: 12345,
+        moving_time: 2222,
+        total_elevation_gain: 333,
+        device_name: 'Harness Trainer',
+        segment_efforts: [
+          {
+            id: '99988877701',
+            segment: { id: '12345678', name: 'Fixture Segment' },
+            elapsed_time: 480,
+            start_date: '2025-10-28T12:05:00Z'
+          }
+        ]
+      });
+
+      const details = await getWebhookActivityDetails(testDb.drizzleDb, '123456', '999888777');
+
+      expect(details).toEqual({
+        activity_id: '999888777',
+        name: 'Harness Admin Preview',
+        type: 'Ride',
+        distance_m: 12345,
+        moving_time_sec: 2222,
+        elevation_gain_m: 333,
+        start_date_iso: '2025-10-28T12:00:00Z',
+        device_name: 'Harness Trainer',
+        segment_effort_count: 1,
+        visibility: null,
+      });
       expect(mockStravaClient.getActivity).not.toHaveBeenCalled();
     } finally {
       teardownTestDb(testDb.db);
