@@ -90,6 +90,42 @@ describe('Activity Processor', () => {
       expect(stravaClient.getActivity).toHaveBeenCalled();
     });
 
+    test('reuses preloaded segment efforts without refetching the activity', async () => {
+      const week = {
+        start_at: isoToUnix('2025-10-28T00:00:00Z'),
+        end_at: isoToUnix('2025-10-28T22:00:00Z'),
+        strava_segment_id: '100',
+        required_laps: 1
+      };
+
+      const activities = [
+        {
+          id: '1',
+          name: 'Webhook Activity',
+          start_date: '2025-10-28T12:00:00Z',
+          segment_efforts: [
+            {
+              segment: { id: '100' },
+              elapsed_time: 600,
+              start_date: '2025-10-28T12:05:00Z'
+            }
+          ]
+        }
+      ];
+
+      const result = await activityProcessor.findBestQualifyingActivity(
+        activities,
+        week.strava_segment_id,
+        week.required_laps,
+        'token',
+        week
+      );
+
+      expect(result).not.toBeNull();
+      expect(result.id).toBe('1');
+      expect(stravaClient.getActivity).not.toHaveBeenCalled();
+    });
+
     test('selects activity with required segment', async () => {
       const week = {
         start_at: isoToUnix('2025-10-28T00:00:00Z'),

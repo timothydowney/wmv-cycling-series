@@ -314,7 +314,7 @@ npm run mock:strava
 # Output: Mock Strava listening on localhost:4000
 
 # Terminal 2: Start app servers
-npm run dev:all
+npm run dev
 # Backend automatically detects mock mode and logs:
 # [Webhook:SubscriptionManager] 🧪 MOCK MODE DETECTED
 # [Webhook:SubscriptionManager]    Using mock Strava API: http://localhost:4000
@@ -353,7 +353,7 @@ Use the webhook emulator to rapidly test webhook event processing without runnin
 
 1. **Start the development servers:**
    ```bash
-   npm run dev:all
+  npm run dev
    ```
    - Backend: http://localhost:3001
    - Frontend: http://localhost:5173
@@ -469,7 +469,7 @@ sqlite3 server/data/wmv.db "SELECT participant_id, rank, total_time_seconds, poi
 
 **Event not appearing in Events tab?**
 - Ensure `WEBHOOK_ENABLED=true` in `.env`
-- Check backend logs for errors: `npm run dev:all` shows all output
+- Check backend logs for errors: `npm run dev` shows all output
 - Verify webhook emulator is posting to correct URL (http://localhost:3001/webhooks/strava)
 
 **Event marked as "error" in Events tab?**
@@ -497,7 +497,7 @@ npm run mock:strava
 # Listens on localhost:4000
 
 # Terminal 2: Start app servers
-npm run dev:all
+npm run dev
 # Backend logs show: 🧪 MOCK MODE DETECTED
 # Frontend shows: Yellow "🧪 MOCK MODE" banner, turns green when mock-strava responds
 
@@ -526,7 +526,7 @@ npm run webhook:emit -- --event create --participant 366880
 
 ```bash
 # Terminal 1: Start servers (uses real Strava API)
-npm run dev:all
+npm run dev
 
 # Terminal 2: Run rapid tests
 npm run webhook:emit -- --event create
@@ -559,7 +559,7 @@ WEBHOOK_ENABLED=false                    # Start false, set true when testing
 # Webhook verification token (for local testing)
 WEBHOOK_VERIFY_TOKEN=dev-token-for-testing
 
-# Strava API base URL - CRITICAL for mock-strava
+# Strava webhook subscription API base URL - used by mock-strava testing
 STRAVA_WEBHOOK_API_URL=http://localhost:4000    # Routes to mock-strava
 
 # Optional: log all webhook events for debugging
@@ -581,20 +581,20 @@ WEBHOOK_PERSIST_EVENTS=true              # REQUIRED - persists events (processed
 - Frontend uses `siteModeService` to detect if in development
 - If in dev mode: shows mock mode banner with server status
 
-### Production Configuration (`.env.example`)
+### Production Configuration (derived callback URL)
 
 ```env
 WEBHOOK_ENABLED=true                          # Enable webhooks
 WEBHOOK_VERIFY_TOKEN=<your-secret-token>      # Strava includes this in requests
-WEBHOOK_CALLBACK_URL=https://yourdomain.com/webhooks/strava
 STRAVA_WEBHOOK_API_URL=https://www.strava.com    # Real Strava API
 WEBHOOK_PERSIST_EVENTS=true                   # REQUIRED - persists events
+APP_BASE_URL=https://yourdomain.com           # config derives /webhooks/strava from this
 ```
 
 **Key Differences:**
 - Webhooks ENABLED (to receive real events from Strava)
 - Real Strava API endpoint
-- Public HTTPS callback URL
+- Public HTTPS callback URL derived from `APP_BASE_URL`
 - Strong verification token
 
 ---
@@ -662,7 +662,7 @@ Webhook processor reuses all logic from batch fetch service (zero duplication):
 
 2. **Start servers:**
    ```bash
-   npm run dev:all
+  npm run dev
    ```
 
 3. **Send test webhook:**

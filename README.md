@@ -20,7 +20,7 @@ All documentation is written for end users (no technical jargon required).
 
 ```bash
 npm install              # Install everything
-npm run dev:all         # Start both servers
+npm run dev             # Start frontend + backend
 # Visit http://localhost:5173
 ```
 
@@ -39,14 +39,16 @@ nvm install 24 && nvm use 24
 ## Commands
 
 ```bash
-npm run dev:all         # Interactive: Start frontend + backend with output (Ctrl+C to stop)
-npm start               # Automated: Start both servers in background, returns immediately
-npm stop                # Stop background servers cleanly
-npm status              # Check if servers are running
-npm cleanup             # Emergency: Force-kill orphaned processes
+npm run dev             # Start frontend + backend for normal local development
+npm run db:fetch-prod   # Refresh a local production DB copy and generate .env.prod
+npm run dev:prod-data   # Start frontend + backend against the refreshed production DB copy
+npm run dev:cleanup     # Stop orphaned local servers
 npm test                # Run tests
+npm run test:e2e        # Run Playwright against the dedicated E2E preset
 npm run build           # Build for production
 ```
+
+For the env-mode matrix and what each variable actually means, see [URL Configuration Quick Reference](./docs/CONFIG_QUICK_REFERENCE.md).
 
 **→ See [Dev Process Management](./docs/DEV_PROCESS_MANAGEMENT.md) for detailed guidance on when to use each.**
 
@@ -88,15 +90,15 @@ Start with one of these:
 
 **Port in use?**
 ```bash
-npm run stop
-npm run dev:all
+npm run dev:cleanup
+npm run dev
 ```
 
 **Wrong Node version?**
 ```bash
 nvm install 24
 nvm use 24
-npm run dev:all
+npm run dev
 ```
 
 **Build errors?**

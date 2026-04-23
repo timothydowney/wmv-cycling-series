@@ -469,7 +469,7 @@ This allows full development and testing without real Strava accounts.
 
 ### Testing with Real Strava
 
-1. Start servers: `npm run dev:all`
+1. Start servers: `npm run dev`
 2. Visit `http://localhost:5173`
 3. Click "Connect with Strava"
 4. Authorize with your Strava account

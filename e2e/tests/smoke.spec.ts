@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import {
   setupStravaInterception,
-  setAuthCookie,
+  loginAsE2EUser,
   waitForLeaderboardLoad,
 } from '../fixtures/test-helpers';
 
@@ -19,7 +19,7 @@ test.describe('Setup Verification', () => {
     await setupStravaInterception(page);
 
     // Setup authentication
-    await setAuthCookie(page, '70001'); // Tim Downey
+    await loginAsE2EUser(page);
 
     // Navigate to leaderboard
     await page.goto('/leaderboard/1/weekly/1');
@@ -38,7 +38,7 @@ test.describe('Setup Verification', () => {
 
   test('leaderboard cards render', async ({ page }) => {
     await setupStravaInterception(page);
-    await setAuthCookie(page, '70001');
+    await loginAsE2EUser(page);
 
     await page.goto('/leaderboard/1/weekly/1');
     await waitForLeaderboardLoad(page);
@@ -52,7 +52,7 @@ test.describe('Setup Verification', () => {
 
   test('season selector is functional', async ({ page }) => {
     await setupStravaInterception(page);
-    await setAuthCookie(page, '70001');
+    await loginAsE2EUser(page);
 
     await page.goto('/leaderboard/1/weekly/1');
 
@@ -73,7 +73,7 @@ test.describe('Setup Verification', () => {
     });
 
     await setupStravaInterception(page);
-    await setAuthCookie(page, '70001');
+    await loginAsE2EUser(page);
 
     await page.goto('/leaderboard/1/weekly/1');
     await waitForLeaderboardLoad(page);
@@ -91,7 +91,7 @@ test.describe('Setup Verification', () => {
 
   test('segment distance detail renders for climb weeks', async ({ page }) => {
     await setupStravaInterception(page);
-    await setAuthCookie(page, '70001');
+    await loginAsE2EUser(page);
 
     await page.goto('/leaderboard/1/weekly/1');
     await waitForLeaderboardLoad(page);
@@ -108,7 +108,7 @@ test.describe('Setup Verification', () => {
 
   test('segment elevation detail renders for climb weeks', async ({ page }) => {
     await setupStravaInterception(page);
-    await setAuthCookie(page, '70001');
+    await loginAsE2EUser(page);
 
     await page.goto('/leaderboard/1/weekly/1');
     await waitForLeaderboardLoad(page);
@@ -124,7 +124,7 @@ test.describe('Setup Verification', () => {
 
   test('segment grade detail renders for climb weeks', async ({ page }) => {
     await setupStravaInterception(page);
-    await setAuthCookie(page, '70001');
+    await loginAsE2EUser(page);
 
     await page.goto('/leaderboard/1/weekly/1');
     await waitForLeaderboardLoad(page);
@@ -140,7 +140,7 @@ test.describe('Setup Verification', () => {
 
   test('first place shows polkadot jersey for climb weeks', async ({ page }) => {
     await setupStravaInterception(page);
-    await setAuthCookie(page, '70001');
+    await loginAsE2EUser(page);
 
     // Week 1: Box Hill KOM (climb) -> should show polkadot
     await page.goto('/leaderboard/1/weekly/1');
@@ -152,7 +152,7 @@ test.describe('Setup Verification', () => {
 
   test('first place shows yellow jersey for flat weeks', async ({ page }) => {
     await setupStravaInterception(page);
-    await setAuthCookie(page, '70001');
+    await loginAsE2EUser(page);
 
     // Week 2: Champs-Élysées (flat) -> should show yellow
     await page.goto('/leaderboard/1/weekly/2');
@@ -164,7 +164,7 @@ test.describe('Setup Verification', () => {
 
   test('last place shows lanterne rouge jersey', async ({ page }) => {
     await setupStravaInterception(page);
-    await setAuthCookie(page, '70001');
+    await loginAsE2EUser(page);
 
     await page.goto('/leaderboard/1/weekly/1');
     await waitForLeaderboardLoad(page);

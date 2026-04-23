@@ -6,6 +6,11 @@ import * as stravaClient from '../stravaClient';
 import { getValidAccessToken } from '../tokenManager';
 import { captureAthleteProfile } from '../services/StravaProfileCapture';
 import ActivityValidationService from '../services/ActivityValidationService';
+import {
+  fetchWebhookActivity,
+  hasWebhookActivityFixture,
+  usesDeterministicWebhookActivityProvider,
+} from '../services/webhookActivityProvider';
 
 const MAX_ACTIVITY_FETCH_ATTEMPTS = 4;
 const SEGMENT_EFFORT_BACKOFF_MS = [15000, 45000, 90000];
@@ -61,7 +66,7 @@ async function fetchActivityWithSegmentEfforts(
     console.log(
       `[Webhook:Processor] Fetching activity details for ID: ${activityId} (attempt ${attempts + 1}/${MAX_ACTIVITY_FETCH_ATTEMPTS})`
     );
-    activityData = await stravaClient.getActivity(activityId, accessToken) as StravaActivity;
+    activityData = await fetchWebhookActivity(activityId, accessToken);
 
     if (getSegmentEffortCount(activityData) > 0) {
       console.log(
@@ -109,13 +114,18 @@ export async function createActivityIngestionContext(
     `[Webhook:Processor] Processing for ${participantRecord.name} (athlete ID: ${athleteId})`
   );
 
-  const accessToken = await getValidAccessToken(db, stravaClient, athleteId);
-  const profileData = await captureAthleteProfile(db, athleteId, accessToken);
+  const deterministicMode = usesDeterministicWebhookActivityProvider() || hasWebhookActivityFixture(activityId);
+  const accessToken = deterministicMode
+    ? 'fixture-token'
+    : await getValidAccessToken(db, stravaClient, athleteId);
+  const profileData = deterministicMode
+    ? { weight: null }
+    : await captureAthleteProfile(db, athleteId, accessToken);
 
   console.log(
     `[Webhook:Processor] Fetching activity details for ID: ${activityId} (attempt 1/${MAX_ACTIVITY_FETCH_ATTEMPTS})`
   );
-  const initialActivityData = await stravaClient.getActivity(activityId, accessToken) as StravaActivity;
+  const initialActivityData = await fetchWebhookActivity(activityId, accessToken);
 
   let competitionActivityPromise: Promise<StravaActivity | null> | null = null;
 

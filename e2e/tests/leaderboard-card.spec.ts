@@ -1,9 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { loginAsE2EUser } from '../fixtures/test-helpers';
 
 const appBaseUrl = process.env.E2E_FRONTEND_URL || 'http://localhost:5174';
 
 test.describe('LeaderboardCard Component', () => {
   test.beforeEach(async ({ page }) => {
+    await loginAsE2EUser(page);
     await page.goto('/leaderboard');
     await page.waitForLoadState('networkidle');
     

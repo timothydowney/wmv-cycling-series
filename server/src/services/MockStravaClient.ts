@@ -38,6 +38,10 @@ export class MockStravaClient {
     this.customActivities.set(activityId, { ...defaultActivity, ...activity } as StravaActivity);
   }
 
+  removeActivity(activityId: number): void {
+    this.customActivities.delete(activityId);
+  }
+
   /**
    * Get activity from Strava API
    * Simulates: GET /api/v3/activities/{id}
@@ -109,6 +113,10 @@ export class MockStravaClient {
    */
   getCallLog(): Array<{ method: string; args: any[] }> {
     return this.callLog;
+  }
+
+  getConfiguredActivityIds(): number[] {
+    return Array.from(this.customActivities.keys()).sort((left, right) => left - right);
   }
 
   /**

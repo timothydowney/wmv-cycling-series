@@ -1,6 +1,6 @@
 # Development Process Management
 
-This document describes how to properly start and stop the development servers for this project in a clean, reliable way.
+This document describes the current local development server workflow for this project.
 
 ## Quick Decision Guide
 
@@ -8,7 +8,7 @@ This document describes how to properly start and stop the development servers f
 
 ### Interactive Development (Recommended for Local Development)
 ```bash
-npm run dev:all
+npm run dev
 # → Starts servers in foreground with colored output
 # → Stop with Ctrl+C in the terminal
 ```
@@ -17,119 +17,86 @@ npm run dev:all
 - Want to see live output from both servers
 - Want natural output coloring (blue = backend, green = frontend)
 
-### Automated/Agentic Use (For Scripts & Agents)
+### Reviewing Production-Like Admin Data Locally
 ```bash
-npm start          # Start once, background process
-npm status         # Check if running
-npm stop           # Stop cleanly (normal case)
-npm cleanup        # Stop forcefully (emergency only)
+npm run db:fetch-prod
+npm run dev:prod-data
 ```
 **When to use:**
-- Running in background while you do other work
-- Automated testing/deployment scripts
-- CI/CD pipelines
-- Agentic/programmatic workflows
+- Reviewing the webhook admin UI against a refreshed local copy of production data
+- Judging event history density, enrichment, and admin screen layout with realistic data
 
-**Stopping strategy:**
-- **Normal:** Use `npm stop`
-- **If that fails:** Use `npm cleanup` to force-kill all dev processes
-- **Emergency:** If you need guaranteed cleanup regardless of state
+### Cleanup
+```bash
+npm run dev:cleanup
+```
+
+Use this if a previous dev or Playwright run left orphaned frontend/backend processes behind.
 
 ## Why This Matters
 
-When developing a monorepo with a separate frontend and backend, process management is critical:
+This repo now uses explicit presets instead of one-off shell variables:
 
-- **Frontend** (Vite) runs on port 5173
-- **Backend** (Node.js + nodemon) runs on port 3001
-- Both are started by **concurrently** parent process
+- `npm run dev` uses `.env` for the normal local app on `5173` and `3001`.
+- `npm run dev:prod-data` uses generated `.env.prod` for local production-copy review on the same ports.
+- `npm run test:e2e` uses `e2e/.env.e2e` for Playwright on `5174` and `3002`.
 
-If processes aren't shut down properly, you get:
+If processes are not shut down properly, you get:
 - Orphaned child processes
 - Ports still bound, preventing restart
 - Multiple instances of servers running simultaneously
 - Hard-to-debug state issues
 
-## The Solution: Process PID Tracking
+## Current Command Set
 
-For automated use, we use a `.dev.pid` file to track the child process:
-
-1. **`npm start`** - Starts servers and writes child PID to `.dev.pid`, returns immediately
-2. **`npm stop`** - Reads PID, sends SIGTERM (graceful shutdown), then SIGKILL if needed
-3. **`npm status`** - Shows if servers are running
-4. **`npm cleanup`** - Emergency: kills all orphaned dev processes (no tracking needed)
+| Goal | Command | Notes |
+|------|---------|-------|
+| Normal local development | `npm run dev` | Standard frontend + backend workflow |
+| Review production-like admin data | `npm run db:fetch-prod` then `npm run dev:prod-data` | Same local ports, refreshed production DB copy and `.env.prod` |
+| Dedicated Playwright E2E | `npm run test:e2e` | Uses `e2e/.env.e2e` and separate ports |
+| Cleanup orphaned local servers | `npm run dev:cleanup` | Safe cleanup for stuck local processes |
 
 ## Usage
 
 ### Starting Servers
 
 ```bash
-npm start
+npm run dev
 ```
 
 This:
-- Starts concurrently (parent process) in detached mode
-- Starts nodemon + vite as children
-- Writes child PID to `.dev.pid`
-- Returns immediately to terminal (parent process exits)
+- Starts backend and frontend in the foreground
+- Shows colored output in one terminal
+- Keeps hot reload active for both sides
 - Both servers ready on http://localhost:3001 (backend) and http://localhost:5173 (frontend)
 
-### Checking Status
+### Starting Against a Refreshed Production DB Copy
 
 ```bash
-npm status
+npm run db:fetch-prod
+npm run dev:prod-data
 ```
 
-Output:
-```
-[dev-server] Status: RUNNING (PID 34909)
-```
+This keeps the normal local ports and loads generated `.env.prod`, which points the backend at `server/data/wmv_prod.db` and the production secrets fetched from Railway.
 
-### Stopping Servers
+### Cleaning Up Orphaned Processes
 
 ```bash
-npm stop
+npm run dev:cleanup
 ```
 
 This:
-1. Reads PID from `.dev.pid`
-2. Sends SIGTERM to child (graceful shutdown request)
-3. Waits 1.5 seconds for children to shutdown
-4. If still running, force-kills child processes (nodemon, vite)
-5. Deletes `.dev.pid` file
-6. Cleans up all ports
-
-### Emergency Cleanup (Orphaned Processes)
-
-If you end up with orphaned dev processes (e.g., multiple concurrently instances):
-
-```bash
-npm cleanup
-```
-
-This:
-1. Searches for ALL concurrently processes with dev:server pattern
-2. Searches for ALL nodemon processes running server/src/index.ts
-3. Kills processes on ports 3001 (backend) and 5173 (frontend)
-4. Deletes `.dev.pid` file
-5. **Does NOT require a valid .dev.pid file to work**
-
-**When to use:**
-- You have multiple orphaned dev server processes
-- `npm stop` didn't work (no valid PID file)
-- You need guaranteed cleanup regardless of state
-
-**Why it's safe:**
-- Uses specific pattern matching (only dev server processes)
-- Uses port-based detection (more reliable than process names)
-- Won't interfere with other Node.js processes or VSCode
+1. Searches for orphaned frontend/backend dev processes
+2. Frees the standard local ports when possible
+3. Leaves your workspace in a clean state for the next `npm run dev` or `npm run dev:prod-data`
 
 ## Key Implementation Details
 
 ### File Structure
 
 - **`scripts/dev-server.cjs`** - Process manager (CommonJS because project uses ES modules)
-- **`.dev.pid`** - Stores parent PID (gitignored, never committed)
-- **`.gitignore`** - Includes `.dev.pid` to prevent accidental commits
+- **`.env.prod`** - Generated local production-copy review preset
+- **`e2e/.env.e2e`** - Dedicated Playwright preset
 
 ### How Signals Work
 
@@ -144,54 +111,27 @@ This:
 - Forcefully terminates process
 - No cleanup possible
 
-### Package.json Scripts
-
-```json
-{
-  "dev:all": "concurrently...",    // Direct concurrently (still available)
-  "start": "npm run dev:start",     // Idiomatic alias: npm start (start in background)
-  "stop": "npm run dev:stop",       // Idiomatic alias: npm stop (stop background)
-  "status": "npm run dev:status",   // Idiomatic alias: npm status (check status)
-  "cleanup": "npm run dev:cleanup"  // Idiomatic alias: npm cleanup (emergency cleanup)
-}
-```
-
-**Use the idiomatic commands:**
-```bash
-npm start    # Instead of: npm run dev:start
-npm stop     # Instead of: npm run dev:stop
-npm status   # Instead of: npm run dev:status
-npm cleanup  # Instead of: npm run dev:cleanup
-```
-
 ## For Agentic/Automated Use
 
-This process manager is specifically designed for reliable automation:
+Prefer explicit presets over ad-hoc shell state:
 
 ```bash
-# Start once and keep running
-npm start
+# Standard local app
+npm run dev
 
-# Do some work...
-curl http://localhost:3001/admin/export-data
+# Refresh local production data, then review admin UI against it
+npm run db:fetch-prod
+npm run dev:prod-data
 
-# Stop cleanly
-npm stop
-
-# Verify clean shutdown
-npm status
-# Should show: "NOT RUNNING"
+# If a previous run left ports occupied
+npm run dev:cleanup
 ```
 
-### Benefits Over Background `&`
+For browser regression tests, do not reuse the normal dev stack. Use the dedicated Playwright preset:
 
-| Aspect | Using `npm start` | Using `npm run dev:all &` |
-|--------|--------------------------|--------------------------|
-| PID tracking | ✅ Stored in `.dev.pid` | ❌ Must hunt for PID |
-| Shutdown | ✅ `npm stop` kills cleanly | ❌ Must use `kill`, `pkill`, `lsof` hacks |
-| Status | ✅ `npm status` | ❌ Must check `ps`, `lsof` manually |
-| Idempotent | ✅ Detects already-running | ❌ Creates duplicates |
-| Port cleanup | ✅ Proper SIGTERM cascade | ❌ Orphaned processes |
+```bash
+npm run test:e2e
+```
 
 ## Troubleshooting
 
@@ -200,33 +140,16 @@ npm status
 If you get an error that port 3001 or 5173 is in use:
 
 ```bash
-npm stop
-```
-
-If that doesn't work:
-
-```bash
-# Manual cleanup
-lsof -ti:3001 | xargs kill -9 2>/dev/null
-lsof -ti:5173 | xargs kill -9 2>/dev/null
-rm -f .dev.pid
-```
-
-### "Status: STALE PID"
-
-This means the `.dev.pid` file references a process that no longer exists (maybe it crashed):
-
-```bash
-npm stop
-# Will clean up the stale PID and notify you
+npm run dev:cleanup
 ```
 
 ### Servers Don't Respond
 
-Check the log output if you started with output redirection:
+Restart the appropriate preset and watch the live terminal output:
 
 ```bash
-tail -20 /tmp/dev-start.log  # If you redirected output
+npm run dev:cleanup
+npm run dev
 ```
 
 ## For Interactive Development
@@ -234,10 +157,10 @@ tail -20 /tmp/dev-start.log  # If you redirected output
 In a terminal, you can still use direct mode for richer output:
 
 ```bash
-npm run dev:all
+npm run dev
 ```
 
-Stop with `Ctrl+C` in the terminal - this naturally sends SIGTERM to concurrently.
+Stop with `Ctrl+C` in the terminal.
 
 ## Implementation Notes
 
@@ -258,5 +181,6 @@ The `/admin/import-data` endpoint uses transactions to ensure atomicity:
 ## See Also
 
 - `docs/ARCHITECTURE.md` - System design
+- `docs/CONFIG_QUICK_REFERENCE.md` - Env presets and runtime mode matrix
 - `docs/API.md` - API endpoints
 - `package.json` - All available scripts

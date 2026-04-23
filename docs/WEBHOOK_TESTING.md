@@ -1,8 +1,17 @@
 # Local Webhook Testing Guide
 
-**UPDATED: November 25, 2025**
+**UPDATED: April 23, 2026**
 
-Testing webhooks in development without needing ngrok, Strava, or real activities. Use the webhook event emitter tool to send test events to your local app.
+This guide covers webhook-path testing in local development now that the Local Harness admin panel has been removed. Use this doc for raw webhook processing checks. Use [WEBHOOK_ADMIN_LOCAL_REVIEW.md](./WEBHOOK_ADMIN_LOCAL_REVIEW.md) when your goal is to inspect the webhook admin UI against a refreshed production DB copy.
+
+## Choose The Right Workflow
+
+| Goal | Workflow |
+|------|----------|
+| Normal feature development with your local Strava-backed session | `npm run dev` |
+| Inspect webhook admin UI with realistic event history and enrichment shape | `npm run db:fetch-prod` then `npm run dev:prod-data` |
+| Run automated deterministic browser coverage | `npm run test:e2e` |
+| POST raw webhook payloads to your local backend and inspect processing/logging | Use the emitter steps below |
 
 ---
 
@@ -11,10 +20,10 @@ Testing webhooks in development without needing ngrok, Strava, or real activitie
 ### 1. Start Your Dev Servers
 
 ```bash
-npm run dev:all
+npm run dev
 ```
 
-This starts both backend (port 3001) and frontend (port 5173) with hot reload.
+This starts both backend (port 3001) and frontend (port 5173) with hot reload in your normal local development environment.
 
 ### 2. Send a Test Webhook Event
 
@@ -105,7 +114,7 @@ Participant completes an activity during the event window.
 This is the most common scenario.
 
 Expected behavior:
-- Activity fetched from Strava API
+- Activity resolved through the active Strava provider (`live`, `fixture`, or `mock-server`)
 - Matched to current week
 - Stored in database
 - Leaderboard updated
@@ -116,7 +125,7 @@ Expected behavior:
 Participant edits activity details (name, description, etc).
 
 Expected behavior:
-- Activity re-fetched from Strava
+- Activity re-resolved through the active Strava provider
 - Results recalculated
 - Leaderboard refreshed
 ```
@@ -172,7 +181,7 @@ This sends all events with 500ms delay between them, simulating a batch of activ
 
 ```bash
 # Terminal 1: Start dev servers
-npm run dev:all
+npm run dev
 
 # Terminal 2: Create a test season/week via the admin panel
 # (Navigate to http://localhost:5173, create Week 1 for today)
@@ -206,7 +215,7 @@ Simulate a failed event by stopping the server mid-processing:
 
 ```bash
 # Terminal 1: Start dev servers
-npm run dev:all
+npm run dev
 
 # Terminal 2: Send create event
 node scripts/webhook-emitter.cjs --event create --athlete-id 366880 --activity-id 123456789
@@ -215,7 +224,7 @@ node scripts/webhook-emitter.cjs --event create --athlete-id 366880 --activity-i
 # Event will be marked as failed in webhook_event table
 
 # Terminal 4: Restart servers
-npm run dev:all
+npm run dev
 
 # Terminal 5: Check event status in database
 # SELECT * FROM webhook_event WHERE object_id = 123456789
@@ -230,7 +239,7 @@ Simulate multiple participants submitting activities:
 
 ```bash
 # Terminal 1: Start dev servers
-npm run dev:all
+npm run dev
 
 # Terminal 2: Send batch of test events
 node scripts/webhook-emitter.cjs --file scripts/webhook-test-events.json --delay 1000
@@ -281,7 +290,7 @@ SELECT * FROM webhook_event LIMIT 5;
 
 **Solution:**
 ```bash
-npm run dev:all
+npm run dev
 ```
 
 Or check if port 3001 is in use:
