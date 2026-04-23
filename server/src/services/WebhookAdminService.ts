@@ -6,8 +6,8 @@
  */
 
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { and, desc, eq, gt, sql } from 'drizzle-orm';
-import { webhookEvent } from '../db/schema';
+import { and, desc, eq, gt, inArray, sql } from 'drizzle-orm';
+import { activity, explorerDestination, explorerDestinationMatch, participant, season, week, webhookEvent } from '../db/schema';
 import { WebhookSubscriptionService } from './WebhookSubscriptionService';
 import ParticipantService from './ParticipantService';
 import { ActivityService } from './ActivityService';
@@ -15,7 +15,17 @@ import { StorageMonitor } from '../webhooks/storageMonitor';
 import { config } from '../config';
 import { createWebhookProcessor } from '../webhooks/processor';
 import { WebhookLogger } from '../webhooks/logger';
-import { getWebhookActivityDetails } from './stravaReadProvider';
+import { getWebhookActivityDetailsResult } from './stravaReadProvider';
+
+export interface ParsedWebhookPayload {
+  aspect_type: 'create' | 'update' | 'delete';
+  event_time: number;
+  object_id: number;
+  object_type: 'activity' | 'athlete';
+  owner_id: number;
+  subscription_id: number;
+  updates?: Record<string, unknown>;
+}
 
 export class WebhookAdminService {
   private subscriptionService: WebhookSubscriptionService;
@@ -71,6 +81,162 @@ export class WebhookAdminService {
     return this.storageMonitor.getStatus();
   }
 
+  private buildEmptyActivitySummary(outcome: 'pending' | 'failed', message: string) {
+    return {
+      outcome,
+      competition_week_count: 0,
+      competition_season_count: 0,
+      explorer_destination_count: 0,
+      explorer_campaign_count: 0,
+      competition_week_names: [] as string[],
+      explorer_destination_names: [] as string[],
+      message,
+    };
+  }
+
+  private buildMatchedActivitySummary(
+    competitionMatches: Array<{ season_id: number; week_name: string | null }>,
+    explorerMatches: Array<{ explorer_campaign_id: number; destination_name: string | null; destination_cached_name: string | null }>
+  ) {
+    const competitionWeekCount = competitionMatches.length;
+    const competitionSeasonCount = new Set(competitionMatches.map(match => match.season_id)).size;
+    const explorerDestinationCount = explorerMatches.length;
+    const explorerCampaignCount = new Set(explorerMatches.map(match => match.explorer_campaign_id)).size;
+    const competitionWeekNames = Array.from(
+      new Set(
+        competitionMatches
+          .map(match => match.week_name)
+          .filter((name): name is string => Boolean(name))
+      )
+    );
+    const explorerDestinationNames = Array.from(
+      new Set(
+        explorerMatches
+          .map(match => match.destination_name || match.destination_cached_name)
+          .filter((name): name is string => Boolean(name))
+      )
+    );
+
+    let outcome: 'competition' | 'explorer' | 'both' | 'none';
+    let message: string;
+
+    if (competitionWeekCount > 0 && explorerDestinationCount > 0) {
+      outcome = 'both';
+      message = `Matched ${competitionWeekCount} competition week(s) and ${explorerDestinationCount} Explorer destination(s)`;
+    } else if (competitionWeekCount > 0) {
+      outcome = 'competition';
+      message = `Matched ${competitionWeekCount} competition week(s)`;
+    } else if (explorerDestinationCount > 0) {
+      outcome = 'explorer';
+      message = `Matched ${explorerDestinationCount} Explorer destination(s)`;
+    } else {
+      outcome = 'none';
+      message = 'Processed with no competition or Explorer matches';
+    }
+
+    return {
+      outcome,
+      competition_week_count: competitionWeekCount,
+      competition_season_count: competitionSeasonCount,
+      explorer_destination_count: explorerDestinationCount,
+      explorer_campaign_count: explorerCampaignCount,
+      competition_week_names: competitionWeekNames,
+      explorer_destination_names: explorerDestinationNames,
+      message,
+    };
+  }
+
+  private async buildActivityEventSummaries(
+    activityEvents: Array<{
+      objectId: string;
+      processed: number | null;
+      errorMessage: string | null;
+    }>
+  ) {
+    const summaries = new Map<string, ReturnType<WebhookAdminService['buildEmptyActivitySummary']> | ReturnType<WebhookAdminService['buildMatchedActivitySummary']>>();
+
+    const matchedActivityIds = activityEvents
+      .filter((event) => event.processed !== 0 && !event.errorMessage)
+      .map((event) => event.objectId);
+
+    if (matchedActivityIds.length > 0) {
+      const competitionMatches = await this.db
+        .select({
+          strava_activity_id: activity.strava_activity_id,
+          week_name: week.week_name,
+          season_id: season.id,
+        })
+        .from(activity)
+        .innerJoin(week, eq(activity.week_id, week.id))
+        .innerJoin(season, eq(week.season_id, season.id))
+        .where(inArray(activity.strava_activity_id, matchedActivityIds))
+        .groupBy(activity.strava_activity_id, week.id, season.id)
+        .all();
+
+      const explorerMatches = await this.db
+        .select({
+          strava_activity_id: explorerDestinationMatch.strava_activity_id,
+          explorer_campaign_id: explorerDestinationMatch.explorer_campaign_id,
+          destination_name: explorerDestination.display_label,
+          destination_cached_name: explorerDestination.cached_name,
+        })
+        .from(explorerDestinationMatch)
+        .leftJoin(
+          explorerDestination,
+          eq(explorerDestinationMatch.explorer_destination_id, explorerDestination.id)
+        )
+        .where(inArray(explorerDestinationMatch.strava_activity_id, matchedActivityIds))
+        .groupBy(
+          explorerDestinationMatch.strava_activity_id,
+          explorerDestinationMatch.explorer_campaign_id,
+          explorerDestination.display_label,
+          explorerDestination.cached_name
+        )
+        .all();
+
+      const competitionByActivityId = new Map<string, Array<{ season_id: number; week_name: string | null }>>();
+      for (const match of competitionMatches) {
+        const existing = competitionByActivityId.get(match.strava_activity_id) ?? [];
+        existing.push({ season_id: match.season_id, week_name: match.week_name });
+        competitionByActivityId.set(match.strava_activity_id, existing);
+      }
+
+      const explorerByActivityId = new Map<string, Array<{ explorer_campaign_id: number; destination_name: string | null; destination_cached_name: string | null }>>();
+      for (const match of explorerMatches) {
+        const existing = explorerByActivityId.get(match.strava_activity_id) ?? [];
+        existing.push({
+          explorer_campaign_id: match.explorer_campaign_id,
+          destination_name: match.destination_name,
+          destination_cached_name: match.destination_cached_name,
+        });
+        explorerByActivityId.set(match.strava_activity_id, existing);
+      }
+
+      for (const activityId of matchedActivityIds) {
+        summaries.set(
+          activityId,
+          this.buildMatchedActivitySummary(
+            competitionByActivityId.get(activityId) ?? [],
+            explorerByActivityId.get(activityId) ?? []
+          )
+        );
+      }
+    }
+
+    for (const event of activityEvents) {
+      if (event.processed === 0 && !event.errorMessage) {
+        summaries.set(event.objectId, this.buildEmptyActivitySummary('pending', 'Pending processing'));
+        continue;
+      }
+
+      if (event.errorMessage) {
+        summaries.set(event.objectId, this.buildEmptyActivitySummary('failed', event.errorMessage));
+      }
+    }
+
+    return summaries;
+  }
+
   async getEvents(limit: number, offset: number, since: number, status: 'all' | 'success' | 'failed') {
     const sinceExpr = sql`datetime(${since}, 'unixepoch')`;
     const conditions: Array<any> = [gt(webhookEvent.created_at, sinceExpr)];
@@ -104,12 +270,77 @@ export class WebhookAdminService {
       .offset(offset)
       .all();
 
+    const parsedEvents = events.map((event): {
+      id: number;
+      payload: ParsedWebhookPayload;
+      processed: boolean;
+      error_message: string | null;
+      created_at: string | null;
+    } => {
+      const payload = JSON.parse(event.payload) as ParsedWebhookPayload;
+      return {
+        ...event,
+        payload,
+        processed: event.processed === 1,
+      };
+    });
+
+    const activityEvents = parsedEvents
+      .filter((event) => event.payload.object_type === 'activity' && event.payload.object_id)
+      .map((event) => ({
+        objectId: String(event.payload.object_id),
+        processed: events.find((rawEvent) => rawEvent.id === event.id)?.processed ?? null,
+        errorMessage: event.error_message,
+      }));
+
+    const activitySummaries = await this.buildActivityEventSummaries(activityEvents);
+
+    const ownerIds = Array.from(
+      new Set(
+        parsedEvents
+          .map((event) => event.payload.owner_id)
+          .filter((ownerId): ownerId is number => typeof ownerId === 'number')
+          .map((ownerId) => String(ownerId))
+      )
+    );
+
+    let participantRows: Array<{ strava_athlete_id: string | null; name: string | null }> = [];
+
+    if (ownerIds.length > 0) {
+      participantRows = this.db
+        .select({
+          strava_athlete_id: participant.strava_athlete_id,
+          name: participant.name,
+        })
+        .from(participant)
+        .where(inArray(participant.strava_athlete_id, ownerIds))
+        .all();
+    }
+
+    const participantsById = new Map(
+      participantRows.map((participantRecord) => [participantRecord.strava_athlete_id, participantRecord.name])
+    );
+
+    const summarizedEvents = parsedEvents.map((event) => {
+      const activitySummary = (
+        event.payload.object_type === 'activity' && event.payload.object_id
+      )
+        ? activitySummaries.get(String(event.payload.object_id))
+        : undefined;
+
+      return {
+        id: event.id,
+        created_at: event.created_at,
+        payload: event.payload,
+        processed: event.processed,
+        error_message: event.error_message,
+        athlete_name: participantsById.get(String(event.payload.owner_id)) ?? null,
+        activity_summary: activitySummary,
+      };
+    });
+
     return {
-      events: events.map(e => ({
-        ...e,
-        payload: JSON.parse(e.payload),
-        processed: e.processed === 1
-      })),
+      events: summarizedEvents,
       total: countRow?.count ?? 0,
       limit,
       offset
@@ -197,6 +428,11 @@ export class WebhookAdminService {
           name: participantRecord?.name || `Unknown (${athleteId})`
         },
         strava_data: null,
+        activity_detail: {
+          status: 'not_attempted',
+          message: null,
+          cached: false,
+        },
         matching_seasons: [],
         summary: {
           status: 'not_processed',
@@ -205,15 +441,6 @@ export class WebhookAdminService {
           total_seasons: 0
         }
       };
-
-      // Try to fetch activity details from Strava
-      if (participantRecord && activityId) {
-        enrichment.strava_data = await getWebhookActivityDetails(
-          this.db,
-          participantRecord.strava_athlete_id,
-          activityId
-        );
-      }
 
       // If not processed, return early
       if (eventRow.processed === 0 && !eventRow.error_message) {
@@ -225,6 +452,27 @@ export class WebhookAdminService {
         };
         response.enrichment = enrichment;
         return response;
+      }
+
+      // Try to fetch activity details from Strava only when the event was processed successfully.
+      if (participantRecord && activityId) {
+        const activityDetails = await getWebhookActivityDetailsResult(
+          this.db,
+          participantRecord.strava_athlete_id,
+          activityId
+        );
+        enrichment.strava_data = activityDetails.details;
+        enrichment.activity_detail = {
+          status: activityDetails.status,
+          message: activityDetails.message,
+          cached: activityDetails.cached,
+        };
+      } else if (activityId) {
+        enrichment.activity_detail = {
+          status: 'token_unavailable',
+          message: 'Activity details could not be fetched because the athlete is not currently connected to WMV.',
+          cached: false,
+        };
       }
 
       // If failed with error

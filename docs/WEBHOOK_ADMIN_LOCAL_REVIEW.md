@@ -4,6 +4,10 @@ Use this workflow when your goal is to inspect the webhook admin UI with realist
 
 This is the preferred path for judging the Webhooks admin screens because it uses a refreshed local copy of the production database instead of synthetic local harness data.
 
+The event-history card design is intentionally optimized for two different review questions:
+- collapsed rows are for quick scanning of webhook type, match outcome, and specific competition or Explorer matches when they exist
+- expanded rows are for checking fetched Strava detail, private or unavailable guidance, and raw event context without leaving the admin page
+
 ## What This Workflow Gives You
 
 - real webhook event-history rows from production data
@@ -61,6 +65,8 @@ Expected local endpoints:
 
 This is the right workflow when you want to judge:
 - event card density and readability
+- whether the row title hierarchy feels right for athlete and activity identity
+- whether collapsed badges make specific week and Explorer destination matches easy to spot
 - error and success distribution
 - enrichment usefulness
 - empty, loading, and overflow states
