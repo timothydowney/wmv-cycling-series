@@ -9,10 +9,11 @@
   display: flex;
   gap: 15px;
   padding: 15px;
-  background-color: #f8f9fa;
-  border-radius: 6px;
+  background-color: var(--wmv-bg-light);
+  border-radius: 12px;
   flex-wrap: wrap;
   align-items: flex-end;
+  border: 1px solid var(--wmv-border);
 }
 
 .filter-group {
@@ -23,7 +24,7 @@
 
 .filter-group label {
   font-size: 12px;
-  color: #7f8c8d;
+  color: var(--wmv-text-light);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -31,31 +32,31 @@
 
 .filter-group select {
   padding: 8px 12px;
-  border: 1px solid #bdc3c7;
-  border-radius: 4px;
-  background-color: white;
-  color: #2c3e50;
+  border: 1px solid var(--wmv-border);
+  border-radius: 999px;
+  background-color: var(--wmv-white);
+  color: var(--wmv-text-dark);
   font-size: 13px;
   cursor: pointer;
   transition: border-color 0.2s ease;
 }
 
 .filter-group select:hover {
-  border-color: #3498db;
+  border-color: var(--wmv-purple);
 }
 
 .filter-group select:focus {
   outline: none;
-  border-color: #3498db;
-  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+  border-color: var(--wmv-purple);
+  box-shadow: 0 0 0 3px rgba(55, 35, 114, 0.08);
 }
 
 .clear-btn {
   padding: 8px 16px;
-  background-color: #e74c3c;
-  color: white;
+  background-color: var(--wmv-orange);
+  color: var(--wmv-white);
   border: none;
-  border-radius: 4px;
+  border-radius: 999px;
   font-size: 13px;
   cursor: pointer;
   font-weight: 600;
@@ -63,9 +64,9 @@
 }
 
 .clear-btn:hover:not(:disabled) {
-  background-color: #c0392b;
+  background-color: var(--wmv-orange-hover);
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(231, 76, 60, 0.3);
+  box-shadow: 0 2px 4px rgba(242, 122, 53, 0.24);
 }
 
 .clear-btn:disabled {
@@ -77,26 +78,26 @@
 /* Status Messages */
 .error-message {
   padding: 12px 16px;
-  background-color: #fadbd8;
-  color: #c0392b;
-  border-left: 4px solid #e74c3c;
-  border-radius: 4px;
+  background-color: color-mix(in srgb, #d64545 8%, var(--wmv-white));
+  color: #a52c2c;
+  border-left: 4px solid #d64545;
+  border-radius: 12px;
   font-size: 13px;
 }
 
 .success-message {
   padding: 12px 16px;
-  background-color: #d5f4e6;
-  color: #27ae60;
-  border-left: 4px solid #27ae60;
-  border-radius: 4px;
+  background-color: color-mix(in srgb, var(--wmv-orange) 12%, var(--wmv-white));
+  color: var(--wmv-orange-hover);
+  border-left: 4px solid var(--wmv-orange);
+  border-radius: 12px;
   font-size: 13px;
 }
 
 .loading {
   text-align: center;
   padding: 40px 20px;
-  color: #7f8c8d;
+  color: var(--wmv-text-light);
   font-size: 14px;
 }
 
@@ -104,7 +105,7 @@
 .empty-state {
   text-align: center;
   padding: 40px 20px;
-  color: #95a5a6;
+  color: var(--wmv-text-light);
 }
 
 .empty-state p {
@@ -113,7 +114,7 @@
 
 .empty-hint {
   font-size: 13px;
-  color: #bdc3c7;
+  color: var(--wmv-text-light);
 }
 
 /* Events List - Full Width Card Layout */

@@ -3,6 +3,9 @@ import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { 
   setupTestDb, 
   teardownTestDb, 
+  createExplorerCampaign,
+  createExplorerDestination,
+  createExplorerMatch,
   createParticipant, 
   createSeason, 
   createWeek, 
@@ -88,5 +91,123 @@ describe('WebhookAdminService enrichment', () => {
 
     const details = await service.getEnrichedEventDetails(event.id);
     expect(details.enrichment.summary.status).toBe('no_match');
+  });
+
+  it('should return collapsed activity summaries for competition, explorer, both, and none', async () => {
+    const alice = createParticipant(drizzleDb, '777', 'Alice');
+    const season = createSeason(drizzleDb, 'Observability Season');
+    const segment = createSegment(drizzleDb, 'obs-seg', 'Observability Segment');
+    const week = createWeek(drizzleDb, {
+      seasonId: season.id,
+      stravaSegmentId: segment.strava_segment_id,
+      weekName: 'Observability Week',
+    });
+    const campaign = createExplorerCampaign(drizzleDb, {
+      displayName: 'Explorer Observability Campaign',
+    });
+    const explorerOnlyDestination = createExplorerDestination(drizzleDb, {
+      explorerCampaignId: campaign.id,
+      stravaSegmentId: 'explorer-observability-segment',
+      cachedName: 'Explorer Only Destination',
+    });
+    const bothDestination = createExplorerDestination(drizzleDb, {
+      explorerCampaignId: campaign.id,
+      stravaSegmentId: 'explorer-observability-segment-2',
+      cachedName: 'Both Destination',
+    });
+
+    const activityIds = {
+      competitionOnly: 200001,
+      explorerOnly: 200002,
+      both: 200003,
+      none: 200004,
+    };
+
+    const insertedEvents = await drizzleDb.insert(webhookEvent).values([
+      {
+        payload: JSON.stringify({ object_type: 'activity', aspect_type: 'create', object_id: activityIds.competitionOnly, owner_id: parseInt(alice.strava_athlete_id), event_time: Math.floor(Date.now() / 1000) }),
+        processed: 1,
+      },
+      {
+        payload: JSON.stringify({ object_type: 'activity', aspect_type: 'create', object_id: activityIds.explorerOnly, owner_id: parseInt(alice.strava_athlete_id), event_time: Math.floor(Date.now() / 1000) }),
+        processed: 1,
+      },
+      {
+        payload: JSON.stringify({ object_type: 'activity', aspect_type: 'create', object_id: activityIds.both, owner_id: parseInt(alice.strava_athlete_id), event_time: Math.floor(Date.now() / 1000) }),
+        processed: 1,
+      },
+      {
+        payload: JSON.stringify({ object_type: 'activity', aspect_type: 'create', object_id: activityIds.none, owner_id: parseInt(alice.strava_athlete_id), event_time: Math.floor(Date.now() / 1000) }),
+        processed: 1,
+      },
+    ]).returning();
+
+    await drizzleDb.insert(activity).values({
+      strava_activity_id: activityIds.competitionOnly.toString(),
+      strava_athlete_id: alice.strava_athlete_id,
+      week_id: week.id,
+      start_at: Math.floor(Date.now() / 1000),
+      validation_status: 'valid',
+    });
+
+    createExplorerMatch(drizzleDb, {
+      explorerCampaignId: campaign.id,
+      explorerDestinationId: explorerOnlyDestination.id,
+      stravaAthleteId: alice.strava_athlete_id,
+      stravaActivityId: activityIds.explorerOnly.toString(),
+    });
+
+    await drizzleDb.insert(activity).values({
+      strava_activity_id: activityIds.both.toString(),
+      strava_athlete_id: alice.strava_athlete_id,
+      week_id: week.id,
+      start_at: Math.floor(Date.now() / 1000),
+      validation_status: 'valid',
+    });
+
+    createExplorerMatch(drizzleDb, {
+      explorerCampaignId: campaign.id,
+      explorerDestinationId: bothDestination.id,
+      stravaAthleteId: alice.strava_athlete_id,
+      stravaActivityId: activityIds.both.toString(),
+    });
+
+    const result = await service.getEvents(10, 0, 0, 'all');
+    const summaryByActivityId = new Map(
+      result.events.map(event => [
+        event.payload.object_id,
+        (event as any).activity_summary,
+      ])
+    );
+
+    expect(summaryByActivityId.get(activityIds.competitionOnly)).toMatchObject({
+      outcome: 'competition',
+      competition_week_count: 1,
+      explorer_destination_count: 0,
+      competition_week_names: ['Observability Week'],
+      explorer_destination_names: [],
+    });
+    expect(summaryByActivityId.get(activityIds.explorerOnly)).toMatchObject({
+      outcome: 'explorer',
+      competition_week_count: 0,
+      explorer_destination_count: 1,
+      competition_week_names: [],
+      explorer_destination_names: ['Explorer Only Destination'],
+    });
+    expect(summaryByActivityId.get(activityIds.both)).toMatchObject({
+      outcome: 'both',
+      competition_week_count: 1,
+      explorer_destination_count: 1,
+      competition_week_names: ['Observability Week'],
+      explorer_destination_names: ['Both Destination'],
+    });
+    expect(summaryByActivityId.get(activityIds.none)).toMatchObject({
+      outcome: 'none',
+      competition_week_count: 0,
+      explorer_destination_count: 0,
+      competition_week_names: [],
+      explorer_destination_names: [],
+    });
+    expect(insertedEvents).toHaveLength(4);
   });
 });

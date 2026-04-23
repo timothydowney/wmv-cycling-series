@@ -7,7 +7,7 @@
 
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { and, desc, eq, gt, sql } from 'drizzle-orm';
-import { webhookEvent } from '../db/schema';
+import { explorerCampaign, explorerDestination, explorerDestinationMatch, webhookEvent } from '../db/schema';
 import { WebhookSubscriptionService } from './WebhookSubscriptionService';
 import ParticipantService from './ParticipantService';
 import { ActivityService } from './ActivityService';
@@ -15,7 +15,7 @@ import { StorageMonitor } from '../webhooks/storageMonitor';
 import { config } from '../config';
 import { createWebhookProcessor } from '../webhooks/processor';
 import { WebhookLogger } from '../webhooks/logger';
-import { getWebhookActivityDetails } from './stravaReadProvider';
+import { getWebhookActivityDetailsResult } from './stravaReadProvider';
 
 export class WebhookAdminService {
   private subscriptionService: WebhookSubscriptionService;
@@ -71,6 +71,106 @@ export class WebhookAdminService {
     return this.storageMonitor.getStatus();
   }
 
+  private async buildActivityEventSummary(
+    stravaActivityId: string,
+    processed: number | null,
+    errorMessage: string | null
+  ) {
+    if (processed === 0 && !errorMessage) {
+      return {
+        outcome: 'pending' as const,
+        competition_week_count: 0,
+        competition_season_count: 0,
+        explorer_destination_count: 0,
+        explorer_campaign_count: 0,
+        competition_week_names: [],
+        explorer_destination_names: [],
+        message: 'Pending processing',
+      };
+    }
+
+    if (errorMessage) {
+      return {
+        outcome: 'failed' as const,
+        competition_week_count: 0,
+        competition_season_count: 0,
+        explorer_destination_count: 0,
+        explorer_campaign_count: 0,
+        competition_week_names: [],
+        explorer_destination_names: [],
+        message: errorMessage,
+      };
+    }
+
+    const competitionMatches = await this.activityService.getStoredActivityMatches(stravaActivityId);
+    const explorerMatches = await this.db
+      .select({
+        explorer_destination_id: explorerDestinationMatch.explorer_destination_id,
+        explorer_campaign_id: explorerDestinationMatch.explorer_campaign_id,
+        campaign_name: explorerCampaign.display_name,
+        destination_name: explorerDestination.display_label,
+        destination_cached_name: explorerDestination.cached_name,
+      })
+      .from(explorerDestinationMatch)
+      .leftJoin(
+        explorerDestination,
+        eq(explorerDestinationMatch.explorer_destination_id, explorerDestination.id)
+      )
+      .leftJoin(
+        explorerCampaign,
+        eq(explorerDestinationMatch.explorer_campaign_id, explorerCampaign.id)
+      )
+      .where(eq(explorerDestinationMatch.strava_activity_id, stravaActivityId))
+      .all();
+
+    const competitionWeekCount = competitionMatches.length;
+    const competitionSeasonCount = new Set(competitionMatches.map(match => match.season_id)).size;
+    const explorerDestinationCount = explorerMatches.length;
+    const explorerCampaignCount = new Set(explorerMatches.map(match => match.explorer_campaign_id)).size;
+    const competitionWeekNames = Array.from(
+      new Set(
+        competitionMatches
+          .map(match => match.week_name)
+          .filter((name): name is string => Boolean(name))
+      )
+    );
+    const explorerDestinationNames = Array.from(
+      new Set(
+        explorerMatches
+          .map(match => match.destination_name || match.destination_cached_name)
+          .filter((name): name is string => Boolean(name))
+      )
+    );
+
+    let outcome: 'competition' | 'explorer' | 'both' | 'none';
+    let message: string;
+
+    if (competitionWeekCount > 0 && explorerDestinationCount > 0) {
+      outcome = 'both';
+      message = `Matched ${competitionWeekCount} competition week(s) and ${explorerDestinationCount} Explorer destination(s)`;
+    } else if (competitionWeekCount > 0) {
+      outcome = 'competition';
+      message = `Matched ${competitionWeekCount} competition week(s)`;
+    } else if (explorerDestinationCount > 0) {
+      outcome = 'explorer';
+      message = `Matched ${explorerDestinationCount} Explorer destination(s)`;
+    } else {
+      outcome = 'none';
+      message = 'Processed with no competition or Explorer matches';
+    }
+
+    return {
+      outcome,
+      competition_week_count: competitionWeekCount,
+      competition_season_count: competitionSeasonCount,
+      explorer_destination_count: explorerDestinationCount,
+      explorer_campaign_count: explorerCampaignCount,
+      competition_week_names: competitionWeekNames,
+      explorer_destination_names: explorerDestinationNames,
+      message,
+    };
+  }
+
   async getEvents(limit: number, offset: number, since: number, status: 'all' | 'success' | 'failed') {
     const sinceExpr = sql`datetime(${since}, 'unixepoch')`;
     const conditions: Array<any> = [gt(webhookEvent.created_at, sinceExpr)];
@@ -104,12 +204,30 @@ export class WebhookAdminService {
       .offset(offset)
       .all();
 
+    const parsedEvents = await Promise.all(events.map(async (event) => {
+      const payload = JSON.parse(event.payload);
+      const parsedEvent = {
+        ...event,
+        payload,
+        processed: event.processed === 1,
+      };
+
+      if (payload.object_type !== 'activity' || !payload.object_id) {
+        return parsedEvent;
+      }
+
+      return {
+        ...parsedEvent,
+        activity_summary: await this.buildActivityEventSummary(
+          String(payload.object_id),
+          event.processed,
+          event.error_message
+        ),
+      };
+    }));
+
     return {
-      events: events.map(e => ({
-        ...e,
-        payload: JSON.parse(e.payload),
-        processed: e.processed === 1
-      })),
+      events: parsedEvents,
       total: countRow?.count ?? 0,
       limit,
       offset
@@ -197,6 +315,11 @@ export class WebhookAdminService {
           name: participantRecord?.name || `Unknown (${athleteId})`
         },
         strava_data: null,
+        activity_detail: {
+          status: 'not_attempted',
+          message: null,
+          cached: false,
+        },
         matching_seasons: [],
         summary: {
           status: 'not_processed',
@@ -208,11 +331,23 @@ export class WebhookAdminService {
 
       // Try to fetch activity details from Strava
       if (participantRecord && activityId) {
-        enrichment.strava_data = await getWebhookActivityDetails(
+        const activityDetails = await getWebhookActivityDetailsResult(
           this.db,
           participantRecord.strava_athlete_id,
           activityId
         );
+        enrichment.strava_data = activityDetails.details;
+        enrichment.activity_detail = {
+          status: activityDetails.status,
+          message: activityDetails.message,
+          cached: activityDetails.cached,
+        };
+      } else if (activityId) {
+        enrichment.activity_detail = {
+          status: 'token_unavailable',
+          message: 'Activity details could not be fetched because the athlete is not currently connected to WMV.',
+          cached: false,
+        };
       }
 
       // If not processed, return early
