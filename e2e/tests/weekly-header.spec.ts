@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import {
   setupStravaInterception,
-  setAuthCookie,
+  loginAsE2EUser,
 } from '../fixtures/test-helpers';
 
 /**
@@ -18,7 +18,7 @@ import {
 test.describe('WeeklyHeader Component', () => {
   test.beforeEach(async ({ page }) => {
     await setupStravaInterception(page);
-    await setAuthCookie(page, '70001');
+    await loginAsE2EUser(page);
     await page.goto('/leaderboard');
     await page.waitForLoadState('networkidle');
     

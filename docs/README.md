@@ -21,6 +21,7 @@ Welcome to the WMV Cycling Series documentation. Start with **Getting Started**,
 
 - **[Scoring Rules](./SCORING.md)** - Scoring formula, edge cases, and architectural details
 - **[Admin Guide](../ADMIN_GUIDE.md)** - Week management, batch fetch, participant operations
+- **[Webhook Admin Local Review](./WEBHOOK_ADMIN_LOCAL_REVIEW.md)** - How to inspect the webhook admin UI against a refreshed production DB copy
 
 ### Security & Deployment
 
@@ -43,9 +44,10 @@ Welcome to the WMV Cycling Series documentation. Start with **Getting Started**,
 
 ### New Developer
 1. Read: [Quick Start](./QUICK_START.md)
-2. Run: `npm run dev:all`
+2. Run: `npm run dev`
 3. Explore: [Architecture Overview](./ARCHITECTURE.md)
 4. Dive in: [API Reference](./API.md) + [Database Design](./DATABASE_DESIGN.md)
+5. Keep [CONFIG_QUICK_REFERENCE.md](./CONFIG_QUICK_REFERENCE.md) nearby for env presets and runtime modes
 
 ### Admin (Running Competitions)
 - Start: [Admin Guide](../ADMIN_GUIDE.md)
@@ -82,6 +84,7 @@ Welcome to the WMV Cycling Series documentation. Start with **Getting Started**,
 ├── DATABASE_DESIGN.md          # Schema and queries
 ├── STRAVA_INTEGRATION.md       # OAuth and activity flow
 ├── WEBHOOKS.md                 # Real-time webhook processing
+├── WEBHOOK_ADMIN_LOCAL_REVIEW.md # Review webhook admin UI against a refreshed production DB copy
 ├── SCORING.md                  # Scoring formula and architecture
 ├── SECURITY_AUDIT.md           # Security review & compliance
 ├── DEPLOYMENT.md               # Production deployment
@@ -106,6 +109,7 @@ Welcome to the WMV Cycling Series documentation. Start with **Getting Started**,
 | **DATABASE_DESIGN.md** | Understand the schema | You're working with data |
 | **STRAVA_INTEGRATION.md** | Learn OAuth + activity flow | You're integrating Strava or debugging auth |
 | **WEBHOOKS.md** | Real-time webhook processing | You're implementing/understanding webhooks |
+| **WEBHOOK_ADMIN_LOCAL_REVIEW.md** | Realistic local webhook admin UI review | You want to inspect webhook admin screens with production-like data |
 | **SCORING.md** | Scoring formula and how it works | You want to understand scoring and deletion safety |
 | **SECURITY_AUDIT.md** | Security review & compliance | You're auditing the codebase or deploying |
 | **DEPLOYMENT.md** | Deploy to production | You're going live |
@@ -119,7 +123,7 @@ Welcome to the WMV Cycling Series documentation. Start with **Getting Started**,
 ## Common Questions
 
 **Q: How do I get started?**  
-A: Read [Quick Start](./QUICK_START.md), run `npm run dev:all`, and open http://localhost:5173
+A: Read [Quick Start](./QUICK_START.md), run `npm run dev`, and open http://localhost:5173
 
 **Q: How does the OAuth flow work?**  
 A: See [Strava Integration](./STRAVA_INTEGRATION.md) - comprehensive guide with code examples

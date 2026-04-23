@@ -13,7 +13,7 @@ Get the app running in 5 minutes.
 ## Setup (1 minute)
 
 ```bash
-cd /path/to/strava-ncc-scrape
+cd /path/to/wmv-cycling-series
 npm install
 ```
 
@@ -23,7 +23,7 @@ That's it. Installs both frontend and backend dependencies.
 
 ### For Interactive Development (Recommended)
 ```bash
-npm run dev:all
+npm run dev
 ```
 
 Opens two servers in your terminal with colored output:
@@ -32,18 +32,17 @@ Opens two servers in your terminal with colored output:
 
 Both have hot-reload. Stop with `Ctrl+C`.
 
-### For Automated/Background Use (Agents & Scripts)
+### For Reviewing the Webhook Admin UI with Production-Like Data
 ```bash
-npm start              # Start both servers in background
-npm status             # Verify running
-npm stop               # Stop cleanly when done
+npm run db:fetch-prod
+npm run dev:prod-data
 ```
 
-Perfect for CI/CD, testing workflows, and agentic development.
+This refreshes a local copy of the production database, writes `.env.prod`, and starts the app against that snapshot on the normal local ports.
 
-**If `npm stop` doesn't work (orphaned processes):**
+**If you hit orphaned processes:**
 ```bash
-npm cleanup            # Force-kill all dev processes
+npm run dev:cleanup
 ```
 
 See `docs/DEV_PROCESS_MANAGEMENT.md` for detailed process management guide.
@@ -62,6 +61,23 @@ See `docs/DEV_PROCESS_MANAGEMENT.md` for detailed process management guide.
 
 ✅ **If you see data, you're ready to go!**
 
+## Runtime Presets
+
+Use these presets instead of memorizing individual env vars:
+
+| Goal | Command | Env file | What changes |
+|------|---------|----------|--------------|
+| Normal local development | `npm run dev` | `.env` | Standard local app behavior on `:5173` and `:3001` |
+| Review webhook admin UI with production-like data | `npm run db:fetch-prod` then `npm run dev:prod-data` | `.env.prod` | Uses a refreshed local production DB copy and production secrets for realistic admin UI review |
+| Playwright E2E | `npm run test:e2e` | `e2e/.env.e2e` | Uses dedicated E2E ports, fixture-backed Strava, E2E auth, and E2E DB reset |
+
+The important rule is simple:
+- `ENV_FILE` selects a preset.
+- `WMV_RUNTIME_MODE` is only for E2E-specific boot/runtime behavior.
+- `STRAVA_API_MODE` controls whether backend Strava-dependent flows run live or deterministic.
+
+See [CONFIG_QUICK_REFERENCE.md](./CONFIG_QUICK_REFERENCE.md) for the full matrix.
+
 ## Troubleshooting
 
 **"Cannot find module" error**
@@ -71,15 +87,15 @@ npm install
 
 **"Port already in use" error**
 ```bash
-npm run stop  # Kills stuck processes
-npm run dev:all  # Try again
+npm run dev:cleanup
+npm run dev
 ```
 
 **"node: command not found" or wrong version**
 ```bash
 nvm install 24
 nvm use 24
-npm run dev:all
+npm run dev
 ```
 
 **Leaderboard shows "Error: Failed to fetch"**
@@ -116,12 +132,12 @@ npm run build
 ## Common Commands
 
 ```bash
-npm run dev:all          # Start both servers interactively
-npm start                # Start both servers in background
-npm stop                 # Stop background servers
-npm status               # Check if running
-npm cleanup              # Emergency: Force cleanup
-npm test                 # Run backend tests
+npm run dev              # Start frontend + backend interactively
+npm run db:fetch-prod    # Refresh local production DB copy and .env.prod
+npm run dev:prod-data    # Start app against the production DB copy
+npm run dev:cleanup      # Clean up local servers
+npm test                 # Run frontend + backend unit tests
+npm run test:e2e         # Run Playwright E2E tests
 npm run build            # Build for production
 npm run build:frontend   # Build React app only
 ```
@@ -146,6 +162,6 @@ npm run build:frontend   # Build React app only
 
 ---
 
-That's it! You're now running the WMV Cycling Series app locally. 🚴
+That's it! You're now running the WMV Cycling Series app locally.
 
 Questions? Check `docs/README.md` for the full documentation index.

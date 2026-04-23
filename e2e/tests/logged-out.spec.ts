@@ -8,25 +8,21 @@ test.describe('Logged Out User Experience', () => {
     await page.waitForLoadState('networkidle');
   });
 
-  test.describe('Strava Connect Banner', () => {
-    test('displays connect banner for logged-out users', async ({ page }) => {
-      // Wait for the banner to appear
-      const banner = page.getByTestId('strava-connect-banner');
-      await expect(banner).toBeVisible();
+  test.describe('Signed Out Home', () => {
+    test('displays the signed-out landing shell for logged-out users', async ({ page }) => {
+      await expect(page.getByTestId('signed-out-home')).toBeVisible();
     });
 
-    test('shows banner heading', async ({ page }) => {
-      const heading = page.getByTestId('banner-heading');
-      await expect(heading).toBeVisible();
+    test('shows the signed-out heading', async ({ page }) => {
+      await expect(page.getByRole('heading', { name: 'Join Western Mass Velo with Strava' })).toBeVisible();
     });
 
-    test('shows banner description', async ({ page }) => {
-      const description = page.getByTestId('banner-description');
-      await expect(description).toBeVisible();
+    test('shows the signed-out description', async ({ page }) => {
+      await expect(page.getByText('Use Connect with Strava to sign in or reconnect your account and get back into the WMV riding app.')).toBeVisible();
     });
 
     test('displays Connect with Strava button', async ({ page }) => {
-      const connectButton = page.getByTestId('connect-with-strava-button');
+      const connectButton = page.getByTestId('signed-out-connect-button');
       await expect(connectButton).toBeVisible();
       
       // Should have Strava image
@@ -34,57 +30,41 @@ test.describe('Logged Out User Experience', () => {
       await expect(stravaImage).toBeVisible();
     });
 
-    test('displays dismiss button', async ({ page }) => {
-      const dismissButton = page.getByTestId('dismiss-banner-button');
-      await expect(dismissButton).toBeVisible();
-      await expect(dismissButton).toHaveAttribute('aria-label', 'Dismiss');
+    test('displays WMV website link', async ({ page }) => {
+      await expect(page.getByRole('link', { name: 'Visit the WMV website' })).toBeVisible();
     });
 
-    test('banner can be dismissed', async ({ page }) => {
-      const banner = page.getByTestId('strava-connect-banner');
-      await expect(banner).toBeVisible();
-      
-      // Click dismiss button
-      const dismissButton = page.getByTestId('dismiss-banner-button');
-      await dismissButton.click();
-      
-      // Banner should disappear
-      await expect(banner).not.toBeVisible();
+    test('shows member sign-in chip', async ({ page }) => {
+      await expect(page.getByText('Members sign-in')).toBeVisible();
     });
 
-    test('banner appears on all leaderboard views when logged out', async ({ page }) => {
-      // Navigate to Fall 2025
-      await page.getByTestId('season-select').selectOption('1');
+    test('direct leaderboard routes still land on the signed-out shell', async ({ page }) => {
+      await page.goto('/leaderboard/1/weekly/1');
       await page.waitForLoadState('networkidle');
-      
-      // Check Weekly view - use exact: true to avoid matching navbar title
-      await page.getByRole('link', { name: 'Weekly', exact: true }).click();
+      await expect(page.getByTestId('signed-out-home')).toBeVisible();
+
+      await page.goto('/leaderboard/1/season');
       await page.waitForLoadState('networkidle');
-      await expect(page.getByTestId('strava-connect-banner')).toBeVisible();
-      
-      // Check Season view - use exact: true to avoid navbar ambiguity
-      await page.getByRole('link', { name: 'Season', exact: true }).click();
+      await expect(page.getByTestId('signed-out-home')).toBeVisible();
+
+      await page.goto('/leaderboard/1/schedule');
       await page.waitForLoadState('networkidle');
-      await expect(page.getByTestId('strava-connect-banner')).toBeVisible();
-      
-      // Check Schedule view - use exact: true to avoid navbar ambiguity
-      await page.getByRole('link', { name: 'Schedule', exact: true }).click();
-      await page.waitForLoadState('networkidle');
-      await expect(page.getByTestId('strava-connect-banner')).toBeVisible();
+      await expect(page.getByTestId('signed-out-home')).toBeVisible();
     });
   });
 
   test.describe('Public Navigation', () => {
-    test('shows About in the menu without login', async ({ page }) => {
+    test('shows signed-out status and connect action in the menu without login', async ({ page }) => {
       await page.getByRole('button', { name: 'Menu' }).click();
-      await expect(page.getByRole('link', { name: 'About' })).toBeVisible();
+      await expect(page.getByText('Not connected to Strava')).toBeVisible();
+      await expect(page.getByRole('navigation').getByRole('button', { name: 'Connect with Strava' })).toBeVisible();
     });
 
-    test('allows visiting About without login', async ({ page }) => {
-      await page.getByRole('button', { name: 'Menu' }).click();
-      await page.getByRole('link', { name: 'About' }).click();
+    test('redirects anonymous about navigation back to the signed-out shell', async ({ page }) => {
+      await page.goto('/about');
+      await page.waitForLoadState('networkidle');
       await expect(page).toHaveURL(/\/about/);
-      await expect(page.getByRole('heading', { name: 'WMV Cycling Series' })).toBeVisible();
+      await expect(page.getByTestId('signed-out-home')).toBeVisible();
     });
   });
 });

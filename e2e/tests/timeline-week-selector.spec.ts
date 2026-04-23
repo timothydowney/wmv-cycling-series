@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { loginAsE2EUser } from '../fixtures/test-helpers';
 
 test.describe('Timeline Week Selector', () => {
   test.beforeEach(async ({ page }) => {
+    await loginAsE2EUser(page);
     await page.goto('/leaderboard');
     await page.waitForLoadState('networkidle');
   });
