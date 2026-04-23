@@ -50,6 +50,7 @@ const baseEvent = {
   created_at: '2026-04-22T10:00:00Z',
   processed: true,
   error_message: null,
+  athlete_name: 'Alice',
   payload: {
     aspect_type: 'create' as const,
     event_time: 1713780000,
@@ -96,7 +97,7 @@ describe('WebhookActivityEventCard', () => {
     }
   });
 
-  it('shows collapsed summary badges and requests enrichment immediately for list-view detail', async () => {
+  it('shows collapsed summary badges and only enables enrichment after expansion', async () => {
     getEnrichedEventDetailsUseQuery.mockReturnValue({
       data: {
         athlete: {
@@ -129,6 +130,16 @@ describe('WebhookActivityEventCard', () => {
     expect(container.textContent).toContain('Private or unavailable');
 
     const initialCall = getEnrichedEventDetailsUseQuery.mock.calls.at(-1);
-    expect(initialCall?.[1]).toMatchObject({ enabled: true, staleTime: 300000 });
+    expect(initialCall?.[1]).toMatchObject({ enabled: false, staleTime: 300000 });
+
+    const expandButton = container.querySelector('.collapse-btn') as HTMLButtonElement | null;
+    expect(expandButton).not.toBeNull();
+
+    await act(async () => {
+      expandButton?.click();
+    });
+
+    const expandedCall = getEnrichedEventDetailsUseQuery.mock.calls.at(-1);
+    expect(expandedCall?.[1]).toMatchObject({ enabled: true, staleTime: 300000 });
   });
 });

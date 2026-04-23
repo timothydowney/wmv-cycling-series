@@ -19,6 +19,7 @@ export interface WebhookEvent {
   payload: WebhookPayload;
   processed: boolean | null;
   error_message: string | null;
+  athlete_name?: string | null;
   activity_summary?: {
     outcome: 'competition' | 'explorer' | 'both' | 'none' | 'pending' | 'failed';
     competition_week_count: number;
@@ -57,6 +58,7 @@ const WebhookEventCard: React.FC<WebhookEventCardProps> = ({
 }) => {
   const [showRawJson, setShowRawJson] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(true);
+  const contentId = `webhook-event-content-${event.id}`;
   const utils = trpc.useUtils();
 
   const replayMutation = trpc.webhookAdmin.replayEvent.useMutation({
@@ -121,6 +123,8 @@ const WebhookEventCard: React.FC<WebhookEventCardProps> = ({
               });
             }}
             title={isCollapsed ? 'Expand' : 'Collapse'}
+            aria-expanded={!isCollapsed}
+            aria-controls={contentId}
           >
             {isCollapsed ? '▶' : '▼'}
           </button>
@@ -130,7 +134,7 @@ const WebhookEventCard: React.FC<WebhookEventCardProps> = ({
 
       {/* Card Body - Hidden when collapsed */}
       {!isCollapsed && (
-        <div className="card-body">
+        <div className="card-body" id={contentId} role="region">
           <div className="card-controls">
             <button className="view-toggle-btn" onClick={() => setShowRawJson(!showRawJson)}>
               {showRawJson ? 'Formatted' : 'Raw JSON'}

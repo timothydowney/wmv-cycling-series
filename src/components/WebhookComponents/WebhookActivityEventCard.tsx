@@ -38,10 +38,11 @@ interface Props {
 }
 
 const WebhookActivityEventCard: React.FC<Props> = ({ event }) => {
+  const [isExpanded, setIsExpanded] = React.useState(false);
   const { data: enrichmentData, isLoading, error: queryError } = trpc.webhookAdmin.getEnrichedEventDetails.useQuery(
     { id: event.id },
     {
-      enabled: !!event.id && event.payload.object_type === 'activity',
+      enabled: isExpanded && !!event.id && event.payload.object_type === 'activity',
       staleTime: 5 * 60 * 1000,
       refetchOnWindowFocus: false,
       select: (data) => data.enrichment,
@@ -133,15 +134,15 @@ const WebhookActivityEventCard: React.FC<Props> = ({ event }) => {
   };
 
   const getHeaderTitle = (): React.ReactNode => {
-    if (isLoading) {
-      return <span className="header-fallback">Activity {event.payload.object_id}</span>;
+    if (isLoading && isExpanded) {
+      return <span className="header-fallback">{event.athlete_name || 'Athlete'} - Activity {event.payload.object_id}</span>;
     }
 
     if (!enrichment?.strava_data) {
-      if (enrichment?.athlete?.name) {
+      if (event.athlete_name || enrichment?.athlete?.name) {
         return (
           <span className="activity-header-inline activity-header-title-fallback">
-            <span className="activity-header-athlete">{enrichment.athlete.name}</span>
+            <span className="activity-header-athlete">{event.athlete_name || enrichment?.athlete?.name}</span>
             <span className="activity-header-separator">-</span>
             <span className="activity-header-name">Activity {event.payload.object_id}</span>
           </span>
@@ -273,6 +274,7 @@ const WebhookActivityEventCard: React.FC<Props> = ({ event }) => {
       headerTitle={getHeaderTitle()}
       summaryText={event.activity_summary?.message}
       summaryBadges={getSummaryBadges()}
+      onExpansionChange={setIsExpanded}
     />
   );
 };
