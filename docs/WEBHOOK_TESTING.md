@@ -198,7 +198,7 @@ node scripts/webhook-emitter.cjs --event create --athlete-id 366880 --activity-i
 ### Scenario 2: Test Activity Deletion
 
 ```bash
-# Terminal 1: Already running harness preset
+# Terminal 1: Already running dev servers
 
 # Terminal 2: Send delete event for activity created above
 node scripts/webhook-emitter.cjs --event delete --activity-id 123456789

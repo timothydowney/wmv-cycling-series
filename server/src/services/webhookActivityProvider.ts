@@ -61,8 +61,11 @@ function removeWebhookActivityFixture(activityId: string | number): void {
   fixtureClient.removeActivity(normalizeActivityId(activityId));
 }
 
-function getWebhookActivityFixtureCallLog(): Array<{ method: string; args: any[] }> {
-  return fixtureClient.getCallLog();
+function getWebhookActivityFixtureCallLog(): Array<{ method: string; args: unknown[] }> {
+  return fixtureClient.getCallLog().map((entry) => ({
+    method: entry.method,
+    args: Array.isArray(entry.args) ? (entry.args as unknown[]) : [],
+  }));
 }
 
 function getWebhookActivityFixtureIds(): number[] {

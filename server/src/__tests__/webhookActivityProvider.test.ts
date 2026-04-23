@@ -4,6 +4,7 @@ import { setupTestDb, teardownTestDb } from './setupTestDb';
 import { createParticipant } from './testDataHelpers';
 import ActivityValidationService from '../services/ActivityValidationService';
 import { createActivityIngestionContext } from '../webhooks/activityContext';
+import { type ActivityWebhookEvent } from '../webhooks/types';
 import {
   getWebhookActivityFixtureCallLog,
   resetWebhookActivityFixtures,
@@ -56,13 +57,17 @@ describe('webhookActivityProvider', () => {
         ]
       });
 
+      const webhookEvent: ActivityWebhookEvent = {
+        object_id: 555001,
+        owner_id: 123456,
+        object_type: 'activity',
+        aspect_type: 'create',
+        event_time: 1761652800,
+        subscription_id: 1,
+      };
+
       const context = await createActivityIngestionContext(
-        {
-          object_id: '555001',
-          owner_id: '123456',
-          object_type: 'activity',
-          aspect_type: 'create'
-        } as any,
+        webhookEvent,
         testDb.drizzleDb,
         new ActivityValidationService(testDb.drizzleDb)
       );
@@ -105,13 +110,17 @@ describe('webhookActivityProvider', () => {
         ]
       });
 
+      const webhookEvent: ActivityWebhookEvent = {
+        object_id: 555002,
+        owner_id: 123456,
+        object_type: 'activity',
+        aspect_type: 'create',
+        event_time: 1761652800,
+        subscription_id: 1,
+      };
+
       const context = await createActivityIngestionContext(
-        {
-          object_id: '555002',
-          owner_id: '123456',
-          object_type: 'activity',
-          aspect_type: 'create'
-        } as any,
+        webhookEvent,
         testDb.drizzleDb,
         new ActivityValidationService(testDb.drizzleDb)
       );

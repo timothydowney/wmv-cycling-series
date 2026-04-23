@@ -60,7 +60,7 @@ test.describe('Logged Out User Experience', () => {
       await expect(page.getByRole('navigation').getByRole('button', { name: 'Connect with Strava' })).toBeVisible();
     });
 
-    test('redirects anonymous about navigation back to the signed-out shell', async ({ page }) => {
+    test('shows the signed-out shell on /about for anonymous users', async ({ page }) => {
       await page.goto('/about');
       await page.waitForLoadState('networkidle');
       await expect(page).toHaveURL(/\/about/);
