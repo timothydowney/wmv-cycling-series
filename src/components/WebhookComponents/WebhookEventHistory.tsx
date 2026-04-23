@@ -23,7 +23,7 @@ interface WebhookPayload {
 }
 
 const WebhookEventHistory: React.FC = () => {
-  const [pagination, setPagination] = useState({ limit: 50, offset: 0 });
+  const [pagination, setPagination] = useState({ limit: 10, offset: 0 });
   const [filters, setFilters] = useState({
     status: 'all',
     sinceSeconds: DEFAULT_TIME_RANGE_SECONDS,

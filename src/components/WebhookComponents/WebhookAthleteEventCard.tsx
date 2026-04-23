@@ -75,7 +75,6 @@ const WebhookAthleteEventCard: React.FC<WebhookAthleteEventCardProps> = ({ event
       renderContent={renderAthleteContent}
       cssClass="athlete-event-card"
       headerTitle={getHeaderTitle()}
-      hasMatch={false}
     />
   );
 };

@@ -388,14 +388,15 @@ The **Webhook Admin** dashboard (Admin Panel → Webhooks) provides tools for mo
 - **System Status:** Real-time visibility into the Strava subscription status and health metrics.
 - **Event Log:** Paginated history of all received webhook events, including metadata (object ID, type, aspect, time).
 - **Processing Results:** Indication of whether each event was successfully processed or failed.
-- **Event Enrichment:** Detailed analysis of specific events, linking them to Strava activities and providing a human-readable summary of the activity classification (e.g., "Matched Week 4", "Wrong Segment", "Missing Laps").
+- **Collapsed Match Summary:** Activity rows now surface quick-scan badges for webhook type, competition or Explorer outcome, and specific matched weeks or Explorer destinations when that data is available.
+- **Event Enrichment:** Expanded activity rows fetch Strava detail opportunistically, classify unavailable detail states such as private or token-missing, and provide a simpler event-context panel plus raw JSON for deeper inspection.
 
 ### Implementation
 
 The monitoring system is built on:
 - **`webhook_event` Table:** Persistent audit log of all Strava notifications.
 - **`WebhookAdminRouter` (tRPC):** Provides type-safe access to system status and event history.
-- **`WebhookAdminService`:** Aggregates database statistics and handles activity enrichment for event analysis.
+- **`WebhookAdminService`:** Aggregates database statistics, summarizes competition and Explorer matches for collapsed rows, and handles activity enrichment for expanded event analysis.
 
 ### Troubleshooting with the Monitor
 

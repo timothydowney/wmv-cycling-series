@@ -9,8 +9,10 @@ import {
 } from '../services/webhookActivityProvider';
 import {
   checkClubMembership,
+  clearWebhookActivityDetailsCache,
   getAuthStatusProfilePicture,
   getWebhookActivityDetails,
+  getWebhookActivityDetailsResult,
 } from '../services/stravaReadProvider';
 
 jest.mock('../stravaClient');
@@ -24,12 +26,14 @@ describe('stravaReadProvider', () => {
     originalEnv = { ...process.env };
     jest.clearAllMocks();
     resetWebhookActivityFixtures();
+    clearWebhookActivityDetailsCache();
   });
 
   afterEach(() => {
     process.env = originalEnv;
     reloadConfig();
     resetWebhookActivityFixtures();
+    clearWebhookActivityDetailsCache();
   });
 
   it('returns deterministic auth status profile pictures in fixture mode', async () => {
@@ -149,6 +153,39 @@ describe('stravaReadProvider', () => {
 
       expect(isMember).toBe(true);
       expect(mockStravaClient.getLoggedInAthlete).toHaveBeenCalledTimes(1);
+    } finally {
+      teardownTestDb(testDb.db);
+    }
+  });
+
+  it('classifies missing activity details as private or unavailable and caches the result briefly', async () => {
+    process.env.STRAVA_API_MODE = 'live';
+    reloadConfig();
+
+    const testDb = setupTestDb({ seed: false });
+
+    try {
+      createParticipant(testDb.drizzleDb, '123456', 'Alice', {
+        accessToken: encryptToken('test-access-token'),
+        refreshToken: encryptToken('test-refresh-token'),
+        expiresAt: Math.floor(Date.now() / 1000) + 86400,
+      });
+      mockStravaClient.getActivity.mockRejectedValue({ statusCode: 404 });
+
+      const firstResult = await getWebhookActivityDetailsResult(testDb.drizzleDb, '123456', '999000111');
+      const secondResult = await getWebhookActivityDetailsResult(testDb.drizzleDb, '123456', '999000111');
+
+      expect(firstResult).toMatchObject({
+        details: null,
+        status: 'private_or_unavailable',
+        cached: false,
+      });
+      expect(secondResult).toMatchObject({
+        details: null,
+        status: 'private_or_unavailable',
+        cached: true,
+      });
+      expect(mockStravaClient.getActivity).toHaveBeenCalledTimes(1);
     } finally {
       teardownTestDb(testDb.db);
     }

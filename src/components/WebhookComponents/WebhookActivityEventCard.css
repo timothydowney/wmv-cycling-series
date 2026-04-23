@@ -2,6 +2,45 @@
   /* Inherits from base WebhookEventCard */
 }
 
+.activity-header-link {
+  display: block;
+  min-width: 0;
+}
+
+.activity-header-inline {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+
+.activity-header-title-fallback {
+  color: var(--wmv-text-dark);
+}
+
+.activity-header-athlete {
+  font-size: var(--font-lg);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--wmv-text-dark);
+}
+
+.activity-header-separator {
+  color: var(--wmv-text-light);
+  font-size: var(--font-base);
+  font-weight: 500;
+}
+
+.activity-header-name {
+  font-size: var(--font-base);
+  font-weight: 500;
+  line-height: 1.25;
+  color: var(--wmv-orange);
+  min-width: 0;
+}
+
 /* Visibility Line */
 .visibility-line {
   padding: 8px 0;
@@ -40,172 +79,102 @@
 
 /* Summary Section */
 .summary-section {
-  background-color: #ecf7ff;
-  border-left: 3px solid #3498db;
-  padding: 12px;
-  border-radius: 4px;
-  margin-top: 8px;
+  background-color: transparent;
+  border-left: 0;
+  padding: 0;
+  border-radius: 0;
+  margin-top: 0;
 }
 
 .section {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 12px;
-  background-color: #f8f9fa;
-  border-radius: 6px;
-  border-left: 3px solid #3498db;
+  padding: 0;
+  background-color: transparent;
+  border-radius: 0;
+  border-left: 0;
 }
 
 .section-title {
-  margin: 0;
-  font-size: 11px;
+  margin: 0 0 4px 0;
+  font-size: var(--font-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #7f8c8d;
+  color: var(--wmv-text-light);
 }
 
 /* Summary Info Box */
 .summary-info {
-  background-color: white;
-  border-radius: 4px;
-  padding: 12px;
+  background-color: var(--wmv-white);
+  border-radius: 12px;
+  padding: 14px;
+  border: 1px solid var(--wmv-border);
 }
 
 .summary-message {
   margin: 0 0 10px 0;
-  font-size: 13px;
-  color: #2c3e50;
-  font-weight: 500;
+  font-size: var(--font-base);
+  color: var(--wmv-text-dark);
+  font-weight: 600;
+  line-height: 1.25;
 }
 
-.summary-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+.summary-guidance {
+  margin: 0;
+  font-size: var(--font-sm);
+  color: var(--wmv-text-light);
+  line-height: 1.5;
+}
+
+.activity-detail-chips {
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
-.stat {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 6px 0;
+.activity-detail-chips-context {
+  gap: 10px;
 }
 
-.stat-label {
-  font-size: 11px;
-  color: #7f8c8d;
+.activity-detail-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background-color: color-mix(in srgb, var(--wmv-bg-light) 70%, var(--wmv-white));
+  border: 1px solid var(--wmv-border);
+}
+
+.activity-detail-chip-label {
+  font-size: var(--font-xs);
+  color: var(--wmv-text-light);
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.stat-value {
-  font-size: 14px;
-  font-weight: 700;
-  color: #2c3e50;
-  font-family: 'Monaco', 'Courier New', monospace;
-}
-
-/* Season Block */
-.season-block {
-  background-color: white;
-  border: 1px solid #ecf0f1;
-  border-radius: 6px;
-  padding: 12px;
-  margin-bottom: 8px;
-}
-
-.season-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #ecf0f1;
-}
-
-.season-header h5 {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: #2c3e50;
-}
-
-.season-stats {
-  font-size: 11px;
-  color: #95a5a6;
-  background-color: #f0f0f0;
-  padding: 3px 8px;
-  border-radius: 3px;
-}
-
-/* Weeks List */
-.weeks-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.week-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  background-color: #f8f9fa;
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-.week-item.matched {
-  background-color: #d5f4e6;
-}
-
-.week-item.unmatched {
-  background-color: #fef2f2;
-}
-
-.week-info {
-  flex: 1;
-}
-
-.week-name {
-  font-weight: 600;
-  color: #2c3e50;
-  font-size: 13px;
-}
-
-.week-segment {
-  font-size: 11px;
-  color: #7f8c8d;
-  margin-top: 2px;
-}
-
-.week-status {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.badge {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 3px;
-  font-size: 11px;
-  font-weight: 600;
+  letter-spacing: 0.04em;
   white-space: nowrap;
 }
 
-.badge.matched {
-  background-color: #27ae60;
-  color: white;
+.activity-detail-chip-value {
+  min-width: 0;
+  font-size: var(--font-xs);
+  font-weight: 500;
+  color: var(--wmv-text-dark);
+  line-height: 1.35;
+  word-break: break-word;
 }
 
-.badge.unmatched {
-  background-color: #f39c12;
-  color: white;
+@media (min-width: 768px) {
+  .activity-header-athlete {
+    font-size: var(--font-lg);
+  }
+
+  .activity-header-name {
+    font-size: var(--font-base);
+  }
 }
 
 /* Error Section */
@@ -229,26 +198,17 @@
 
 /* Responsive */
 @media (max-width: 768px) {
-  .season-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
+  .activity-header-inline {
+    gap: 4px;
   }
 
-  .season-stats {
-    align-self: flex-start;
+  .activity-header-athlete,
+  .activity-header-name {
+    font-size: var(--font-base);
   }
 
-  .week-item {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .week-status {
+  .activity-detail-chip {
     width: 100%;
-  }
-
-  .summary-stats {
-    grid-template-columns: 1fr;
+    justify-content: space-between;
   }
 }

@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Webhook admin event history now uses a cleaner leaderboard-inspired card layout with clearer title hierarchy, collapsed match badges for competition and Explorer outcomes, and simpler expanded activity detail cards.
+
+### Fixed
+- Webhook admin activity rows once again opportunistically fetch Strava activity detail for list and expanded views, cache those lookups briefly, and classify private or unavailable activities more clearly during local prod-data review.
+
 ### Added
 - Explorer now lets athletes pin destinations from the Destinations tab and surfaces pinned remaining destinations first on the Hub page.
 - A standalone Manage Roles admin screen for granting and revoking database-backed admin access for participants who have logged in.

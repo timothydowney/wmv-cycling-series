@@ -186,8 +186,8 @@ GET /admin/segments/{strava_segment_id}/validate
 The `webhookAdminRouter` provides procedures for monitoring and managing Strava webhooks. These are only available to admins.
 
 - `trpc.webhookAdmin.getStatus` — Returns current webhook subscription status and statistics.
-- `trpc.webhookAdmin.getEvents` — Returns a paginated list of recently logged webhook events.
-- `trpc.webhookAdmin.getEnrichedEventDetails` — Returns detailed metadata for a specific activity mentioned in a webhook event (uses `ActivityService` for summary and classification).
+- `trpc.webhookAdmin.getEvents` — Returns a paginated list of recently logged webhook events. Activity events include a collapsed `activity_summary` that carries competition and Explorer outcome counts plus specific matched week and destination names when available.
+- `trpc.webhookAdmin.getEnrichedEventDetails` — Returns detailed metadata for a specific activity mentioned in a webhook event, including opportunistically fetched Strava detail, detail-availability status, and event-context metadata for the expanded admin card.
 
 ## Explorer (tRPC)
 

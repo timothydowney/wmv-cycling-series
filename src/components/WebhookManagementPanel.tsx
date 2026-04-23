@@ -68,7 +68,15 @@ export const WebhookManagementPanel: React.FC = () => {
 
   return (
     <div className="webhook-panel">
-
+      <div className="webhook-panel-header">
+        <div className="webhook-panel-title-block">
+          <p className="webhook-panel-eyebrow">Admin observability</p>
+          <h2 className="webhook-panel-title">Manage Webhooks</h2>
+          <p className="webhook-panel-subtitle">
+            Track Strava event flow, confirm competition and Explorer matches, and inspect stored processing outcomes.
+          </p>
+        </div>
+      </div>
 
       {error && (
         <div className="error-banner">
@@ -76,22 +84,28 @@ export const WebhookManagementPanel: React.FC = () => {
         </div>
       )}
 
-      <div className="webhook-tabs">
+      <div className="webhook-tabs" role="tablist" aria-label="Webhook management views">
         <button
           className={`tab-btn ${activeTab === 'status' ? 'active' : ''}`}
           onClick={() => setActiveTab('status')}
+          role="tab"
+          aria-selected={activeTab === 'status'}
         >
           Subscription Status
         </button>
         <button
           className={`tab-btn ${activeTab === 'events' ? 'active' : ''}`}
           onClick={() => setActiveTab('events')}
+          role="tab"
+          aria-selected={activeTab === 'events'}
         >
           Event History
         </button>
         <button
           className={`tab-btn ${activeTab === 'storage' ? 'active' : ''}`}
           onClick={() => setActiveTab('storage')}
+          role="tab"
+          aria-selected={activeTab === 'storage'}
         >
           Storage Usage
         </button>
