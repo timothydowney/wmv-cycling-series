@@ -38,11 +38,10 @@ interface Props {
 }
 
 const WebhookActivityEventCard: React.FC<Props> = ({ event }) => {
-  const [isExpanded, setIsExpanded] = React.useState(false);
   const { data: enrichmentData, isLoading, error: queryError } = trpc.webhookAdmin.getEnrichedEventDetails.useQuery(
     { id: event.id },
     {
-      enabled: isExpanded && !!event.id && event.payload.object_type === 'activity',
+      enabled: !!event.id && event.payload.object_type === 'activity',
       staleTime: 5 * 60 * 1000,
       refetchOnWindowFocus: false,
       select: (data) => data.enrichment,
@@ -134,7 +133,7 @@ const WebhookActivityEventCard: React.FC<Props> = ({ event }) => {
   };
 
   const getHeaderTitle = (): React.ReactNode => {
-    if (isLoading && isExpanded) {
+    if (isLoading) {
       return <span className="header-fallback">{event.athlete_name || 'Athlete'} - Activity {event.payload.object_id}</span>;
     }
 
@@ -274,7 +273,6 @@ const WebhookActivityEventCard: React.FC<Props> = ({ event }) => {
       headerTitle={getHeaderTitle()}
       summaryText={event.activity_summary?.message}
       summaryBadges={getSummaryBadges()}
-      onExpansionChange={setIsExpanded}
     />
   );
 };

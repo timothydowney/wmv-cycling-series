@@ -97,7 +97,7 @@ describe('WebhookActivityEventCard', () => {
     }
   });
 
-  it('shows collapsed summary badges and only enables enrichment after expansion', async () => {
+  it('shows collapsed summary badges and eagerly enables enrichment for visible rows', async () => {
     getEnrichedEventDetailsUseQuery.mockReturnValue({
       data: {
         athlete: {
@@ -130,16 +130,6 @@ describe('WebhookActivityEventCard', () => {
     expect(container.textContent).toContain('Private or unavailable');
 
     const initialCall = getEnrichedEventDetailsUseQuery.mock.calls.at(-1);
-    expect(initialCall?.[1]).toMatchObject({ enabled: false, staleTime: 300000 });
-
-    const expandButton = container.querySelector('.collapse-btn') as HTMLButtonElement | null;
-    expect(expandButton).not.toBeNull();
-
-    await act(async () => {
-      expandButton?.click();
-    });
-
-    const expandedCall = getEnrichedEventDetailsUseQuery.mock.calls.at(-1);
-    expect(expandedCall?.[1]).toMatchObject({ enabled: true, staleTime: 300000 });
+    expect(initialCall?.[1]).toMatchObject({ enabled: true, staleTime: 300000 });
   });
 });
