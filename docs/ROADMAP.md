@@ -1,13 +1,13 @@
 # Roadmap & Future Features
 
-**Last Updated:** April 21, 2026  
+**Last Updated:** April 24, 2026  
 **Current Status:** Feature-complete and production-ready. Code quality improvements in progress (Priority 4-5: Database types, UI testing). Below are enhancement ideas for future seasons.
 
 ---
 
-## Priority: High (Season 2+)
+## Completed / Shipped
 
-### 1. Authenticated-Only App Access
+### Authenticated-Only App Access
 
 **Description:** Require login before showing any in-app content, and make the signed-out experience a richer WMV sign-in or join shell instead of a nearly empty page.
 
@@ -16,19 +16,19 @@
 - Align the entire app around one clear logged-out posture before more athlete-facing personalization lands
 - Improve the signed-out entry experience with clearer onboarding instead of a sparse prompt
 
-**Current Branch Status:** Implemented in the current auth-access branch; keep this item here until the branch merges.
+**Status:** ✅ Landed on `main` as the signed-out default posture.
 
 **Implementation Notes:**
-- Reuse the existing signed-out banner pattern but rewrite the body copy as a generic invitation to join Western Mass Velo with Strava
-- Add supporting signed-out body content and optional WMV branding such as the WMV SVG so the page is not visually bare
-- Make the signed-out shell the only available experience before login, with no About page or alternate public routes
-- Keep logged-in behavior unchanged
-- After this branch merges, return to planning before approving any later Explorer rollout or other athlete personalization work
+- Reused the existing signed-out banner pattern with generic WMV invitation copy
+- Added supporting signed-out body content and WMV branding so the page is not visually bare
+- Made the signed-out shell the only available experience before login, with no About page or alternate public routes
+- Logged-in behavior unchanged
 
-**Effort:** 2-4 hours
-**Breaking Changes:** Yes, intentional user-visible access tightening for signed-out users
+---
 
-### 2. Season Archival / Data Retention
+## Priority: High (Season 2+)
+
+### 1. Season Archival / Data Retention
 
 **Description:** Archive final season standings as immutable snapshots when a season ends.
 
@@ -48,7 +48,7 @@
 
 ---
 
-### 3. Strava Webhook Integration
+### 2. Strava Webhook Integration
 
 **Description:** Replace manual "Fetch Results" button with real-time webhooks from Strava.
 
@@ -72,7 +72,7 @@
 
 ---
 
-### 4. Email Notifications
+### 3. Email Notifications
 
 **Description:** Send weekly notifications to participants (optional opt-in).
 
@@ -96,7 +96,7 @@
 
 ---
 
-### 5. Admin UI for Week Creation
+### 4. Admin UI for Week Creation
 
 **Description:** Web form instead of curl commands for creating weeks.
 

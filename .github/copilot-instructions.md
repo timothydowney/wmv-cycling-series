@@ -72,6 +72,15 @@ Before substantial planning or implementation work:
 4. Do not continue substantial work on an unrelated PR branch just because the workspace was already there.
 5. If you discover after edits that the branch is wrong, transplant the working tree onto a fresh branch from `main` before continuing.
 
+## PR Closeout Discipline
+
+When a PR changes shipped behavior, an approved slice, a rollout boundary, or any planning or operational state already represented in repo docs, update those docs in the same PR.
+
+- Treat planning-doc closeout as part of the implementation scope, not as optional cleanup for later.
+- Check the owning docs before opening a PR. This can include PRDs, phases, readiness checklists, worklogs, roadmap entries, runbooks, API docs, and operator-facing guides.
+- If the PR changes what is complete, what is next, what remains deferred, or how operators review or validate the feature, the corresponding docs should change in that branch before the PR is considered done.
+- Only defer doc closeout to a later PR when the user explicitly requests that split or when a true blocker prevents accurate updates.
+
 ---
 
 ## Project Structure

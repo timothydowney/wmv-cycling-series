@@ -119,11 +119,16 @@ Before merging or opening a substantive PR, run `npm run audit` locally alongsid
    - Do not update either file during planning or mid-implementation
    - Keep changelog entries high-level rather than a play-by-play of intermediate edits
 
-8. **GitHub workflow tools:**
+8. **PR closeout discipline:**
+   - Before opening a PR, reconcile the branch with any planning or operational docs it changes in practice.
+   - If a PR changes phase status, approved next steps, rollout boundaries, testing reality, operator workflow, or user-visible behavior already described in docs, include those doc updates in the same PR.
+   - Treat catchup PRs as the fallback, not the default. Use them only when the user explicitly wants the split or when the docs cannot be updated accurately until later.
+
+9. **GitHub workflow tools:**
    - For pull requests, review comments, issues, labels, searches, and repository metadata, prefer GitHub MCP and workspace-integrated GitHub tools first
    - Fall back to `gh` only when the MCP path is unavailable, missing a needed capability, or returning incomplete results
    - When falling back to `gh`, keep the usage targeted and explain the blocker or gap that required the fallback
-9. **Leaderboard-inspired UI work:**
+10. **Leaderboard-inspired UI work:**
    - Treat `docs/LEADERBOARD_DESIGN_SYSTEM.md` as the canonical reference for the end-user Weekly, Season, and Schedule design language
    - Do not use legacy admin CSS as the default source of truth for public Explorer UI
    - If the leaderboard does not define a needed pattern, record that gap explicitly instead of freehanding a new local style system

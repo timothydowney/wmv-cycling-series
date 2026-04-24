@@ -41,7 +41,8 @@ Use the shared repo instructions rather than restating them here:
 2. If the task is a new phase or feature slice, start from updated `main` on a dedicated feature branch.
 3. For pull requests, issue lookups, labels, and repository metadata, prefer GitHub MCP and workspace-integrated GitHub tools first. For pull request review comments and review-thread triage, default to `gh` first, preferably via `gh api graphql`, because the active-PR and MCP paths have been unreliable at returning the full thread state in this repo.
 4. Implement with minimal, focused changes that match the existing architecture.
-5. If the approved slice changes Explorer planning state, such as marking a phase complete, advancing the recommended next slice, or aligning readiness wording with merged code, include those narrow planning-doc updates in the same PR rather than leaving them for a later cleanup.
-6. Hand back to `explorer-planner` only if closing the slice requires new product decisions, broader readiness re-evaluation, or reshaping later slice boundaries rather than straightforward planning-state maintenance.
-7. Validate with `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build` before calling the work complete.
-8. Stage files explicitly with `git add <file>` rather than broad staging.
+5. If the approved slice changes planning state, roadmap state, rollout boundaries, operator guidance, or any documented behavior already represented in repo docs, include the narrow doc closeout updates in the same PR rather than leaving them for a later cleanup.
+6. For Explorer specifically, if the approved slice changes phase completion, the recommended next slice, or readiness wording, update the linked planning docs in that same branch before treating the slice as done.
+7. Hand back to `explorer-planner` only if closing the slice requires new product decisions, broader readiness re-evaluation, or reshaping later slice boundaries rather than straightforward planning-state maintenance.
+8. Validate with `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build` before calling the work complete.
+9. Stage files explicitly with `git add <file>` rather than broad staging.
