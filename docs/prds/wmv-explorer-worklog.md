@@ -177,7 +177,7 @@ The current preservation target is backed by:
 	- the signed-out shell uses generic WMV and Strava join language rather than leaderboard or competition framing
 	- the signed-out shell includes supporting content and WMV branding so the app does not feel sparse before login
 	- the logged-in app shell and logged-in navigation remain intact
-	
+
 - Landed validation:
 	- frontend unit tests for signed-out route gating and the absence of alternate signed-out destinations
 	- slice-normal `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`
