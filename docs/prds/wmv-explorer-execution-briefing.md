@@ -181,9 +181,9 @@ Prompts should remain narrow and convenient.
 
 - The earlier 4B split is now complete through 4B-5: 4B-1 hardened the portable E2E harness, 4B-2 landed the minimal admin-only Explorer UI, 4B-3 corrected the campaign model and unified admin shell, 4B-4 refined the admin workflow hierarchy, and 4B-5 landed the shared segment metadata fidelity baseline.
 - The first athlete-facing slices are now merged: 5A landed the admin-gated Explorer hub read surface, 5B merged the lightweight checklist and browse refinement on top of it, and 5C merged athlete-specific pinned-destination prioritization on top of that browse surface.
-- The current auth-access branch now tightens the broader app so logged-out users see only a branded WMV sign-in or join shell by default.
+- The merged auth-access work now tightens the broader app so logged-out users see only a branded WMV sign-in or join shell by default.
 - That auth slice keeps the signed-out copy generic, oriented around joining Western Mass Velo with Strava, and does not leave alternate public destinations such as About reachable before login.
-- After this auth slice merges, follow-on Explorer work should return to planning before approving a later slice such as map or social follow-on work.
+- With that auth slice merged, follow-on Explorer work should return to planning before approving a later slice such as map or social follow-on work.
 - Treat map-provider research, location-aware discovery, and social-feed ideas as separate later slices unless the planning docs explicitly re-approve them as part of a new bounded implementation brief.
 
 ### Slice completion discipline
