@@ -321,7 +321,7 @@ Landed outcome:
 
 Ordering note:
 
-- The current auth-access branch now tightens the default signed-out posture so logged-out users see one WMV sign-in or join shell instead of leaderboard or Explorer data. That cross-product slice remains outside Explorer phase numbering.
+- The merged auth-access work now tightens the default signed-out posture so logged-out users see one WMV sign-in or join shell instead of leaderboard or Explorer data. That cross-product slice remains outside Explorer phase numbering.
 
 ### Slice 5C: Pinned Destinations And Hub Prioritization
 
@@ -360,7 +360,7 @@ Landed outcome:
 
 Ordering note:
 
-- No later Explorer athlete rollout slice is approved yet; after the auth-access branch merges, return to planning before naming the next implementation slice.
+- No later Explorer athlete rollout slice is approved yet; now that the auth-access slice is merged, return to planning before naming the next implementation slice.
 
 ### Slice 5D: Map Discovery
 

@@ -1,6 +1,6 @@
 # Roadmap & Future Features
 
-**Last Updated:** April 21, 2026  
+**Last Updated:** April 24, 2026  
 **Current Status:** Feature-complete and production-ready. Code quality improvements in progress (Priority 4-5: Database types, UI testing). Below are enhancement ideas for future seasons.
 
 ---
@@ -16,14 +16,14 @@
 - Align the entire app around one clear logged-out posture before more athlete-facing personalization lands
 - Improve the signed-out entry experience with clearer onboarding instead of a sparse prompt
 
-**Current Branch Status:** Implemented in the current auth-access branch; keep this item here until the branch merges.
+**Status:** Landed on `main` as the signed-out default posture.
 
 **Implementation Notes:**
 - Reuse the existing signed-out banner pattern but rewrite the body copy as a generic invitation to join Western Mass Velo with Strava
 - Add supporting signed-out body content and optional WMV branding such as the WMV SVG so the page is not visually bare
 - Make the signed-out shell the only available experience before login, with no About page or alternate public routes
 - Keep logged-in behavior unchanged
-- After this branch merges, return to planning before approving any later Explorer rollout or other athlete personalization work
+- The next Explorer or athlete-personalization follow-on should return to planning before a new slice is approved
 
 **Effort:** 2-4 hours
 **Breaking Changes:** Yes, intentional user-visible access tightening for signed-out users
