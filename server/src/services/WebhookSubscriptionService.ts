@@ -16,9 +16,10 @@
  */
 
 import { eq } from 'drizzle-orm';
-import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { AppDatabase } from '../db/types';
 import { webhookSubscription } from '../db/schema';
 import { getStravaConfig, getWebhookConfig } from '../config';
+import { exec, getOne } from '../db/asyncQuery';
 
 interface StravaSubscriptionPayload {
   id: number;
@@ -60,11 +61,11 @@ function buildStravaFormData(clientId: string, clientSecret: string, ...pairs: [
  * ALWAYS uses id = 1 to enforce "only one subscription per app" constraint
  * Stores both the full payload (for reference) and the subscription_id (for direct access)
  */
-function updateSubscriptionInDb(
-  db: BetterSQLite3Database,
+async function updateSubscriptionInDb(
+  db: AppDatabase,
   payload: StravaSubscriptionPayload,
   stravaSubscriptionId: number
-): void {
+): Promise<void> {
   const payloadJson = JSON.stringify(payload);
   const nowIso = new Date().toISOString();
   console.log('[WebhookSubscriptionService] updateSubscriptionInDb - Updating subscription:', {
@@ -76,15 +77,16 @@ function updateSubscriptionInDb(
     callback_url: payload.callback_url
   });
 
-  const result = db
-    .update(webhookSubscription)
-    .set({
-      subscription_payload: payloadJson,
-      subscription_id: stravaSubscriptionId,
-      last_refreshed_at: nowIso
-    })
-    .where(eq(webhookSubscription.id, 1))
-    .run();
+  const result = await exec(
+    db
+      .update(webhookSubscription)
+      .set({
+        subscription_payload: payloadJson,
+        subscription_id: stravaSubscriptionId,
+        last_refreshed_at: nowIso
+      })
+      .where(eq(webhookSubscription.id, 1))
+  );
 
   const info = result as unknown as { changes: number };
   console.log('[WebhookSubscriptionService] updateSubscriptionInDb - Database operation complete:', {
@@ -99,12 +101,12 @@ function updateSubscriptionInDb(
  * Uses INSERT OR REPLACE to handle the case where a row already exists
  * Stores both the full payload (for reference) and the subscription_id (for direct access)
  */
-function insertSubscriptionInDb(
-  db: BetterSQLite3Database,
+async function insertSubscriptionInDb(
+  db: AppDatabase,
   payload: StravaSubscriptionPayload,
   verifyToken: string,
   stravaSubscriptionId: number
-): void {
+): Promise<void> {
   const payloadJson = JSON.stringify(payload);
   const nowIso = new Date().toISOString();
   console.log('[WebhookSubscriptionService] insertSubscriptionInDb - Storing subscription:', {
@@ -116,25 +118,26 @@ function insertSubscriptionInDb(
     callback_url: payload.callback_url
   });
 
-  const result = db
-    .insert(webhookSubscription)
-    .values({
-      id: 1,
-      verify_token: verifyToken,
-      subscription_payload: payloadJson,
-      subscription_id: stravaSubscriptionId,
-      last_refreshed_at: nowIso
-    })
-    .onConflictDoUpdate({
-      target: webhookSubscription.id,
-      set: {
+  const result = await exec(
+    db
+      .insert(webhookSubscription)
+      .values({
+        id: 1,
         verify_token: verifyToken,
         subscription_payload: payloadJson,
         subscription_id: stravaSubscriptionId,
         last_refreshed_at: nowIso
-      }
-    })
-    .run();
+      })
+      .onConflictDoUpdate({
+        target: webhookSubscription.id,
+        set: {
+          verify_token: verifyToken,
+          subscription_payload: payloadJson,
+          subscription_id: stravaSubscriptionId,
+          last_refreshed_at: nowIso
+        }
+      })
+  );
 
   const info = result as unknown as { changes: number; lastInsertRowid?: number };
   console.log('[WebhookSubscriptionService] insertSubscriptionInDb - Database operation complete:', {
@@ -148,8 +151,8 @@ function insertSubscriptionInDb(
  * 
  * ALWAYS deletes id = 1 (the only subscription)
  */
-function deleteSubscriptionFromDb(db: BetterSQLite3Database): void {
-  const del = db.delete(webhookSubscription).where(eq(webhookSubscription.id, 1)).run();
+async function deleteSubscriptionFromDb(db: AppDatabase): Promise<void> {
+  const del = await exec(db.delete(webhookSubscription).where(eq(webhookSubscription.id, 1)));
   const info = del as unknown as { changes: number };
   console.log('[WebhookSubscriptionService] Database delete result:', {
     changes: info.changes
@@ -157,9 +160,9 @@ function deleteSubscriptionFromDb(db: BetterSQLite3Database): void {
 }
 
 export class WebhookSubscriptionService {
-  private db: BetterSQLite3Database;
+  private db: AppDatabase;
 
-  constructor(db: BetterSQLite3Database) {
+  constructor(db: AppDatabase) {
     this.db = db;
   }
 
@@ -311,13 +314,14 @@ export class WebhookSubscriptionService {
    * Returns null if no subscription (disabled state)
    * Returns parsed subscription data if exists (enabled state)
    */
-  getStatus(): SubscriptionStatus {
+  async getStatus(): Promise<SubscriptionStatus> {
     try {
-      const row = this.db
-        .select()
-        .from(webhookSubscription)
-        .limit(1)
-        .get() as WebhookSubscriptionRow | undefined;
+      const row = await getOne<WebhookSubscriptionRow>(
+        this.db
+          .select()
+          .from(webhookSubscription)
+          .limit(1)
+      );
 
       console.log('[WebhookSubscriptionService] getStatus - Database query result:', {
         row_exists: !!row,
@@ -396,7 +400,7 @@ export class WebhookSubscriptionService {
    */
   async renew(): Promise<SubscriptionStatus> {
     try {
-      const current = this.getStatus();
+      const current = await this.getStatus();
       console.log('[WebhookSubscriptionService] Renewing subscription');
 
       // First disable the old one
@@ -423,7 +427,7 @@ export class WebhookSubscriptionService {
   async enable(): Promise<SubscriptionStatus> {
     try {
       // Always re-fetch current status from database (don't rely on cached/stale in-memory status)
-      const current = this.getStatus();
+      const current = await this.getStatus();
       console.log('[WebhookSubscriptionService] Enabling subscription', { has_db_record: !!current.id, has_strava_id: !!current.subscription_id });
 
       // If we have a database record with Strava subscription, we're already enabled
@@ -431,11 +435,12 @@ export class WebhookSubscriptionService {
       // (e.g., after a disable() call followed by enable() in the same renew() sequence)
       if (current.id && current.subscription_id) {
         // Double-check the DB actually has this record (not a stale in-memory state)
-        const dbRecord = this.db
-          .select({ id: webhookSubscription.id })
-          .from(webhookSubscription)
-          .where(eq(webhookSubscription.id, 1))
-          .get();
+        const dbRecord = await getOne<{ id: number }>(
+          this.db
+            .select({ id: webhookSubscription.id })
+            .from(webhookSubscription)
+            .where(eq(webhookSubscription.id, 1))
+        );
         if (dbRecord) {
           console.log('[WebhookSubscriptionService] ✓ Already enabled');
           return current;
@@ -457,15 +462,15 @@ export class WebhookSubscriptionService {
         if (current.id) {
           // Update existing DB record (always id = 1)
           console.log('[WebhookSubscriptionService] enable() - calling updateSubscriptionInDb with existing record');
-          updateSubscriptionInDb(this.db, existingOnStrava, existingOnStrava.id);
+          await updateSubscriptionInDb(this.db, existingOnStrava, existingOnStrava.id);
         } else {
           // Create new DB record (always id = 1)
           console.log('[WebhookSubscriptionService] enable() - calling insertSubscriptionInDb with existing from Strava');
           const { verifyToken } = getWebhookConfig();
-          insertSubscriptionInDb(this.db, existingOnStrava, verifyToken || 'recovered', existingOnStrava.id);
+          await insertSubscriptionInDb(this.db, existingOnStrava, verifyToken || 'recovered', existingOnStrava.id);
         }
         
-        return this.getStatus();
+        return await this.getStatus();
       }
 
       // Not on Strava, create new subscription
@@ -480,7 +485,7 @@ export class WebhookSubscriptionService {
       if (current.id) {
         // Update existing DB record (always id = 1)
         console.log('[WebhookSubscriptionService] enable() - calling updateSubscriptionInDb with newly created');
-        updateSubscriptionInDb(this.db, subscription, subscription.id);
+        await updateSubscriptionInDb(this.db, subscription, subscription.id);
       } else {
         // Create new DB record (always id = 1)
         console.log('[WebhookSubscriptionService] enable() - calling insertSubscriptionInDb with newly created');
@@ -488,11 +493,11 @@ export class WebhookSubscriptionService {
         if (!verifyToken) {
           throw new Error('WEBHOOK_VERIFY_TOKEN environment variable is required');
         }
-        insertSubscriptionInDb(this.db, subscription, verifyToken, subscription.id);
+        await insertSubscriptionInDb(this.db, subscription, verifyToken, subscription.id);
       }
 
       console.log('[WebhookSubscriptionService] ✓ Subscription enabled', { subscription_id: subscription.id });
-      return this.getStatus();
+      return await this.getStatus();
     } catch (error) {
       console.error('[WebhookSubscriptionService] Failed to enable subscription', error);
       throw error;
@@ -506,7 +511,7 @@ export class WebhookSubscriptionService {
    */
   async disable(): Promise<SubscriptionStatus> {
     try {
-      const current = this.getStatus();
+      const current = await this.getStatus();
 
       if (!current.id) {
         console.log('[WebhookSubscriptionService] No subscription to disable');
@@ -520,7 +525,7 @@ export class WebhookSubscriptionService {
       }
 
       // Delete from database (always id = 1)
-      deleteSubscriptionFromDb(this.db);
+      await deleteSubscriptionFromDb(this.db);
       console.log('[WebhookSubscriptionService] ✓ Subscription disabled');
       
       // Return empty status (no subscription)
@@ -542,8 +547,8 @@ export class WebhookSubscriptionService {
    * Check if subscription is expired and needs renewal
    * Strava subscriptions are valid for 24 hours
    */
-  needsRenewal(): boolean {
-    const status = this.getStatus();
+  async needsRenewal(): Promise<boolean> {
+    const status = await this.getStatus();
 
     if (!status.id || !status.last_refreshed_at) {
       return false;
@@ -560,19 +565,20 @@ export class WebhookSubscriptionService {
   /**
    * Get verify token for API setup
    */
-  getVerifyToken(): string | null {
-    const status = this.getStatus();
+  async getVerifyToken(): Promise<string | null> {
+    const status = await this.getStatus();
     if (!status.id) {
       const { verifyToken } = getWebhookConfig();
       return verifyToken || null;
     }
 
     // For existing subscription, retrieve from database
-    const row = this.db
-      .select({ verify_token: webhookSubscription.verify_token })
-      .from(webhookSubscription)
-      .where(eq(webhookSubscription.id, status.id))
-      .get();
+    const row = await getOne<{ verify_token: string | null }>(
+      this.db
+        .select({ verify_token: webhookSubscription.verify_token })
+        .from(webhookSubscription)
+        .where(eq(webhookSubscription.id, status.id))
+    );
 
     return row?.verify_token || null;
   }

@@ -8,11 +8,12 @@
  * This allows batch fetch and webhooks to use identical validation rules.
  */
 
-import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { AppDatabase } from '../db/types';
 import { and, desc, asc, lte, gte, eq, or, isNull } from 'drizzle-orm';
 import { season as seasonTable, week as weekTable, type Season } from '../db/schema';
 import { type Activity as ActivityWithTimestamp } from '../stravaClient';
 import { isoToUnix } from '../dateUtils';
+import { getMany } from '../db/asyncQuery';
 
 /**
  * Week with time window as Unix seconds (UTC)
@@ -44,7 +45,7 @@ interface SeasonStatusResult {
 }
 
 class ActivityValidationService {
-  constructor(private orm: BetterSQLite3Database) {}
+  constructor(private orm: AppDatabase) {}
 
   /**
    * Check if a season is currently closed (end_at has passed).
@@ -195,19 +196,20 @@ class ActivityValidationService {
    * @param unixTimestamp Activity timestamp in Unix seconds (UTC)
    * @returns Season object or null if no season contains timestamp
    */
-  getActiveSeason(unixTimestamp: number): Season | null {
-    const rows = this.orm
-      .select()
-      .from(seasonTable)
-      .where(
-        and(
-          lte(seasonTable.start_at, unixTimestamp),
-          or(isNull(seasonTable.end_at), gte(seasonTable.end_at, unixTimestamp))
+  async getActiveSeason(unixTimestamp: number): Promise<Season | null> {
+    const rows = await getMany<Season>(
+      this.orm
+        .select()
+        .from(seasonTable)
+        .where(
+          and(
+            lte(seasonTable.start_at, unixTimestamp),
+            or(isNull(seasonTable.end_at), gte(seasonTable.end_at, unixTimestamp))
+          )
         )
-      )
-      .orderBy(desc(seasonTable.start_at), desc(seasonTable.id))
-      .limit(1)
-      .all();
+        .orderBy(desc(seasonTable.start_at), desc(seasonTable.id))
+        .limit(1)
+    );
 
     return rows[0] ?? null;
   }
@@ -223,18 +225,19 @@ class ActivityValidationService {
    * @param unixTimestamp Activity timestamp in Unix seconds (UTC)
    * @returns Array of seasons that contain this timestamp, ordered by start_at DESC then id DESC
    */
-  getAllActiveSeasonsContainingTimestamp(unixTimestamp: number): Season[] {
-    const seasons = this.orm
-      .select()
-      .from(seasonTable)
-      .where(
-        and(
-          lte(seasonTable.start_at, unixTimestamp),
-          or(isNull(seasonTable.end_at), gte(seasonTable.end_at, unixTimestamp))
+  async getAllActiveSeasonsContainingTimestamp(unixTimestamp: number): Promise<Season[]> {
+    const seasons = await getMany<Season>(
+      this.orm
+        .select()
+        .from(seasonTable)
+        .where(
+          and(
+            lte(seasonTable.start_at, unixTimestamp),
+            or(isNull(seasonTable.end_at), gte(seasonTable.end_at, unixTimestamp))
+          )
         )
-      )
-      .orderBy(desc(seasonTable.start_at), desc(seasonTable.id))
-      .all();
+        .orderBy(desc(seasonTable.start_at), desc(seasonTable.id))
+    );
 
     return seasons;
   }
@@ -251,21 +254,27 @@ class ActivityValidationService {
    * @param activityUnix Activity timestamp in Unix seconds
    * @returns Array of weeks that overlap with activity timestamp
    */
-  getWeeksForActivityInSeason(
+  async getWeeksForActivityInSeason(
     seasonId: number,
     activityUnix: number
-  ): Array<{
+  ): Promise<Array<{
     id: number;
     week_name: string;
     start_at: number;
     end_at: number;
-  }> {
-    const weeks = this.orm
-      .select({ id: weekTable.id, week_name: weekTable.week_name, start_at: weekTable.start_at, end_at: weekTable.end_at })
-      .from(weekTable)
-      .where(and(eq(weekTable.season_id, seasonId), lte(weekTable.start_at, activityUnix), gte(weekTable.end_at, activityUnix)))
-      .orderBy(asc(weekTable.start_at))
-      .all();
+  }>> {
+    const weeks = await getMany<{
+      id: number;
+      week_name: string;
+      start_at: number;
+      end_at: number;
+    }>(
+      this.orm
+        .select({ id: weekTable.id, week_name: weekTable.week_name, start_at: weekTable.start_at, end_at: weekTable.end_at })
+        .from(weekTable)
+        .where(and(eq(weekTable.season_id, seasonId), lte(weekTable.start_at, activityUnix), gte(weekTable.end_at, activityUnix)))
+        .orderBy(asc(weekTable.start_at))
+    );
 
     return weeks as Array<{ id: number; week_name: string; start_at: number; end_at: number }>;
   }

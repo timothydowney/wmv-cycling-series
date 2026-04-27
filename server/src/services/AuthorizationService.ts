@@ -8,9 +8,10 @@
  * - Express middleware creation
  */
 
-import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { eq } from 'drizzle-orm';
 import { participant } from '../db/schema';
+import { getOne } from '../db/asyncQuery';
+import type { AppDatabase } from '../db/types';
 
 /**
  * Authorization check result
@@ -47,14 +48,14 @@ interface Response {
 type NextFunction = () => void;
 
 class AuthorizationService {
-  private orm?: BetterSQLite3Database;
+  private orm?: AppDatabase;
   private getAdminAthleteIds: () => string[];
 
   /**
    * Initialize authorization service with admin athlete ID resolver
    * @param getAdminAthleteIds - Function that returns array of admin athlete IDs
    */
-  constructor(orm?: BetterSQLite3Database, getAdminAthleteIds?: () => string[]) {
+  constructor(orm?: AppDatabase, getAdminAthleteIds?: () => string[]) {
     this.orm = orm;
     this.getAdminAthleteIds = getAdminAthleteIds || (() => []);
   }
@@ -64,7 +65,7 @@ class AuthorizationService {
    * @param stravaAthleteId - Strava athlete ID
    * @returns Whether the athlete is an admin
    */
-  isAdmin(stravaAthleteId: string | null | undefined): boolean {
+  async isAdmin(stravaAthleteId: string | null | undefined): Promise<boolean> {
     if (!stravaAthleteId) {
       return false;
     }
@@ -78,11 +79,12 @@ class AuthorizationService {
       return false;
     }
 
-    const participantRow = this.orm
-      .select({ is_admin: participant.is_admin })
-      .from(participant)
-      .where(eq(participant.strava_athlete_id, stravaAthleteId))
-      .get();
+    const participantRow = await getOne<{ is_admin: boolean | null }>(
+      this.orm
+        .select({ is_admin: participant.is_admin })
+        .from(participant)
+        .where(eq(participant.strava_athlete_id, stravaAthleteId))
+    );
 
     return Boolean(participantRow?.is_admin);
   }
@@ -94,10 +96,10 @@ class AuthorizationService {
    * @param adminRequired - Whether admin role is required (default: false)
    * @returns { authorized: boolean, statusCode: number, message?: string }
    */
-  checkAuthorization(
+  async checkAuthorization(
     stravaAthleteId: string | null | undefined,
     adminRequired = false
-  ): AuthorizationResult {
+  ): Promise<AuthorizationResult> {
     // First check: must be authenticated for protected routes
     if (!stravaAthleteId) {
       return {
@@ -108,7 +110,7 @@ class AuthorizationService {
     }
 
     // Second check: verify admin status if required
-    if (adminRequired && !this.isAdmin(stravaAthleteId)) {
+    if (adminRequired && !(await this.isAdmin(stravaAthleteId))) {
       return {
         authorized: false,
         statusCode: 403,
@@ -127,8 +129,8 @@ class AuthorizationService {
    * @returns Express middleware (req, res, next) => void
    */
   createRequireAdminMiddleware() {
-    return (req: Request, res: Response, next: NextFunction): void => {
-      const authCheck = this.checkAuthorization(
+    return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+      const authCheck = await this.checkAuthorization(
         req.session?.stravaAthleteId ? String(req.session.stravaAthleteId) : undefined,
         true
       );

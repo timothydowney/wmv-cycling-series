@@ -1,5 +1,5 @@
-import { Database } from 'better-sqlite3';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { Pool } from 'pg';
+import type { AppDatabase } from '../../db/types';
 import { appRouter } from '../../routers';
 import { createContext } from '../../trpc/context';
 import { setupTestDb, teardownTestDb, clearAllData, createParticipant, createSegment } from '../testDataHelpers';
@@ -7,24 +7,23 @@ import { segment } from '../../db/schema';
 import { eq } from 'drizzle-orm';
 
 describe('segmentRouter', () => {
-  let db: Database;
-  let drizzleDb: BetterSQLite3Database;
+  let pool: Pool;
+  let orm: AppDatabase;
   let caller: ReturnType<typeof appRouter.createCaller>;
 
-  beforeAll(() => {
-    const testDb = setupTestDb();
-    db = testDb.db;
-    drizzleDb = testDb.drizzleDb;
+  beforeAll(async () => {
+    const testDb = setupTestDb({ seed: false });
+    pool = testDb.pool;
+    orm = testDb.orm;
   });
-
-  afterAll(() => {
-    teardownTestDb(db);
+  afterAll(async () => {
+    await teardownTestDb(pool);
   });
 
   // Helper to create caller with specific auth state
-  const getCaller = (isAdmin: boolean) => {
+  const getCaller = async (isAdmin: boolean) => {
     if (isAdmin) {
-      createParticipant(drizzleDb, '999001', 'Test Admin', false, true);
+      await createParticipant(orm, '999001', 'Test Admin', false, true);
     }
 
     const req = {
@@ -33,29 +32,29 @@ describe('segmentRouter', () => {
       }
     } as any;
     
-    return appRouter.createCaller(createContext({
+    return appRouter.createCaller(() => createContext({
       req,
       res: {} as any,
-      dbOverride: db,
-      drizzleDbOverride: drizzleDb
+      dbOverride: pool,
+      ormOverride: orm
     }));
   };
 
-  beforeEach(() => {
-    clearAllData(drizzleDb);
+  beforeEach(async () => {
+    await clearAllData(orm);
   });
 
   describe('getAll', () => {
     it('should return empty array when no segments exist', async () => {
-      const caller = getCaller(false);
+      const caller = await getCaller(false);
       const result = await caller.segment.getAll();
       expect(result).toEqual([]);
     });
 
     it('should return all segments', async () => {
-      const caller = getCaller(false);
-      createSegment(drizzleDb, '1', 'Segment A');
-      createSegment(drizzleDb, '2', 'Segment B');
+      const caller = await getCaller(false);
+      await createSegment(orm, '1', 'Segment A');
+      await createSegment(orm, '2', 'Segment B');
 
       const result = await caller.segment.getAll();
       expect(result).toHaveLength(2);
@@ -68,7 +67,7 @@ describe('segmentRouter', () => {
 
   describe('create', () => {
     it('should create a segment when admin', async () => {
-      const caller = getCaller(true);
+      const caller = await getCaller(true);
       const input = {
         strava_segment_id: '123',
         name: 'Manual Segment',
@@ -80,13 +79,13 @@ describe('segmentRouter', () => {
       expect(result.strava_segment_id).toBe('123');
       
       // Verify in DB
-      const foundSegment = await drizzleDb.select().from(segment).where(eq(segment.strava_segment_id, '123')).get();
+      const [foundSegment] = await orm.select().from(segment).where(eq(segment.strava_segment_id, '123'));
       expect(foundSegment).toBeDefined();
       expect(foundSegment?.name).toBe('Manual Segment');
     });
 
     it('should fail when not admin', async () => {
-      const caller = getCaller(false);
+      const caller = await getCaller(false);
       const input = {
         strava_segment_id: '123',
         name: 'Manual Segment'
@@ -99,12 +98,12 @@ describe('segmentRouter', () => {
 
   describe('validate', () => {
     it('should fail when not admin', async () => {
-      const caller = getCaller(false);
+      const caller = await getCaller(false);
       await expect(caller.segment.validate('123')).rejects.toThrow('UNAUTHORIZED');
     });
 
     it('should validate (create placeholder if no token) when admin', async () => {
-      const caller = getCaller(true);
+      const caller = await getCaller(true);
       // This will likely log "No connected participants, creating placeholder segment"
       const result = await caller.segment.validate('999');
       expect(result).toBeDefined();

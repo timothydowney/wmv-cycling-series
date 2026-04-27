@@ -1,29 +1,29 @@
-import { Database } from 'better-sqlite3';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { Pool } from 'pg';
+import type { AppDatabase } from '../db/types';
 import { appRouter } from '../routers';
 import { createContext } from '../trpc/context';
 import { setupTestDb, teardownTestDb, SeedData, createWeek, createSegment } from './testDataHelpers';
 
 describe('leaderboardRouter', () => {
-  let db: Database;
-  let drizzleDb: BetterSQLite3Database;
+  let pool: Pool;
+  let orm: AppDatabase;
   let seedData: SeedData;
   let caller: ReturnType<typeof appRouter.createCaller>;
 
-  beforeAll(() => {
-    const { db: newDb, drizzleDb: newDrizzleDb, seedData: seededData } = setupTestDb({ seed: true }); // Explicitly seed data
-    db = newDb; // Assign to local db
-    drizzleDb = newDrizzleDb; // Assign to local drizzleDb
-    seedData = seededData!; // Assert it's defined since seed is true
-    caller = appRouter.createCaller(createContext({ 
-      dbOverride: db, 
-      drizzleDbOverride: drizzleDb,
+  beforeAll(async () => {
+    const testDb = setupTestDb({ seed: true });
+    orm = testDb.orm;
+    pool = testDb.pool;
+    seedData = testDb.seedData!;
+    caller = appRouter.createCaller(await createContext({
+      dbOverride: pool,
+      ormOverride: orm,
       req: {} as any,
       res: {} as any
     }));
   });
-  afterAll(() => {
-    teardownTestDb(db);
+  afterAll(async () => {
+    await teardownTestDb(pool);
   });
 
   describe('getWeekLeaderboard', () => {
@@ -46,9 +46,9 @@ describe('leaderboardRouter', () => {
       // Create a new segment and week specifically for this test case
       // to ensure it has no results.
       const segmentId = '123';
-      createSegment(drizzleDb, segmentId, 'Empty Segment');
+      await createSegment(orm, segmentId, 'Empty Segment');
       
-      const newWeek = createWeek(drizzleDb, { 
+      const newWeek = await createWeek(orm, { 
         seasonId: seedData.seasons[0].id, 
         stravaSegmentId: segmentId, 
         weekName: 'Empty Week' 

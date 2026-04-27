@@ -43,6 +43,7 @@ module.exports = {
   modulePathIgnorePatterns: [
     '<rootDir>/dist/'
   ],
+  setupFiles: ['<rootDir>/src/__tests__/jestSetup.ts'],
   // Transform ESM packages (don't ignore them in node_modules)
   transformIgnorePatterns: [
     'node_modules/(?!(@google/genai|p-retry|is-network-error)/)'

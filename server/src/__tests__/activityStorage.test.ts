@@ -1,48 +1,47 @@
+import type { Pool } from 'pg';
+import type { AppDatabase } from '../db/types';
 /**
  * Activity Storage Tests
  * Tests for activity and segment effort persistence using Drizzle ORM
  */
 
-import { setupTestDb } from './setupTestDb';
+import { setupTestDb, teardownTestDb } from './setupTestDb';
 import { storeActivityAndEfforts, type ActivityToStore } from '../activityStorage';
 import { createParticipant, createSeason, createSegment, createWeek } from './testDataHelpers';
 import { activity, segmentEffort, result } from '../db/schema';
-import Database from 'better-sqlite3';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 
 describe('Activity Storage', () => {
-  let db: Database.Database;
-  let orm: BetterSQLite3Database;
+  let pool: Pool;
+  let orm: AppDatabase;
   let testAthleteId: string;
   let testWeekId: number;
   let testSegmentId: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     const setup = setupTestDb({ seed: false });
-    db = setup.db;
+    pool = setup.pool;
     orm = setup.orm;
 
     // Create test data
     testAthleteId = '12345678';
     testSegmentId = '98765432';
     
-    createParticipant(orm, testAthleteId, 'Test User');
-    const season = createSeason(orm, 'Test Season');
-    const segment = createSegment(orm, testSegmentId, 'Test Segment');
-    const week = createWeek(orm, {
+    await createParticipant(orm, testAthleteId, 'Test User');
+    const season = await createSeason(orm, 'Test Season');
+    const segment = await createSegment(orm, testSegmentId, 'Test Segment');
+    const week = await createWeek(orm, {
       seasonId: season.id,
       stravaSegmentId: segment.strava_segment_id,
       weekName: 'Test Week'
     });
     testWeekId = week.id;
   });
-
-  afterEach(() => {
-    db.close();
+  afterAll(async () => {
+    await teardownTestDb(pool);
   });
 
   describe('storeActivityAndEfforts', () => {
-    it('should store activity and segment efforts when no existing activity', () => {
+    it('should store activity and segment efforts when no existing activity', async () => {
       const activityData: ActivityToStore = {
         id: '9876543210',
         start_date: '2025-06-01T10:00:00Z',
@@ -63,17 +62,17 @@ describe('Activity Storage', () => {
         totalTime: 1430
       };
 
-      storeActivityAndEfforts(orm, testAthleteId, testWeekId, activityData, testSegmentId);
+      await storeActivityAndEfforts(orm, testAthleteId, testWeekId, activityData, testSegmentId);
 
       // Verify activity was inserted
-      const activities = orm.select().from(activity).all();
+      const activities = await orm.select().from(activity).execute();
       expect(activities).toHaveLength(1);
       expect(activities[0].strava_activity_id).toBe('9876543210');
       expect(activities[0].week_id).toBe(testWeekId);
       expect(activities[0].strava_athlete_id).toBe(testAthleteId);
 
       // Verify segment efforts were inserted
-      const efforts = orm.select().from(segmentEffort).all();
+      const efforts = await orm.select().from(segmentEffort).execute();
       expect(efforts).toHaveLength(2);
       expect(efforts[0].elapsed_seconds).toBe(720);
       expect(efforts[0].pr_achieved).toBe(0);
@@ -81,13 +80,13 @@ describe('Activity Storage', () => {
       expect(efforts[1].pr_achieved).toBe(1);
 
       // Verify result was stored
-      const results = orm.select().from(result).all();
+      const results = await orm.select().from(result).execute();
       expect(results).toHaveLength(1);
       expect(results[0].total_time_seconds).toBe(1430);
     });
 
 
-    it('should delete existing activity and efforts before storing new ones', () => {
+    it('should delete existing activity and efforts before storing new ones', async () => {
       // First, store an activity
       const firstActivity: ActivityToStore = {
         id: '9876543210',
@@ -103,12 +102,12 @@ describe('Activity Storage', () => {
         totalTime: 720
       };
 
-      storeActivityAndEfforts(orm, testAthleteId, testWeekId, firstActivity, testSegmentId);
+      await storeActivityAndEfforts(orm, testAthleteId, testWeekId, firstActivity, testSegmentId);
 
       // Verify initial state
-      expect(orm.select().from(activity).all()).toHaveLength(1);
-      expect(orm.select().from(segmentEffort).all()).toHaveLength(1);
-      expect(orm.select().from(result).all()).toHaveLength(1);
+      expect(await orm.select().from(activity).execute()).toHaveLength(1);
+      expect(await orm.select().from(segmentEffort).execute()).toHaveLength(1);
+      expect(await orm.select().from(result).execute()).toHaveLength(1);
 
       // Now store a different activity (should replace the old one)
       const secondActivity: ActivityToStore = {
@@ -124,23 +123,23 @@ describe('Activity Storage', () => {
         totalTime: 650
       };
 
-      storeActivityAndEfforts(orm, testAthleteId, testWeekId, secondActivity, testSegmentId);
+      await storeActivityAndEfforts(orm, testAthleteId, testWeekId, secondActivity, testSegmentId);
 
       // Verify old data was replaced
-      const activities = orm.select().from(activity).all();
+      const activities = await orm.select().from(activity).execute();
       expect(activities).toHaveLength(1);
       expect(activities[0].strava_activity_id).toBe('9876543211');
 
-      const efforts = orm.select().from(segmentEffort).all();
+      const efforts = await orm.select().from(segmentEffort).execute();
       expect(efforts).toHaveLength(1);
       expect(efforts[0].strava_effort_id).toBe('3333333333');
 
-      const results = orm.select().from(result).all();
+      const results = await orm.select().from(result).execute();
       expect(results).toHaveLength(1);
       expect(results[0].total_time_seconds).toBe(650);
     });
 
-    it('should handle activity with no device name', () => {
+    it('should handle activity with no device name', async () => {
       const activityData: ActivityToStore = {
         id: '9876543212',
         start_date: '2025-06-01T12:00:00Z',
@@ -155,14 +154,14 @@ describe('Activity Storage', () => {
         totalTime: 680
       };
 
-      storeActivityAndEfforts(orm, testAthleteId, testWeekId, activityData, testSegmentId);
+      await storeActivityAndEfforts(orm, testAthleteId, testWeekId, activityData, testSegmentId);
 
-      const activities = orm.select().from(activity).all();
+      const activities = await orm.select().from(activity).execute();
       expect(activities).toHaveLength(1);
       expect(activities[0].device_name).toBeNull();
     });
 
-    it('should handle multiple segment efforts correctly', () => {
+    it('should handle multiple segment efforts correctly', async () => {
       const activityData: ActivityToStore = {
         id: '9876543213',
         start_date: '2025-06-01T13:00:00Z',
@@ -189,9 +188,9 @@ describe('Activity Storage', () => {
         totalTime: 1785
       };
 
-      storeActivityAndEfforts(orm, testAthleteId, testWeekId, activityData, testSegmentId);
+      await storeActivityAndEfforts(orm, testAthleteId, testWeekId, activityData, testSegmentId);
 
-      const efforts = orm.select().from(segmentEffort).all();
+      const efforts = await orm.select().from(segmentEffort).execute();
       expect(efforts).toHaveLength(3);
       expect(efforts[0].effort_index).toBe(0);
       expect(efforts[0].elapsed_seconds).toBe(600);
@@ -204,7 +203,7 @@ describe('Activity Storage', () => {
       expect(efforts[2].pr_achieved).toBe(0);
     });
 
-    it('should convert pr_rank to boolean correctly (truthy = 1, falsy = 0)', () => {
+    it('should convert pr_rank to boolean correctly (truthy = 1, falsy = 0)', async () => {
       const activityData: ActivityToStore = {
         id: '9876543214',
         start_date: '2025-06-01T14:00:00Z',
@@ -230,15 +229,15 @@ describe('Activity Storage', () => {
         totalTime: 2115
       };
 
-      storeActivityAndEfforts(orm, testAthleteId, testWeekId, activityData, testSegmentId);
+      await storeActivityAndEfforts(orm, testAthleteId, testWeekId, activityData, testSegmentId);
 
-      const efforts = orm.select().from(segmentEffort).all();
+      const efforts = await orm.select().from(segmentEffort).execute();
       expect(efforts[0].pr_achieved).toBe(1); // pr_rank = 1 → truthy
       expect(efforts[1].pr_achieved).toBe(0); // pr_rank = null → falsy
       expect(efforts[2].pr_achieved).toBe(0); // pr_rank = 0 → falsy
     });
 
-    it('should store result with correct total time', () => {
+    it('should store result with correct total time', async () => {
       const activityData: ActivityToStore = {
         id: '9876543215',
         start_date: '2025-06-01T15:00:00Z',
@@ -253,16 +252,16 @@ describe('Activity Storage', () => {
         totalTime: 1420
       };
 
-      storeActivityAndEfforts(orm, testAthleteId, testWeekId, activityData, testSegmentId);
+      await storeActivityAndEfforts(orm, testAthleteId, testWeekId, activityData, testSegmentId);
 
-      const results = orm.select().from(result).all();
+      const results = await orm.select().from(result).execute();
       expect(results).toHaveLength(1);
       expect(results[0].total_time_seconds).toBe(1420);
       expect(results[0].week_id).toBe(testWeekId);
       expect(results[0].strava_athlete_id).toBe(testAthleteId);
     });
 
-    it('should handle transactional rollback on error', () => {
+    it('should handle transactional rollback on error', async () => {
       const activityData: ActivityToStore = {
         id: '9876543216',
         start_date: '2025-06-01T16:00:00Z',
@@ -277,16 +276,21 @@ describe('Activity Storage', () => {
         totalTime: 750
       };
 
-      // Close the DB to cause an error
-      db.close();
+      const forcedFailure = new Error('forced transaction failure');
+      const failingDb = {
+        ...orm,
+        transaction: async () => {
+          throw forcedFailure;
+        },
+      } as unknown as AppDatabase;
 
       // Expect the operation to fail
-      expect(() => {
-        storeActivityAndEfforts(orm, testAthleteId, testWeekId, activityData, testSegmentId);
-      }).toThrow();
+      await expect(
+        storeActivityAndEfforts(failingDb, testAthleteId, testWeekId, activityData, testSegmentId)
+      ).rejects.toThrow('forced transaction failure');
     });
 
-    it('should store activity with athlete weight', () => {
+    it('should store activity with athlete weight', async () => {
       const activityData: ActivityToStore = {
         id: '9876543210',
         start_date: '2025-06-01T10:00:00Z',
@@ -302,15 +306,15 @@ describe('Activity Storage', () => {
         athleteWeight: 70.5  // Include weight
       };
 
-      storeActivityAndEfforts(orm, testAthleteId, testWeekId, activityData, testSegmentId);
+      await storeActivityAndEfforts(orm, testAthleteId, testWeekId, activityData, testSegmentId);
 
       // Verify activity was stored with weight
-      const activities = orm.select().from(activity).all();
+      const activities = await orm.select().from(activity).execute();
       expect(activities).toHaveLength(1);
       expect(activities[0].athlete_weight).toBe(70.5);
     });
 
-    it('should store activity with null weight when not provided', () => {
+    it('should store activity with null weight when not provided', async () => {
       const activityData: ActivityToStore = {
         id: '9876543210',
         start_date: '2025-06-01T10:00:00Z',
@@ -326,10 +330,10 @@ describe('Activity Storage', () => {
         // No athleteWeight provided
       };
 
-      storeActivityAndEfforts(orm, testAthleteId, testWeekId, activityData, testSegmentId);
+      await storeActivityAndEfforts(orm, testAthleteId, testWeekId, activityData, testSegmentId);
 
       // Verify activity was stored with null weight
-      const activities = orm.select().from(activity).all();
+      const activities = await orm.select().from(activity).execute();
       expect(activities).toHaveLength(1);
       expect(activities[0].athlete_weight).toBeNull();
     });

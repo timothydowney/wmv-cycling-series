@@ -5,25 +5,27 @@
  * competition, how scoring works, what data is available, and how to respond.
  */
 
-import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { AppDatabase } from '../db/types';
 import { eq, and, lte, gte } from 'drizzle-orm';
 import { participant, season } from '../db/schema.js';
+import { getOne } from '../db/asyncQuery';
 
 export class ChatContextBuilder {
   /**
    * Build the system instruction for the Gemini model.
    * This is sent once at conversation start and guides all responses.
    */
-  static buildSystemPrompt(db: BetterSQLite3Database, userId: string): string {
+  static async buildSystemPrompt(db: AppDatabase, userId: string): Promise<string> {
     const currentDate = new Date().toISOString().split('T')[0];
     const nowUnix = Math.floor(Date.now() / 1000);
 
     // Get current user's name
     let currentUserName = 'Unknown';
     try {
-      const user = db.select().from(participant)
-        .where(eq(participant.strava_athlete_id, userId))
-        .get();
+      const user = await getOne<typeof participant.$inferSelect>(
+        db.select().from(participant)
+          .where(eq(participant.strava_athlete_id, userId))
+      );
       if (user) {
         currentUserName = user.name;
       }
@@ -34,20 +36,22 @@ export class ChatContextBuilder {
     // Get current season
     let currentSeasonName = 'None';
     try {
-      const activeSeason = db.select().from(season)
-        .where(and(
-          lte(season.start_at, nowUnix),
-          gte(season.end_at, nowUnix)
-        ))
-        .get();
+      const activeSeason = await getOne<typeof season.$inferSelect>(
+        db.select().from(season)
+          .where(and(
+            lte(season.start_at, nowUnix),
+            gte(season.end_at, nowUnix)
+          ))
+      );
       if (activeSeason) {
         currentSeasonName = activeSeason.name;
       } else {
         // If no active season, get the most recent one
-        const recentSeason = db.select().from(season)
-          .orderBy(season.end_at)
-          .limit(1)
-          .get();
+        const recentSeason = await getOne<typeof season.$inferSelect>(
+          db.select().from(season)
+            .orderBy(season.end_at)
+            .limit(1)
+        );
         if (recentSeason) {
           currentSeasonName = `${recentSeason.name} (ended)`;
         }

@@ -1,4 +1,5 @@
-import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import type { Pool } from 'pg';
+import { describe, it, expect, jest, beforeEach, afterAll } from '@jest/globals';
 import { appRouter } from '../routers';
 import { createContext } from '../trpc/context';
 import { WebhookAdminService } from '../services/WebhookAdminService';
@@ -8,7 +9,6 @@ import { clearAllData, createParticipant } from './testDataHelpers';
 // Define the mock object with any to bypass strict type checking in tests
 const mockAdminService: any = {
   getStatus: jest.fn(),
-  getStorageStatus: jest.fn(),
   getEvents: jest.fn(),
   enable: jest.fn(),
   disable: jest.fn(),
@@ -29,13 +29,13 @@ jest.mock('../services/WebhookAdminService', () => {
 describe('webhookAdminRouter', () => {
   const testDb = setupTestDb({ seed: false });
   const mockOrm = testDb.orm;
-  const mockDb = testDb.db;
+  const mockDb = testDb.pool;
   
   // Helper to create an admin caller
-  const createAdminCaller = () => {
-    createParticipant(mockOrm, '123', 'Admin User', false, true);
+  const createAdminCaller = async () => {
+    await createParticipant(mockOrm, '123', 'Admin User', false, true);
 
-    return appRouter.createCaller(createContext({
+    return appRouter.createCaller(async () => createContext({
       req: { session: { stravaAthleteId: '123' } } as any,
       res: {} as any,
       ormOverride: mockOrm,
@@ -44,10 +44,10 @@ describe('webhookAdminRouter', () => {
   };
 
   // Helper to create a regular user caller
-  const createUserCaller = () => {
-    createParticipant(mockOrm, '456', 'Regular User');
+  const createUserCaller = async () => {
+    await createParticipant(mockOrm, '456', 'Regular User');
 
-    return appRouter.createCaller(createContext({
+    return appRouter.createCaller(async () => createContext({
       req: { session: { stravaAthleteId: '456' } } as any,
       res: {} as any,
       ormOverride: mockOrm,
@@ -55,23 +55,23 @@ describe('webhookAdminRouter', () => {
     }));
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
-    clearAllData(mockOrm);
+    await clearAllData(mockOrm);
   });
 
-  afterAll(() => {
-    teardownTestDb(mockDb);
+  afterAll(async () => {
+    await teardownTestDb(mockDb);
   });
 
   describe('Authorization', () => {
     it('should block non-admin users', async () => {
-      const caller = createUserCaller();
+      const caller = await createUserCaller();
       await expect(caller.webhookAdmin.getStatus()).rejects.toThrow('UNAUTHORIZED');
     });
 
     it('should allow admin users', async () => {
-      const caller = createAdminCaller();
+      const caller = await createAdminCaller();
       mockAdminService.getStatus.mockResolvedValue({ enabled: true });
       
       const result = await caller.webhookAdmin.getStatus();
@@ -81,7 +81,7 @@ describe('webhookAdminRouter', () => {
 
   describe('getStatus', () => {
     it('should call adminService.getStatus()', async () => {
-      const caller = createAdminCaller();
+      const caller = await createAdminCaller();
       const mockStatus = { enabled: true, subscription: null };
       mockAdminService.getStatus.mockResolvedValue(mockStatus);
 
@@ -94,7 +94,7 @@ describe('webhookAdminRouter', () => {
 
   describe('getEvents', () => {
     it('should call getEvents with default values', async () => {
-      const caller = createAdminCaller();
+      const caller = await createAdminCaller();
       mockAdminService.getEvents.mockResolvedValue([]);
 
       await caller.webhookAdmin.getEvents({});
@@ -108,7 +108,7 @@ describe('webhookAdminRouter', () => {
     });
 
     it('should call getEvents with custom values', async () => {
-      const caller = createAdminCaller();
+      const caller = await createAdminCaller();
       mockAdminService.getEvents.mockResolvedValue([]);
 
       await caller.webhookAdmin.getEvents({
@@ -124,7 +124,7 @@ describe('webhookAdminRouter', () => {
 
   describe('getEnrichedEventDetails', () => {
     it('should call getEnrichedEventDetails with id', async () => {
-      const caller = createAdminCaller();
+      const caller = await createAdminCaller();
       mockAdminService.getEnrichedEventDetails.mockResolvedValue({ id: 1 });
 
       await caller.webhookAdmin.getEnrichedEventDetails({ id: 123 });
@@ -133,14 +133,14 @@ describe('webhookAdminRouter', () => {
     });
 
     it('should fail with invalid id', async () => {
-      const caller = createAdminCaller();
+      const caller = await createAdminCaller();
       await expect(caller.webhookAdmin.getEnrichedEventDetails({ id: -1 } as any)).rejects.toThrow();
     });
   });
 
   describe('clearEvents', () => {
     it('should call clearEvents only if confirmed', async () => {
-      const caller = createAdminCaller();
+      const caller = await createAdminCaller();
       mockAdminService.clearEvents.mockResolvedValue({ count: 10 });
 
       await caller.webhookAdmin.clearEvents({ confirm: 'yes' });
@@ -149,7 +149,7 @@ describe('webhookAdminRouter', () => {
     });
 
     it('should fail if confirm is wrong', async () => {
-      const caller = createAdminCaller();
+      const caller = await createAdminCaller();
       await expect(caller.webhookAdmin.clearEvents({ confirm: 'no' } as any)).rejects.toThrow();
     });
   });

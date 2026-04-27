@@ -1,3 +1,5 @@
+import type { Pool } from 'pg';
+import type { AppDatabase } from '../../db/types';
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import { appRouter } from '../../routers';
 import { createContext } from '../../trpc/context';
@@ -13,28 +15,27 @@ import {
 } from '../testDataHelpers';
 
 describe('profileRouter.getMyProfile', () => {
-  let db: any;
-  let drizzleDb: any;
+  let pool: Pool;
+  let orm: AppDatabase;
   let caller: ReturnType<typeof appRouter.createCaller>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Setup fresh test DB for each test
-    const setup = setupTestDb();
-    db = setup.db;
-    drizzleDb = setup.drizzleDb;
-    clearAllData(drizzleDb);
-    caller = appRouter.createCaller(
+    const setup = setupTestDb({ seed: false });
+    pool = setup.pool;
+    orm = setup.orm;
+    await clearAllData(orm);
+    caller = appRouter.createCaller(() =>
       createContext({
-        dbOverride: db,
-        drizzleDbOverride: drizzleDb,
+        dbOverride: pool,
+        ormOverride: orm,
         req: {} as any,
         res: {} as any,
       })
     );
   });
-
-  afterEach(() => {
-    teardownTestDb(db);
+  afterAll(async () => {
+    await teardownTestDb(pool);
   });
 
   it('should return null for non-existent athlete', async () => {
@@ -43,29 +44,29 @@ describe('profileRouter.getMyProfile', () => {
   });
 
   it('should include timeTrialWins for flat segments (grade <= 2%)', async () => {
-    const participant = createParticipant(drizzleDb, '40001', 'TT Winner');
-    const season = createSeason(drizzleDb, 'Test Season', false);
+    const participant = await createParticipant(orm, '40001', 'TT Winner');
+    const season = await createSeason(orm, 'Test Season', false);
 
-    const ttSegment = createSegment(drizzleDb, '40001', 'Flat Road', { averageGrade: 1.5 });
-    const ttWeek = createWeek(drizzleDb, {
+    const ttSegment = await createSegment(orm, '40001', 'Flat Road', { averageGrade: 1.5 });
+    const ttWeek = await createWeek(orm, {
       seasonId: season.id,
       stravaSegmentId: ttSegment.strava_segment_id,
       weekName: 'TT Week',
     });
 
-    const activity = createActivity(drizzleDb, {
+    const activity = await createActivity(orm, {
       weekId: ttWeek.id,
       stravaAthleteId: participant.strava_athlete_id,
       stravaActivityId: '40001a',
     });
 
-    createSegmentEffort(drizzleDb, {
+    await createSegmentEffort(orm, {
       activityId: activity.id,
       stravaSegmentId: ttSegment.strava_segment_id,
       elapsedSeconds: 500,
     });
 
-    createResult(drizzleDb, {
+    await createResult(orm, {
       weekId: ttWeek.id,
       stravaAthleteId: participant.strava_athlete_id,
       activityId: activity.id,
@@ -79,29 +80,29 @@ describe('profileRouter.getMyProfile', () => {
   });
 
   it('should include polkaDotWins for steep segments (grade > 2%)', async () => {
-    const participant = createParticipant(drizzleDb, '40002', 'HC Winner');
-    const season = createSeason(drizzleDb, 'Test Season', false);
+    const participant = await createParticipant(orm, '40002', 'HC Winner');
+    const season = await createSeason(orm, 'Test Season', false);
 
-    const hcSegment = createSegment(drizzleDb, '40002', 'Mountain', { averageGrade: 5 });
-    const hcWeek = createWeek(drizzleDb, {
+    const hcSegment = await createSegment(orm, '40002', 'Mountain', { averageGrade: 5 });
+    const hcWeek = await createWeek(orm, {
       seasonId: season.id,
       stravaSegmentId: hcSegment.strava_segment_id,
       weekName: 'HC Week',
     });
 
-    const activity = createActivity(drizzleDb, {
+    const activity = await createActivity(orm, {
       weekId: hcWeek.id,
       stravaAthleteId: participant.strava_athlete_id,
       stravaActivityId: '40002a',
     });
 
-    createSegmentEffort(drizzleDb, {
+    await createSegmentEffort(orm, {
       activityId: activity.id,
       stravaSegmentId: hcSegment.strava_segment_id,
       elapsedSeconds: 400,
     });
 
-    createResult(drizzleDb, {
+    await createResult(orm, {
       weekId: hcWeek.id,
       stravaAthleteId: participant.strava_athlete_id,
       activityId: activity.id,

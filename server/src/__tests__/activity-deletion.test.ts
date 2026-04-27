@@ -1,3 +1,5 @@
+import type { Pool } from 'pg';
+import type { AppDatabase } from '../db/types';
 /**
  * Activity Processing and Deletion Tests
  *
@@ -9,8 +11,7 @@
  * - PR bonus removed when activity deleted
  */
 
-import { Database } from 'better-sqlite3';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { jest } from '@jest/globals';
 import { eq, and } from 'drizzle-orm';
 import { activity, result } from '../db/schema';
 import { appRouter } from '../routers';
@@ -25,47 +26,48 @@ import {
 } from './testDataHelpers';
 
 describe('Activity Deletion and Score Recalculation', () => {
-  let db: Database;
-  let drizzleDb: BetterSQLite3Database;
+  jest.setTimeout(20000);
+
+  let pool: Pool;
+  let orm: AppDatabase;
   let seedData: SeedData;
   let caller: ReturnType<typeof appRouter.createCaller>;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     const setup = setupTestDb({ seed: true });
-    db = setup.db;
-    drizzleDb = setup.drizzleDb;
+    pool = setup.pool;
+    orm = setup.orm;
     seedData = setup.seedData!;
     caller = appRouter.createCaller(
-      createContext({
-        dbOverride: db,
-        drizzleDbOverride: drizzleDb,
+      await createContext({
+        dbOverride: pool,
+        ormOverride: orm,
         req: {} as any,
         res: {} as any,
       })
     );
   });
-
-  afterAll(() => {
-    teardownTestDb(db);
+  afterAll(async () => {
+    await teardownTestDb(pool);
   });
 
   describe('Activity Deletion', () => {
     it('deleting activity removes from leaderboard', async () => {
-      const segment = createSegment(drizzleDb, '60001', 'Delete Segment');
-      const week = createWeek(drizzleDb, {
+      const segment = await createSegment(orm, '60001', 'Delete Segment');
+      const week = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Delete Week',
       });
 
-      const result1 = createActivityWithResult(drizzleDb, {
+      const result1 = await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: '60001',
         stravaActivityId: '60001',
         elapsedSeconds: 500,
       });
 
-      const result2 = createActivityWithResult(drizzleDb, {
+      const result2 = await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: '60002',
         stravaActivityId: '60002',
@@ -76,14 +78,14 @@ describe('Activity Deletion and Score Recalculation', () => {
       expect(leaderboard.leaderboard).toHaveLength(2);
 
       // Delete result for first participant (leaderboard is read from result table)
-      drizzleDb.delete(result)
+      await orm.delete(result)
         .where(
           and(
             eq(result.week_id, week.id),
             eq(result.strava_athlete_id, '60001')
           )
         )
-        .run();
+        .execute();
 
       // Leaderboard should only have p2 now
       leaderboard = await caller.leaderboard.getWeekLeaderboard({ weekId: week.id });
@@ -91,29 +93,29 @@ describe('Activity Deletion and Score Recalculation', () => {
     });
 
     it('deleting leader triggers recalculation of rankings', async () => {
-      const segment = createSegment(drizzleDb, '60003', 'Leader Delete Segment');
-      const week = createWeek(drizzleDb, {
+      const segment = await createSegment(orm, '60003', 'Leader Delete Segment');
+      const week = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Leader Delete Week',
       });
 
       // Create 3 participants with leader, 2nd, 3rd
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: '60101',
         stravaActivityId: '60101',
         elapsedSeconds: 400, // 1st
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: '60102',
         stravaActivityId: '60102',
         elapsedSeconds: 500, // 2nd
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: '60103',
         stravaActivityId: '60103',
@@ -125,14 +127,14 @@ describe('Activity Deletion and Score Recalculation', () => {
       expect(leaderboard.leaderboard[0].points).toBe(3); // (3-1)+1 = 3
 
       // Delete the leader's result
-      drizzleDb.delete(result)
+      await orm.delete(result)
         .where(
           and(
             eq(result.week_id, week.id),
             eq(result.strava_athlete_id, '60101')
           )
         )
-        .run();
+        .execute();
 
       leaderboard = await caller.leaderboard.getWeekLeaderboard({ weekId: week.id });
       expect(leaderboard.leaderboard).toHaveLength(2);
@@ -147,15 +149,15 @@ describe('Activity Deletion and Score Recalculation', () => {
     });
 
     it('deleting activity removes PR bonus points', async () => {
-      const segment = createSegment(drizzleDb, '60004', 'PR Delete Segment');
-      const week = createWeek(drizzleDb, {
+      const segment = await createSegment(orm, '60004', 'PR Delete Segment');
+      const week = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'PR Delete Week',
       });
 
       // Activity with PR
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: '60201',
         stravaActivityId: '60201',
@@ -164,7 +166,7 @@ describe('Activity Deletion and Score Recalculation', () => {
       });
 
       // Activity without PR
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: '60202',
         stravaActivityId: '60202',
@@ -177,14 +179,14 @@ describe('Activity Deletion and Score Recalculation', () => {
       expect(leaderboard.leaderboard[0].points).toBe(3); // 2 + 1 PR bonus
 
       // Delete the PR result
-      drizzleDb.delete(result)
+      await orm.delete(result)
         .where(
           and(
             eq(result.week_id, week.id),
             eq(result.strava_athlete_id, '60201')
           )
         )
-        .run();
+        .execute();
 
       leaderboard = await caller.leaderboard.getWeekLeaderboard({ weekId: week.id });
       expect(leaderboard.leaderboard).toHaveLength(1);
@@ -195,16 +197,16 @@ describe('Activity Deletion and Score Recalculation', () => {
 
   describe('Season Leaderboard After Deletion', () => {
     it('deleting activity updates season totals', async () => {
-      const segment1 = createSegment(drizzleDb, '60005', 'Season Delete Seg1');
-      const segment2 = createSegment(drizzleDb, '60006', 'Season Delete Seg2');
+      const segment1 = await createSegment(orm, '60005', 'Season Delete Seg1');
+      const segment2 = await createSegment(orm, '60006', 'Season Delete Seg2');
 
-      const week1 = createWeek(drizzleDb, {
+      const week1 = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment1.strava_segment_id,
         weekName: 'Season Delete Week 1',
       });
 
-      const week2 = createWeek(drizzleDb, {
+      const week2 = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment2.strava_segment_id,
         weekName: 'Season Delete Week 2',
@@ -214,14 +216,14 @@ describe('Activity Deletion and Score Recalculation', () => {
       const p2 = '60302';
 
       // Week 1: p1 1st (2 pts), p2 2nd (1 pt)
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week1.id,
         stravaAthleteId: p1,
         stravaActivityId: '60301',
         elapsedSeconds: 500,
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week1.id,
         stravaAthleteId: p2,
         stravaActivityId: '60302',
@@ -229,14 +231,14 @@ describe('Activity Deletion and Score Recalculation', () => {
       });
 
       // Week 2: p1 1st (2 pts), p2 2nd (1 pt)
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week2.id,
         stravaAthleteId: p1,
         stravaActivityId: '60303',
         elapsedSeconds: 500,
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week2.id,
         stravaAthleteId: p2,
         stravaActivityId: '60304',
@@ -254,14 +256,14 @@ describe('Activity Deletion and Score Recalculation', () => {
       expect(p2Before!.totalPoints).toBe(2); // 1+1
 
       // Delete p1's week 2 result
-      drizzleDb.delete(result)
+      await orm.delete(result)
         .where(
           and(
             eq(result.week_id, week2.id),
             eq(result.strava_athlete_id, '60301')
           )
         )
-        .run();
+        .execute();
 
       seasonBoard = await caller.leaderboard.getSeasonLeaderboard({
         seasonId: seedData.seasons[0].id,
@@ -280,21 +282,21 @@ describe('Activity Deletion and Score Recalculation', () => {
 
   describe('Multiple Activity Deletion', () => {
     it('deleting all activities makes leaderboard empty', async () => {
-      const segment = createSegment(drizzleDb, '60007', 'All Delete Segment');
-      const week = createWeek(drizzleDb, {
+      const segment = await createSegment(orm, '60007', 'All Delete Segment');
+      const week = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'All Delete Week',
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: '60401',
         stravaActivityId: '60401',
         elapsedSeconds: 500,
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: '60402',
         stravaActivityId: '60402',
@@ -305,30 +307,30 @@ describe('Activity Deletion and Score Recalculation', () => {
       expect(leaderboard.leaderboard).toHaveLength(2);
 
       // Delete all results for the week
-      drizzleDb.delete(result)
+      await orm.delete(result)
         .where(eq(result.week_id, week.id))
-        .run();
+        .execute();
 
       leaderboard = await caller.leaderboard.getWeekLeaderboard({ weekId: week.id });
       expect(leaderboard.leaderboard).toHaveLength(0);
     });
 
     it('deleting one of two activities updates sole survivor ranking', async () => {
-      const segment = createSegment(drizzleDb, '60008', 'Survivor Segment');
-      const week = createWeek(drizzleDb, {
+      const segment = await createSegment(orm, '60008', 'Survivor Segment');
+      const week = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Survivor Week',
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: '60501',
         stravaActivityId: '60501',
         elapsedSeconds: 500,
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: '60502',
         stravaActivityId: '60502',
@@ -344,14 +346,14 @@ describe('Activity Deletion and Score Recalculation', () => {
       expect(leaderboard.leaderboard[1].points).toBe(1);
 
       // Delete the 2nd place finisher's result
-      drizzleDb.delete(result)
+      await orm.delete(result)
         .where(
           and(
             eq(result.week_id, week.id),
             eq(result.strava_athlete_id, '60502')
           )
         )
-        .run();
+        .execute();
 
       // Now sole survivor should have (1-1)+1 = 1 point
       leaderboard = await caller.leaderboard.getWeekLeaderboard({ weekId: week.id });
@@ -362,14 +364,14 @@ describe('Activity Deletion and Score Recalculation', () => {
 
   describe('Result Table Cascade Delete', () => {
     it('deleting result removes from leaderboard', async () => {
-      const segment = createSegment(drizzleDb, '60009', 'Cascade Segment');
-      const week = createWeek(drizzleDb, {
+      const segment = await createSegment(orm, '60009', 'Cascade Segment');
+      const week = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Cascade Week',
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: '60601',
         stravaActivityId: '60601',
@@ -381,14 +383,14 @@ describe('Activity Deletion and Score Recalculation', () => {
       expect(leaderboard.leaderboard).toHaveLength(1);
 
       // Delete result
-      drizzleDb.delete(result)
+      await orm.delete(result)
         .where(
           and(
             eq(result.week_id, week.id),
             eq(result.strava_athlete_id, '60601')
           )
         )
-        .run();
+        .execute();
 
       // Leaderboard should now be empty
       leaderboard = await caller.leaderboard.getWeekLeaderboard({ weekId: week.id });
@@ -398,16 +400,16 @@ describe('Activity Deletion and Score Recalculation', () => {
 
   describe('Deletion with Multiple Weeks', () => {
     it('deletion in one week does not affect another week', async () => {
-      const segment1 = createSegment(drizzleDb, '60010', 'Week Iso Seg1');
-      const segment2 = createSegment(drizzleDb, '60011', 'Week Iso Seg2');
+      const segment1 = await createSegment(orm, '60010', 'Week Iso Seg1');
+      const segment2 = await createSegment(orm, '60011', 'Week Iso Seg2');
 
-      const week1 = createWeek(drizzleDb, {
+      const week1 = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment1.strava_segment_id,
         weekName: 'Week Iso 1',
       });
 
-      const week2 = createWeek(drizzleDb, {
+      const week2 = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment2.strava_segment_id,
         weekName: 'Week Iso 2',
@@ -417,28 +419,28 @@ describe('Activity Deletion and Score Recalculation', () => {
       const p2 = '60702';
 
       // Both weeks have same 2 participants
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week1.id,
         stravaAthleteId: p1,
         stravaActivityId: '60701',
         elapsedSeconds: 500,
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week1.id,
         stravaAthleteId: p2,
         stravaActivityId: '60702',
         elapsedSeconds: 600,
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week2.id,
         stravaAthleteId: p1,
         stravaActivityId: '60703',
         elapsedSeconds: 500,
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week2.id,
         stravaAthleteId: p2,
         stravaActivityId: '60704',
@@ -452,14 +454,14 @@ describe('Activity Deletion and Score Recalculation', () => {
       expect(board2.leaderboard).toHaveLength(2);
 
       // Delete result from week 1
-      drizzleDb.delete(result)
+      await orm.delete(result)
         .where(
           and(
             eq(result.week_id, week1.id),
             eq(result.strava_athlete_id, '60701')
           )
         )
-        .run();
+        .execute();
 
       board1 = await caller.leaderboard.getWeekLeaderboard({ weekId: week1.id });
       board2 = await caller.leaderboard.getWeekLeaderboard({ weekId: week2.id });

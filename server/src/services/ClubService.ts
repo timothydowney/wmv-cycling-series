@@ -22,7 +22,7 @@
  */
 
 import { getLoggedInAthlete } from '../stravaClient';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { AppDatabase } from '../db/types';
 import { checkClubMembership } from './stravaReadProvider';
 
 interface AthleteClub {
@@ -33,7 +33,7 @@ interface AthleteClub {
 }
 
 export class ClubService {
-  constructor(private db: BetterSQLite3Database) {}
+  constructor(private db: AppDatabase) {}
 
   /**
    * Check if a specific athlete is a member of the club.

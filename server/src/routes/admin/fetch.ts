@@ -1,6 +1,5 @@
 import express from 'express';
-import { Database } from 'better-sqlite3';
-import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { AppDatabase } from '../../db/types';
 import BatchFetchService from '../../services/BatchFetchService';
 import { SegmentService } from '../../services/SegmentService';
 import * as stravaClient from '../../stravaClient';
@@ -9,7 +8,7 @@ import { AuthorizationService } from '../../services/AuthorizationService';
 import { config } from '../../config';
 import WeekService from '../../services/WeekService';
 
-export function createFetchRouter(_sqliteDb: Database, drizzleDb: BetterSQLite3Database) {
+export function createFetchRouter(drizzleDb: AppDatabase) {
   const router = express.Router();
 
   // Initialize services

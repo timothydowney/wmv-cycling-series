@@ -5,9 +5,10 @@
  * effort breakdowns, and ghost comparisons.
  */
 
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { AppDatabase } from '../db/types';
 import { eq } from 'drizzle-orm';
 import { week, segment, segmentEffort } from '../db/schema';
+import { getMany, getOne } from '../db/asyncQuery';
 import { ScoringService } from './ScoringService';
 import { GhostService } from './GhostService';
 import { secondsToHHMMSS } from '../dateUtils';
@@ -40,7 +41,7 @@ export class LeaderboardService {
   private scoringService: ScoringService;
   private ghostService: GhostService;
 
-  constructor(private db: BetterSQLite3Database) {
+  constructor(private db: AppDatabase) {
     this.scoringService = new ScoringService(db);
     this.ghostService = new GhostService(db);
   }
@@ -50,32 +51,52 @@ export class LeaderboardService {
    */
   async getWeekLeaderboard(weekId: number): Promise<HydratedLeaderboard> {
     // 1. Get week and segment details
-    const rawWeekData = await this.db.select({
-      id: week.id,
-      season_id: week.season_id,
-      week_name: week.week_name,
-      strava_segment_id: week.strava_segment_id,
-      required_laps: week.required_laps,
-      start_at: week.start_at,
-      end_at: week.end_at,
-      notes: week.notes,
-      multiplier: week.multiplier,
-      // Include the full segment object for JOIN support
+    const rawWeekData = await getOne<{
+      id: number;
+      season_id: number;
+      week_name: string;
+      strava_segment_id: string;
+      required_laps: number;
+      start_at: number;
+      end_at: number;
+      notes: string | null;
+      multiplier: number | null;
       segment: {
-        name: segment.name,
-        distance: segment.distance,
-        total_elevation_gain: segment.total_elevation_gain,
-        average_grade: segment.average_grade,
-        climb_category: segment.climb_category,
-        city: segment.city,
-        state: segment.state,
-        country: segment.country,
-      },
-    })
-      .from(week)
-      .leftJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
-      .where(eq(week.id, weekId))
-      .get();
+        name: string | null;
+        distance: number | null;
+        total_elevation_gain: number | null;
+        average_grade: number | null;
+        climb_category: number | null;
+        city: string | null;
+        state: string | null;
+        country: string | null;
+      } | null;
+    }>(
+      this.db.select({
+        id: week.id,
+        season_id: week.season_id,
+        week_name: week.week_name,
+        strava_segment_id: week.strava_segment_id,
+        required_laps: week.required_laps,
+        start_at: week.start_at,
+        end_at: week.end_at,
+        notes: week.notes,
+        multiplier: week.multiplier,
+        segment: {
+          name: segment.name,
+          distance: segment.distance,
+          total_elevation_gain: segment.total_elevation_gain,
+          average_grade: segment.average_grade,
+          climb_category: segment.climb_category,
+          city: segment.city,
+          state: segment.state,
+          country: segment.country,
+        },
+      })
+        .from(week)
+        .leftJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
+        .where(eq(week.id, weekId))
+    );
 
     if (!rawWeekData) {
       throw new Error(`Week ${weekId} not found`);
@@ -110,21 +131,32 @@ export class LeaderboardService {
         let effortBreakdown: any[] = [];
 
         if (res.activityId) {
-          const efforts = await this.db.select({
-            lap: segmentEffort.effort_index,
-            time_seconds: segmentEffort.elapsed_seconds,
-            pr_achieved: segmentEffort.pr_achieved,
-            strava_effort_id: segmentEffort.strava_effort_id,
-            average_watts: segmentEffort.average_watts,
-            average_heartrate: segmentEffort.average_heartrate,
-            max_heartrate: segmentEffort.max_heartrate,
-            average_cadence: segmentEffort.average_cadence,
-            device_watts: segmentEffort.device_watts,
-          })
-            .from(segmentEffort)
-            .where(eq(segmentEffort.activity_id, res.activityId))
-            .orderBy(segmentEffort.effort_index)
-            .all();
+          const efforts = await getMany<{
+            lap: number;
+            time_seconds: number;
+            pr_achieved: number;
+            strava_effort_id: string | null;
+            average_watts: number | null;
+            average_heartrate: number | null;
+            max_heartrate: number | null;
+            average_cadence: number | null;
+            device_watts: boolean | null;
+          }>(
+            this.db.select({
+              lap: segmentEffort.effort_index,
+              time_seconds: segmentEffort.elapsed_seconds,
+              pr_achieved: segmentEffort.pr_achieved,
+              strava_effort_id: segmentEffort.strava_effort_id,
+              average_watts: segmentEffort.average_watts,
+              average_heartrate: segmentEffort.average_heartrate,
+              max_heartrate: segmentEffort.max_heartrate,
+              average_cadence: segmentEffort.average_cadence,
+              device_watts: segmentEffort.device_watts,
+            })
+              .from(segmentEffort)
+              .where(eq(segmentEffort.activity_id, res.activityId))
+              .orderBy(segmentEffort.effort_index)
+          );
 
           effortBreakdown = efforts.map(e => ({
             lap: e.lap + 1,

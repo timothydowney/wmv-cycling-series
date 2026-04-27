@@ -1,10 +1,10 @@
+import type { Pool } from 'pg';
+import type { AppDatabase } from '../db/types';
 /**
  * Club Router Tests
  * Tests for the tRPC clubRouter checkMembership endpoint
  */
 
-import { Database } from 'better-sqlite3';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { appRouter } from '../routers';
 import { createContext } from '../trpc/context';
 import { setupTestDb, teardownTestDb } from './setupTestDb';
@@ -12,25 +12,24 @@ import { participant, participantToken } from '../db/schema';
 import { encryptToken } from '../encryption';
 
 describe('clubRouter - checkMembership', () => {
-  let db: Database;
-  let drizzleDb: BetterSQLite3Database;
+  let pool: Pool;
+  let orm: AppDatabase;
 
   const testAthleteId = '366880';
 
-  beforeAll(() => {
-    const { db: newDb, drizzleDb: newDrizzleDb } = setupTestDb({ seed: false });
-    db = newDb;
-    drizzleDb = newDrizzleDb;
+  beforeAll(async () => {
+    const testDb = setupTestDb({ seed: false });
+    pool = testDb.pool;
+    orm = testDb.orm;
+  });
+  afterAll(async () => {
+    await teardownTestDb(pool);
   });
 
-  afterAll(() => {
-    teardownTestDb(db);
-  });
-
-  beforeEach(() => {
+  beforeEach(async () => {
     // Clear tables before each test
-    drizzleDb.delete(participantToken).execute();
-    drizzleDb.delete(participant).execute();
+    await orm.delete(participantToken).execute();
+    await orm.delete(participant).execute();
   });
 
   it('should have checkMembership procedure defined', async () => {
@@ -42,9 +41,9 @@ describe('clubRouter - checkMembership', () => {
     } as any;
 
     const caller = appRouter.createCaller(
-      createContext({
-        dbOverride: db,
-        drizzleDbOverride: drizzleDb,
+      await createContext({
+        dbOverride: pool,
+        ormOverride: orm,
         req: mockReq,
         res: {} as any
       })
@@ -55,12 +54,12 @@ describe('clubRouter - checkMembership', () => {
   });
 
   it('should check membership using athlete clubs endpoint', async () => {
-    drizzleDb.insert(participant).values({
+    await orm.insert(participant).values({
       strava_athlete_id: testAthleteId,
       name: 'Test User'
     }).execute();
 
-    drizzleDb.insert(participantToken).values({
+    await orm.insert(participantToken).values({
       strava_athlete_id: testAthleteId,
       access_token: encryptToken('valid_token'),
       refresh_token: encryptToken('refresh_token'),
@@ -76,9 +75,9 @@ describe('clubRouter - checkMembership', () => {
     } as any;
 
     const caller = appRouter.createCaller(
-      createContext({
-        dbOverride: db,
-        drizzleDbOverride: drizzleDb,
+      await createContext({
+        dbOverride: pool,
+        ormOverride: orm,
         req: mockReq,
         res: {} as any
       })
@@ -92,12 +91,12 @@ describe('clubRouter - checkMembership', () => {
   });
 
   it('should return a boolean isMember property', async () => {
-    drizzleDb.insert(participant).values({
+    await orm.insert(participant).values({
       strava_athlete_id: testAthleteId,
       name: 'Test User'
     }).execute();
 
-    drizzleDb.insert(participantToken).values({
+    await orm.insert(participantToken).values({
       strava_athlete_id: testAthleteId,
       access_token: encryptToken('valid_token'),
       refresh_token: encryptToken('refresh_token'),
@@ -113,9 +112,9 @@ describe('clubRouter - checkMembership', () => {
     } as any;
 
     const caller = appRouter.createCaller(
-      createContext({
-        dbOverride: db,
-        drizzleDbOverride: drizzleDb,
+      await createContext({
+        dbOverride: pool,
+        ormOverride: orm,
         req: mockReq,
         res: {} as any
       })
@@ -134,9 +133,9 @@ describe('clubRouter - checkMembership', () => {
     } as any;
 
     const caller = appRouter.createCaller(
-      createContext({
-        dbOverride: db,
-        drizzleDbOverride: drizzleDb,
+      await createContext({
+        dbOverride: pool,
+        ormOverride: orm,
         req: mockReq,
         res: {} as any
       })

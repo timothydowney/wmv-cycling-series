@@ -1,36 +1,35 @@
-import { Database } from 'better-sqlite3';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { Pool } from 'pg';
+import type { AppDatabase } from '../db/types';
 import { eq } from 'drizzle-orm';
 import { explorerCampaign, explorerDestination } from '../db/schema';
 import { ExplorerAdminService, type ExplorerSegmentMetadataService } from '../services/ExplorerAdminService';
 import { clearAllData, setupTestDb, teardownTestDb } from './testDataHelpers';
 
 describe('ExplorerAdminService', () => {
-  let db: Database;
-  let drizzleDb: BetterSQLite3Database;
+  let pool: Pool;
+  let orm: AppDatabase;
   let segmentMetadataService: jest.Mocked<ExplorerSegmentMetadataService>;
   let service: ExplorerAdminService;
 
-  beforeAll(() => {
-    const testDb = setupTestDb();
-    db = testDb.db;
-    drizzleDb = testDb.drizzleDb;
+  beforeAll(async () => {
+    const testDb = setupTestDb({ seed: false });
+    pool = testDb.pool;
+    orm = testDb.orm;
+  });
+  afterAll(async () => {
+    await teardownTestDb(pool);
   });
 
-  afterAll(() => {
-    teardownTestDb(db);
-  });
-
-  beforeEach(() => {
-    clearAllData(drizzleDb);
+  beforeEach(async () => {
+    await clearAllData(orm);
     segmentMetadataService = {
       fetchAndStoreSegmentMetadata: jest.fn(),
     };
-    service = new ExplorerAdminService(drizzleDb, segmentMetadataService);
+    service = new ExplorerAdminService(orm, segmentMetadataService);
   });
 
-  it('creates one campaign with its own date window', () => {
-    const campaign = service.createCampaign({
+  it('creates one campaign with its own date window', async () => {
+    const campaign = await service.createCampaign({
       startAt: 1748736000,
       endAt: 1751327999,
       displayName: 'Explorer 2026',
@@ -43,46 +42,46 @@ describe('ExplorerAdminService', () => {
     expect(campaign.rules_blurb).toBe('Ride the set.');
   });
 
-  it('rejects overlapping campaign windows', () => {
-    service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
+  it('rejects overlapping campaign windows', async () => {
+    await service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
 
-    expect(() => service.createCampaign({
+    await expect(service.createCampaign({
       startAt: 1750464000,
       endAt: 1753055999,
-    })).toThrow('Explorer campaigns cannot overlap in v1');
+    })).rejects.toThrow('Explorer campaigns cannot overlap in v1');
   });
 
-  it('allows non-overlapping campaign windows', () => {
-    service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
-    const secondCampaign = service.createCampaign({
+  it('allows non-overlapping campaign windows', async () => {
+    await service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
+    const secondCampaign = await service.createCampaign({
       startAt: 1751414400,
       endAt: 1754006399,
     });
 
     expect(secondCampaign.start_at).toBe(1751414400);
-    expect(drizzleDb.select().from(explorerCampaign).all()).toHaveLength(2);
+    expect(await orm.select().from(explorerCampaign).execute()).toHaveLength(2);
   });
 
-  it('rejects a campaign whose end is before its start', () => {
-    expect(() => service.createCampaign({
+  it('rejects a campaign whose end is before its start', async () => {
+    await expect(service.createCampaign({
       startAt: 1751327999,
       endAt: 1748736000,
-    })).toThrow('Campaign end date must be on or after the start date');
+    })).rejects.toThrow('Campaign end date must be on or after the start date');
   });
 
-  it('updates an existing campaign and preserves non-overlap', () => {
-    const firstCampaign = service.createCampaign({
+  it('updates an existing campaign and preserves non-overlap', async () => {
+    const firstCampaign = await service.createCampaign({
       startAt: 1748736000,
       endAt: 1751327999,
       displayName: 'Spring Explorer',
     });
-    service.createCampaign({
+    await service.createCampaign({
       startAt: 1751414400,
       endAt: 1754006399,
       displayName: 'Summer Explorer',
     });
 
-    const updatedCampaign = service.updateCampaign({
+    const updatedCampaign = await service.updateCampaign({
       explorerCampaignId: firstCampaign.id,
       startAt: 1748822400,
       endAt: 1751241599,
@@ -95,19 +94,19 @@ describe('ExplorerAdminService', () => {
     expect(updatedCampaign.start_at).toBe(1748822400);
   });
 
-  it('rejects updates that would create overlap', () => {
-    const firstCampaign = service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
-    service.createCampaign({ startAt: 1751414400, endAt: 1754006399 });
+  it('rejects updates that would create overlap', async () => {
+    const firstCampaign = await service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
+    await service.createCampaign({ startAt: 1751414400, endAt: 1754006399 });
 
-    expect(() => service.updateCampaign({
+    await expect(service.updateCampaign({
       explorerCampaignId: firstCampaign.id,
       startAt: 1750464000,
       endAt: 1753055999,
-    })).toThrow('Explorer campaigns cannot overlap in v1');
+    })).rejects.toThrow('Explorer campaigns cannot overlap in v1');
   });
 
   it('adds a destination from a valid Strava segment URL and assigns display order', async () => {
-    const campaign = service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
+    const campaign = await service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
     segmentMetadataService.fetchAndStoreSegmentMetadata.mockResolvedValue({
       strava_segment_id: '12744502',
       name: 'Mocked Segment',
@@ -130,18 +129,19 @@ describe('ExplorerAdminService', () => {
       '999001'
     );
 
-    const storedDestination = drizzleDb
+    const [storedDestination] = await orm
       .select()
       .from(explorerDestination)
       .where(eq(explorerDestination.id, destination.id))
-      .get();
+      .limit(1)
+      .execute();
 
     expect(storedDestination?.created_at).toBeTruthy();
     expect(storedDestination?.created_at).not.toBe('sql`(CURRENT_TIMESTAMP)`');
   });
 
   it('allows creation when metadata enrichment falls back to placeholder data', async () => {
-    const campaign = service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
+    const campaign = await service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
     segmentMetadataService.fetchAndStoreSegmentMetadata.mockResolvedValue({
       strava_segment_id: '12744502',
       name: 'Segment 12744502',
@@ -156,7 +156,7 @@ describe('ExplorerAdminService', () => {
   });
 
   it('rejects duplicate segment destinations in the same campaign', async () => {
-    const campaign = service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
+    const campaign = await service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
     segmentMetadataService.fetchAndStoreSegmentMetadata.mockResolvedValue({
       strava_segment_id: '12744502',
       name: 'Mocked Segment',
@@ -176,7 +176,7 @@ describe('ExplorerAdminService', () => {
   });
 
   it('rejects invalid non-segment URLs', async () => {
-    const campaign = service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
+    const campaign = await service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
 
     await expect(
       service.addDestination({
@@ -187,7 +187,7 @@ describe('ExplorerAdminService', () => {
   });
 
   it('accepts segment URLs with surrounding whitespace when called directly', async () => {
-    const campaign = service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
+    const campaign = await service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
     segmentMetadataService.fetchAndStoreSegmentMetadata.mockResolvedValue({
       strava_segment_id: '12744502',
       name: 'Mocked Segment',
@@ -203,7 +203,7 @@ describe('ExplorerAdminService', () => {
   });
 
   it('increments display order for later destinations', async () => {
-    const campaign = service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
+    const campaign = await service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
 
     segmentMetadataService.fetchAndStoreSegmentMetadata.mockResolvedValueOnce({
       strava_segment_id: '12744502',
@@ -224,16 +224,17 @@ describe('ExplorerAdminService', () => {
     });
 
     expect(second.display_order).toBe(1);
-    const stored = drizzleDb
+    const [stored] = await orm
       .select()
       .from(explorerDestination)
       .where(eq(explorerDestination.id, second.id))
-      .get();
+      .limit(1)
+      .execute();
     expect(stored?.display_order).toBe(1);
   });
 
   it('deletes an existing destination', async () => {
-    const campaign = service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
+    const campaign = await service.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
     segmentMetadataService.fetchAndStoreSegmentMetadata.mockResolvedValue({
       strava_segment_id: '12744502',
       name: 'Mocked Segment',
@@ -244,20 +245,21 @@ describe('ExplorerAdminService', () => {
       sourceUrl: 'https://www.strava.com/segments/12744502',
     });
 
-    expect(service.deleteDestination({ explorerDestinationId: destination.id })).toEqual({
+    await expect(service.deleteDestination({ explorerDestinationId: destination.id })).resolves.toEqual({
       explorerDestinationId: destination.id,
     });
 
-    const stored = drizzleDb
+    const [stored] = await orm
       .select()
       .from(explorerDestination)
       .where(eq(explorerDestination.id, destination.id))
-      .get();
+      .limit(1)
+      .execute();
     expect(stored).toBeUndefined();
   });
 
-  it('rejects deleting a missing destination', () => {
-    expect(() => service.deleteDestination({ explorerDestinationId: 999999 })).toThrow(
+  it('rejects deleting a missing destination', async () => {
+    await expect(service.deleteDestination({ explorerDestinationId: 999999 })).rejects.toThrow(
       'Explorer destination not found'
     );
   });

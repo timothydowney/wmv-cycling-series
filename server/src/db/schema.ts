@@ -1,90 +1,104 @@
 import { sql } from 'drizzle-orm';
-import { sqliteTable, text, numeric, integer, index, real, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import {
+  pgTable,
+  text,
+  bigint,
+  index,
+  doublePrecision,
+  uniqueIndex,
+  boolean,
+  jsonb,
+  timestamp,
+} from 'drizzle-orm/pg-core';
 // import { relations } from "drizzle-orm"
 
-export const sessions = sqliteTable('sessions', {
-  sid: text().primaryKey().notNull(),
-  sess: numeric().notNull(),
-  expire: text().notNull(),
-});
+export const sessions = pgTable(
+  'sessions',
+  {
+    sid: text('sid').primaryKey().notNull(),
+    sess: jsonb('sess').notNull(),
+    expire: timestamp('expire', { mode: 'date' }).notNull(),
+  },
+  (t) => [index('idx_sessions_expire').on(t.expire)]
+);
 
-export const participant = sqliteTable('participant', {
+export const participant = pgTable('participant', {
   strava_athlete_id: text('strava_athlete_id').primaryKey(),
-  name: text().notNull(),
+  name: text('name').notNull(),
   created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
-  active: integer('active', { mode: 'boolean' }).default(true).notNull(),
-  is_admin: integer('is_admin', { mode: 'boolean' }).default(false).notNull(),
-  weight: real('weight'),  // Most recent weight in kg (Strava API format)
+  active: boolean('active').default(true).notNull(),
+  is_admin: boolean('is_admin').default(false).notNull(),
+  weight: doublePrecision('weight'),  // Most recent weight in kg (Strava API format)
   weight_updated_at: text('weight_updated_at'),  // When weight was last captured
 });
 
-export const season = sqliteTable('season', {
-  id: integer().primaryKey({ autoIncrement: true }),
-  name: text().notNull(),
-  start_at: integer('start_at').notNull(),
-  end_at: integer('end_at').notNull(),
+export const season = pgTable('season', {
+  id: bigint('id', { mode: 'number' }).generatedByDefaultAsIdentity().primaryKey(),
+  name: text('name').notNull(),
+  start_at: bigint('start_at', { mode: 'number' }).notNull(),
+  end_at: bigint('end_at', { mode: 'number' }).notNull(),
   created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
 });
 
-export const week = sqliteTable('week', {
-  id: integer().primaryKey({ autoIncrement: true }),
-  season_id: integer('season_id').notNull().references(() => season.id),
+export const week = pgTable('week', {
+  id: bigint('id', { mode: 'number' }).generatedByDefaultAsIdentity().primaryKey(),
+  season_id: bigint('season_id', { mode: 'number' }).notNull().references(() => season.id),
   week_name: text('week_name').notNull(),
   strava_segment_id: text('strava_segment_id').notNull().references(() => segment.strava_segment_id),
-  required_laps: integer('required_laps').default(1).notNull(),
-  start_at: integer('start_at').notNull(),
-  end_at: integer('end_at').notNull(),
-  multiplier: integer('multiplier').default(1).notNull(), // NEW: Scoring multiplier for week (default 1 = no change)
+  required_laps: bigint('required_laps', { mode: 'number' }).default(1).notNull(),
+  start_at: bigint('start_at', { mode: 'number' }).notNull(),
+  end_at: bigint('end_at', { mode: 'number' }).notNull(),
+  multiplier: bigint('multiplier', { mode: 'number' }).default(1).notNull(), // NEW: Scoring multiplier for week (default 1 = no change)
   created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
-  notes: text().default(''),
+  notes: text('notes').default(''),
 },
 (t) => [
   index('idx_week_season').on(t.season_id),
 ]);
 
-export const activity = sqliteTable('activity', {
-  id: integer().primaryKey({ autoIncrement: true }),
-  week_id: integer('week_id').notNull().references(() => week.id),
+export const activity = pgTable('activity', {
+  id: bigint('id', { mode: 'number' }).generatedByDefaultAsIdentity().primaryKey(),
+  week_id: bigint('week_id', { mode: 'number' }).notNull().references(() => week.id),
   strava_athlete_id: text('strava_athlete_id').notNull().references(() => participant.strava_athlete_id),
   strava_activity_id: text('strava_activity_id').notNull(),
-  start_at: integer('start_at').notNull(),
+  start_at: bigint('start_at', { mode: 'number' }).notNull(),
   device_name: text('device_name'),
   validation_status: text('validation_status').default('valid'),
   validation_message: text('validation_message'),
   validated_at: text('validated_at').default(sql`(CURRENT_TIMESTAMP)`),
   created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
-  athlete_weight: real('athlete_weight'),  // Weight in kg at activity time (Strava API format, for w/kg calculation)
+  athlete_weight: doublePrecision('athlete_weight'),  // Weight in kg at activity time (Strava API format, for w/kg calculation)
 },
 (t) => [
   index('idx_activity_status').on(t.validation_status),
   index('idx_activity_week_participant').on(t.week_id, t.strava_athlete_id),
 ]);
 
-export const segmentEffort = sqliteTable('segment_effort', {
-  id: integer().primaryKey({ autoIncrement: true }),
-  activity_id: integer('activity_id').notNull().references(() => activity.id),
+export const segmentEffort = pgTable('segment_effort', {
+  id: bigint('id', { mode: 'number' }).generatedByDefaultAsIdentity().primaryKey(),
+  activity_id: bigint('activity_id', { mode: 'number' }).notNull().references(() => activity.id),
   strava_segment_id: text('strava_segment_id').notNull().references(() => segment.strava_segment_id),
   strava_effort_id: text('strava_effort_id'),
-  effort_index: integer('effort_index').notNull(),
-  elapsed_seconds: integer('elapsed_seconds').notNull(),
-  start_at: integer('start_at').notNull(),
-  pr_achieved: integer('pr_achieved'),
-  average_watts: real('average_watts'),
-  average_heartrate: real('average_heartrate'),
-  max_heartrate: real('max_heartrate'),
-  average_cadence: real('average_cadence'),
-  device_watts: integer('device_watts', { mode: 'boolean' }),
+  effort_index: bigint('effort_index', { mode: 'number' }).notNull(),
+  elapsed_seconds: bigint('elapsed_seconds', { mode: 'number' }).notNull(),
+  start_at: bigint('start_at', { mode: 'number' }).notNull(),
+  pr_achieved: bigint('pr_achieved', { mode: 'number' }),
+  average_watts: doublePrecision('average_watts'),
+  average_heartrate: doublePrecision('average_heartrate'),
+  max_heartrate: doublePrecision('max_heartrate'),
+  average_cadence: doublePrecision('average_cadence'),
+  device_watts: boolean('device_watts'),
 },
 (t) => [
   index('idx_segment_effort_activity').on(t.activity_id),
 ]);
 
-export const result = sqliteTable('result', {
-  id: integer().primaryKey({ autoIncrement: true }),
-  week_id: integer('week_id').notNull().references(() => week.id),
+export const result = pgTable('result', {
+  id: bigint('id', { mode: 'number' }).generatedByDefaultAsIdentity().primaryKey(),
+  week_id: bigint('week_id', { mode: 'number' }).notNull().references(() => week.id),
   strava_athlete_id: text('strava_athlete_id').notNull().references(() => participant.strava_athlete_id),
-  activity_id: integer('activity_id').references(() => activity.id),
-  total_time_seconds: integer('total_time_seconds').notNull(),
+  activity_id: bigint('activity_id', { mode: 'number' }).references(() => activity.id),
+  total_time_seconds: bigint('total_time_seconds', { mode: 'number' }).notNull(),
   created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
   updated_at: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`),
 },
@@ -94,11 +108,11 @@ export const result = sqliteTable('result', {
   index('idx_result_week_athlete').on(t.week_id, t.strava_athlete_id), // Composite index for GROUP BY performance
 ]);
 
-export const participantToken = sqliteTable('participant_token', {
+export const participantToken = pgTable('participant_token', {
   strava_athlete_id: text('strava_athlete_id').primaryKey().references(() => participant.strava_athlete_id, { onDelete: 'cascade' } ),
   access_token: text('access_token').notNull(),
   refresh_token: text('refresh_token').notNull(),
-  expires_at: integer('expires_at').notNull(),
+  expires_at: bigint('expires_at', { mode: 'number' }).notNull(),
   scope: text(),
   created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
   updated_at: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`),
@@ -107,42 +121,42 @@ export const participantToken = sqliteTable('participant_token', {
   index('idx_participant_token_participant').on(t.strava_athlete_id),
 ]);
 
-export const deletionRequest = sqliteTable('deletion_request', {
-  id: integer().primaryKey({ autoIncrement: true }),
+export const deletionRequest = pgTable('deletion_request', {
+  id: bigint('id', { mode: 'number' }).generatedByDefaultAsIdentity().primaryKey(),
   strava_athlete_id: text('strava_athlete_id').notNull(),
   requested_at: text('requested_at').notNull(),
-  status: text().default('pending'),
+  status: text('status').default('pending'),
   completed_at: text('completed_at'),
 });
 
-export const schemaMigrations = sqliteTable('schema_migrations', {
+export const schemaMigrations = pgTable('schema_migrations', {
   version: text().primaryKey(),
   name: text().notNull(),
   executed_at: text('executed_at').default(sql`(CURRENT_TIMESTAMP)`),
 });
 
-export const segment = sqliteTable('segment', {
+export const segment = pgTable('segment', {
   strava_segment_id: text('strava_segment_id').primaryKey(),
-  name: text().notNull(),
-  distance: real(),
-  average_grade: real('average_grade'),
-  start_latitude: real('start_latitude'),
-  start_longitude: real('start_longitude'),
-  end_latitude: real('end_latitude'),
-  end_longitude: real('end_longitude'),
-  city: text(),
-  state: text(),
-  country: text(),
+  name: text('name').notNull(),
+  distance: doublePrecision('distance'),
+  average_grade: doublePrecision('average_grade'),
+  start_latitude: doublePrecision('start_latitude'),
+  start_longitude: doublePrecision('start_longitude'),
+  end_latitude: doublePrecision('end_latitude'),
+  end_longitude: doublePrecision('end_longitude'),
+  city: text('city'),
+  state: text('state'),
+  country: text('country'),
   created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
   metadata_updated_at: text('metadata_updated_at'),
-  total_elevation_gain: real('total_elevation_gain'),
-  climb_category: integer('climb_category'),
+  total_elevation_gain: doublePrecision('total_elevation_gain'),
+  climb_category: bigint('climb_category', { mode: 'number' }),
 });
 
-export const webhookEvent = sqliteTable('webhook_event', {
-  id: integer().primaryKey({ autoIncrement: true }),
+export const webhookEvent = pgTable('webhook_event', {
+  id: bigint('id', { mode: 'number' }).generatedByDefaultAsIdentity().primaryKey(),
   payload: text().notNull(),
-  processed: integer(),
+  processed: bigint('processed', { mode: 'number' }),
   error_message: text('error_message'),
   created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
 },
@@ -150,18 +164,18 @@ export const webhookEvent = sqliteTable('webhook_event', {
   index('idx_webhook_event_created').on(t.created_at),
 ]);
 
-export const webhookSubscription = sqliteTable('webhook_subscription', {
-  id: integer().primaryKey({ autoIncrement: true }),
+export const webhookSubscription = pgTable('webhook_subscription', {
+  id: bigint('id', { mode: 'number' }).generatedByDefaultAsIdentity().primaryKey(),
   verify_token: text('verify_token').notNull(),
   subscription_payload: text('subscription_payload'),
-  subscription_id: integer('subscription_id'),
+  subscription_id: bigint('subscription_id', { mode: 'number' }),
   last_refreshed_at: text('last_refreshed_at'),
 });
 
-export const explorerCampaign = sqliteTable('explorer_campaign', {
-  id: integer().primaryKey({ autoIncrement: true }),
-  start_at: integer('start_at').notNull(),
-  end_at: integer('end_at').notNull(),
+export const explorerCampaign = pgTable('explorer_campaign', {
+  id: bigint('id', { mode: 'number' }).generatedByDefaultAsIdentity().primaryKey(),
+  start_at: bigint('start_at', { mode: 'number' }).notNull(),
+  end_at: bigint('end_at', { mode: 'number' }).notNull(),
   display_name: text('display_name'),
   rules_blurb: text('rules_blurb'),
   created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
@@ -171,14 +185,14 @@ export const explorerCampaign = sqliteTable('explorer_campaign', {
   index('idx_explorer_campaign_window').on(t.start_at, t.end_at),
 ]);
 
-export const explorerDestination = sqliteTable('explorer_destination', {
-  id: integer().primaryKey({ autoIncrement: true }),
-  explorer_campaign_id: integer('explorer_campaign_id').notNull().references(() => explorerCampaign.id, { onDelete: 'cascade' }),
+export const explorerDestination = pgTable('explorer_destination', {
+  id: bigint('id', { mode: 'number' }).generatedByDefaultAsIdentity().primaryKey(),
+  explorer_campaign_id: bigint('explorer_campaign_id', { mode: 'number' }).notNull().references(() => explorerCampaign.id, { onDelete: 'cascade' }),
   strava_segment_id: text('strava_segment_id').notNull(),
   source_url: text('source_url'),
   cached_name: text('cached_name'),
   display_label: text('display_label'),
-  display_order: integer('display_order').default(0).notNull(),
+  display_order: bigint('display_order', { mode: 'number' }).default(0).notNull(),
   surface_type: text('surface_type'),
   category: text('category'),
   created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
@@ -190,13 +204,13 @@ export const explorerDestination = sqliteTable('explorer_destination', {
   uniqueIndex('idx_explorer_destination_campaign_segment').on(t.explorer_campaign_id, t.strava_segment_id),
 ]);
 
-export const explorerDestinationMatch = sqliteTable('explorer_destination_match', {
-  id: integer().primaryKey({ autoIncrement: true }),
-  explorer_campaign_id: integer('explorer_campaign_id').notNull().references(() => explorerCampaign.id, { onDelete: 'cascade' }),
-  explorer_destination_id: integer('explorer_destination_id').notNull().references(() => explorerDestination.id, { onDelete: 'cascade' }),
+export const explorerDestinationMatch = pgTable('explorer_destination_match', {
+  id: bigint('id', { mode: 'number' }).generatedByDefaultAsIdentity().primaryKey(),
+  explorer_campaign_id: bigint('explorer_campaign_id', { mode: 'number' }).notNull().references(() => explorerCampaign.id, { onDelete: 'cascade' }),
+  explorer_destination_id: bigint('explorer_destination_id', { mode: 'number' }).notNull().references(() => explorerDestination.id, { onDelete: 'cascade' }),
   strava_athlete_id: text('strava_athlete_id').notNull().references(() => participant.strava_athlete_id, { onDelete: 'cascade' }),
   strava_activity_id: text('strava_activity_id').notNull(),
-  matched_at: integer('matched_at').notNull(),
+  matched_at: bigint('matched_at', { mode: 'number' }).notNull(),
   created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
 },
 (t) => [
@@ -205,10 +219,10 @@ export const explorerDestinationMatch = sqliteTable('explorer_destination_match'
   uniqueIndex('idx_explorer_match_unique').on(t.explorer_campaign_id, t.explorer_destination_id, t.strava_athlete_id),
 ]);
 
-export const explorerDestinationPin = sqliteTable('explorer_destination_pin', {
-  id: integer().primaryKey({ autoIncrement: true }),
-  explorer_campaign_id: integer('explorer_campaign_id').notNull().references(() => explorerCampaign.id, { onDelete: 'cascade' }),
-  explorer_destination_id: integer('explorer_destination_id').notNull().references(() => explorerDestination.id, { onDelete: 'cascade' }),
+export const explorerDestinationPin = pgTable('explorer_destination_pin', {
+  id: bigint('id', { mode: 'number' }).generatedByDefaultAsIdentity().primaryKey(),
+  explorer_campaign_id: bigint('explorer_campaign_id', { mode: 'number' }).notNull().references(() => explorerCampaign.id, { onDelete: 'cascade' }),
+  explorer_destination_id: bigint('explorer_destination_id', { mode: 'number' }).notNull().references(() => explorerDestination.id, { onDelete: 'cascade' }),
   strava_athlete_id: text('strava_athlete_id').notNull().references(() => participant.strava_athlete_id, { onDelete: 'cascade' }),
   created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
 },
@@ -218,34 +232,34 @@ export const explorerDestinationPin = sqliteTable('explorer_destination_pin', {
 ]);
 
 // Chain Wax Tracking tables
-export const chainWaxPeriod = sqliteTable('chain_wax_period', {
-  id: integer().primaryKey({ autoIncrement: true }),
-  started_at: integer('started_at').notNull(), // Unix seconds - when chain was waxed
-  ended_at: integer('ended_at'), // Unix seconds - when next wax happened (NULL = current active period)
-  total_distance_meters: real('total_distance_meters').default(0).notNull(), // Cached sum
-  created_at: integer('created_at').notNull(),
+export const chainWaxPeriod = pgTable('chain_wax_period', {
+  id: bigint('id', { mode: 'number' }).generatedByDefaultAsIdentity().primaryKey(),
+  started_at: bigint('started_at', { mode: 'number' }).notNull(), // Unix seconds - when chain was waxed
+  ended_at: bigint('ended_at', { mode: 'number' }), // Unix seconds - when next wax happened (NULL = current active period)
+  total_distance_meters: doublePrecision('total_distance_meters').default(0).notNull(), // Cached sum
+  created_at: bigint('created_at', { mode: 'number' }).notNull(),
 });
 
-export const chainWaxActivity = sqliteTable('chain_wax_activity', {
-  id: integer().primaryKey({ autoIncrement: true }),
-  period_id: integer('period_id').notNull().references(() => chainWaxPeriod.id),
+export const chainWaxActivity = pgTable('chain_wax_activity', {
+  id: bigint('id', { mode: 'number' }).generatedByDefaultAsIdentity().primaryKey(),
+  period_id: bigint('period_id', { mode: 'number' }).notNull().references(() => chainWaxPeriod.id),
   strava_activity_id: text('strava_activity_id').notNull().unique(), // Dedup key
   strava_athlete_id: text('strava_athlete_id').notNull(),
-  distance_meters: real('distance_meters').notNull(),
-  activity_start_at: integer('activity_start_at').notNull(), // Unix seconds
-  created_at: integer('created_at').notNull(),
+  distance_meters: doublePrecision('distance_meters').notNull(),
+  activity_start_at: bigint('activity_start_at', { mode: 'number' }).notNull(), // Unix seconds
+  created_at: bigint('created_at', { mode: 'number' }).notNull(),
 },
 (t) => [
   index('idx_chain_wax_activity_period').on(t.period_id),
   index('idx_chain_wax_activity_strava_id').on(t.strava_activity_id),
 ]);
 
-export const chainWaxPuck = sqliteTable('chain_wax_puck', {
-  id: integer().primaryKey({ autoIncrement: true }),
-  started_at: integer('started_at').notNull(), // Unix seconds
-  wax_count: integer('wax_count').default(0).notNull(),
-  is_current: integer('is_current', { mode: 'boolean' }).default(true).notNull(),
-  created_at: integer('created_at').notNull(),
+export const chainWaxPuck = pgTable('chain_wax_puck', {
+  id: bigint('id', { mode: 'number' }).generatedByDefaultAsIdentity().primaryKey(),
+  started_at: bigint('started_at', { mode: 'number' }).notNull(), // Unix seconds
+  wax_count: bigint('wax_count', { mode: 'number' }).default(0).notNull(),
+  is_current: boolean('is_current').default(true).notNull(),
+  created_at: bigint('created_at', { mode: 'number' }).notNull(),
 });
 
 // Type exports

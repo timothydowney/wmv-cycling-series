@@ -1,3 +1,5 @@
+import type { Pool } from 'pg';
+import type { AppDatabase } from '../db/types';
 /**
  * Scoring Formula Integration Tests
  * 
@@ -12,8 +14,6 @@
  * Which simplifies to: points = (total - rank) + 1 + pr_bonus
  */
 
-import { Database } from 'better-sqlite3';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { appRouter } from '../routers';
 import { createContext } from '../trpc/context';
 import {
@@ -27,42 +27,41 @@ import {
 } from './testDataHelpers';
 
 describe('Scoring Formula: Points Calculation', () => {
-  let db: Database;
-  let drizzleDb: BetterSQLite3Database;
+  let pool: Pool;
+  let orm: AppDatabase;
   let seedData: SeedData;
   let caller: ReturnType<typeof appRouter.createCaller>;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     const setup = setupTestDb({ seed: true });
-    db = setup.db;
-    drizzleDb = setup.drizzleDb;
+    pool = setup.pool;
+    orm = setup.orm;
     seedData = setup.seedData!;
     caller = appRouter.createCaller(
-      createContext({
-        dbOverride: db,
-        drizzleDbOverride: drizzleDb,
+      await createContext({
+        dbOverride: pool,
+        ormOverride: orm,
         req: {} as any,
         res: {} as any,
       })
     );
   });
-
-  afterAll(() => {
-    teardownTestDb(db);
+  afterAll(async () => {
+    await teardownTestDb(pool);
   });
 
   describe('Single Participant (No One to Beat)', () => {
     it('solo participant gets 1 point (participation only)', async () => {
       // Create new week with one participant
-      const segment = createSegment(drizzleDb, '99991', 'Solo Segment');
-      const week = createWeek(drizzleDb, {
+      const segment = await createSegment(orm, '99991', 'Solo Segment');
+      const week = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Solo Week',
       });
 
-      const participant = createParticipant(drizzleDb, '99991', 'Solo User');
-      createActivityWithResult(drizzleDb, {
+      const participant = await createParticipant(orm, '99991', 'Solo User');
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: participant.strava_athlete_id,
         stravaActivityId: '99991',
@@ -84,15 +83,15 @@ describe('Scoring Formula: Points Calculation', () => {
 
     it('solo participant with PR gets 2 points', async () => {
       // Create new week with one participant who has PR
-      const segment = createSegment(drizzleDb, '99992', 'PR Segment');
-      const week = createWeek(drizzleDb, {
+      const segment = await createSegment(orm, '99992', 'PR Segment');
+      const week = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'PR Week',
       });
 
-      const participant = createParticipant(drizzleDb, '99992', 'PR User');
-      createActivityWithResult(drizzleDb, {
+      const participant = await createParticipant(orm, '99992', 'PR User');
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: participant.strava_athlete_id,
         stravaActivityId: '99992',
@@ -114,18 +113,18 @@ describe('Scoring Formula: Points Calculation', () => {
 
   describe('Two Participants (1st vs 2nd)', () => {
     it('1st place: beats 1 participant = 2 points', async () => {
-      const segment = createSegment(drizzleDb, '99993', 'Two Person Segment');
-      const week = createWeek(drizzleDb, {
+      const segment = await createSegment(orm, '99993', 'Two Person Segment');
+      const week = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Two Person Week',
       });
 
-      const p1 = createParticipant(drizzleDb, '99993', 'Faster User');
-      const p2 = createParticipant(drizzleDb, '99994', 'Slower User');
+      const p1 = await createParticipant(orm, '99993', 'Faster User');
+      const p2 = await createParticipant(orm, '99994', 'Slower User');
 
       // Faster (1st place)
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: p1.strava_athlete_id,
         stravaActivityId: '99993',
@@ -133,7 +132,7 @@ describe('Scoring Formula: Points Calculation', () => {
       });
 
       // Slower (2nd place)
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: p2.strava_athlete_id,
         stravaActivityId: '99994',
@@ -156,17 +155,17 @@ describe('Scoring Formula: Points Calculation', () => {
     });
 
     it('1st place with PR: beats 1 + PR = 3 points', async () => {
-      const segment = createSegment(drizzleDb, '99995', 'PR Two Segment');
-      const week = createWeek(drizzleDb, {
+      const segment = await createSegment(orm, '99995', 'PR Two Segment');
+      const week = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'PR Two Week',
       });
 
-      const p1 = createParticipant(drizzleDb, '99995', 'Fast with PR');
-      const p2 = createParticipant(drizzleDb, '99996', 'Slower');
+      const p1 = await createParticipant(orm, '99995', 'Fast with PR');
+      const p2 = await createParticipant(orm, '99996', 'Slower');
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: p1.strava_athlete_id,
         stravaActivityId: '99995',
@@ -174,7 +173,7 @@ describe('Scoring Formula: Points Calculation', () => {
         prAchieved: true, // Has PR
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: p2.strava_athlete_id,
         stravaActivityId: '99996',
@@ -194,8 +193,8 @@ describe('Scoring Formula: Points Calculation', () => {
 
   describe('Four Participants (Full Race)', () => {
     it('4-person race: 1st=4pts, 2nd=3pts, 3rd=2pts, 4th=1pt', async () => {
-      const segment = createSegment(drizzleDb, '99997', 'Four Person Segment');
-      const week = createWeek(drizzleDb, {
+      const segment = await createSegment(orm, '99997', 'Four Person Segment');
+      const week = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Four Person Week',
@@ -209,7 +208,7 @@ describe('Scoring Formula: Points Calculation', () => {
       ];
 
       for (const p of participants) {
-        createActivityWithResult(drizzleDb, {
+        await createActivityWithResult(orm, {
           weekId: week.id,
           stravaAthleteId: p.id,
           stravaActivityId: p.id,
@@ -234,8 +233,8 @@ describe('Scoring Formula: Points Calculation', () => {
     });
 
     it('4-person with PR bonuses: 1st with PR=5pts, 3rd with PR=3pts', async () => {
-      const segment = createSegment(drizzleDb, '99998', 'Four PR Segment');
-      const week = createWeek(drizzleDb, {
+      const segment = await createSegment(orm, '99998', 'Four PR Segment');
+      const week = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Four PR Week',
@@ -249,7 +248,7 @@ describe('Scoring Formula: Points Calculation', () => {
       ];
 
       for (const p of participants) {
-        createActivityWithResult(drizzleDb, {
+        await createActivityWithResult(orm, {
           weekId: week.id,
           stravaAthleteId: p.id,
           stravaActivityId: p.id,
@@ -286,27 +285,27 @@ describe('Scoring Formula: Points Calculation', () => {
 
   describe('Non-Competitors (Participants Without Activities)', () => {
     it('non-competitors do not appear on leaderboard', async () => {
-      const segment = createSegment(drizzleDb, '99999', 'Selective Segment');
-      const week = createWeek(drizzleDb, {
+      const segment = await createSegment(orm, '99999', 'Selective Segment');
+      const week = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Selective Week',
       });
 
       // Create 4 participants but only 2 complete
-      const p1 = createParticipant(drizzleDb, '12000', 'Completer1');
-      const p2 = createParticipant(drizzleDb, '12001', 'Completer2');
-      createParticipant(drizzleDb, '12002', 'NonCompleter1');
-      createParticipant(drizzleDb, '12003', 'NonCompleter2');
+      const p1 = await createParticipant(orm, '12000', 'Completer1');
+      const p2 = await createParticipant(orm, '12001', 'Completer2');
+      await createParticipant(orm, '12002', 'NonCompleter1');
+      await createParticipant(orm, '12003', 'NonCompleter2');
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: p1.strava_athlete_id,
         stravaActivityId: '12000',
         elapsedSeconds: 500,
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: p2.strava_athlete_id,
         stravaActivityId: '12001',
@@ -337,16 +336,16 @@ describe('Scoring Formula: Points Calculation', () => {
     it('participant with multiple PRs gets only 1 PR bonus', async () => {
       // This would require testing with multiple segment efforts in same week
       // For now, we simplify: if any effort has PR, award 1 bonus (not per-effort)
-      const segment = createSegment(drizzleDb, '88888', 'Multi-PR Segment');
-      const week = createWeek(drizzleDb, {
+      const segment = await createSegment(orm, '88888', 'Multi-PR Segment');
+      const week = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Multi PR Week',
         requiredLaps: 1,
       });
 
-      const participant = createParticipant(drizzleDb, '13000', 'Multi-PR User');
-      createActivityWithResult(drizzleDb, {
+      const participant = await createParticipant(orm, '13000', 'Multi-PR User');
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: participant.strava_athlete_id,
         stravaActivityId: '13000',
@@ -365,8 +364,8 @@ describe('Scoring Formula: Points Calculation', () => {
     it('tied times should assign different ranks but same points based on count', async () => {
       // When participants have identical times, they still get ranked and points
       // based on number of participants (not tied rank)
-      const segment = createSegment(drizzleDb, '88889', 'Tie Segment');
-      const week = createWeek(drizzleDb, {
+      const segment = await createSegment(orm, '88889', 'Tie Segment');
+      const week = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Tie Week',
@@ -382,7 +381,7 @@ describe('Scoring Formula: Points Calculation', () => {
         [p2, '14001'],
         [p3, '14002'],
       ]) {
-        createActivityWithResult(drizzleDb, {
+        await createActivityWithResult(orm, {
           weekId: week.id,
           stravaAthleteId: pId,
           stravaActivityId: aid,

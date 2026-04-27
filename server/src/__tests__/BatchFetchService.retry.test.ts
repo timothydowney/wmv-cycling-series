@@ -1,6 +1,6 @@
+import type { Pool } from 'pg';
+import type { AppDatabase } from '../db/types';
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import { Database } from 'better-sqlite3';
-import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import BatchFetchService from '../services/BatchFetchService';
 import { setupTestDb, teardownTestDb, createParticipant, createSeason, createWeek, createSegment } from './testDataHelpers';
 import * as stravaClient from '../stravaClient';
@@ -12,46 +12,50 @@ jest.mock('../stravaClient', () => ({
 }));
 
 describe('BatchFetchService Retry Logic', () => {
-  let db: Database;
-  let orm: BetterSQLite3Database;
+  let pool: Pool;
+  let orm: AppDatabase;
   let service: BatchFetchService;
   let mockGetToken: jest.Mock;
   let weekId: number;
 
-  beforeEach(() => {
-    // Mock system time to be within the season (2025)
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date('2025-01-02T12:00:00Z'));
-
-    const testDb = setupTestDb();
-    db = testDb.db;
+  beforeEach(async () => {
+    const testDb = setupTestDb({ seed: false });
+    pool = testDb.pool;
     orm = testDb.orm;
 
+    const now = new Date();
+    const seasonStart = Math.floor((now.getTime() - 24 * 60 * 60 * 1000) / 1000);
+    const seasonEnd = Math.floor((now.getTime() + 24 * 60 * 60 * 1000) / 1000);
+    const weekStart = new Date(now.getTime() - 12 * 60 * 60 * 1000).toISOString();
+    const weekEnd = new Date(now.getTime() + 12 * 60 * 60 * 1000).toISOString();
+
     // Setup seed data
-    const season = createSeason(orm, 'Season 1', true);
-    const segment = createSegment(orm, '12345', 'Seg 1');
-    const week = createWeek(orm, { 
+    const season = await createSeason(orm, 'Season 1', true, {
+      startAt: seasonStart,
+      endAt: seasonEnd,
+    });
+    const segment = await createSegment(orm, '12345', 'Seg 1');
+    const week = await createWeek(orm, { 
       seasonId: season.id, 
       stravaSegmentId: '12345', 
       weekName: 'Week 1',
-      startTime: '2025-01-01T00:00:00Z',
-      endTime: '2025-01-01T23:59:59Z'
+      startTime: weekStart,
+      endTime: weekEnd,
     });
     weekId = week.id;
 
     // Create a participant with a "valid" token entry in DB (value doesn't matter as we mock the getter)
-    createParticipant(orm, '111', 'User 1', { accessToken: 'token_1', refreshToken: 'refresh_1' });
+    await createParticipant(orm, '111', 'User 1', { accessToken: 'token_1', refreshToken: 'refresh_1' });
 
     // Mock getValidAccessToken
     mockGetToken = jest.fn();
     
     service = new BatchFetchService(orm, mockGetToken as any);
-  });
 
-  afterEach(() => {
-    teardownTestDb(db);
+  });
+  afterEach(async () => {
+    await teardownTestDb(pool);
     jest.clearAllMocks();
-    jest.useRealTimers();
   });
 
   it('should retry with forceRefresh=true when Strava returns 401', async () => {

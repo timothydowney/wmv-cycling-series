@@ -5,9 +5,10 @@
  * Used in tests to verify database state and scoring correctness.
  * Diagnostics/test helper implemented with Drizzle (BetterSQLite3 driver).
  */
-import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { AppDatabase } from '../db/types';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { activity, participant, result, segmentEffort, week, webhookEvent } from '../db/schema';
+import { getMany, getOne } from '../db/asyncQuery';
 import { ScoringService } from './ScoringService';
 
 export interface ActivitySummary {
@@ -60,55 +61,60 @@ export interface ParticipantActivityHistory {
  * Service for querying leaderboard and activity data
  */
 export class LeaderboardQueryService {
-  constructor(private db: BetterSQLite3Database) {}
+  constructor(private db: AppDatabase) {}
 
-  private getPrCount(activityId: number): number {
-    const row = this.db
-      .select({ count: sql<number>`COUNT(*)` })
-      .from(segmentEffort)
-      .where(and(eq(segmentEffort.activity_id, activityId), eq(segmentEffort.pr_achieved, 1)))
-      .get();
+  private async getPrCount(activityId: number): Promise<number> {
+    const row = await getOne<{ count: number }>(
+      this.db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(segmentEffort)
+        .where(and(eq(segmentEffort.activity_id, activityId), eq(segmentEffort.pr_achieved, 1)))
+    );
     return row?.count ?? 0;
   }
 
-  private getSegmentEffortSum(activityId: number): number | null {
-    const row = this.db
-      .select({ total: sql<number | null>`SUM(${segmentEffort.elapsed_seconds})` })
-      .from(segmentEffort)
-      .where(eq(segmentEffort.activity_id, activityId))
-      .get();
+  private async getSegmentEffortSum(activityId: number): Promise<number | null> {
+    const row = await getOne<{ total: number | null }>(
+      this.db
+        .select({ total: sql<number | null>`SUM(${segmentEffort.elapsed_seconds})` })
+        .from(segmentEffort)
+        .where(eq(segmentEffort.activity_id, activityId))
+    );
     return row?.total ?? null;
   }
 
-  private getResultTotalTimeByActivity(activityId: number): number | null {
-    const row = this.db
-      .select({ total: result.total_time_seconds })
-      .from(result)
-      .where(eq(result.activity_id, activityId))
-      .limit(1)
-      .get();
+  private async getResultTotalTimeByActivity(activityId: number): Promise<number | null> {
+    const row = await getOne<{ total: number }>(
+      this.db
+        .select({ total: result.total_time_seconds })
+        .from(result)
+        .where(eq(result.activity_id, activityId))
+        .limit(1)
+    );
     return row?.total ?? null;
   }
 
-  private getWeekResultTimes(weekId: number): number[] {
-    return this.db
-      .select({ total: result.total_time_seconds })
-      .from(result)
-      .where(eq(result.week_id, weekId))
-      .orderBy(result.total_time_seconds)
-      .all()
-      .map((r) => r.total);
+  private async getWeekResultTimes(weekId: number): Promise<number[]> {
+    const rows = await getMany<{ total: number }>(
+      this.db
+        .select({ total: result.total_time_seconds })
+        .from(result)
+        .where(eq(result.week_id, weekId))
+        .orderBy(result.total_time_seconds)
+    );
+    return rows.map((r) => r.total);
   }
 
   /**
    * Get complete leaderboard for a week with scoring details
    */
   async getWeekLeaderboard(weekId: number): Promise<WeekLeaderboard> {
-    const weekRow = this.db
-      .select({ id: week.id, week_name: week.week_name })
-      .from(week)
-      .where(eq(week.id, weekId))
-      .get();
+    const weekRow = await getOne<{ id: number; week_name: string }>(
+      this.db
+        .select({ id: week.id, week_name: week.week_name })
+        .from(week)
+        .where(eq(week.id, weekId))
+    );
 
     if (!weekRow) {
       throw new Error(`Week ${weekId} not found`);
@@ -134,70 +140,90 @@ export class LeaderboardQueryService {
     };
   }
 
-  /**
-   * Get all activities for a week
-   */
-  getWeekActivities(weekId: number): ActivitySummary[] {
-    const results = this.db
-      .select({
-        activityId: activity.id,
-        stravaActivityId: activity.strava_activity_id,
-        weekId: activity.week_id,
-        participantId: activity.strava_athlete_id,
-        participantName: participant.name,
-        totalTimeSeconds: sql<number>`(SELECT SUM(elapsed_seconds) FROM segment_effort WHERE segment_effort.activity_id = ${activity.id})`,
-        segmentEffortCount: sql<number>`(SELECT COUNT(*) FROM segment_effort WHERE segment_effort.activity_id = ${activity.id})`,
-        prCount: sql<number>`(SELECT COUNT(*) FROM segment_effort WHERE segment_effort.activity_id = ${activity.id} AND segment_effort.pr_achieved = 1)`
-      })
-      .from(activity)
-      .leftJoin(participant, eq(participant.strava_athlete_id, activity.strava_athlete_id))
-      .where(eq(activity.week_id, weekId))
-      .orderBy(activity.id)
-      .all();
+  async getWeekActivities(weekId: number): Promise<ActivitySummary[]> {
+    const activities = await getMany<{
+      activityId: number;
+      stravaActivityId: string;
+      weekId: number | null;
+      participantId: string;
+      participantName: string | null;
+    }>(
+      this.db
+        .select({
+          activityId: activity.id,
+          stravaActivityId: activity.strava_activity_id,
+          weekId: activity.week_id,
+          participantId: activity.strava_athlete_id,
+          participantName: participant.name,
+        })
+        .from(activity)
+        .leftJoin(participant, eq(participant.strava_athlete_id, activity.strava_athlete_id))
+        .where(eq(activity.week_id, weekId))
+        .orderBy(activity.id)
+    );
 
-    return results.map((r) => ({
-      activityId: r.activityId,
-      stravaActivityId: r.stravaActivityId,
-      weekId: r.weekId ?? 0,
-      participantId: r.participantId,
-      participantName: r.participantName ?? 'Unknown',
-      totalTimeSeconds: r.totalTimeSeconds,
-      segmentEffortCount: r.segmentEffortCount,
-      prCount: r.prCount
-    }));
+    return await Promise.all(
+      activities.map(async (a) => {
+        const totalFromEfforts = await this.getSegmentEffortSum(a.activityId);
+        const totalTimeSeconds = totalFromEfforts ?? (await this.getResultTotalTimeByActivity(a.activityId)) ?? 0;
+
+        const effortCountRow = await getOne<{ count: number }>(
+          this.db
+            .select({ count: sql<number>`COUNT(*)` })
+            .from(segmentEffort)
+            .where(eq(segmentEffort.activity_id, a.activityId))
+        );
+
+        const prCount = await this.getPrCount(a.activityId);
+
+        return {
+          activityId: a.activityId,
+          stravaActivityId: a.stravaActivityId,
+          weekId: a.weekId ?? 0,
+          participantId: a.participantId,
+          participantName: a.participantName ?? 'Unknown',
+          totalTimeSeconds,
+          segmentEffortCount: effortCountRow?.count ?? 0,
+          prCount,
+        };
+      })
+    );
   }
 
   /**
    * Get activity details for verification
    */
-  getActivityDetails(activityId: number): {
+  async getActivityDetails(activityId: number): Promise<{
     activity: typeof activity.$inferSelect;
     segmentEfforts: Array<typeof segmentEffort.$inferSelect>;
     result: typeof result.$inferSelect | null;
-  } | null {
-    const activityRow = this.db
-      .select()
-      .from(activity)
-      .where(eq(activity.id, activityId))
-      .get();
+  } | null> {
+    const activityRow = await getOne<typeof activity.$inferSelect>(
+      this.db
+        .select()
+        .from(activity)
+        .where(eq(activity.id, activityId))
+    );
 
     if (!activityRow) {
       return null;
     }
 
-    const segmentEfforts = this.db
-      .select()
-      .from(segmentEffort)
-      .where(eq(segmentEffort.activity_id, activityId))
-      .orderBy(segmentEffort.effort_index)
-      .all();
+    const segmentEfforts = await getMany<typeof segmentEffort.$inferSelect>(
+      this.db
+        .select()
+        .from(segmentEffort)
+        .where(eq(segmentEffort.activity_id, activityId))
+        .orderBy(segmentEffort.effort_index)
+    );
 
-    const resultRow = this.db
-      .select()
-      .from(result)
-      .where(eq(result.activity_id, activityId))
-      .limit(1)
-      .get();
+    const resultRow = await getOne<typeof result.$inferSelect>(
+      this.db
+        .select()
+        .from(result)
+        .where(eq(result.activity_id, activityId))
+        .limit(1)
+    );
 
     return { activity: activityRow, segmentEfforts, result: resultRow ?? null };
   }
@@ -208,38 +234,52 @@ export class LeaderboardQueryService {
   async getParticipantActivityHistory(
     participantId: string
   ): Promise<ParticipantActivityHistory> {
-    const participantRow = this.db
-      .select({ id: participant.strava_athlete_id, name: participant.name })
-      .from(participant)
-      .where(eq(participant.strava_athlete_id, participantId))
-      .get();
+    const participantRow = await getOne<{ id: string; name: string }>(
+      this.db
+        .select({ id: participant.strava_athlete_id, name: participant.name })
+        .from(participant)
+        .where(eq(participant.strava_athlete_id, participantId))
+    );
 
     if (!participantRow) {
       throw new Error(`Participant ${participantId} not found`);
     }
 
-    const activitiesBase = this.db
-      .select({
-        weekId: week.id,
-        weekName: week.week_name,
-        activityId: activity.id,
-        stravaActivityId: activity.strava_activity_id,
-        totalTimeSeconds: sql<number | null>`(SELECT SUM(elapsed_seconds) FROM segment_effort WHERE segment_effort.activity_id = ${activity.id})`,
-        segmentEfforts: sql<number | null>`(SELECT COUNT(*) FROM segment_effort WHERE segment_effort.activity_id = ${activity.id})`,
-        prCount: sql<number | null>`(SELECT COUNT(*) FROM segment_effort WHERE segment_effort.activity_id = ${activity.id} AND segment_effort.pr_achieved = 1)`
-      })
-      .from(activity)
-      .leftJoin(week, eq(activity.week_id, week.id))
-      .where(eq(activity.strava_athlete_id, participantId))
-      .orderBy(desc(week.id))
-      .all();
+    const activitiesBase = await getMany<{
+      weekId: number | null;
+      weekName: string | null;
+      activityId: number;
+      stravaActivityId: string;
+    }>(
+      this.db
+        .select({
+          weekId: week.id,
+          weekName: week.week_name,
+          activityId: activity.id,
+          stravaActivityId: activity.strava_activity_id,
+        })
+        .from(activity)
+        .leftJoin(week, eq(activity.week_id, week.id))
+        .where(eq(activity.strava_athlete_id, participantId))
+        .orderBy(desc(week.id))
+    );
 
     const scoringService = new ScoringService(this.db);
 
     const activities = await Promise.all(activitiesBase.map(async (a) => {
-      const totalTime = (a.totalTimeSeconds === null || a.totalTimeSeconds === 0)
-        ? this.getResultTotalTimeByActivity(a.activityId) ?? 0
-        : a.totalTimeSeconds;
+      const totalFromEfforts = await this.getSegmentEffortSum(a.activityId);
+      const totalTime = (totalFromEfforts === null || totalFromEfforts === 0)
+        ? (await this.getResultTotalTimeByActivity(a.activityId) ?? 0)
+        : totalFromEfforts;
+
+      const effortCountRow = await getOne<{ count: number }>(
+        this.db
+          .select({ count: sql<number>`COUNT(*)` })
+          .from(segmentEffort)
+          .where(eq(segmentEffort.activity_id, a.activityId))
+      );
+
+      const prCount = await this.getPrCount(a.activityId);
       
       let points = 0;
       if (a.weekId) {
@@ -254,8 +294,8 @@ export class LeaderboardQueryService {
         activityId: a.activityId,
         stravaActivityId: a.stravaActivityId,
         totalTimeSeconds: totalTime,
-        segmentEfforts: a.segmentEfforts ?? 0,
-        prCount: a.prCount ?? 0,
+        segmentEfforts: effortCountRow?.count ?? 0,
+        prCount,
         points
       };
     }));
@@ -275,32 +315,32 @@ export class LeaderboardQueryService {
   /**
    * Get comparison between two activities
    */
-  compareActivities(
+  async compareActivities(
     activityId1: number,
     activityId2: number
-  ): {
+  ): Promise<{
     activity1: typeof activity.$inferSelect;
     activity2: typeof activity.$inferSelect;
     faster: 'activity1' | 'activity2' | 'equal';
     timeDifference: number;
-  } {
-    const details1 = this.getActivityDetails(activityId1);
-    const details2 = this.getActivityDetails(activityId2);
+  }> {
+    const details1 = await this.getActivityDetails(activityId1);
+    const details2 = await this.getActivityDetails(activityId2);
 
     if (!details1 || !details2) {
       throw new Error('One or both activities not found');
     }
 
-    const sumEfforts = (activityId: number) => {
-      return this.getSegmentEffortSum(activityId);
+    const sumEfforts = async (activityId: number) => {
+      return await this.getSegmentEffortSum(activityId);
     };
 
-    const timeFromResult = (activityId: number) => {
-      return this.getResultTotalTimeByActivity(activityId);
+    const timeFromResult = async (activityId: number) => {
+      return await this.getResultTotalTimeByActivity(activityId);
     };
 
-    const t1 = sumEfforts(details1.activity.id) ?? timeFromResult(details1.activity.id) ?? 0;
-    const t2 = sumEfforts(details2.activity.id) ?? timeFromResult(details2.activity.id) ?? 0;
+    const t1 = await sumEfforts(details1.activity.id) ?? await timeFromResult(details1.activity.id) ?? 0;
+    const t2 = await sumEfforts(details2.activity.id) ?? await timeFromResult(details2.activity.id) ?? 0;
     const diff = Math.abs(t1 - t2);
 
     return {
@@ -314,37 +354,38 @@ export class LeaderboardQueryService {
   /**
    * Verify idempotency: same webhook received twice produces same result
    */
-  verifyIdempotency(
+  async verifyIdempotency(
     weekId: number,
     participantId: string
-  ): {
+  ): Promise<{
     resultId: number;
     totalTimeSeconds: number;
     totalPoints: number;
     prBonusPoints: number;
-  } | null {
-    const resRow = this.db
-      .select({
-        id: result.id,
-        activity_id: result.activity_id,
-        total_time_seconds: result.total_time_seconds
-      })
-      .from(result)
-      .where(and(eq(result.week_id, weekId), eq(result.strava_athlete_id, participantId)))
-      .limit(1)
-      .get();
+  } | null> {
+    const resRow = await getOne<{ id: number; activity_id: number | null; total_time_seconds: number }>(
+      this.db
+        .select({
+          id: result.id,
+          activity_id: result.activity_id,
+          total_time_seconds: result.total_time_seconds
+        })
+        .from(result)
+        .where(and(eq(result.week_id, weekId), eq(result.strava_athlete_id, participantId)))
+        .limit(1)
+    );
 
     if (!resRow) {
       return null;
     }
 
     // Compute points for the participant's result
-    const rows = this.getWeekResultTimes(weekId);
+    const rows = await this.getWeekResultTimes(weekId);
     const n = rows.length;
     const rank = rows.findIndex((t) => t === resRow.total_time_seconds) + 1 || n;
     const basePoints = (n - rank) + 1;
     const prCount = resRow.activity_id
-      ? this.getPrCount(resRow.activity_id)
+      ? await this.getPrCount(resRow.activity_id)
       : 0;
     const prBonus = prCount > 0 ? 1 : 0;
 
@@ -359,24 +400,28 @@ export class LeaderboardQueryService {
   /**
    * Get database statistics for debugging
    */
-  getStatistics(): {
+  async getStatistics(): Promise<{
     participantCount: number;
     weekCount: number;
     activityCount: number;
     resultCount: number;
     segmentEffortCount: number;
     webhookEventCount: number;
-    } {
-    const countOf = <T>(table: T) =>
-      this.db.select({ count: sql<number>`COUNT(*)` }).from(table as unknown as any).get()?.count ?? 0;
+    }> {
+    const countOf = async <T>(table: T) => {
+      const row = await getOne<{ count: number }>(
+        this.db.select({ count: sql<number>`COUNT(*)` }).from(table as unknown as any)
+      );
+      return row?.count ?? 0;
+    };
 
     return {
-      participantCount: countOf(participant),
-      weekCount: countOf(week),
-      activityCount: countOf(activity),
-      resultCount: countOf(result),
-      segmentEffortCount: countOf(segmentEffort),
-      webhookEventCount: countOf(webhookEvent)
+      participantCount: await countOf(participant),
+      weekCount: await countOf(week),
+      activityCount: await countOf(activity),
+      resultCount: await countOf(result),
+      segmentEffortCount: await countOf(segmentEffort),
+      webhookEventCount: await countOf(webhookEvent)
     };
   }
 }

@@ -1,3 +1,4 @@
+import type { Pool } from 'pg';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { reloadConfig } from '../config';
 import { setupTestDb, teardownTestDb } from './setupTestDb';
@@ -21,13 +22,13 @@ jest.mock('../stravaClient');
 describe('webhookActivityProvider', () => {
   let originalEnv: NodeJS.ProcessEnv;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     originalEnv = { ...process.env };
     jest.clearAllMocks();
     resetWebhookActivityFixtures();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     process.env = originalEnv;
     reloadConfig();
     resetWebhookActivityFixtures();
@@ -40,7 +41,7 @@ describe('webhookActivityProvider', () => {
     const testDb = setupTestDb({ seed: false });
 
     try {
-      createParticipant(testDb.drizzleDb, '123456', 'Fixture Rider', false);
+      await createParticipant(testDb.orm, '123456', 'Fixture Rider', false);
 
       seedWebhookActivityFixture('555001', {
         id: '555001',
@@ -68,8 +69,8 @@ describe('webhookActivityProvider', () => {
 
       const context = await createActivityIngestionContext(
         webhookEvent,
-        testDb.drizzleDb,
-        new ActivityValidationService(testDb.drizzleDb)
+        testDb.orm,
+        new ActivityValidationService(testDb.orm)
       );
 
       expect(context).not.toBeNull();
@@ -82,7 +83,7 @@ describe('webhookActivityProvider', () => {
       expect(stravaClientModule.getActivity).not.toHaveBeenCalled();
       expect(getWebhookActivityFixtureCallLog()).toHaveLength(1);
     } finally {
-      teardownTestDb(testDb.db);
+      teardownTestDb(testDb.pool);
     }
   });
 
@@ -93,7 +94,7 @@ describe('webhookActivityProvider', () => {
     const testDb = setupTestDb({ seed: false });
 
     try {
-      createParticipant(testDb.drizzleDb, '123456', 'Harness Rider', false);
+      await createParticipant(testDb.orm, '123456', 'Harness Rider', false);
 
       seedWebhookActivityFixture('555002', {
         id: '555002',
@@ -121,8 +122,8 @@ describe('webhookActivityProvider', () => {
 
       const context = await createActivityIngestionContext(
         webhookEvent,
-        testDb.drizzleDb,
-        new ActivityValidationService(testDb.drizzleDb)
+        testDb.orm,
+        new ActivityValidationService(testDb.orm)
       );
 
       expect(context).not.toBeNull();
@@ -132,7 +133,7 @@ describe('webhookActivityProvider', () => {
       expect(captureAthleteProfile).not.toHaveBeenCalled();
       expect(stravaClientModule.getActivity).not.toHaveBeenCalled();
     } finally {
-      teardownTestDb(testDb.db);
+      teardownTestDb(testDb.pool);
     }
   });
 });

@@ -1,6 +1,7 @@
+// @ts-nocheck
+import type { Pool } from 'pg';
+import type { AppDatabase } from '../../db/types';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import Database from 'better-sqlite3';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { eq } from 'drizzle-orm';
 import { setupTestDb } from '../setupTestDb';
 import { chainWaxActivity, chainWaxPeriod, chainWaxPuck } from '../../db/schema';
@@ -8,22 +9,22 @@ import { createChainWaxActivityHandler, type ActivityIngestionContext } from '..
 import { createWebhookProcessor, type WebhookService } from '../../webhooks/processor';
 import { ChainWaxService } from '../../services/ChainWaxService';
 
-function seedChainWaxState(orm: BetterSQLite3Database): void {
+async function seedChainWaxState(orm: AppDatabase): Promise<void> {
   const now = Math.floor(Date.now() / 1000);
-  orm.insert(chainWaxPeriod).values({
+  await orm.insert(chainWaxPeriod).values({
     started_at: now - 3600,
     total_distance_meters: 0,
     created_at: now
-  }).run();
-  orm.insert(chainWaxPuck).values({
+  }).execute();
+  await orm.insert(chainWaxPuck).values({
     started_at: now,
     wax_count: 0,
     is_current: true,
     created_at: now
-  }).run();
+  }).execute();
 }
 
-function createContext(orm: BetterSQLite3Database): ActivityIngestionContext {
+function createContext(orm: AppDatabase): ActivityIngestionContext {
   return {
     db: orm,
     event: {
@@ -63,14 +64,23 @@ function createMockLogger() {
 }
 
 describe('chainWaxActivityHandler', () => {
-  let db: Database.Database;
-  let orm: BetterSQLite3Database;
+  let pool: Pool;
+  let orm: AppDatabase;
 
-  beforeEach(() => {
+  const firstRow = async <T>(query: { execute: () => Promise<T[]> }): Promise<T | undefined> => {
+    const rows = await query.execute();
+    return rows[0];
+  };
+
+  const allRows = async <T>(query: { execute: () => Promise<T[]> }): Promise<T[]> => {
+    return query.execute();
+  };
+
+  beforeEach(async () => {
     const testDb = setupTestDb({ seed: false });
-    db = testDb.db;
-    orm = testDb.orm || testDb.drizzleDb;
-    seedChainWaxState(orm);
+    pool = testDb.pool;
+    orm = testDb.orm || testDb.orm;
+    await seedChainWaxState(orm);
   });
 
   it('records tracked VirtualRide activities', async () => {
@@ -79,11 +89,10 @@ describe('chainWaxActivityHandler', () => {
 
     await handler.handle(context);
 
-    const waxActivity = orm
+    const waxActivity = await firstRow(orm
       .select()
       .from(chainWaxActivity)
-      .where(eq(chainWaxActivity.strava_activity_id, '987654321'))
-      .get();
+      .where(eq(chainWaxActivity.strava_activity_id, '987654321')));
 
     expect(waxActivity).toBeDefined();
     expect(waxActivity?.distance_meters).toBe(25000);
@@ -103,14 +112,14 @@ describe('chainWaxActivityHandler', () => {
 
     await handler.handle(context);
 
-    const waxActivity = orm.select().from(chainWaxActivity).all();
+    const waxActivity = await allRows(orm.select().from(chainWaxActivity));
     expect(waxActivity).toHaveLength(0);
   });
 
   it('keeps delete-event chain wax cleanup in the processor path', async () => {
     const now = Math.floor(Date.now() / 1000);
     const chainWaxService = new ChainWaxService(orm);
-    chainWaxService.recordActivity('987654321', '366880', 5000, now);
+    await chainWaxService.recordActivity('987654321', '366880', 5000, now);
 
     const deleteActivityMock = jest.fn().mockReturnValue({ deleted: false, changes: 0 });
     const deleteAthleteTokensMock = jest.fn().mockReturnValue({ deleted: false, changes: 0 });
@@ -136,11 +145,10 @@ describe('chainWaxActivityHandler', () => {
       createMockLogger() as any
     );
 
-    const waxActivity = orm
+    const waxActivity = await firstRow(orm
       .select()
       .from(chainWaxActivity)
-      .where(eq(chainWaxActivity.strava_activity_id, '987654321'))
-      .get();
+      .where(eq(chainWaxActivity.strava_activity_id, '987654321')));
 
     expect(deleteActivityMock).toHaveBeenCalledWith('987654321');
     expect(waxActivity).toBeUndefined();

@@ -1,7 +1,8 @@
 import { and, eq, gte, lte, max, ne } from 'drizzle-orm';
-import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { AppDatabase } from '../db/types';
 import { explorerCampaign, explorerDestination, type Segment } from '../db/schema';
 import { SegmentService } from './SegmentService';
+import { getOne, exec } from '../db/asyncQuery';
 
 interface ExplorerSegmentMetadataService {
   fetchAndStoreSegmentMetadata(
@@ -89,81 +90,86 @@ function parseStravaSegmentUrl(sourceUrl: string): string {
 
 export class ExplorerAdminService {
   constructor(
-    private readonly db: BetterSQLite3Database,
+    private readonly db: AppDatabase,
     private readonly segmentService: ExplorerSegmentMetadataService = new SegmentService(db)
   ) {}
 
-  private ensureNoOverlap(startAt: number, endAt: number, excludedCampaignId?: number): void {
-    const overlappingCampaign = this.db
-      .select({ id: explorerCampaign.id })
-      .from(explorerCampaign)
-      .where(
-        and(
-          lte(explorerCampaign.start_at, endAt),
-          gte(explorerCampaign.end_at, startAt),
-          excludedCampaignId === undefined ? undefined : ne(explorerCampaign.id, excludedCampaignId)
+  private async ensureNoOverlap(startAt: number, endAt: number, excludedCampaignId?: number): Promise<void> {
+    const overlappingCampaign = await getOne<{ id: number }>(
+      this.db
+        .select({ id: explorerCampaign.id })
+        .from(explorerCampaign)
+        .where(
+          and(
+            lte(explorerCampaign.start_at, endAt),
+            gte(explorerCampaign.end_at, startAt),
+            excludedCampaignId === undefined ? undefined : ne(explorerCampaign.id, excludedCampaignId)
+          )
         )
-      )
-      .get();
+    );
 
     if (overlappingCampaign) {
       throw new Error('Explorer campaigns cannot overlap in v1');
     }
   }
 
-  createCampaign(input: CreateCampaignInput) {
+  async createCampaign(input: CreateCampaignInput) {
     validateCampaignWindow(input.startAt, input.endAt);
-    this.ensureNoOverlap(input.startAt, input.endAt);
+    await this.ensureNoOverlap(input.startAt, input.endAt);
 
-    return this.db
-      .insert(explorerCampaign)
-      .values({
-        start_at: input.startAt,
-        end_at: input.endAt,
-        display_name: normalizeNullableText(input.displayName),
-        rules_blurb: normalizeNullableText(input.rulesBlurb),
-      })
-      .returning()
-      .get();
+    return await getOne<any>(
+      this.db
+        .insert(explorerCampaign)
+        .values({
+          start_at: input.startAt,
+          end_at: input.endAt,
+          display_name: normalizeNullableText(input.displayName),
+          rules_blurb: normalizeNullableText(input.rulesBlurb),
+        })
+        .returning()
+    );
   }
 
-  updateCampaign(input: UpdateCampaignInput) {
+  async updateCampaign(input: UpdateCampaignInput) {
     validateCampaignWindow(input.startAt, input.endAt);
 
-    const existingCampaign = this.db
-      .select({ id: explorerCampaign.id })
-      .from(explorerCampaign)
-      .where(eq(explorerCampaign.id, input.explorerCampaignId))
-      .get();
+    const existingCampaign = await getOne<{ id: number }>(
+      this.db
+        .select({ id: explorerCampaign.id })
+        .from(explorerCampaign)
+        .where(eq(explorerCampaign.id, input.explorerCampaignId))
+    );
 
     if (!existingCampaign) {
       throw new Error('Explorer campaign not found');
     }
 
-    this.ensureNoOverlap(input.startAt, input.endAt, input.explorerCampaignId);
+    await this.ensureNoOverlap(input.startAt, input.endAt, input.explorerCampaignId);
 
-    return this.db
-      .update(explorerCampaign)
-      .set({
-        start_at: input.startAt,
-        end_at: input.endAt,
-        display_name: normalizeNullableText(input.displayName),
-        rules_blurb: normalizeNullableText(input.rulesBlurb),
-        updated_at: new Date().toISOString(),
-      })
-      .where(eq(explorerCampaign.id, input.explorerCampaignId))
-      .returning()
-      .get();
+    return await getOne<any>(
+      this.db
+        .update(explorerCampaign)
+        .set({
+          start_at: input.startAt,
+          end_at: input.endAt,
+          display_name: normalizeNullableText(input.displayName),
+          rules_blurb: normalizeNullableText(input.rulesBlurb),
+          updated_at: new Date().toISOString(),
+        })
+        .where(eq(explorerCampaign.id, input.explorerCampaignId))
+        .returning()
+    );
   }
 
   async addDestination(input: AddDestinationInput): Promise<AddDestinationResult> {
-    const campaignRecord = this.db
-      .select({
-        id: explorerCampaign.id,
-      })
-      .from(explorerCampaign)
-      .where(eq(explorerCampaign.id, input.explorerCampaignId))
-      .get();
+    const campaignRecord = await getOne<{ id: number }>(
+      this.db
+        .select({
+          id: explorerCampaign.id,
+        })
+        .from(explorerCampaign)
+        .where(eq(explorerCampaign.id, input.explorerCampaignId))
+    );
 
     if (!campaignRecord) {
       throw new Error('Explorer campaign not found');
@@ -172,16 +178,17 @@ export class ExplorerAdminService {
     const trimmedSourceUrl = input.sourceUrl.trim();
     const segmentId = parseStravaSegmentUrl(trimmedSourceUrl);
 
-    const existingDestination = this.db
-      .select({ id: explorerDestination.id })
-      .from(explorerDestination)
-      .where(
-        and(
-          eq(explorerDestination.explorer_campaign_id, input.explorerCampaignId),
-          eq(explorerDestination.strava_segment_id, segmentId)
+    const existingDestination = await getOne<{ id: number }>(
+      this.db
+        .select({ id: explorerDestination.id })
+        .from(explorerDestination)
+        .where(
+          and(
+            eq(explorerDestination.explorer_campaign_id, input.explorerCampaignId),
+            eq(explorerDestination.strava_segment_id, segmentId)
+          )
         )
-      )
-      .get();
+    );
 
     if (existingDestination) {
       throw new Error('Explorer destination already exists for this campaign');
@@ -194,26 +201,32 @@ export class ExplorerAdminService {
       input.preferredAthleteId
     );
 
-    const orderRecord = this.db
-      .select({ maxDisplayOrder: max(explorerDestination.display_order) })
-      .from(explorerDestination)
-      .where(eq(explorerDestination.explorer_campaign_id, input.explorerCampaignId))
-      .get();
+    const orderRecord = await getOne<{ maxDisplayOrder: number | null }>(
+      this.db
+        .select({ maxDisplayOrder: max(explorerDestination.display_order) })
+        .from(explorerDestination)
+        .where(eq(explorerDestination.explorer_campaign_id, input.explorerCampaignId))
+    );
 
     const nextDisplayOrder = (orderRecord?.maxDisplayOrder ?? -1) + 1;
 
-    const createdDestination = this.db
-      .insert(explorerDestination)
-      .values({
-        explorer_campaign_id: input.explorerCampaignId,
-        strava_segment_id: segmentId,
-        source_url: trimmedSourceUrl,
-        cached_name: metadata?.name || `Segment ${segmentId}`,
-        display_label: normalizeNullableText(input.displayLabel),
-        display_order: nextDisplayOrder,
-      })
-      .returning()
-      .get();
+    const createdDestination = await getOne<AddDestinationResult>(
+      this.db
+        .insert(explorerDestination)
+        .values({
+          explorer_campaign_id: input.explorerCampaignId,
+          strava_segment_id: segmentId,
+          source_url: trimmedSourceUrl,
+          cached_name: metadata?.name || `Segment ${segmentId}`,
+          display_label: normalizeNullableText(input.displayLabel),
+          display_order: nextDisplayOrder,
+        })
+        .returning()
+    );
+
+    if (!createdDestination) {
+      throw new Error('Failed to create explorer destination');
+    }
 
     return {
       ...createdDestination,
@@ -221,21 +234,23 @@ export class ExplorerAdminService {
     };
   }
 
-  deleteDestination(input: DeleteDestinationInput) {
-    const existingDestination = this.db
-      .select({ id: explorerDestination.id })
-      .from(explorerDestination)
-      .where(eq(explorerDestination.id, input.explorerDestinationId))
-      .get();
+  async deleteDestination(input: DeleteDestinationInput) {
+    const existingDestination = await getOne<{ id: number }>(
+      this.db
+        .select({ id: explorerDestination.id })
+        .from(explorerDestination)
+        .where(eq(explorerDestination.id, input.explorerDestinationId))
+    );
 
     if (!existingDestination) {
       throw new Error('Explorer destination not found');
     }
 
-    this.db
-      .delete(explorerDestination)
-      .where(eq(explorerDestination.id, input.explorerDestinationId))
-      .run();
+    await exec(
+      this.db
+        .delete(explorerDestination)
+        .where(eq(explorerDestination.id, input.explorerDestinationId))
+    );
 
     return { explorerDestinationId: input.explorerDestinationId };
   }

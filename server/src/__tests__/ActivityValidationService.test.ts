@@ -3,60 +3,66 @@
  * Tests for reusable activity and season validation logic
  */
 
-import { describe, it, expect, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
+import type { AppDatabase } from '../db/types';
 import ActivityValidationService from '../services/ActivityValidationService';
-import { setupTestDb } from './setupTestDb'; // Import setupTestDb
+import type { Pool } from 'pg';
+import { setupTestDb, teardownTestDb } from './setupTestDb'; // Import setupTestDb
 import { createSeason, createSegment, createWeek } from './testDataHelpers';
 import { eq } from 'drizzle-orm';
 import { season as seasonTable } from '../db/schema';
 // import { SCHEMA } from '../schema'; // Removed
 
 describe('ActivityValidationService', () => {
-  let orm: import('drizzle-orm/better-sqlite3').BetterSQLite3Database;
+  jest.setTimeout(20000);
+
+  let orm: AppDatabase;
+  let pool: Pool;
   let service: ActivityValidationService;
   const now = Math.floor(Date.now() / 1000);
 
-  beforeEach(() => {
-    const { orm: newOrm } = setupTestDb({ seed: false }); // Use setupTestDb with no seed
-    orm = newOrm;
+  beforeEach(async () => {
+    const setup = setupTestDb({ seed: false });
+    orm = setup.orm;
+    pool = setup.pool; // Use setupTestDb with no seed
     // db.pragma('foreign_keys = ON'); // Handled by Drizzle migrations if needed
     // db.exec(SCHEMA); // Removed
     service = new ActivityValidationService(orm);
 
     // Create test segments first (required for week foreign key)
-    createSegment(orm, '1', 'Test Segment 1');
-    createSegment(orm, '2', 'Test Segment 2');
-    createSegment(orm, '3', 'Test Segment 3');
+    await createSegment(orm, '1', 'Test Segment 1');
+    await createSegment(orm, '2', 'Test Segment 2');
+    await createSegment(orm, '3', 'Test Segment 3');
 
     // Create test seasons
     // Seasons
     // Season 1: Currently active (started in past, ends in future)
-    createSeason(orm, 'Active Season', true, { startAt: now - 86400 * 30, endAt: now + 86400 * 30 });
+    await createSeason(orm, 'Active Season', true, { startAt: now - 86400 * 30, endAt: now + 86400 * 30 });
     // Season 2: Closed (ended in past)
-    createSeason(orm, 'Closed Season', true, { startAt: now - 86400 * 60, endAt: now - 86400 * 30 });
+    await createSeason(orm, 'Closed Season', true, { startAt: now - 86400 * 60, endAt: now - 86400 * 30 });
     // Season 3: Not started yet
-    createSeason(orm, 'Future Season', true, { startAt: now + 86400 * 30, endAt: now + 86400 * 60 });
+    await createSeason(orm, 'Future Season', true, { startAt: now + 86400 * 30, endAt: now + 86400 * 60 });
   });
 
   describe('isSeasonClosed()', () => {
-    it('returns false when season end_at is in future', () => {
-      const seasonRow = orm
+    it('migrated async case', async () => {
+      const seasonRow = (await orm
         .select()
         .from(seasonTable)
         .where(eq(seasonTable.name, 'Active Season'))
-        .all()[0] as any;
+        )[0] as any;
       const result = service.isSeasonClosed(seasonRow);
 
       expect(result.isClosed).toBe(false);
       expect(result.reason).toBeUndefined();
     });
 
-    it('returns true when season end_at is in past', () => {
-      const seasonRow = orm
+    it('migrated async case', async () => {
+      const seasonRow = (await orm
         .select()
         .from(seasonTable)
         .where(eq(seasonTable.name, 'Closed Season'))
-        .all()[0] as any;
+        )[0] as any;
       const result = service.isSeasonClosed(seasonRow);
 
       expect(result.isClosed).toBe(true);
@@ -64,7 +70,7 @@ describe('ActivityValidationService', () => {
       expect(result.end_at).toBeLessThan(now);
     });
 
-    it('returns false when end_at is null', () => {
+    it('migrated async case', async () => {
       // Note: end_at NOT NULL in schema, so this tests the code path anyway
       const season: any = {
         id: 999,
@@ -82,12 +88,12 @@ describe('ActivityValidationService', () => {
   });
 
   describe('isSeasonOpen()', () => {
-    it('returns isOpen=true when season is currently active', () => {
-      const seasonRow = orm
+    it('migrated async case', async () => {
+      const seasonRow = (await orm
         .select()
         .from(seasonTable)
         .where(eq(seasonTable.name, 'Active Season'))
-        .all()[0] as any;
+        )[0] as any;
       const result = service.isSeasonOpen(seasonRow);
 
       expect(result.isOpen).toBe(true);
@@ -95,12 +101,12 @@ describe('ActivityValidationService', () => {
       expect(result.reason).toBeUndefined();
     });
 
-    it('returns isOpen=false when season has not started', () => {
-      const seasonRow = orm
+    it('migrated async case', async () => {
+      const seasonRow = (await orm
         .select()
         .from(seasonTable)
         .where(eq(seasonTable.name, 'Future Season'))
-        .all()[0] as any;
+        )[0] as any;
       const result = service.isSeasonOpen(seasonRow);
 
       expect(result.isOpen).toBe(false);
@@ -108,12 +114,12 @@ describe('ActivityValidationService', () => {
       expect(result.reason).toContain("hasn't started yet");
     });
 
-    it('returns isOpen=false, isClosed=true when season has ended', () => {
-      const seasonRow = orm
+    it('migrated async case', async () => {
+      const seasonRow = (await orm
         .select()
         .from(seasonTable)
         .where(eq(seasonTable.name, 'Closed Season'))
-        .all()[0] as any;
+        )[0] as any;
       const result = service.isSeasonOpen(seasonRow);
 
       expect(result.isOpen).toBe(false);
@@ -121,12 +127,12 @@ describe('ActivityValidationService', () => {
       expect(result.reason).toContain('has ended');
     });
 
-    it('returns start_at and end_at in result', () => {
-      const seasonRow = orm
+    it('migrated async case', async () => {
+      const seasonRow = (await orm
         .select()
         .from(seasonTable)
         .where(eq(seasonTable.name, 'Active Season'))
-        .all()[0] as any;
+        )[0] as any;
       const result = service.isSeasonOpen(seasonRow);
 
       expect(result.start_at).toBeCloseTo(now - 86400 * 30, -1);
@@ -139,7 +145,7 @@ describe('ActivityValidationService', () => {
     const weekEnd = now + 3600; // 1 hour from now
     const week = { id: 1, start_at: weekStart, end_at: weekEnd };
 
-    it('returns valid=true when activity is within window', () => {
+    it('migrated async case', async () => {
       const activity = {
         id: 123,
         start_date: new Date(now * 1000).toISOString() // Right now
@@ -151,7 +157,7 @@ describe('ActivityValidationService', () => {
       expect(result.reason).toBeUndefined();
     });
 
-    it('returns valid=false when activity is before window', () => {
+    it('migrated async case', async () => {
       const activity = {
         id: 123,
         start_date: new Date((weekStart - 3600) * 1000).toISOString() // 1 hour before window start
@@ -163,7 +169,7 @@ describe('ActivityValidationService', () => {
       expect(result.reason).toContain('outside week window');
     });
 
-    it('returns valid=false when activity is after window', () => {
+    it('migrated async case', async () => {
       const activity = {
         id: 123,
         start_date: new Date((weekEnd + 3600) * 1000).toISOString() // 1 hour after window end
@@ -175,7 +181,7 @@ describe('ActivityValidationService', () => {
       expect(result.reason).toContain('outside week window');
     });
 
-    it('accepts activity at exact window boundaries', () => {
+    it('migrated async case', async () => {
       const activityAtStart = {
         id: 123,
         start_date: new Date(weekStart * 1000).toISOString()
@@ -189,7 +195,7 @@ describe('ActivityValidationService', () => {
       expect(service.isActivityWithinTimeWindow(activityAtEnd, week).valid).toBe(true);
     });
 
-    it('returns error for invalid start_date format', () => {
+    it('migrated async case', async () => {
       const activity = {
         id: 123,
         start_date: 'invalid-date'
@@ -203,12 +209,12 @@ describe('ActivityValidationService', () => {
   });
 
   describe('isActivityWithinSeasonRange()', () => {
-    it('returns valid=true when activity is within season range', () => {
-      const seasonRow = orm
+    it('migrated async case', async () => {
+      const seasonRow = (await orm
         .select()
         .from(seasonTable)
         .where(eq(seasonTable.name, 'Active Season'))
-        .all()[0] as any;
+        )[0] as any;
       const activity = {
         id: 123,
         start_date: new Date(now * 1000).toISOString()
@@ -220,12 +226,12 @@ describe('ActivityValidationService', () => {
       expect(result.reason).toBeUndefined();
     });
 
-    it('returns valid=false when activity is before season starts', () => {
-      const seasonRow = orm
+    it('migrated async case', async () => {
+      const seasonRow = (await orm
         .select()
         .from(seasonTable)
         .where(eq(seasonTable.name, 'Active Season'))
-        .all()[0] as any;
+        )[0] as any;
       const activity = {
         id: 123,
         start_date: new Date((seasonRow.start_at - 86400) * 1000).toISOString() // 1 day before season starts
@@ -237,12 +243,12 @@ describe('ActivityValidationService', () => {
       expect(result.reason).toContain('before season starts');
     });
 
-    it('returns valid=false when activity is after season ends', () => {
-      const seasonRow = orm
+    it('migrated async case', async () => {
+      const seasonRow = (await orm
         .select()
         .from(seasonTable)
         .where(eq(seasonTable.name, 'Active Season'))
-        .all()[0] as any;
+        )[0] as any;
       const activity = {
         id: 123,
         start_date: new Date((seasonRow.end_at + 86400) * 1000).toISOString() // 1 day after season ends
@@ -254,15 +260,15 @@ describe('ActivityValidationService', () => {
       expect(result.reason).toContain('after season ended');
     });
 
-    it('returns valid=true when season has no end_at', () => {
+    it('migrated async case', async () => {
       // Note: end_at NOT NULL in schema, so use far future instead
-      createSeason(orm, 'No End Season', true, { startAt: now - 86400, endAt: now + 86400 * 365 });
+      await createSeason(orm, 'No End Season', true, { startAt: now - 86400, endAt: now + 86400 * 365 });
 
-      const noEndSeason = orm
+      const noEndSeason = (await orm
         .select()
         .from(seasonTable)
         .where(eq(seasonTable.name, 'No End Season'))
-        .all()[0] as any;
+        )[0] as any;
       const activity = {
         id: 123,
         start_date: new Date((now + 86400 * 100) * 1000).toISOString() // 100 days from now (within season)
@@ -275,22 +281,22 @@ describe('ActivityValidationService', () => {
   });
 
   describe('getActiveSeason()', () => {
-    it('returns active season containing timestamp', () => {
-      const season = service.getActiveSeason(now);
+    it('migrated async case', async () => {
+      const season = await service.getActiveSeason(now);
 
       expect(season).not.toBeNull();
       expect(season!.name).toBe('Active Season');
     });
 
-    it('returns null when no season contains timestamp', () => {
+    it('migrated async case', async () => {
       const futureTimestamp = now + 86400 * 100; // 100 days in future
 
-      const season = service.getActiveSeason(futureTimestamp);
+      const season = await service.getActiveSeason(futureTimestamp);
 
       expect(season).toBeNull();
     });
 
-    it('returns most recent season when timestamp is in multiple seasons', () => {
+    it('migrated async case', async () => {
       // Create two overlapping seasons, newer one has later start_at
       const season1Start = now - 86400 * 60; // 60 days ago
       const season1End = now + 86400 * 60; // 60 days from now (overlaps with season 2)
@@ -298,50 +304,50 @@ describe('ActivityValidationService', () => {
       const season2Start = now - 86400 * 30; // 30 days ago (more recent start)
       const season2End = now + 86400 * 90; // 90 days from now
 
-      createSeason(orm, 'Overlapping Season Older', true, { startAt: season1Start, endAt: season1End });
-      createSeason(orm, 'Overlapping Season Newer', true, { startAt: season2Start, endAt: season2End });
+      await createSeason(orm, 'Overlapping Season Older', true, { startAt: season1Start, endAt: season1End });
+      await createSeason(orm, 'Overlapping Season Newer', true, { startAt: season2Start, endAt: season2End });
 
-      const season = service.getActiveSeason(now);
+      const season = await service.getActiveSeason(now);
 
       expect(season).not.toBeNull();
       // Should return the one with most recent start_at (season2Start > season1Start)
       expect(season!.name).toBe('Overlapping Season Newer');
     });
 
-    it('returns season at exact boundaries', () => {
-      const season1 = orm
+    it('migrated async case', async () => {
+      const season1 = (await orm
         .select()
         .from(seasonTable)
         .where(eq(seasonTable.name, 'Active Season'))
-        .all()[0] as any;
+        )[0] as any;
 
       // Query well before future season starts (to avoid overlap)
       // Active Season: (now - 86400*30) to (now + 86400*30)
       // Query at start_at should return the season
-      const seasonAtStart = service.getActiveSeason(season1.start_at);
+      const seasonAtStart = await service.getActiveSeason(season1.start_at);
       expect(seasonAtStart).not.toBeNull();
       expect(seasonAtStart!.id).toBe(season1.id);
 
       // Query in the middle of Active Season (well before Future Season start)
       // This avoids ambiguity from overlapping boundaries
       const midpoint = Math.floor((season1.start_at + season1.end_at) / 2);
-      const seasonAtMid = service.getActiveSeason(midpoint);
+      const seasonAtMid = await service.getActiveSeason(midpoint);
       expect(seasonAtMid).not.toBeNull();
       expect(seasonAtMid!.id).toBe(season1.id);
     });
   });
 
   describe('getAllActiveSeasonsContainingTimestamp()', () => {
-    it('returns all seasons containing timestamp (handles overlapping seasons)', () => {
+    it('migrated async case', async () => {
       // Active Season already exists from beforeEach (now-30d to now+30d)
       // Create another overlapping season
       const overlapStart = now - 86400 * 10; // 10 days ago
       const overlapEnd = now + 86400 * 10; // 10 days from now
 
-      createSeason(orm, 'Overlap Season', true, { startAt: overlapStart, endAt: overlapEnd });
+      await createSeason(orm, 'Overlap Season', true, { startAt: overlapStart, endAt: overlapEnd });
 
       // Query at "now" should return both Active Season and Overlap Season
-      const seasons = service.getAllActiveSeasonsContainingTimestamp(now);
+      const seasons = await service.getAllActiveSeasonsContainingTimestamp(now);
 
       expect(seasons.length).toBe(2);
       // Should be ordered by start_at DESC, then id DESC (most recent start first)
@@ -349,23 +355,23 @@ describe('ActivityValidationService', () => {
       expect(seasons[1].name).toBe('Active Season'); // Earlier start_at
     });
 
-    it('returns single season when only one contains timestamp', () => {
-      const seasons = service.getAllActiveSeasonsContainingTimestamp(now);
+    it('migrated async case', async () => {
+      const seasons = await service.getAllActiveSeasonsContainingTimestamp(now);
 
       // Only Active Season should contain "now"
       expect(seasons.length).toBe(1);
       expect(seasons[0].name).toBe('Active Season');
     });
 
-    it('returns empty array when no seasons contain timestamp', () => {
+    it('migrated async case', async () => {
       const futureTimestamp = now + 86400 * 100;
 
-      const seasons = service.getAllActiveSeasonsContainingTimestamp(futureTimestamp);
+      const seasons = await service.getAllActiveSeasonsContainingTimestamp(futureTimestamp);
 
       expect(seasons.length).toBe(0);
     });
 
-    it('maintains correct order with multiple overlapping seasons', () => {
+    it('migrated async case', async () => {
       // Create 2 additional seasons all containing "now"
       const earlyStart = now - 86400 * 60; // 60 days ago
       const earlyEnd = now + 86400 * 60; // 60 days from now
@@ -373,11 +379,11 @@ describe('ActivityValidationService', () => {
       const lateStart = now - 86400 * 5; // 5 days ago
       const lateEnd = now + 86400 * 25; // 25 days from now
 
-      createSeason(orm, 'Early Start Season', true, { startAt: earlyStart, endAt: earlyEnd });
-      createSeason(orm, 'Late Start Season', true, { startAt: lateStart, endAt: lateEnd });
+      await createSeason(orm, 'Early Start Season', true, { startAt: earlyStart, endAt: earlyEnd });
+      await createSeason(orm, 'Late Start Season', true, { startAt: lateStart, endAt: lateEnd });
 
       // Query for "now"
-      const seasons = service.getAllActiveSeasonsContainingTimestamp(now);
+      const seasons = await service.getAllActiveSeasonsContainingTimestamp(now);
 
       // Should return 3 seasons: Active Season, Early Start, Late Start
       expect(seasons.length).toBe(3);
@@ -390,65 +396,65 @@ describe('ActivityValidationService', () => {
   });
 
   describe('getWeeksForActivityInSeason()', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       // Get the "Active Season" ID to use as foreign key
-      const active = orm
+      const active = (await orm
         .select({ id: seasonTable.id })
         .from(seasonTable)
         .where(eq(seasonTable.name, 'Active Season'))
-        .all()[0] as { id: number };
+        )[0] as { id: number };
       const seasonId = active.id;
 
       // Create test weeks
       const weekStart = now - 3600;
       const weekEnd = now + 3600;
       const toIso = (s: number) => new Date(s * 1000).toISOString();
-      createWeek(orm, { seasonId, weekName: 'Week 1', stravaSegmentId: '1', startTime: toIso(weekStart), endTime: toIso(weekEnd), requiredLaps: 1 });
-      createWeek(orm, { seasonId, weekName: 'Week 2', stravaSegmentId: '2', startTime: toIso(now + 86400), endTime: toIso(now + 86400 + 3600), requiredLaps: 1 });
+      await createWeek(orm, { seasonId, weekName: 'Week 1', stravaSegmentId: '1', startTime: toIso(weekStart), endTime: toIso(weekEnd), requiredLaps: 1 });
+      await createWeek(orm, { seasonId, weekName: 'Week 2', stravaSegmentId: '2', startTime: toIso(now + 86400), endTime: toIso(now + 86400 + 3600), requiredLaps: 1 });
     });
 
-    it('returns weeks containing activity timestamp', () => {
-      const active = orm
+    it('migrated async case', async () => {
+      const active = (await orm
         .select({ id: seasonTable.id })
         .from(seasonTable)
         .where(eq(seasonTable.name, 'Active Season'))
-        .all()[0] as { id: number };
+        )[0] as { id: number };
       const seasonId = active.id;
 
-      const weeks = service.getWeeksForActivityInSeason(seasonId, now);
+      const weeks = await service.getWeeksForActivityInSeason(seasonId, now);
 
       expect(weeks.length).toBe(1);
       expect(weeks[0].week_name).toBe('Week 1');
     });
 
-    it('returns empty array when no weeks contain timestamp', () => {
-      const active = orm
+    it('migrated async case', async () => {
+      const active = (await orm
         .select({ id: seasonTable.id })
         .from(seasonTable)
         .where(eq(seasonTable.name, 'Active Season'))
-        .all()[0] as { id: number };
+        )[0] as { id: number };
       const seasonId = active.id;
       const futureTimestamp = now + 86400 * 100; // Way in future
 
-      const weeks = service.getWeeksForActivityInSeason(seasonId, futureTimestamp);
+      const weeks = await service.getWeeksForActivityInSeason(seasonId, futureTimestamp);
 
       expect(weeks.length).toBe(0);
     });
 
-    it('returns weeks in order by start_at', () => {
-      const active = orm
+    it('migrated async case', async () => {
+      const active = (await orm
         .select({ id: seasonTable.id })
         .from(seasonTable)
         .where(eq(seasonTable.name, 'Active Season'))
-        .all()[0] as { id: number };
+        )[0] as { id: number };
       const seasonId = active.id;
       const midpoint = now + 86400 + 1800; // Between week 1 and week 2
 
       // Create overlapping week
       const toIso2 = (s: number) => new Date(s * 1000).toISOString();
-      createWeek(orm, { seasonId, weekName: 'Week Overlap', stravaSegmentId: '3', startTime: toIso2(now + 86400), endTime: toIso2(now + 86400 + 7200), requiredLaps: 1 });
+      await createWeek(orm, { seasonId, weekName: 'Week Overlap', stravaSegmentId: '3', startTime: toIso2(now + 86400), endTime: toIso2(now + 86400 + 7200), requiredLaps: 1 });
 
-      const weeks = service.getWeeksForActivityInSeason(seasonId, midpoint);
+      const weeks = await service.getWeeksForActivityInSeason(seasonId, midpoint);
 
       expect(weeks[0].week_name).toBe('Week 2');
       expect(weeks[1].week_name).toBe('Week Overlap');
@@ -456,7 +462,7 @@ describe('ActivityValidationService', () => {
   });
 
   describe('isEventInFuture()', () => {
-    it('returns isFuture=true when event is in future', () => {
+    it('migrated async case', async () => {
       const futureTimestamp = now + 86400; // Tomorrow
 
       const result = service.isEventInFuture(futureTimestamp);
@@ -465,7 +471,7 @@ describe('ActivityValidationService', () => {
       expect(result.message).toContain('future');
     });
 
-    it('returns isFuture=false when event is in past', () => {
+    it('migrated async case', async () => {
       const pastTimestamp = now - 86400; // Yesterday
 
       const result = service.isEventInFuture(pastTimestamp);
@@ -474,10 +480,14 @@ describe('ActivityValidationService', () => {
       expect(result.message).toBeUndefined();
     });
 
-    it('returns isFuture=false when event is now', () => {
+    it('migrated async case', async () => {
       const result = service.isEventInFuture(now);
 
       expect(result.isFuture).toBe(false);
     });
+  });
+
+  afterEach(async () => {
+    await teardownTestDb(pool);
   });
 });

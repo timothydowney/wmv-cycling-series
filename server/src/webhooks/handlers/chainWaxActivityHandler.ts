@@ -16,7 +16,7 @@ export function createChainWaxActivityHandler(): ActivityWebhookHandler {
       const activityStartUnix = initialActivityData.start_date
         ? Math.floor(new Date(initialActivityData.start_date).getTime() / 1000)
         : Math.floor(Date.now() / 1000);
-      const recorded = chainWaxService.recordActivity(
+      const recorded = await chainWaxService.recordActivity(
         activityId,
         athleteId,
         initialActivityData.distance || 0,

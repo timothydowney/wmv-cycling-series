@@ -2,20 +2,19 @@
  * WebhookAdminService.ts
  *
  * Provides central management and monitoring data for the Webhook Admin dashboard.
- * Orchestrates WebhookSubscriptionService, WebhookLogger, and StorageMonitor.
+ * Orchestrates WebhookSubscriptionService and WebhookLogger.
  */
 
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { and, desc, eq, gt, inArray, sql } from 'drizzle-orm';
+import type { AppDatabase } from '../db/types';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { activity, explorerDestination, explorerDestinationMatch, participant, season, week, webhookEvent } from '../db/schema';
 import { WebhookSubscriptionService } from './WebhookSubscriptionService';
 import ParticipantService from './ParticipantService';
 import { ActivityService } from './ActivityService';
-import { StorageMonitor } from '../webhooks/storageMonitor';
-import { config } from '../config';
 import { createWebhookProcessor } from '../webhooks/processor';
 import { WebhookLogger } from '../webhooks/logger';
 import { getWebhookActivityDetailsResult } from './stravaReadProvider';
+import { getOne, getMany, exec } from '../db/asyncQuery';
 
 export interface ParsedWebhookPayload {
   aspect_type: 'create' | 'update' | 'delete';
@@ -31,31 +30,31 @@ export class WebhookAdminService {
   private subscriptionService: WebhookSubscriptionService;
   private participantService: ParticipantService;
   private activityService: ActivityService;
-  private storageMonitor: StorageMonitor;
   private logger: WebhookLogger;
 
-  constructor(private db: BetterSQLite3Database) {
+  constructor(private db: AppDatabase) {
     this.subscriptionService = new WebhookSubscriptionService(db);
     this.participantService = new ParticipantService(db);
     this.activityService = new ActivityService(db);
-    this.storageMonitor = new StorageMonitor(db, config.databasePath);
     this.logger = new WebhookLogger(db);
   }
 
   async getStatus() {
-    const subscriptionStatus = this.subscriptionService.getStatus();
+    const subscriptionStatus = await this.subscriptionService.getStatus();
 
-    const countAll = (cond?: any) => {
-      const baseQuery = this.db.select({ count: sql<number>`count(*)` }).from(webhookEvent);
-      const row = cond ? baseQuery.where(cond).get() : baseQuery.get();
+    const countAll = async (cond?: any) => {
+      const baseQuery = this.db.select({ count: sql<number>`count(*)`.as('count') }).from(webhookEvent);
+      const row = await getOne<{ count: number }>(cond ? baseQuery.where(cond) : baseQuery);
       return row?.count ?? 0;
     };
 
-    const totalEvents = countAll();
-    const successfulEvents = countAll(eq(webhookEvent.processed, 1));
-    const failedEvents = countAll(and(eq(webhookEvent.processed, 0), sql`${webhookEvent.error_message} IS NOT NULL`));
+    const totalEvents = await countAll();
+    const successfulEvents = await countAll(eq(webhookEvent.processed, 1));
+    const failedEvents = await countAll(and(eq(webhookEvent.processed, 0), sql`${webhookEvent.error_message} IS NOT NULL`));
     const pendingRetries = failedEvents;
-    const eventsLast24h = countAll(gt(webhookEvent.created_at, sql`datetime('now', '-1 day')`));
+    const eventsLast24h = await countAll(
+      sql`${webhookEvent.created_at}::timestamp > now() - interval '1 day'`
+    );
 
     const successRate =
       totalEvents > 0 ? ((successfulEvents / totalEvents) * 100).toFixed(1) : '0.0';
@@ -75,10 +74,6 @@ export class WebhookAdminService {
         success_rate: parseFloat(successRate)
       }
     };
-  }
-
-  getStorageStatus() {
-    return this.storageMonitor.getStatus();
   }
 
   private buildEmptyActivitySummary(outcome: 'pending' | 'failed', message: string) {
@@ -160,39 +155,50 @@ export class WebhookAdminService {
       .map((event) => event.objectId);
 
     if (matchedActivityIds.length > 0) {
-      const competitionMatches = await this.db
-        .select({
-          strava_activity_id: activity.strava_activity_id,
-          week_name: week.week_name,
-          season_id: season.id,
-        })
-        .from(activity)
-        .innerJoin(week, eq(activity.week_id, week.id))
-        .innerJoin(season, eq(week.season_id, season.id))
-        .where(inArray(activity.strava_activity_id, matchedActivityIds))
-        .groupBy(activity.strava_activity_id, week.id, season.id)
-        .all();
+      const competitionMatches = await getMany<{
+        strava_activity_id: string;
+        week_name: string | null;
+        season_id: number;
+      }>(
+        this.db
+          .select({
+            strava_activity_id: activity.strava_activity_id,
+            week_name: week.week_name,
+            season_id: season.id,
+          })
+          .from(activity)
+          .innerJoin(week, eq(activity.week_id, week.id))
+          .innerJoin(season, eq(week.season_id, season.id))
+          .where(inArray(activity.strava_activity_id, matchedActivityIds))
+          .groupBy(activity.strava_activity_id, week.id, week.week_name, season.id)
+      );
 
-      const explorerMatches = await this.db
-        .select({
-          strava_activity_id: explorerDestinationMatch.strava_activity_id,
-          explorer_campaign_id: explorerDestinationMatch.explorer_campaign_id,
-          destination_name: explorerDestination.display_label,
-          destination_cached_name: explorerDestination.cached_name,
-        })
-        .from(explorerDestinationMatch)
-        .leftJoin(
-          explorerDestination,
-          eq(explorerDestinationMatch.explorer_destination_id, explorerDestination.id)
-        )
-        .where(inArray(explorerDestinationMatch.strava_activity_id, matchedActivityIds))
-        .groupBy(
-          explorerDestinationMatch.strava_activity_id,
-          explorerDestinationMatch.explorer_campaign_id,
-          explorerDestination.display_label,
-          explorerDestination.cached_name
-        )
-        .all();
+      const explorerMatches = await getMany<{
+        strava_activity_id: string;
+        explorer_campaign_id: number;
+        destination_name: string | null;
+        destination_cached_name: string | null;
+      }>(
+        this.db
+          .select({
+            strava_activity_id: explorerDestinationMatch.strava_activity_id,
+            explorer_campaign_id: explorerDestinationMatch.explorer_campaign_id,
+            destination_name: explorerDestination.display_label,
+            destination_cached_name: explorerDestination.cached_name,
+          })
+          .from(explorerDestinationMatch)
+          .leftJoin(
+            explorerDestination,
+            eq(explorerDestinationMatch.explorer_destination_id, explorerDestination.id)
+          )
+          .where(inArray(explorerDestinationMatch.strava_activity_id, matchedActivityIds))
+          .groupBy(
+            explorerDestinationMatch.strava_activity_id,
+            explorerDestinationMatch.explorer_campaign_id,
+            explorerDestination.display_label,
+            explorerDestination.cached_name
+          )
+      );
 
       const competitionByActivityId = new Map<string, Array<{ season_id: number; week_name: string | null }>>();
       for (const match of competitionMatches) {
@@ -238,8 +244,11 @@ export class WebhookAdminService {
   }
 
   async getEvents(limit: number, offset: number, since: number, status: 'all' | 'success' | 'failed') {
-    const sinceExpr = sql`datetime(${since}, 'unixepoch')`;
-    const conditions: Array<any> = [gt(webhookEvent.created_at, sinceExpr)];
+    const conditions: Array<any> = [];
+
+    if (since > 0) {
+      conditions.push(sql`${webhookEvent.created_at} > to_timestamp(${since})`);
+    }
 
     if (status === 'success') {
       conditions.push(eq(webhookEvent.processed, 1));
@@ -247,28 +256,54 @@ export class WebhookAdminService {
       conditions.push(eq(webhookEvent.processed, 0));
     }
 
-    const whereClause = conditions.length === 1 ? conditions[0] : and(...conditions);
+    const whereClause = conditions.length === 0
+      ? undefined
+      : conditions.length === 1
+        ? conditions[0]
+        : and(...conditions);
 
-    const countRow = this.db
-      .select({ count: sql<number>`count(*)` })
-      .from(webhookEvent)
-      .where(whereClause)
-      .get();
+    const countRow = await getOne<{ count: number }>(
+      whereClause
+        ? this.db
+          .select({ count: sql<number>`count(*)`.as('count') })
+          .from(webhookEvent)
+          .where(whereClause)
+        : this.db
+          .select({ count: sql<number>`count(*)`.as('count') })
+          .from(webhookEvent)
+    );
 
-    const events = this.db
-      .select({
-        id: webhookEvent.id,
-        payload: webhookEvent.payload,
-        processed: webhookEvent.processed,
-        error_message: webhookEvent.error_message,
-        created_at: webhookEvent.created_at
-      })
-      .from(webhookEvent)
-      .where(whereClause)
-      .orderBy(desc(webhookEvent.created_at))
-      .limit(limit)
-      .offset(offset)
-      .all();
+    const events = await getMany<{
+      id: number;
+      payload: string;
+      processed: number | null;
+      error_message: string | null;
+      created_at: string | null;
+    }>(
+      (whereClause
+        ? this.db
+          .select({
+            id: webhookEvent.id,
+            payload: webhookEvent.payload,
+            processed: webhookEvent.processed,
+            error_message: webhookEvent.error_message,
+            created_at: webhookEvent.created_at
+          })
+          .from(webhookEvent)
+          .where(whereClause)
+        : this.db
+          .select({
+            id: webhookEvent.id,
+            payload: webhookEvent.payload,
+            processed: webhookEvent.processed,
+            error_message: webhookEvent.error_message,
+            created_at: webhookEvent.created_at
+          })
+          .from(webhookEvent))
+        .orderBy(desc(webhookEvent.created_at))
+        .limit(limit)
+        .offset(offset)
+    );
 
     const parsedEvents = events.map((event): {
       id: number;
@@ -307,14 +342,15 @@ export class WebhookAdminService {
     let participantRows: Array<{ strava_athlete_id: string | null; name: string | null }> = [];
 
     if (ownerIds.length > 0) {
-      participantRows = this.db
-        .select({
-          strava_athlete_id: participant.strava_athlete_id,
-          name: participant.name,
-        })
-        .from(participant)
-        .where(inArray(participant.strava_athlete_id, ownerIds))
-        .all();
+      participantRows = await getMany<{ strava_athlete_id: string | null; name: string | null }>(
+        this.db
+          .select({
+            strava_athlete_id: participant.strava_athlete_id,
+            name: participant.name,
+          })
+          .from(participant)
+          .where(inArray(participant.strava_athlete_id, ownerIds))
+      );
     }
 
     const participantsById = new Map(
@@ -360,24 +396,29 @@ export class WebhookAdminService {
   }
 
   async retryEvent(id: number) {
-    const event = this.db.select().from(webhookEvent).where(eq(webhookEvent.id, id)).get();
+    const event = await getOne<typeof webhookEvent.$inferSelect>(
+      this.db.select().from(webhookEvent).where(eq(webhookEvent.id, id))
+    );
     if (!event) throw new Error('Event not found');
 
     const payload = JSON.parse(event.payload);
     const processor = createWebhookProcessor(this.db);
 
     // We clear the error before retrying
-    this.db.update(webhookEvent)
-      .set({ error_message: null, processed: 0 })
-      .where(eq(webhookEvent.id, id))
-      .run();
+    await exec(
+      this.db.update(webhookEvent)
+        .set({ error_message: null, processed: 0 })
+        .where(eq(webhookEvent.id, id))
+    );
 
     await processor(payload, this.logger);
     return { success: true };
   }
 
   async replayEvent(id: number) {
-    const event = this.db.select().from(webhookEvent).where(eq(webhookEvent.id, id)).get();
+    const event = await getOne<typeof webhookEvent.$inferSelect>(
+      this.db.select().from(webhookEvent).where(eq(webhookEvent.id, id))
+    );
     if (!event) throw new Error('Event not found');
 
     const payload = JSON.parse(event.payload);
@@ -388,7 +429,9 @@ export class WebhookAdminService {
   }
 
   async getEnrichedEventDetails(id: number) {
-    const eventRow = this.db.select().from(webhookEvent).where(eq(webhookEvent.id, id)).get();
+    const eventRow = await getOne<typeof webhookEvent.$inferSelect>(
+      this.db.select().from(webhookEvent).where(eq(webhookEvent.id, id))
+    );
     if (!eventRow) throw new Error('Event not found');
 
     const payload = JSON.parse(eventRow.payload);
@@ -406,7 +449,7 @@ export class WebhookAdminService {
 
     if (objectType === 'athlete') {
       const athleteId = ownerId || objectId;
-      const participantRecord = this.participantService.getParticipantByStravaAthleteId(athleteId!);
+      const participantRecord = await this.participantService.getParticipantByStravaAthleteId(athleteId!);
 
       response.enrichment = {
         athlete: {
@@ -419,7 +462,7 @@ export class WebhookAdminService {
       const activityId = objectId;
 
       // Get participant from our database
-      const participantRecord = this.participantService.getParticipantByStravaAthleteId(athleteId!);
+      const participantRecord = await this.participantService.getParticipantByStravaAthleteId(athleteId!);
 
       // Initialize enrichment object
       const enrichment: any = {
@@ -536,7 +579,7 @@ export class WebhookAdminService {
   }
 
   async clearEvents() {
-    this.db.delete(webhookEvent).run();
+    await exec(this.db.delete(webhookEvent));
     return { success: true };
   }
 }

@@ -1,3 +1,5 @@
+import type { Pool } from 'pg';
+import type { AppDatabase } from '../db/types';
 /**
  * Webhook HTTP Handler Tests
  *
@@ -12,8 +14,6 @@
  * - No Strava API mocking needed - just HTTP request/response handling
  */
 
-import { Database } from 'better-sqlite3';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import request from 'supertest';
 import { setupTestDb, teardownTestDb } from './testDataHelpers';
 import { webhookEvent } from '../db/schema';
@@ -23,14 +23,24 @@ import { createWebhookRouter } from '../routes/webhooks';
 import { WebhookLogger } from '../webhooks/logger';
 import { reloadConfig } from '../config';
 
+async function firstRow<T>(query: any): Promise<T | undefined> {
+  const rows = await query.limit(1).execute();
+  return rows[0] as T | undefined;
+}
+
+async function allRows<T>(query: any): Promise<T[]> {
+  const rows = await query.execute();
+  return rows as T[];
+}
+
 describe('Webhook HTTP Handler', () => {
-  let db: Database;
-  let drizzleDb: BetterSQLite3Database;
+  let pool: Pool;
+  let orm: AppDatabase;
   let app: Express;
   let logger: WebhookLogger;
   const TEST_WEBHOOK_VERIFY_TOKEN = 'test-webhook-verify-token-for-ci';
 
-  beforeAll(() => {
+  beforeAll(async () => {
     // Ensure WEBHOOK_VERIFY_TOKEN is set for tests (CI doesn't load .env)
     if (!process.env.WEBHOOK_VERIFY_TOKEN) {
       process.env.WEBHOOK_VERIFY_TOKEN = TEST_WEBHOOK_VERIFY_TOKEN;
@@ -40,26 +50,25 @@ describe('Webhook HTTP Handler', () => {
     reloadConfig();
     
     const setup = setupTestDb({ seed: false });
-    db = setup.db;
-    drizzleDb = setup.drizzleDb;
+    pool = setup.pool;
+    orm = setup.orm;
 
     // Create Express app with webhook routes
     app = express();
     app.use(express.json());
     
-    logger = new WebhookLogger(drizzleDb);
+    logger = new WebhookLogger(orm);
 
-    const webhookRouter = createWebhookRouter(logger, drizzleDb);
+    const webhookRouter = createWebhookRouter(logger, orm);
     app.use('/webhooks', webhookRouter);
   });
-
-  afterAll(() => {
-    teardownTestDb(db);
+  afterAll(async () => {
+    await teardownTestDb(pool);
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Clear webhook events before each test
-    drizzleDb.delete(webhookEvent).execute();
+    await orm.delete(webhookEvent).execute();
   });
 
   describe('GET /webhooks/strava - Subscription Validation', () => {
@@ -142,11 +151,12 @@ describe('Webhook HTTP Handler', () => {
       expect(response.body).toEqual({ received: true });
 
       // Verify event was stored in database
-      const storedEvent = drizzleDb
-        .select()
-        .from(webhookEvent)
-        .where(eq(webhookEvent.processed, 0))
-        .get();
+      const storedEvent = await firstRow<any>(
+        orm
+          .select()
+          .from(webhookEvent)
+          .where(eq(webhookEvent.processed, 0))
+      );
 
       expect(storedEvent).toBeDefined();
       const eventPayload = JSON.parse(storedEvent!.payload);
@@ -172,11 +182,12 @@ describe('Webhook HTTP Handler', () => {
 
       expect(response.status).toBe(200);
 
-      const storedEvent = drizzleDb
-        .select()
-        .from(webhookEvent)
-        .where(eq(webhookEvent.processed, 0))
-        .get();
+      const storedEvent = await firstRow<any>(
+        orm
+          .select()
+          .from(webhookEvent)
+          .where(eq(webhookEvent.processed, 0))
+      );
 
       expect(storedEvent).toBeDefined();
       const eventPayload = JSON.parse(storedEvent!.payload);
@@ -200,11 +211,12 @@ describe('Webhook HTTP Handler', () => {
 
       expect(response.status).toBe(200);
 
-      const storedEvent = drizzleDb
-        .select()
-        .from(webhookEvent)
-        .where(eq(webhookEvent.processed, 0))
-        .get();
+      const storedEvent = await firstRow<any>(
+        orm
+          .select()
+          .from(webhookEvent)
+          .where(eq(webhookEvent.processed, 0))
+      );
 
       expect(storedEvent).toBeDefined();
       const eventPayload = JSON.parse(storedEvent!.payload);
@@ -236,13 +248,14 @@ describe('Webhook HTTP Handler', () => {
       await request(app).post('/webhooks/strava').send(event1);
       await request(app).post('/webhooks/strava').send(event2);
 
-      const storedEvents = drizzleDb
-        .select()
-        .from(webhookEvent)
-        .all();
+      const storedEvents = await allRows<any>(
+        orm
+          .select()
+          .from(webhookEvent)
+      );
 
       expect(storedEvents).toHaveLength(2);
-      const ids = storedEvents.map(e => JSON.parse(e.payload).object_id);
+      const ids = storedEvents.map((e: any) => JSON.parse(e.payload).object_id);
       expect(ids).toContain(111);
       expect(ids).toContain(222);
     });
@@ -272,10 +285,11 @@ describe('Webhook HTTP Handler', () => {
       expect(response2.status).toBe(200);
 
       // Both events should be stored (webhook processor handles idempotency)
-      const storedEvents = drizzleDb
-        .select()
-        .from(webhookEvent)
-        .all();
+      const storedEvents = await allRows<any>(
+        orm
+          .select()
+          .from(webhookEvent)
+      );
 
       expect(storedEvents.length).toBeGreaterThanOrEqual(1);
     });
@@ -297,11 +311,12 @@ describe('Webhook HTTP Handler', () => {
 
       expect(response.status).toBe(200);
 
-      const storedEvent = drizzleDb
-        .select()
-        .from(webhookEvent)
-        .where(eq(webhookEvent.processed, 0))
-        .get();
+      const storedEvent = await firstRow<any>(
+        orm
+          .select()
+          .from(webhookEvent)
+          .where(eq(webhookEvent.processed, 0))
+      );
 
       expect(storedEvent).toBeDefined();
     });
@@ -349,10 +364,11 @@ describe('Webhook HTTP Handler', () => {
 
       await request(app).post('/webhooks/strava').send(payload);
 
-      const storedEvent = drizzleDb
-        .select()
-        .from(webhookEvent)
-        .get();
+      const storedEvent = await firstRow<any>(
+        orm
+          .select()
+          .from(webhookEvent)
+      );
 
       expect(storedEvent?.processed).toBe(0); // 0 = unprocessed (false)
       expect(storedEvent?.error_message).toBeNull();
@@ -371,10 +387,11 @@ describe('Webhook HTTP Handler', () => {
 
       await request(app).post('/webhooks/strava').send(payload);
 
-      const storedEvent = drizzleDb
-        .select()
-        .from(webhookEvent)
-        .get();
+      const storedEvent = await firstRow<any>(
+        orm
+          .select()
+          .from(webhookEvent)
+      );
 
       expect(storedEvent?.created_at).toBeDefined();
       expect(storedEvent?.created_at).not.toBeNull();
