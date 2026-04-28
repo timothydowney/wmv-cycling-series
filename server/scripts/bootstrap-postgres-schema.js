@@ -14,7 +14,7 @@ const SCHEMA_SQL = [
   CREATE TABLE IF NOT EXISTS participant (
     strava_athlete_id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     active BOOLEAN NOT NULL DEFAULT TRUE,
     is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     weight DOUBLE PRECISION,
@@ -27,7 +27,7 @@ const SCHEMA_SQL = [
     name TEXT NOT NULL,
     start_at BIGINT NOT NULL,
     end_at BIGINT NOT NULL,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
   )
   `,
   `
@@ -43,7 +43,7 @@ const SCHEMA_SQL = [
     city TEXT,
     state TEXT,
     country TEXT,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     metadata_updated_at TEXT,
     total_elevation_gain DOUBLE PRECISION,
     climb_category BIGINT
@@ -59,7 +59,7 @@ const SCHEMA_SQL = [
     start_at BIGINT NOT NULL,
     end_at BIGINT NOT NULL,
     multiplier BIGINT NOT NULL DEFAULT 1,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     notes TEXT DEFAULT ''
   )
   `,
@@ -74,7 +74,7 @@ const SCHEMA_SQL = [
     validation_status TEXT DEFAULT 'valid',
     validation_message TEXT,
     validated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     athlete_weight DOUBLE PRECISION
   )
   `,
@@ -102,8 +102,8 @@ const SCHEMA_SQL = [
     strava_athlete_id TEXT NOT NULL REFERENCES participant(strava_athlete_id),
     activity_id BIGINT REFERENCES activity(id),
     total_time_seconds BIGINT NOT NULL,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
   )
   `,
   `
@@ -113,8 +113,8 @@ const SCHEMA_SQL = [
     refresh_token TEXT NOT NULL,
     expires_at BIGINT NOT NULL,
     scope TEXT,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
   )
   `,
   `
@@ -139,7 +139,7 @@ const SCHEMA_SQL = [
     payload TEXT NOT NULL,
     processed BIGINT,
     error_message TEXT,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
   )
   `,
   `
@@ -158,8 +158,8 @@ const SCHEMA_SQL = [
     end_at BIGINT NOT NULL,
     display_name TEXT,
     rules_blurb TEXT,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
   )
   `,
   `
@@ -173,8 +173,8 @@ const SCHEMA_SQL = [
     display_order BIGINT NOT NULL DEFAULT 0,
     surface_type TEXT,
     category TEXT,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
   )
   `,
   `
@@ -185,7 +185,7 @@ const SCHEMA_SQL = [
     strava_athlete_id TEXT NOT NULL REFERENCES participant(strava_athlete_id) ON DELETE CASCADE,
     strava_activity_id TEXT NOT NULL,
     matched_at BIGINT NOT NULL,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
   )
   `,
   `
@@ -194,7 +194,7 @@ const SCHEMA_SQL = [
     explorer_campaign_id BIGINT NOT NULL REFERENCES explorer_campaign(id) ON DELETE CASCADE,
     explorer_destination_id BIGINT NOT NULL REFERENCES explorer_destination(id) ON DELETE CASCADE,
     strava_athlete_id TEXT NOT NULL REFERENCES participant(strava_athlete_id) ON DELETE CASCADE,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
   )
   `,
   `

@@ -23,20 +23,10 @@ echo "[e2e-db] Ensuring schema exists"
 DATABASE_URL="$DATABASE_URL" npm --prefix server run db:pg:bootstrap:schema >/dev/null
 
 if [[ "${WMV_E2E_RESET_DB_ON_BOOT:-false}" == "true" ]]; then
-  SOURCE_SQLITE="${WMV_E2E_SOURCE_DATABASE_PATH:-server/data/wmv_e2e_fixture.db}"
-  SOURCE_SQLITE_ABS=$(node -e "const path = require('path'); console.log(path.resolve(process.cwd(), process.argv[1]));" "$SOURCE_SQLITE")
-
-  if [[ ! -f "$SOURCE_SQLITE_ABS" ]]; then
-    echo "[e2e-db] ERROR: source fixture not found at $SOURCE_SQLITE (resolved: $SOURCE_SQLITE_ABS)"
-    exit 1
-  fi
-
-  echo "[e2e-db] Resetting Postgres E2E data from SQLite fixture: $SOURCE_SQLITE_ABS"
-  DATABASE_URL="$DATABASE_URL" npm --prefix server run db:pg:migrate:from-sqlite -- \
-    --sqlite "$SOURCE_SQLITE_ABS" \
-    --source-env e2e-sqlite-fixture \
-    --target-env e2e-postgres \
-    --confirm-destructive >/dev/null
+  echo "[e2e-db] ERROR: WMV_E2E_RESET_DB_ON_BOOT=true is no longer supported by scripts/ensure-e2e-db.sh."
+  echo "[e2e-db] The legacy SQLite fixture import/reset flow has been removed, so WMV_E2E_RESET_DB_ON_BOOT and WMV_E2E_SOURCE_DATABASE_PATH are ignored here."
+  echo "[e2e-db] Supported reset workflow: drop and recreate the Postgres database referenced by DATABASE_URL (for local E2E this is usually wmv_e2e), then rerun this script to recreate the schema."
+  exit 1
 fi
 
 echo "[e2e-db] E2E Postgres database is ready"

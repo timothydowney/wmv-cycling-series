@@ -209,4 +209,38 @@ describe('WebhookAdminService enrichment', () => {
     });
     expect(insertedEvents).toHaveLength(4);
   });
+
+  it('should apply since filtering against created_at without Postgres type errors', async () => {
+    await orm.insert(webhookEvent).values([
+      {
+        payload: JSON.stringify({
+          object_type: 'athlete',
+          aspect_type: 'update',
+          object_id: 111,
+          owner_id: 111,
+          event_time: 1711929600,
+        }),
+        processed: 1,
+        created_at: '2026-01-01T00:00:00Z',
+      },
+      {
+        payload: JSON.stringify({
+          object_type: 'athlete',
+          aspect_type: 'update',
+          object_id: 222,
+          owner_id: 222,
+          event_time: 1714521600,
+        }),
+        processed: 1,
+        created_at: '2026-05-01T00:00:00Z',
+      },
+    ]);
+
+    const sinceUnix = Math.floor(new Date('2026-04-29T00:00:00Z').getTime() / 1000);
+    const result = await service.getEvents(20, 0, sinceUnix, 'all');
+
+    const objectIds = result.events.map((event) => event.payload.object_id);
+    expect(objectIds).toContain(222);
+    expect(objectIds).not.toContain(111);
+  });
 });

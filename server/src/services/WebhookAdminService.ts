@@ -53,7 +53,7 @@ export class WebhookAdminService {
     const failedEvents = await countAll(and(eq(webhookEvent.processed, 0), sql`${webhookEvent.error_message} IS NOT NULL`));
     const pendingRetries = failedEvents;
     const eventsLast24h = await countAll(
-      sql`${webhookEvent.created_at}::timestamp > now() - interval '1 day'`
+      sql`${webhookEvent.created_at} > now() - interval '1 day'`
     );
 
     const successRate =
@@ -247,7 +247,8 @@ export class WebhookAdminService {
     const conditions: Array<any> = [];
 
     if (since > 0) {
-      conditions.push(sql`${webhookEvent.created_at} > to_timestamp(${since})`);
+      const sinceIso = new Date(since * 1000).toISOString();
+      conditions.push(sql`${webhookEvent.created_at} > ${sinceIso}`);
     }
 
     if (status === 'success') {

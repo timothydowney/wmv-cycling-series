@@ -113,6 +113,13 @@
       "when": 1776703200000,
       "tag": "0015_explorer_destination_pins",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1777377600000,
+      "tag": "0016_postgres_audit_timestamps_timestamptz",
+      "breakpoints": true
     }
   ]
 }
