@@ -23,8 +23,9 @@ echo "[e2e-db] Ensuring schema exists"
 DATABASE_URL="$DATABASE_URL" npm --prefix server run db:pg:bootstrap:schema >/dev/null
 
 if [[ "${WMV_E2E_RESET_DB_ON_BOOT:-false}" == "true" ]]; then
-  echo "[e2e-db] ERROR: WMV_E2E_RESET_DB_ON_BOOT=true is set but the SQLite-fixture import path has been removed."
-  echo "[e2e-db] The E2E database now uses a persistent Postgres schema. To reset data, drop and recreate the wmv_e2e database manually."
+  echo "[e2e-db] ERROR: WMV_E2E_RESET_DB_ON_BOOT=true is no longer supported by scripts/ensure-e2e-db.sh."
+  echo "[e2e-db] The legacy SQLite fixture import/reset flow has been removed, so WMV_E2E_RESET_DB_ON_BOOT and WMV_E2E_SOURCE_DATABASE_PATH are ignored here."
+  echo "[e2e-db] Supported reset workflow: drop and recreate the Postgres database referenced by DATABASE_URL (for local E2E this is usually wmv_e2e), then rerun this script to recreate the schema."
   exit 1
 fi
 

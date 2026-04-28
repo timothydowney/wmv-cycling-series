@@ -116,7 +116,7 @@ CREATE TABLE IF NOT EXISTS participant_token (
   scope TEXT,                    -- Scopes user actually granted
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY(strava_athlete_id) REFERENCES participants(strava_athlete_id) ON DELETE CASCADE
+  FOREIGN KEY(strava_athlete_id) REFERENCES participant(strava_athlete_id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_participant_token_participant ON participant_token(strava_athlete_id);
