@@ -7,7 +7,7 @@ import type { AppDatabase } from '../db/types';
  * Focuses on verifying that batch fetch respects season end dates.
  */
 
-import { describe, it, expect, beforeEach, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterAll, jest } from '@jest/globals';
 import BatchFetchService from '../services/BatchFetchService';
 import { setupTestDb, teardownTestDb } from './setupTestDb';
 import { createSegment, createSeason, createWeek } from './testDataHelpers';
@@ -19,6 +19,9 @@ describe('BatchFetchService with Season Validation', () => {
   const now = Math.floor(Date.now() / 1000);
 
   beforeEach(async () => {
+    // Ensure this suite always runs on real clock time even if another test toggled fake timers.
+    jest.useRealTimers();
+
     // Create in-memory test database and run migrations
     const testDb = setupTestDb({ seed: false });
     pool = testDb.pool;
@@ -82,8 +85,8 @@ describe('BatchFetchService with Season Validation', () => {
         seasonId: activeSeason.id,
         weekName: 'Active Week',
         stravaSegmentId: '12345',
-        startTime: new Date((now - 86400) * 1000).toISOString(),
-        endTime: new Date((now - 86400 + 86400) * 1000).toISOString(),
+        startTime: new Date((now - 3600) * 1000).toISOString(),
+        endTime: new Date((now + 3600) * 1000).toISOString(),
         requiredLaps: 1
       });
 
@@ -109,8 +112,8 @@ describe('BatchFetchService with Season Validation', () => {
         seasonId: activeSeason.id,
         weekName: 'Open Week',
         stravaSegmentId: '54321',
-        startTime: new Date((now - 86400) * 1000).toISOString(),
-        endTime: new Date(now * 1000).toISOString(),
+        startTime: new Date((now - 3600) * 1000).toISOString(),
+        endTime: new Date((now + 3600) * 1000).toISOString(),
         requiredLaps: 1
       });
 

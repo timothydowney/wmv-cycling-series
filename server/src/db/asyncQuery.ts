@@ -14,6 +14,6 @@ export async function getMany<T>(query: any): Promise<T[]> {
   return result as T[];
 }
 
-export async function exec(query: any): Promise<void> {
-  await query.execute();
+export async function exec<T = unknown>(query: any): Promise<T> {
+  return (await query.execute()) as T;
 }

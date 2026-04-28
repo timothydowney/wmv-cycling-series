@@ -40,6 +40,14 @@ export interface SubscriptionStatus {
   callback_url: string | null;
 }
 
+function getChangesMetadata(result: unknown): { changes: number | undefined; changesKnown: boolean } {
+  const info = result as { changes?: number } | undefined;
+  return {
+    changes: info?.changes,
+    changesKnown: typeof info?.changes === 'number'
+  };
+}
+
 /**
  * Helper to build Strava API credentials form
  */
@@ -88,9 +96,9 @@ async function updateSubscriptionInDb(
       .where(eq(webhookSubscription.id, 1))
   );
 
-  const info = result as unknown as { changes: number };
+  const changesMetadata = getChangesMetadata(result);
   console.log('[WebhookSubscriptionService] updateSubscriptionInDb - Database operation complete:', {
-    changes: info.changes
+    ...changesMetadata
   });
 }
 
@@ -139,10 +147,11 @@ async function insertSubscriptionInDb(
       })
   );
 
-  const info = result as unknown as { changes: number; lastInsertRowid?: number };
+  const info = result as { changes?: number; lastInsertRowid?: number } | undefined;
+  const changesMetadata = getChangesMetadata(result);
   console.log('[WebhookSubscriptionService] insertSubscriptionInDb - Database operation complete:', {
-    changes: info.changes,
-    lastInsertRowid: info.lastInsertRowid
+    ...changesMetadata,
+    lastInsertRowid: info?.lastInsertRowid
   });
 }
 
@@ -153,9 +162,9 @@ async function insertSubscriptionInDb(
  */
 async function deleteSubscriptionFromDb(db: AppDatabase): Promise<void> {
   const del = await exec(db.delete(webhookSubscription).where(eq(webhookSubscription.id, 1)));
-  const info = del as unknown as { changes: number };
+  const changesMetadata = getChangesMetadata(del);
   console.log('[WebhookSubscriptionService] Database delete result:', {
-    changes: info.changes
+    ...changesMetadata
   });
 }
 
