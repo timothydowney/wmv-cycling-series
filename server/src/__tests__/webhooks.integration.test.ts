@@ -1,4 +1,6 @@
 // @ts-nocheck
+import type { Pool } from 'pg';
+import type { AppDatabase } from '../db/types';
 /**
  * Webhook Integration Tests
  *
@@ -12,8 +14,6 @@
  * No external dependencies - runs locally in seconds.
  */
 
-import { Database } from 'better-sqlite3';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 import {
@@ -41,25 +41,29 @@ jest.mock('strava-v3', () => ({
 }));
 
 describe('Webhook Integration Tests', () => {
-  let db: Database;
-  let drizzleDb: BetterSQLite3Database;
+  let pool: Pool;
+  let orm: AppDatabase;
   let mockStravaClient: MockStravaClient;
 
-  beforeAll(() => {
-    const testDb = setupTestDb();
-    db = testDb.db;
-    drizzleDb = testDb.drizzleDb;
+  const firstRow = async <T>(query: { execute: () => Promise<T[]> }): Promise<T | undefined> => {
+    const rows = await query.execute();
+    return rows[0];
+  };
+
+  beforeAll(async () => {
+    const testDb = setupTestDb({ seed: false });
+    pool = testDb.pool;
+    orm = testDb.orm;
   });
 
-  beforeEach(() => {
-    clearAllData(drizzleDb);
+  beforeEach(async () => {
+    await clearAllData(orm);
     // Reset mock for each test
     mockStravaClient = new MockStravaClient();
     mockStravaClient.reset();
   });
-
-  afterAll(() => {
-    teardownTestDb(db);
+  afterAll(async () => {
+    await teardownTestDb(pool);
   });
 
   // ============================================================================
@@ -69,8 +73,8 @@ describe('Webhook Integration Tests', () => {
   describe('Test 1: Complete Activity Webhook Flow', () => {
     it('should process activity webhook and update leaderboard with correct scoring', async () => {
       // Setup
-      const season = createSeason(drizzleDb, 'Test Season 2025', true);
-      const segment = createSegment(drizzleDb, '12345678', 'Test Segment', {
+      const season = await createSeason(orm, 'Test Season 2025', true);
+      const segment = await createSegment(orm, '12345678', 'Test Segment', {
         distance: 2500,
         averageGrade: 5.2,
         city: 'Denver',
@@ -78,7 +82,7 @@ describe('Webhook Integration Tests', () => {
         country: 'USA'
       });
 
-      const week = createWeek(drizzleDb, {
+      const week = await createWeek(orm, {
         seasonId: season.id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Week 1: Test',
@@ -89,11 +93,11 @@ describe('Webhook Integration Tests', () => {
       });
 
       // Create participants
-      const alice = createParticipant(drizzleDb, '111001', 'Alice', {
+      const alice = await createParticipant(orm, '111001', 'Alice', {
         accessToken: 'alice_token',
         refreshToken: 'alice_refresh'
       });
-      const bob = createParticipant(drizzleDb, '111002', 'Bob', {
+      const bob = await createParticipant(orm, '111002', 'Bob', {
         accessToken: 'bob_token',
         refreshToken: 'bob_refresh'
       });
@@ -147,13 +151,13 @@ describe('Webhook Integration Tests', () => {
 
   describe('Test 2: Multiple Activities - Best Selection', () => {
     it('should select fastest activity when multiple qualify in same week', async () => {
-      const season = createSeason(drizzleDb, 'Test Season', true);
-      const segment = createSegment(drizzleDb, '22345678', 'Segment 2', {
+      const season = await createSeason(orm, 'Test Season', true);
+      const segment = await createSegment(orm, '22345678', 'Segment 2', {
         distance: 3000,
         averageGrade: 6.5
       });
 
-      const week = createWeek(drizzleDb, {
+      const week = await createWeek(orm, {
         seasonId: season.id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Week 2',
@@ -163,7 +167,7 @@ describe('Webhook Integration Tests', () => {
         endTime: '2025-11-08T22:00:00Z'
       });
 
-      createParticipant(drizzleDb, '211001', 'Charlie', {
+      await createParticipant(orm, '211001', 'Charlie', {
         accessToken: 'charlie_token'
       });
 
@@ -200,10 +204,10 @@ describe('Webhook Integration Tests', () => {
 
   describe('Test 3: PR Detection and Bonus Scoring', () => {
     it('should award PR bonus when segment effort has pr_rank field', async () => {
-      const season = createSeason(drizzleDb, 'Test Season', true);
-      const segment = createSegment(drizzleDb, '33345678', 'Segment 3');
+      const season = await createSeason(orm, 'Test Season', true);
+      const segment = await createSegment(orm, '33345678', 'Segment 3');
 
-      const week = createWeek(drizzleDb, {
+      const week = await createWeek(orm, {
         seasonId: season.id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Week 3',
@@ -211,7 +215,7 @@ describe('Webhook Integration Tests', () => {
         requiredLaps: 1
       });
 
-      createParticipant(drizzleDb, '311001', 'Diana', {
+      await createParticipant(orm, '311001', 'Diana', {
         accessToken: 'diana_token'
       });
 
@@ -248,46 +252,42 @@ describe('Webhook Integration Tests', () => {
 
   describe('Test 4: Athlete Deauth - Token Removal', () => {
     it('should delete tokens when athlete deauthorizes', async () => {
-      const season = createSeason(drizzleDb, 'Test Season', true);
+      const season = await createSeason(orm, 'Test Season', true);
 
       // Create participant with tokens
-      createParticipant(drizzleDb, '411001', 'Eve', {
+      await createParticipant(orm, '411001', 'Eve', {
         accessToken: 'eve_token',
         refreshToken: 'eve_refresh'
       });
 
-      // Verify tokens exist using drizzleDb directly
+      // Verify tokens exist using orm directly
       // Need to import participantToken
       
-      let token = drizzleDb
+      let token = await firstRow(orm
         .select()
         .from(participantToken)
-        .where(eq(participantToken.strava_athlete_id, '411001'))
-        .get();
+        .where(eq(participantToken.strava_athlete_id, '411001')));
       expect(token).toBeDefined();
       expect(token.access_token).toBe('eve_token');
 
       // Simulate deauth webhook by deleting tokens
-      const deleted = drizzleDb
+      await orm
         .delete(participantToken)
         .where(eq(participantToken.strava_athlete_id, '411001'))
-        .run();
-      expect(deleted.changes).toBe(1);
+        .execute();
 
       // Verify tokens are gone
-      token = drizzleDb
+      token = await firstRow(orm
         .select()
         .from(participantToken)
-        .where(eq(participantToken.strava_athlete_id, '411001'))
-        .get();
+        .where(eq(participantToken.strava_athlete_id, '411001')));
       expect(token).toBeUndefined();
 
       // Participant record should still exist (GDPR: only tokens deleted)
-      const p = drizzleDb
+      const p = await firstRow(orm
         .select()
         .from(participant)
-        .where(eq(participant.strava_athlete_id, '411001'))
-        .get();
+        .where(eq(participant.strava_athlete_id, '411001')));
       expect(p).toBeDefined();
       expect(p.name).toBe('Eve');
     });
@@ -299,10 +299,10 @@ describe('Webhook Integration Tests', () => {
 
   describe('Test 5: Activity Deletion - Cascade and Recalculation', () => {
     it('should cascade delete activity and recalculate leaderboard when activity deleted', async () => {
-      const season = createSeason(drizzleDb, 'Test Season', true);
-      const segment = createSegment(drizzleDb, '55345678', 'Segment 5');
+      const season = await createSeason(orm, 'Test Season', true);
+      const segment = await createSegment(orm, '55345678', 'Segment 5');
 
-      const week = createWeek(drizzleDb, {
+      const week = await createWeek(orm, {
         seasonId: season.id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Week 5',
@@ -310,10 +310,10 @@ describe('Webhook Integration Tests', () => {
       });
 
       // Create two participants
-      createParticipant(drizzleDb, '511001', 'Frank', {
+      await createParticipant(orm, '511001', 'Frank', {
         accessToken: 'frank_token'
       });
-      createParticipant(drizzleDb, '511002', 'Grace', {
+      await createParticipant(orm, '511002', 'Grace', {
         accessToken: 'grace_token'
       });
 
@@ -335,11 +335,16 @@ describe('Webhook Integration Tests', () => {
 
       // Simulate activity deletion cascade
       
-      const delActivity = drizzleDb
+      await orm
         .delete(activity)
         .where(eq(activity.strava_activity_id, '9401'))
-        .run();
-      expect(delActivity.changes).toBe(0); // No activity stored yet in test (would be 1 in real flow)
+        .execute();
+
+      const remainingActivity = await firstRow(orm
+        .select()
+        .from(activity)
+        .where(eq(activity.strava_activity_id, '9401')));
+      expect(remainingActivity).toBeUndefined(); // No activity stored yet in test (would be 1 in real flow)
     });
   });
 
@@ -349,10 +354,10 @@ describe('Webhook Integration Tests', () => {
 
   describe('Test 6: Concurrent Webhooks - No Race Conditions', () => {
     it('should handle multiple concurrent webhooks without data corruption', async () => {
-      const season = createSeason(drizzleDb, 'Test Season', true);
-      const segment = createSegment(drizzleDb, '66345678', 'Segment 6');
+      const season = await createSeason(orm, 'Test Season', true);
+      const segment = await createSegment(orm, '66345678', 'Segment 6');
 
-      const week = createWeek(drizzleDb, {
+      const week = await createWeek(orm, {
         seasonId: season.id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Week 6',
@@ -360,13 +365,13 @@ describe('Webhook Integration Tests', () => {
       });
 
       // Create 3 participants
-      createParticipant(drizzleDb, '611001', 'Henry', {
+      await createParticipant(orm, '611001', 'Henry', {
         accessToken: 'henry_token'
       });
-      createParticipant(drizzleDb, '611002', 'Iris', {
+      await createParticipant(orm, '611002', 'Iris', {
         accessToken: 'iris_token'
       });
-      createParticipant(drizzleDb, '611003', 'Jack', {
+      await createParticipant(orm, '611003', 'Jack', {
         accessToken: 'jack_token'
       });
 
@@ -408,17 +413,17 @@ describe('Webhook Integration Tests', () => {
 
   describe('Test 7: Non-Qualifying Activities - Skip Without Error', () => {
     it('should skip non-qualifying activities and not create results', async () => {
-      const season = createSeason(drizzleDb, 'Test Season', true);
-      const segment = createSegment(drizzleDb, '77345678', 'Segment 7');
+      const season = await createSeason(orm, 'Test Season', true);
+      const segment = await createSegment(orm, '77345678', 'Segment 7');
 
-      const week = createWeek(drizzleDb, {
+      const week = await createWeek(orm, {
         seasonId: season.id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Week 7',
         requiredLaps: 2 // Requires 2 laps
       });
 
-      createParticipant(drizzleDb, '711001', 'Kate', {
+      await createParticipant(orm, '711001', 'Kate', {
         accessToken: 'kate_token'
       });
 
@@ -442,17 +447,17 @@ describe('Webhook Integration Tests', () => {
 
   describe('Test 8: Webhook Idempotency - Same Webhook Multiple Times', () => {
     it('should handle replayed webhooks without creating duplicates', async () => {
-      const season = createSeason(drizzleDb, 'Test Season', true);
-      const segment = createSegment(drizzleDb, '88345678', 'Segment 8');
+      const season = await createSeason(orm, 'Test Season', true);
+      const segment = await createSegment(orm, '88345678', 'Segment 8');
 
-      const week = createWeek(drizzleDb, {
+      const week = await createWeek(orm, {
         seasonId: season.id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Week 8',
         requiredLaps: 1
       });
 
-      createParticipant(drizzleDb, '811001', 'Linda', {
+      await createParticipant(orm, '811001', 'Linda', {
         accessToken: 'linda_token'
       });
 
@@ -484,17 +489,17 @@ describe('Webhook Integration Tests', () => {
 
   describe('Test 9: Multiple Laps - Best Window Selection', () => {
     it('should handle activities with multiple laps and select fastest window', async () => {
-      const season = createSeason(drizzleDb, 'Test Season', true);
-      const segment = createSegment(drizzleDb, '99345678', 'Segment 9');
+      const season = await createSeason(orm, 'Test Season', true);
+      const segment = await createSegment(orm, '99345678', 'Segment 9');
 
-      const week = createWeek(drizzleDb, {
+      const week = await createWeek(orm, {
         seasonId: season.id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Week 9',
         requiredLaps: 2 // Requires 2 laps
       });
 
-      createParticipant(drizzleDb, '911001', 'Mike', {
+      await createParticipant(orm, '911001', 'Mike', {
         accessToken: 'mike_token'
       });
 
@@ -526,10 +531,10 @@ describe('Webhook Integration Tests', () => {
 
   describe('Test 10: Scoring Calculation Verification', () => {
     it('should calculate correct points with actual database logic', async () => {
-      const season = createSeason(drizzleDb, 'Test Season', true);
-      const segment = createSegment(drizzleDb, '100345678', 'Segment 10');
+      const season = await createSeason(orm, 'Test Season', true);
+      const segment = await createSegment(orm, '100345678', 'Segment 10');
 
-      const week = createWeek(drizzleDb, {
+      const week = await createWeek(orm, {
         seasonId: season.id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Week 10',
@@ -537,16 +542,16 @@ describe('Webhook Integration Tests', () => {
       });
 
       // Create 4 participants for scoring test
-      createParticipant(drizzleDb, '1011001', 'Neil', {
+      await createParticipant(orm, '1011001', 'Neil', {
         accessToken: 'neil_token'
       });
-      createParticipant(drizzleDb, '1011002', 'Olivia', {
+      await createParticipant(orm, '1011002', 'Olivia', {
         accessToken: 'olivia_token'
       });
-      createParticipant(drizzleDb, '1011003', 'Peter', {
+      await createParticipant(orm, '1011003', 'Peter', {
         accessToken: 'peter_token'
       });
-      createParticipant(drizzleDb, '1011004', 'Quinn', {
+      await createParticipant(orm, '1011004', 'Quinn', {
         accessToken: 'quinn_token'
       });
 

@@ -46,9 +46,9 @@ export const participantRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       const participantService = new ParticipantService(ctx.orm);
-      participantService.setParticipantAdminStatus(input.stravaAthleteId, input.isAdmin);
+      await participantService.setParticipantAdminStatus(input.stravaAthleteId, input.isAdmin);
 
-      const updatedParticipant = participantService.getParticipantByStravaAthleteId(input.stravaAthleteId);
+      const updatedParticipant = await participantService.getParticipantByStravaAthleteId(input.stravaAthleteId);
       const isEnvAdmin = config.adminAthleteIds.includes(input.stravaAthleteId);
 
       return {

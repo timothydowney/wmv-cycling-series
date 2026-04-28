@@ -8,11 +8,12 @@
  * Also tracks wax puck lifespan (8 uses per puck).
  */
 
-import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { AppDatabase } from '../db/types';
 import { eq, isNull, desc, sql } from 'drizzle-orm';
 import { chainWaxPeriod, chainWaxActivity, chainWaxPuck } from '../db/schema';
 import * as stravaClient from '../stravaClient';
 import { getValidAccessToken } from '../tokenManager';
+import { getMany, getOne, exec } from '../db/asyncQuery';
 
 // Athletes tracked for chain wax purposes (Tim and Will on shared trainer)
 const TRACKED_ATHLETE_IDS = ['366880', '34221810'];
@@ -50,20 +51,22 @@ export interface WaxHistoryEntry {
 }
 
 export class ChainWaxService {
-  constructor(private db: BetterSQLite3Database) {}
+  constructor(private db: AppDatabase) {}
 
   /**
    * Get the current chain wax status including period progress and puck state
    */
-  getCurrentStatus(): ChainWaxStatus {
-    const period = this.getCurrentPeriod();
-    const puck = this.getCurrentPuck();
+  async getCurrentStatus(): Promise<ChainWaxStatus> {
+    const period = await this.getCurrentPeriod();
+    const puck = await this.getCurrentPuck();
 
-    const activityCount = this.db
-      .select({ count: sql<number>`count(*)` })
-      .from(chainWaxActivity)
-      .where(eq(chainWaxActivity.period_id, period.id))
-      .get()!.count;
+    const countRow = await getOne<{ count: number }>(
+      this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(chainWaxActivity)
+        .where(eq(chainWaxActivity.period_id, period.id))
+    );
+    const activityCount = countRow?.count ?? 0;
 
     const percentage = Math.min((period.total_distance_meters / REWAX_THRESHOLD_METERS) * 100, 100);
 
@@ -98,38 +101,42 @@ export class ChainWaxService {
   /**
    * Record a wax chain event: closes current period, opens new one, increments puck
    */
-  waxChain(waxedAt: number): void {
-    const currentPeriod = this.getCurrentPeriod();
+  async waxChain(waxedAt: number): Promise<void> {
+    const currentPeriod = await this.getCurrentPeriod();
     const now = Math.floor(Date.now() / 1000);
 
-    this.db.transaction((tx) => {
+    await this.db.transaction(async (tx) => {
       // Close current period
-      tx.update(chainWaxPeriod)
-        .set({ ended_at: waxedAt })
-        .where(eq(chainWaxPeriod.id, currentPeriod.id))
-        .run();
+      await exec(
+        tx.update(chainWaxPeriod)
+          .set({ ended_at: waxedAt })
+          .where(eq(chainWaxPeriod.id, currentPeriod.id))
+      );
 
       // Create new period
-      tx.insert(chainWaxPeriod)
-        .values({
-          started_at: waxedAt,
-          total_distance_meters: 0,
-          created_at: now,
-        })
-        .run();
+      await exec(
+        tx.insert(chainWaxPeriod)
+          .values({
+            started_at: waxedAt,
+            total_distance_meters: 0,
+            created_at: now,
+          })
+      );
 
       // Increment puck wax count
-      const puck = tx
-        .select()
-        .from(chainWaxPuck)
-        .where(eq(chainWaxPuck.is_current, true))
-        .get();
+      const puck = await getOne<any>(
+        tx
+          .select()
+          .from(chainWaxPuck)
+          .where(eq(chainWaxPuck.is_current, true))
+      );
 
       if (puck) {
-        tx.update(chainWaxPuck)
-          .set({ wax_count: puck.wax_count + 1 })
-          .where(eq(chainWaxPuck.id, puck.id))
-          .run();
+        await exec(
+          tx.update(chainWaxPuck)
+            .set({ wax_count: puck.wax_count + 1 })
+            .where(eq(chainWaxPuck.id, puck.id))
+        );
       }
     });
   }
@@ -137,25 +144,27 @@ export class ChainWaxService {
   /**
    * Start a new puck: retire current one and create fresh puck
    */
-  newPuck(): void {
+  async newPuck(): Promise<void> {
     const now = Math.floor(Date.now() / 1000);
 
-    this.db.transaction((tx) => {
+    await this.db.transaction(async (tx) => {
       // Retire current puck
-      tx.update(chainWaxPuck)
-        .set({ is_current: false })
-        .where(eq(chainWaxPuck.is_current, true))
-        .run();
+      await exec(
+        tx.update(chainWaxPuck)
+          .set({ is_current: false })
+          .where(eq(chainWaxPuck.is_current, true))
+      );
 
       // Create fresh puck
-      tx.insert(chainWaxPuck)
-        .values({
-          started_at: now,
-          wax_count: 0,
-          is_current: true,
-          created_at: now,
-        })
-        .run();
+      await exec(
+        tx.insert(chainWaxPuck)
+          .values({
+            started_at: now,
+            wax_count: 0,
+            is_current: true,
+            created_at: now,
+          })
+      );
     });
   }
 
@@ -164,13 +173,13 @@ export class ChainWaxService {
    * Uses INSERT OR IGNORE for deduplication via UNIQUE constraint on strava_activity_id.
    * Returns true if a new activity was recorded, false if it was a duplicate.
    */
-  recordActivity(
+  async recordActivity(
     stravaActivityId: string,
     athleteId: string,
     distanceMeters: number,
     activityStartAt: number
-  ): boolean {
-    const currentPeriod = this.getCurrentPeriod();
+  ): Promise<boolean> {
+    const currentPeriod = await this.getCurrentPeriod();
 
     // Only count activities that started after the current wax period began
     if (activityStartAt < currentPeriod.started_at) {
@@ -179,16 +188,19 @@ export class ChainWaxService {
 
     const now = Math.floor(Date.now() / 1000);
 
-    // Use a raw SQL INSERT OR IGNORE for dedup (Drizzle doesn't have onConflictDoNothing for SQLite easily)
-    const result = this.db.run(sql`
-      INSERT OR IGNORE INTO chain_wax_activity 
-        (period_id, strava_activity_id, strava_athlete_id, distance_meters, activity_start_at, created_at)
-      VALUES 
-        (${currentPeriod.id}, ${stravaActivityId}, ${athleteId}, ${distanceMeters}, ${activityStartAt}, ${now})
-    `);
+    const inserted = await getOne<{ id: number }>(
+      this.db.insert(chainWaxActivity).values({
+        period_id: currentPeriod.id,
+        strava_activity_id: stravaActivityId,
+        strava_athlete_id: athleteId,
+        distance_meters: distanceMeters,
+        activity_start_at: activityStartAt,
+        created_at: now
+      }).onConflictDoNothing().returning({ id: chainWaxActivity.id })
+    );
 
-    if (result.changes > 0) {
-      this.recalculatePeriodTotal(currentPeriod.id);
+    if (inserted) {
+      await this.recalculatePeriodTotal(currentPeriod.id);
       return true;
     }
 
@@ -198,20 +210,22 @@ export class ChainWaxService {
   /**
    * Remove an activity from chain wax tracking (e.g., when deleted from Strava)
    */
-  removeActivity(stravaActivityId: string): boolean {
-    const activityRecord = this.db
-      .select({ id: chainWaxActivity.id, period_id: chainWaxActivity.period_id })
-      .from(chainWaxActivity)
-      .where(eq(chainWaxActivity.strava_activity_id, stravaActivityId))
-      .get();
+  async removeActivity(stravaActivityId: string): Promise<boolean> {
+    const activityRecord = await getOne<{ id: number; period_id: number }>(
+      this.db
+        .select({ id: chainWaxActivity.id, period_id: chainWaxActivity.period_id })
+        .from(chainWaxActivity)
+        .where(eq(chainWaxActivity.strava_activity_id, stravaActivityId))
+    );
 
     if (!activityRecord) return false;
 
-    this.db.delete(chainWaxActivity)
-      .where(eq(chainWaxActivity.id, activityRecord.id))
-      .run();
+    await exec(
+      this.db.delete(chainWaxActivity)
+        .where(eq(chainWaxActivity.id, activityRecord.id))
+    );
 
-    this.recalculatePeriodTotal(activityRecord.period_id);
+    await this.recalculatePeriodTotal(activityRecord.period_id);
     return true;
   }
 
@@ -220,7 +234,7 @@ export class ChainWaxService {
    * from the current period start until now. Handles dedup via UNIQUE constraint.
    */
   async resync(): Promise<{ activitiesFound: number; newActivitiesRecorded: number }> {
-    const currentPeriod = this.getCurrentPeriod();
+    const currentPeriod = await this.getCurrentPeriod();
     const now = Math.floor(Date.now() / 1000);
     let activitiesFound = 0;
     let newActivitiesRecorded = 0;
@@ -250,7 +264,7 @@ export class ChainWaxService {
           ? Math.floor(new Date(activity.start_date).getTime() / 1000)
           : now;
 
-        const recorded = this.recordActivity(
+        const recorded = await this.recordActivity(
           String(activity.id),
           athleteId,
           activity.distance || 0,
@@ -270,29 +284,33 @@ export class ChainWaxService {
   /**
    * Get history of completed wax periods
    */
-  getHistory(): WaxHistoryEntry[] {
-    const periods = this.db
-      .select()
-      .from(chainWaxPeriod)
-      .where(sql`${chainWaxPeriod.ended_at} IS NOT NULL`)
-      .orderBy(desc(chainWaxPeriod.started_at))
-      .all();
+  async getHistory(): Promise<WaxHistoryEntry[]> {
+    const periods = await getMany<any>(
+      this.db
+        .select()
+        .from(chainWaxPeriod)
+        .where(sql`${chainWaxPeriod.ended_at} IS NOT NULL`)
+        .orderBy(desc(chainWaxPeriod.started_at))
+    );
 
-    return periods.map((period) => {
-      const activityCount = this.db
-        .select({ count: sql<number>`count(*)` })
-        .from(chainWaxActivity)
-        .where(eq(chainWaxActivity.period_id, period.id))
-        .get()!.count;
+    const result: WaxHistoryEntry[] = [];
+    for (const period of periods) {
+      const countRow = await getOne<{ count: number }>(
+        this.db
+          .select({ count: sql<number>`count(*)` })
+          .from(chainWaxActivity)
+          .where(eq(chainWaxActivity.period_id, period.id))
+      );
 
-      return {
+      result.push({
         id: period.id,
         startedAt: period.started_at,
         endedAt: period.ended_at!,
         totalDistanceMeters: period.total_distance_meters,
-        activityCount,
-      };
-    });
+        activityCount: countRow?.count ?? 0,
+      });
+    }
+    return result;
   }
 
   /**
@@ -305,13 +323,14 @@ export class ChainWaxService {
   /**
    * Get the current (active) wax period
    */
-  private getCurrentPeriod() {
-    const period = this.db
-      .select()
-      .from(chainWaxPeriod)
-      .where(isNull(chainWaxPeriod.ended_at))
-      .orderBy(desc(chainWaxPeriod.started_at))
-      .get();
+  private async getCurrentPeriod() {
+    const period = await getOne<any>(
+      this.db
+        .select()
+        .from(chainWaxPeriod)
+        .where(isNull(chainWaxPeriod.ended_at))
+        .orderBy(desc(chainWaxPeriod.started_at))
+    );
 
     if (!period) {
       throw new Error('No active chain wax period found. Database may need initialization.');
@@ -323,27 +342,30 @@ export class ChainWaxService {
   /**
    * Get the current active puck
    */
-  private getCurrentPuck() {
-    return this.db
-      .select()
-      .from(chainWaxPuck)
-      .where(eq(chainWaxPuck.is_current, true))
-      .get() || null;
+  private async getCurrentPuck() {
+    return await getOne<any>(
+      this.db
+        .select()
+        .from(chainWaxPuck)
+        .where(eq(chainWaxPuck.is_current, true))
+    ) || null;
   }
 
   /**
    * Recalculate the cached total distance for a period from its activities
    */
-  private recalculatePeriodTotal(periodId: number): void {
-    const result = this.db
-      .select({ total: sql<number>`COALESCE(SUM(${chainWaxActivity.distance_meters}), 0)` })
-      .from(chainWaxActivity)
-      .where(eq(chainWaxActivity.period_id, periodId))
-      .get();
+  private async recalculatePeriodTotal(periodId: number): Promise<void> {
+    const result = await getOne<{ total: number }>(
+      this.db
+        .select({ total: sql<number>`COALESCE(SUM(${chainWaxActivity.distance_meters}), 0)` })
+        .from(chainWaxActivity)
+        .where(eq(chainWaxActivity.period_id, periodId))
+    );
 
-    this.db.update(chainWaxPeriod)
-      .set({ total_distance_meters: result?.total ?? 0 })
-      .where(eq(chainWaxPeriod.id, periodId))
-      .run();
+    await exec(
+      this.db.update(chainWaxPeriod)
+        .set({ total_distance_meters: result?.total ?? 0 })
+        .where(eq(chainWaxPeriod.id, periodId))
+    );
   }
 }

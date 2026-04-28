@@ -1,5 +1,5 @@
-import { Database } from 'better-sqlite3';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { Pool } from 'pg';
+import type { AppDatabase } from '../../db/types';
 import { eq } from 'drizzle-orm';
 import { appRouter } from '../../routers';
 import { createContext } from '../../trpc/context';
@@ -16,51 +16,49 @@ import {
 } from '../testDataHelpers';
 
 describe('explorerAdminRouter', () => {
-  let db: Database;
-  let drizzleDb: BetterSQLite3Database;
+  let pool: Pool;
+  let orm: AppDatabase;
 
-  beforeAll(() => {
-    const testDb = setupTestDb();
-    db = testDb.db;
-    drizzleDb = testDb.drizzleDb;
+  beforeAll(async () => {
+    const testDb = setupTestDb({ seed: false });
+    pool = testDb.pool;
+    orm = testDb.orm;
+  });
+  afterAll(async () => {
+    await teardownTestDb(pool);
   });
 
-  afterAll(() => {
-    teardownTestDb(db);
-  });
-
-  beforeEach(() => {
-    clearAllData(drizzleDb);
+  beforeEach(async () => {
+    await clearAllData(orm);
     jest.restoreAllMocks();
   });
 
-  const getCaller = (isAdmin: boolean, athleteId = '999001') => {
+  const getCaller = async (isAdmin: boolean, athleteId = '999001') => {
     if (isAdmin) {
-      const existingParticipant = drizzleDb
+      const [existingParticipant] = await orm
         .select({ stravaAthleteId: participant.strava_athlete_id })
         .from(participant)
-        .where(eq(participant.strava_athlete_id, athleteId))
-        .get();
+        .where(eq(participant.strava_athlete_id, athleteId));
 
       if (!existingParticipant) {
-        createParticipant(drizzleDb, athleteId, 'Test Admin', false, true);
+        await createParticipant(orm, athleteId, 'Test Admin', false, true);
       }
     }
 
-    return appRouter.createCaller(createContext({
+    return appRouter.createCaller(() => createContext({
       req: {
         session: {
           stravaAthleteId: isAdmin ? athleteId : undefined,
         },
       } as any,
       res: {} as any,
-      dbOverride: db,
-      drizzleDbOverride: drizzleDb,
+      dbOverride: pool,
+      ormOverride: orm,
     }));
   };
 
   it('requires admin auth to create a campaign', async () => {
-    const caller = getCaller(false);
+    const caller = await getCaller(false);
 
     await expect(
       caller.explorerAdmin.createCampaign({ startAt: 1748736000, endAt: 1751327999 })
@@ -68,19 +66,19 @@ describe('explorerAdminRouter', () => {
   });
 
   it('requires admin auth to read campaigns', async () => {
-    const caller = getCaller(false);
+    const caller = await getCaller(false);
 
     await expect(caller.explorerAdmin.getCampaigns()).rejects.toThrow('UNAUTHORIZED');
   });
 
   it('returns an empty list when no campaigns exist', async () => {
-    const caller = getCaller(true);
+    const caller = await getCaller(true);
 
     await expect(caller.explorerAdmin.getCampaigns()).resolves.toEqual([]);
   });
 
   it('creates a campaign when called by an admin', async () => {
-    const caller = getCaller(true);
+    const caller = await getCaller(true);
 
     const result = await caller.explorerAdmin.createCampaign({
       startAt: 1748736000,
@@ -93,17 +91,16 @@ describe('explorerAdminRouter', () => {
     expect(result.end_at).toBe(1751327999);
     expect(result.display_name).toBe('Explorer 2026');
 
-    const stored = drizzleDb
+    const [stored] = await orm
       .select()
       .from(explorerCampaign)
-      .where(eq(explorerCampaign.id, result.id))
-      .get();
+      .where(eq(explorerCampaign.id, result.id));
     expect(stored?.rules_blurb).toBe('Ride every destination once.');
   });
 
   it('updates a campaign when called by an admin', async () => {
-    const caller = getCaller(true);
-    const campaign = createExplorerCampaign(drizzleDb, {
+    const caller = await getCaller(true);
+    const campaign = await createExplorerCampaign(orm, {
       startAt: 1748736000,
       endAt: 1751327999,
       displayName: 'Explorer 2026',
@@ -123,7 +120,7 @@ describe('explorerAdminRouter', () => {
   });
 
   it('rejects overlapping campaigns', async () => {
-    const caller = getCaller(true);
+    const caller = await getCaller(true);
     await caller.explorerAdmin.createCampaign({ startAt: 1748736000, endAt: 1751327999 });
 
     await expect(
@@ -135,7 +132,7 @@ describe('explorerAdminRouter', () => {
   });
 
   it('rejects invalid campaign windows', async () => {
-    const caller = getCaller(true);
+    const caller = await getCaller(true);
 
     await expect(
       caller.explorerAdmin.createCampaign({ startAt: 1751327999, endAt: 1748736000 })
@@ -146,8 +143,8 @@ describe('explorerAdminRouter', () => {
   });
 
   it('requires admin auth to add a destination', async () => {
-    const campaign = createExplorerCampaign(drizzleDb, { startAt: 1748736000, endAt: 1751327999 });
-    const caller = getCaller(false);
+    const campaign = await createExplorerCampaign(orm, { startAt: 1748736000, endAt: 1751327999 });
+    const caller = await getCaller(false);
 
     await expect(
       caller.explorerAdmin.addDestination({
@@ -158,7 +155,7 @@ describe('explorerAdminRouter', () => {
   });
 
   it('requires admin auth to delete a destination', async () => {
-    const caller = getCaller(false);
+    const caller = await getCaller(false);
 
     await expect(
       caller.explorerAdmin.deleteDestination({ explorerDestinationId: 123 })
@@ -166,8 +163,8 @@ describe('explorerAdminRouter', () => {
   });
 
   it('adds a destination and persists source URL plus cached metadata', async () => {
-    const campaign = createExplorerCampaign(drizzleDb, { startAt: 1748736000, endAt: 1751327999 });
-    const caller = getCaller(true);
+    const campaign = await createExplorerCampaign(orm, { startAt: 1748736000, endAt: 1751327999 });
+    const caller = await getCaller(true);
     jest.spyOn(SegmentService.prototype, 'fetchAndStoreSegmentMetadata').mockResolvedValue({
       strava_segment_id: '12744502',
       name: 'Mocked Segment',
@@ -187,28 +184,27 @@ describe('explorerAdminRouter', () => {
     expect(result.cached_name).toBe('Mocked Segment');
     expect(result.source_url).toBe('https://www.strava.com/segments/12744502?filter=overall');
 
-    const stored = drizzleDb
+    const [stored] = await orm
       .select()
       .from(explorerDestination)
-      .where(eq(explorerDestination.id, result.id))
-      .get();
+      .where(eq(explorerDestination.id, result.id));
     expect(stored?.display_order).toBe(0);
   });
 
   it('returns campaigns with destinations in admin view order', async () => {
-    const firstCampaign = createExplorerCampaign(drizzleDb, {
+    const firstCampaign = await createExplorerCampaign(orm, {
       startAt: 1748736000,
       endAt: 1751327999,
       displayName: 'Spring Explorer',
       rulesBlurb: 'Ride every destination once.',
     });
-    createExplorerCampaign(drizzleDb, {
+    await createExplorerCampaign(orm, {
       startAt: 1751414400,
       endAt: 1754006399,
       displayName: 'Summer Explorer',
     });
-    const caller = getCaller(true);
-    createSegment(drizzleDb, '12744502', 'Mocked Segment', {
+    const caller = await getCaller(true);
+    await createSegment(orm, '12744502', 'Mocked Segment', {
       distance: 3210,
       averageGrade: 4.2,
       totalElevationGain: 286,
@@ -259,12 +255,12 @@ describe('explorerAdminRouter', () => {
   });
 
   it('preserves a null raw display name for unnamed campaigns', async () => {
-    createExplorerCampaign(drizzleDb, {
+    await createExplorerCampaign(orm, {
       startAt: 1748736000,
       endAt: 1751327999,
       displayName: null,
     });
-    const caller = getCaller(true);
+    const caller = await getCaller(true);
 
     const result = await caller.explorerAdmin.getCampaigns();
 
@@ -273,8 +269,8 @@ describe('explorerAdminRouter', () => {
   });
 
   it('allows destination creation when metadata enrichment falls back to placeholder data', async () => {
-    const campaign = createExplorerCampaign(drizzleDb, { startAt: 1748736000, endAt: 1751327999 });
-    const caller = getCaller(true);
+    const campaign = await createExplorerCampaign(orm, { startAt: 1748736000, endAt: 1751327999 });
+    const caller = await getCaller(true);
     jest.spyOn(SegmentService.prototype, 'fetchAndStoreSegmentMetadata').mockResolvedValue({
       strava_segment_id: '12744502',
       name: 'Segment 12744502',
@@ -289,8 +285,8 @@ describe('explorerAdminRouter', () => {
   });
 
   it('rejects invalid segment URLs', async () => {
-    const campaign = createExplorerCampaign(drizzleDb, { startAt: 1748736000, endAt: 1751327999 });
-    const caller = getCaller(true);
+    const campaign = await createExplorerCampaign(orm, { startAt: 1748736000, endAt: 1751327999 });
+    const caller = await getCaller(true);
 
     await expect(
       caller.explorerAdmin.addDestination({
@@ -301,8 +297,8 @@ describe('explorerAdminRouter', () => {
   });
 
   it('deletes a destination when called by an admin', async () => {
-    const campaign = createExplorerCampaign(drizzleDb, { startAt: 1748736000, endAt: 1751327999 });
-    const caller = getCaller(true);
+    const campaign = await createExplorerCampaign(orm, { startAt: 1748736000, endAt: 1751327999 });
+    const caller = await getCaller(true);
     jest.spyOn(SegmentService.prototype, 'fetchAndStoreSegmentMetadata').mockResolvedValue({
       strava_segment_id: '12744502',
       name: 'Mocked Segment',
@@ -317,16 +313,15 @@ describe('explorerAdminRouter', () => {
       caller.explorerAdmin.deleteDestination({ explorerDestinationId: destination.id })
     ).resolves.toEqual({ explorerDestinationId: destination.id });
 
-    const stored = drizzleDb
+    const [stored] = await orm
       .select()
       .from(explorerDestination)
-      .where(eq(explorerDestination.id, destination.id))
-      .get();
+      .where(eq(explorerDestination.id, destination.id));
     expect(stored).toBeUndefined();
   });
 
   it('maps sqlite unique constraint errors to CONFLICT', async () => {
-    const caller = getCaller(true);
+    const caller = await getCaller(true);
 
     jest.spyOn(ExplorerAdminService.prototype, 'createCampaign').mockImplementation(() => {
       const error = new Error('UNIQUE constraint failed: explorer_destination_campaign_segment') as Error & { code: string };
@@ -343,7 +338,7 @@ describe('explorerAdminRouter', () => {
   });
 
   it('does not leak raw internal errors to clients', async () => {
-    const caller = getCaller(true);
+    const caller = await getCaller(true);
     const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
     jest.spyOn(ExplorerAdminService.prototype, 'createCampaign').mockImplementation(() => {

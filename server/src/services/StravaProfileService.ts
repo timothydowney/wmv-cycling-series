@@ -7,7 +7,7 @@
  * Caches results to avoid excessive API calls
  */
 
-import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { AppDatabase } from '../db/types';
 import {
   clearProfileCache as clearProfileCacheFromProvider,
   getAthleteProfilePictures as getAthleteProfilePicturesFromProvider,
@@ -39,7 +39,7 @@ async function getAthleteProfilePicture(athleteId: string, accessToken: string):
 
 async function getAuthStatusProfilePicture(
   athleteId: string,
-  db: BetterSQLite3Database
+  db: AppDatabase
 ): Promise<string | null> {
   return getAuthStatusProfilePictureFromProvider(athleteId, db);
 }
@@ -55,7 +55,7 @@ async function getAuthStatusProfilePicture(
  */
 async function getAthleteProfilePictures(
   athleteIds: string[],
-  db: BetterSQLite3Database
+  db: AppDatabase
 ): Promise<Map<string, string | null>> {
   return getAthleteProfilePicturesFromProvider(athleteIds, db);
 }

@@ -5,9 +5,10 @@
  * Calculates rank, points, and bonuses for participants in a given week.
  */
 
+import type { AppDatabase } from '../db/types';
 import { activity, participant, result, segmentEffort, week } from '../db/schema';
 import { eq, max, sql } from 'drizzle-orm';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { getMany, getOne } from '../db/asyncQuery';
 import { getAthleteProfilePictures } from './StravaProfileService';
 
 export interface ScoringResult {
@@ -35,7 +36,7 @@ export interface LeaderboardResult {
 }
 
 export class ScoringService {
-  constructor(private db: BetterSQLite3Database) {}
+  constructor(private db: AppDatabase) {}
 
   /**
    * Calculate scoring for a week's leaderboard.
@@ -43,36 +44,59 @@ export class ScoringService {
    */
   async calculateWeekScoring(weekId: number): Promise<LeaderboardResult> {
     // Get week multiplier
-    const weekData = await this.db
-      .select({ multiplier: week.multiplier })
-      .from(week)
-      .where(eq(week.id, weekId))
-      .get();
+    const weekData = await getOne<{ multiplier: number | null }>(
+      this.db
+        .select({ multiplier: week.multiplier })
+        .from(week)
+        .where(eq(week.id, weekId))
+    );
 
     const multiplier = weekData?.multiplier ?? 1;
 
     // Get all results for the week, sorted by time
-    const rawResults = await this.db
-      .select({
-        resultId: result.id,
-        strava_athlete_id: result.strava_athlete_id,
-        participant_name: participant.name,
-        total_time_seconds: result.total_time_seconds,
-        activity_id: result.activity_id,
-        strava_activity_id: activity.strava_activity_id,
-        activity_start_at: activity.start_at,
-        device_name: activity.device_name,
-        athlete_weight: activity.athlete_weight,  // Weight in kg (Strava API format)
-        pr_achieved: max(sql<number>`case when ${segmentEffort.pr_achieved} = 1 then 1 else 0 end`).as('pr_achieved'),
-      })
-      .from(result)
-      .leftJoin(participant, eq(result.strava_athlete_id, participant.strava_athlete_id))
-      .leftJoin(activity, eq(result.activity_id, activity.id))
-      .leftJoin(segmentEffort, eq(activity.id, segmentEffort.activity_id))
-      .where(eq(result.week_id, weekId))
-      .groupBy(result.strava_athlete_id, result.id, participant.name, result.total_time_seconds)
-      .orderBy(result.total_time_seconds)
-      .all();
+    const rawResults = await getMany<{
+      resultId: number;
+      strava_athlete_id: string;
+      participant_name: string | null;
+      total_time_seconds: number;
+      activity_id: number | null;
+      strava_activity_id: string | null;
+      activity_start_at: number | null;
+      device_name: string | null;
+      athlete_weight: number | null;
+      pr_achieved: number | null;
+    }>(
+      this.db
+        .select({
+          resultId: result.id,
+          strava_athlete_id: result.strava_athlete_id,
+          participant_name: participant.name,
+          total_time_seconds: result.total_time_seconds,
+          activity_id: result.activity_id,
+          strava_activity_id: activity.strava_activity_id,
+          activity_start_at: activity.start_at,
+          device_name: activity.device_name,
+          athlete_weight: activity.athlete_weight,
+          pr_achieved: max(sql<number>`case when ${segmentEffort.pr_achieved} = 1 then 1 else 0 end`).as('pr_achieved'),
+        })
+        .from(result)
+        .leftJoin(participant, eq(result.strava_athlete_id, participant.strava_athlete_id))
+        .leftJoin(activity, eq(result.activity_id, activity.id))
+        .leftJoin(segmentEffort, eq(activity.id, segmentEffort.activity_id))
+        .where(eq(result.week_id, weekId))
+        .groupBy(
+          result.strava_athlete_id,
+          result.id,
+          participant.name,
+          result.total_time_seconds,
+          result.activity_id,
+          activity.strava_activity_id,
+          activity.start_at,
+          activity.device_name,
+          activity.athlete_weight
+        )
+        .orderBy(result.total_time_seconds)
+    );
 
     if (rawResults.length === 0) {
       return { weekId, results: [] };
@@ -121,7 +145,7 @@ export class ScoringService {
  * @deprecated Use ScoringService class instead
  */
 export async function calculateWeekScoring(
-  drizzleDb: BetterSQLite3Database,
+  drizzleDb: AppDatabase,
   weekId: number
 ): Promise<LeaderboardResult> {
   const service = new ScoringService(drizzleDb);

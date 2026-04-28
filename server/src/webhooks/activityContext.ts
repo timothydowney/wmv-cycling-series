@@ -1,11 +1,12 @@
-import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { eq } from 'drizzle-orm';
+import type { AppDatabase } from '../db/types';
 import { participant } from '../db/schema';
 import { type ActivityWebhookEvent, type StravaActivity } from './types';
 import * as stravaClient from '../stravaClient';
 import { getValidAccessToken } from '../tokenManager';
 import { captureAthleteProfile } from '../services/StravaProfileCapture';
 import ActivityValidationService from '../services/ActivityValidationService';
+import { getOne } from '../db/asyncQuery';
 import {
   fetchWebhookActivity,
   hasWebhookActivityFixture,
@@ -21,7 +22,7 @@ type ParticipantRecord = {
 };
 
 export interface ActivityIngestionContext {
-  db: BetterSQLite3Database;
+  db: AppDatabase;
   event: ActivityWebhookEvent;
   activityId: string;
   athleteId: string;
@@ -87,7 +88,7 @@ async function fetchActivityWithSegmentEfforts(
 
 export async function createActivityIngestionContext(
   event: ActivityWebhookEvent,
-  db: BetterSQLite3Database,
+  db: AppDatabase,
   validationService: ActivityValidationService
 ): Promise<ActivityIngestionContext | null> {
   const activityId = String(event.object_id);
@@ -99,11 +100,12 @@ export async function createActivityIngestionContext(
     aspect: event.aspect_type
   });
 
-  const participantRecord = db
-    .select({ strava_athlete_id: participant.strava_athlete_id, name: participant.name })
-    .from(participant)
-    .where(eq(participant.strava_athlete_id, athleteId))
-    .get();
+  const participantRecord = await getOne<ParticipantRecord>(
+    db
+      .select({ strava_athlete_id: participant.strava_athlete_id, name: participant.name })
+      .from(participant)
+      .where(eq(participant.strava_athlete_id, athleteId))
+  );
 
   if (!participantRecord) {
     console.log(`[Webhook:Processor] Participant ${athleteId} not found, skipping`);

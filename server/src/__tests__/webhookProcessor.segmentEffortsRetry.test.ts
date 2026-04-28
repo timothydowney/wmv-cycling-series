@@ -1,3 +1,5 @@
+import type { Pool } from 'pg';
+import type { AppDatabase } from '../db/types';
 /**
  * Webhook Processor - Segment Efforts Retry Logic Tests
  *
@@ -15,8 +17,6 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import { Database } from 'better-sqlite3';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { setupTestDb } from './setupTestDb';
 import { WebhookLogger } from '../webhooks/logger';
 import { createWebhookProcessor } from '../webhooks/processor';
@@ -25,7 +25,8 @@ import {
   createParticipant,
   createSeason,
   createSegment,
-  createWeek
+  createWeek,
+  teardownTestDb
 } from './testDataHelpers';
 
 // Mock Strava client to simulate retry scenarios
@@ -40,7 +41,7 @@ import { getValidAccessToken } from '../tokenManager';
 const originalSetTimeout = global.setTimeout;
 let setTimeoutCalls: { delay: number; callback: () => void }[] = [];
 
-beforeAll(() => {
+beforeAll(async () => {
   global.setTimeout = ((callback: any, delay: any) => {
     setTimeoutCalls.push({ delay, callback });
     // Execute immediately so we don't actually wait
@@ -50,15 +51,15 @@ beforeAll(() => {
 });
 
 describe('Webhook Processor - Segment Efforts Retry Logic', () => {
-  let db: Database;
-  let orm: BetterSQLite3Database;
+  let pool: Pool;
+  let orm: AppDatabase;
   let logger: WebhookLogger;
   let mockStravaGetActivity: any;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     const testDb = setupTestDb({ seed: false });
-    db = testDb.db;
-    orm = testDb.orm || testDb.drizzleDb;
+    pool = testDb.pool;
+    orm = testDb.orm || testDb.orm;
     logger = new WebhookLogger(orm);
 
     // Mock getValidAccessToken to return a fake token
@@ -76,13 +77,13 @@ describe('Webhook Processor - Segment Efforts Retry Logic', () => {
     (stravaClientModule.getActivity as any) = mockStravaGetActivity;
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     jest.clearAllMocks();
     setTimeoutCalls = [];
-    db.close();
+    await teardownTestDb(pool);
   });
 
-  afterAll(() => {
+  afterAll(async () => {
     // Restore original setTimeout
     global.setTimeout = originalSetTimeout;
   });
@@ -92,7 +93,7 @@ describe('Webhook Processor - Segment Efforts Retry Logic', () => {
 
   it('should succeed on first attempt if segment efforts are present', async () => {
     // Arrange - Activity already has segment efforts
-    createParticipant(orm, '100', 'Test Athlete', { accessToken: 'fake_token' });
+    await createParticipant(orm, '100', 'Test Athlete', { accessToken: 'fake_token' });
 
     const activityWithEfforts: any = {
       id: 987654321,
@@ -130,7 +131,7 @@ describe('Webhook Processor - Segment Efforts Retry Logic', () => {
 
   it('should retry when segment efforts are missing, then stop when found', async () => {
     // Arrange - Efforts not ready on first call, ready on second
-    createParticipant(orm, '100', 'Test Athlete', { accessToken: 'fake_token' });
+    await createParticipant(orm, '100', 'Test Athlete', { accessToken: 'fake_token' });
 
     const activityNoEfforts: any = {
       id: 987654321,
@@ -176,7 +177,7 @@ describe('Webhook Processor - Segment Efforts Retry Logic', () => {
 
   it('should stop early once segment efforts are found on any retry', async () => {
     // Arrange - Efforts found on third attempt (not on fourth)
-    createParticipant(orm, '100', 'Test Athlete', { accessToken: 'fake_token' });
+    await createParticipant(orm, '100', 'Test Athlete', { accessToken: 'fake_token' });
 
     const activityNoEfforts: any = {
       id: 987654321,
@@ -225,7 +226,7 @@ describe('Webhook Processor - Segment Efforts Retry Logic', () => {
 
   it('should verify exponential backoff delays are scheduled correctly', async () => {
     // Arrange - This test specifically validates the backoff sequence
-    createParticipant(orm, '100', 'Test Athlete', { accessToken: 'fake_token' });
+    await createParticipant(orm, '100', 'Test Athlete', { accessToken: 'fake_token' });
 
     // Return efforts on 4th attempt after 3 failures
     const activityNoEfforts: any = {
@@ -274,7 +275,7 @@ describe('Webhook Processor - Segment Efforts Retry Logic', () => {
 
   it('should exhaust retries and give up after max attempts', async () => {
     // Arrange - Efforts never come
-    createParticipant(orm, '100', 'Test Athlete', { accessToken: 'fake_token' });
+    await createParticipant(orm, '100', 'Test Athlete', { accessToken: 'fake_token' });
 
     const activityNoEfforts: any = {
       id: 987654321,
@@ -306,7 +307,7 @@ describe('Webhook Processor - Segment Efforts Retry Logic', () => {
   it('should recover from race condition: missing efforts on attempts 1-3, found on 4th', async () => {
     // Arrange - Simulates real-world race condition: webhook arrives before Strava finishes
     // processing segment efforts. Retries eventually succeed on final attempt.
-    createParticipant(orm, '100', 'Test Athlete', { accessToken: 'fake_token' });
+    await createParticipant(orm, '100', 'Test Athlete', { accessToken: 'fake_token' });
 
     const activityNoEfforts: any = {
       id: 987654321,
@@ -363,7 +364,7 @@ describe('Webhook Processor - Segment Efforts Retry Logic', () => {
   it('should handle gracefully when response has null or empty efforts', async () => {
     // Arrange - Activity response structure is valid, but efforts field is null (not an array)
     // This verifies the code doesn't crash on unexpected response shapes
-    createParticipant(orm, '100', 'Test Athlete', { accessToken: 'fake_token' });
+    await createParticipant(orm, '100', 'Test Athlete', { accessToken: 'fake_token' });
 
     const activityNullEfforts: any = {
       id: 987654321,
@@ -394,7 +395,7 @@ describe('Webhook Processor - Segment Efforts Retry Logic', () => {
 
   it('should use the same token for all retry attempts', async () => {
     // Arrange
-    createParticipant(orm, '100', 'Test Athlete', { accessToken: 'fake_token' });
+    await createParticipant(orm, '100', 'Test Athlete', { accessToken: 'fake_token' });
 
     const activityWithEfforts: any = {
       id: 987654321,

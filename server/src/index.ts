@@ -14,13 +14,11 @@ import { appRouter } from './routers';
 
 import session from 'express-session';
 import type { Session, SessionOptions } from 'express-session';
-import SqliteStore from 'better-sqlite3-session-store';
+import connectPgSimple from 'connect-pg-simple';
 import strava from 'strava-v3';
 import * as stravaClient from './stravaClient';
 import { getValidAccessToken } from './tokenManager';
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator'; // Import Drizzle migrator
-import { season } from './db/schema'; // Import the Drizzle table object 'season'
-import { finalizeLegacyExplorerSchemaRepair, prepareLegacyExplorerSchemaRepair } from './db/repairLegacyExplorerSchema';
+import { season } from './db/schema';
 import LoginService from './services/LoginService';
 import BatchFetchService from './services/BatchFetchService';
 import WeekService from './services/WeekService';
@@ -98,24 +96,15 @@ const sessionStoreConfig: SessionOptions = {
   }
 };
 
-// Verify database is readable
-try {
-  const userVersion = db.prepare('PRAGMA user_version').get();
-  console.log(`[DB] ✓ Database is readable - PRAGMA user_version: ${JSON.stringify(userVersion)}`);
-} catch (err) {
-  console.log(`[DB] ✗ ERROR reading database: ${(err as Error).message}`);
-}
-
 // Only use persistent session store in non-test environments
 if (!isTestMode()) {
-  console.log('[SESSION] Setting up SQLite session store using main database');
-  const SqliteSessionStore = SqliteStore(session);
-  sessionStoreConfig.store = new SqliteSessionStore({
-    client: db,
-    expired: {
-      clear: true,
-      intervalMs: 900000
-    }
+  console.log('[SESSION] Setting up Postgres session store');
+  const PgSessionStore = connectPgSimple(session);
+  sessionStoreConfig.store = new PgSessionStore({
+    pool: db,
+    tableName: 'sessions',
+    createTableIfMissing: false,
+    pruneSessionInterval: 900,
   });
 } else {
   console.log('[SESSION] Using memory session store (test mode)');
@@ -147,49 +136,74 @@ if (isTestMode()) {
   }
 }
 
-// Initialize database schema using Drizzle migrations
-console.log('[DB] Running Drizzle migrations...');
-try {
-  // Disable foreign keys during migration to allow table recreation
-  db.pragma('foreign_keys = OFF');
+const REQUIRED_TABLES = [
+  'sessions',
+  'participant',
+  'season',
+  'segment',
+  'week',
+  'activity',
+  'segment_effort',
+  'result',
+  'participant_token',
+  'deletion_request',
+  'schema_migrations',
+  'webhook_event',
+  'webhook_subscription',
+  'explorer_campaign',
+  'explorer_destination',
+  'explorer_destination_match',
+  'explorer_destination_pin',
+  'chain_wax_period',
+  'chain_wax_activity',
+  'chain_wax_puck',
+] as const;
 
-  const legacyExplorerRepairState = prepareLegacyExplorerSchemaRepair(db);
-  
-  // Resolve migrations folder based on the compiled JS location
-  // In dev: server/dist/index.js -> migrations at server/drizzle
-  // In docker: /app/server/dist/index.js -> migrations at /app/server/drizzle
-  const migrationsFolder = path.resolve(__dirname, '../drizzle');
-  migrate(drizzleDb, { migrationsFolder });
-  finalizeLegacyExplorerSchemaRepair(db, legacyExplorerRepairState);
-  
-  // Re-enable foreign keys after migration
-  db.pragma('foreign_keys = ON');
-  
-  console.log('[DB] ✓ Drizzle migrations applied successfully');
-  
-  // Log table information
-  const tables = db.prepare(`
-    SELECT name FROM sqlite_master 
-    WHERE type='table' AND name NOT LIKE 'sqlite_%'
-    ORDER BY name
-  `).all() as Array<{ name: string }>;
-  
-  console.log(`[DB] ✓ Database has ${tables.length} tables: ${tables.map(t => t.name).join(', ')}`);
-  
-  // Log row counts for key tables
+async function verifyDatabaseReady(): Promise<void> {
+  const connection = await db.query<{ current_database: string; now: string }>(
+    'SELECT current_database() AS current_database, NOW()::text AS now'
+  );
+  const current = connection.rows[0];
+  console.log(`[DB] ✓ Connected to Postgres database ${current.current_database} at ${current.now}`);
+
+  const tablesResult = await db.query<{ name: string }>(
+    'SELECT tablename AS name FROM pg_tables WHERE schemaname = \'public\' ORDER BY tablename'
+  );
+  const tableNames = tablesResult.rows.map((row) => row.name);
+  const missingTables = REQUIRED_TABLES.filter((tableName) => !tableNames.includes(tableName));
+
+  if (missingTables.length > 0) {
+    throw new Error(
+      `Postgres schema is missing required tables: ${missingTables.join(', ')}. ` +
+        'Run the Postgres bootstrap and SQLite import scripts before starting the backend.'
+    );
+  }
+
+  console.log(`[DB] ✓ Database has ${tableNames.length} tables: ${tableNames.join(', ')}`);
+
   const tablesToCheck = ['participant', 'week', 'season', 'activity', 'result', 'segment'];
   console.log('[DB] Row counts:');
   for (const tableName of tablesToCheck) {
-    try {
-      const countResult = db.prepare(`SELECT COUNT(*) as cnt FROM ${tableName}`).get() as { cnt: number };
-      console.log(`[DB]   ${tableName}: ${countResult.cnt} rows`);
-    } catch {
-      // Table might not exist, skip
-    }
+    const countResult = await db.query<{ cnt: number }>(`SELECT COUNT(*)::int AS cnt FROM ${tableName}`);
+    console.log(`[DB]   ${tableName}: ${countResult.rows[0]?.cnt ?? 0} rows`);
   }
-} catch (err) {
-  console.log(`[DB] ✗ ERROR applying Drizzle migrations: ${(err as Error).message}`);
-  throw err;
+}
+
+async function seedSeasonIfNeeded(): Promise<void> {
+  const existingSeasons = await db.query<{ count: number }>('SELECT COUNT(*)::int AS count FROM season');
+  if ((existingSeasons.rows[0]?.count ?? 0) > 0) {
+    return;
+  }
+
+  console.log('🌱 No seasons found. Creating Fall 2025 season...');
+  const fallStart = Math.floor(new Date('2025-10-01T00:00:00Z').getTime() / 1000);
+  const fallEnd = Math.floor(new Date('2025-12-31T23:59:59Z').getTime() / 1000);
+  await drizzleDb.insert(season).values({
+    name: 'Fall 2025',
+    start_at: fallStart,
+    end_at: fallEnd,
+  }).execute();
+  console.log('✅ Fall 2025 season created (Oct 1 - Dec 31)');
 }
 
 // ========================================
@@ -229,7 +243,7 @@ const participantService = new ParticipantService(drizzleDb);
 // const requireAdmin = authorizationService.createRequireAdminMiddleware();
 
 // Export checkAuthorization for testing
-const checkAuthorization = (req: Request, adminRequired = false) => {
+const checkAuthorization = async (req: Request, adminRequired = false) => {
   const sessionData = req.session as AuthSession | undefined;
   return authorizationService.checkAuthorization(
     sessionData?.stravaAthleteId ? String(sessionData.stravaAthleteId) : undefined,
@@ -292,7 +306,7 @@ app.use(routes.public());
 // app.use('/admin/seasons', routes.seasons(services, middleware));
 // app.use('/admin/participants', routes.participants(services, middleware));
 // app.use('/admin/segments', routes.segments(services, middleware));
-app.use('/admin', createFetchRouter(db, drizzleDb));
+app.use('/admin', createFetchRouter(drizzleDb));
 
 // Webhook routes
 app.use('/webhooks', createWebhookRouter(webhookLogger, drizzleDb));
@@ -304,23 +318,13 @@ app.use(routes.fallback());
 // Export for testing
 export { app, db, checkAuthorization };
 
-// Only start server if not being imported for tests
-if (!isTestMode()) {
-  // Seed season on startup if needed
-  // This seeding logic might also be better handled by Drizzle (seed scripts)
-  const existingSeasons = db.prepare('SELECT COUNT(*) as count FROM season').get() as { count: number };
-  if (existingSeasons.count === 0) {
-    console.log('🌱 No seasons found. Creating Fall 2025 season...');
-    const fallStart = Math.floor(new Date('2025-10-01T00:00:00Z').getTime() / 1000);
-    const fallEnd = Math.floor(new Date('2025-12-31T23:59:59Z').getTime() / 1000);
-    // Use Drizzle for seeding
-    drizzleDb.insert(season).values({
-      name: 'Fall 2025',
-      start_at: fallStart,
-      end_at: fallEnd,
-    }).run();
-    console.log('✅ Fall 2025 season created (Oct 1 - Dec 31)');
+async function startServer(): Promise<void> {
+  await verifyDatabaseReady();
+
+  if (!isTestMode()) {
+    await seedSeasonIfNeeded();
   }
+
   app.listen(PORT, '0.0.0.0', async () => {
     console.log(`WMV backend listening on port ${PORT}`);
     
@@ -359,7 +363,8 @@ if (!isTestMode()) {
     console.log(`  Back to ISO: ${new Date(exampleUnix * 1000).toISOString()}`);
     
     // Check database timezone context
-    const seasonCheck = drizzleDb.select().from(season).limit(1).get(); // Use Drizzle for check
+    const seasonRows = await drizzleDb.select().from(season).limit(1).execute();
+    const seasonCheck = seasonRows[0];
     if (seasonCheck) {
       console.log('[TIMEZONE DIAGNOSTIC] Database context:');
       console.log(`  Active season: ${seasonCheck.name} (Unix: ${seasonCheck.start_at} to ${seasonCheck.end_at})`);
@@ -368,5 +373,12 @@ if (!isTestMode()) {
     
     // Log environment variables for debugging in Railway logs
     logEnvironmentVariables();
+  });
+}
+
+if (!isTestMode()) {
+  void startServer().catch((error) => {
+    console.error('[BOOT] Failed to start backend:', error);
+    process.exit(1);
   });
 }

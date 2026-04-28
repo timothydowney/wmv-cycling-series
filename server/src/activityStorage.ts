@@ -33,10 +33,11 @@
  */
 
 import { isoToUnix } from './dateUtils';
-import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { AppDatabase } from './db/types';
 import { activity, segmentEffort, result } from './db/schema';
 import { eq, and } from 'drizzle-orm';
 import { type SegmentEffort } from './stravaClient';
+import { getMany, getOne, exec } from './db/asyncQuery';
 
 /**
  * Activity data to store
@@ -60,57 +61,61 @@ interface ActivityToStore {
  * @param activityData - Activity data with segmentEfforts
  * @param stravaSegmentId - Strava segment ID
  */
-function storeActivityAndEfforts(
-  db: BetterSQLite3Database,
+async function storeActivityAndEfforts(
+  db: AppDatabase,
   stravaAthleteId: string,
   weekId: number,
   activityData: ActivityToStore,
   stravaSegmentId: string
-): void {
+): Promise<void> {
   // Use a transaction to ensure atomicity
-  db.transaction((tx) => {
+  await db.transaction(async (tx) => {
     // CRITICAL: Delete ALL old data for this week+participant (full cascade)
     // This ensures refresh completely replaces old data with fresh Strava data
     
     // Step 1: Find all activities for this week+participant
-    const existingActivities = tx
-      .select({ id: activity.id })
-      .from(activity)
-      .where(and(eq(activity.week_id, weekId), eq(activity.strava_athlete_id, stravaAthleteId)))
-      .all();
+    const existingActivities = await getMany<{ id: number }>(
+      tx
+        .select({ id: activity.id })
+        .from(activity)
+        .where(and(eq(activity.week_id, weekId), eq(activity.strava_athlete_id, stravaAthleteId)))
+    );
 
     // Step 2: Delete segment efforts for all old activities
     for (const act of existingActivities) {
-      tx.delete(segmentEffort).where(eq(segmentEffort.activity_id, act.id)).run();
+      await exec(tx.delete(segmentEffort).where(eq(segmentEffort.activity_id, act.id)));
     }
 
     // Step 3: Delete results for this week+participant
-    tx.delete(result)
-      .where(and(eq(result.week_id, weekId), eq(result.strava_athlete_id, stravaAthleteId)))
-      .run();
+    await exec(
+      tx.delete(result)
+        .where(and(eq(result.week_id, weekId), eq(result.strava_athlete_id, stravaAthleteId)))
+    );
 
     // Step 4: Delete all old activities for this week+participant
-    tx.delete(activity)
-      .where(and(eq(activity.week_id, weekId), eq(activity.strava_athlete_id, stravaAthleteId)))
-      .run();
+    await exec(
+      tx.delete(activity)
+        .where(and(eq(activity.week_id, weekId), eq(activity.strava_athlete_id, stravaAthleteId)))
+    );
 
     // Convert activity start_date to Unix timestamp
     const activityStartUnix = isoToUnix(activityData.start_date);
 
     // Store new activity
-    const activityResult = tx
-      .insert(activity)
-      .values({
-        week_id: weekId,
-        strava_athlete_id: stravaAthleteId,
-        strava_activity_id: activityData.id,
-        start_at: activityStartUnix || 0, // Fallback to 0 if null, though validation should catch this
-        device_name: activityData.device_name || null,
-        athlete_weight: activityData.athleteWeight ?? null,  // Weight in kg (Strava API format)
-        validation_status: 'valid'
-      })
-      .returning({ id: activity.id })
-      .get();
+    const activityResult = await getOne<{ id: number }>(
+      tx
+        .insert(activity)
+        .values({
+          week_id: weekId,
+          strava_athlete_id: stravaAthleteId,
+          strava_activity_id: activityData.id,
+          start_at: activityStartUnix || 0, // Fallback to 0 if null, though validation should catch this
+          device_name: activityData.device_name || null,
+          athlete_weight: activityData.athleteWeight ?? null,  // Weight in kg (Strava API format)
+          validation_status: 'valid'
+        })
+        .returning({ id: activity.id })
+    );
 
     if (!activityResult) throw new Error('Failed to insert activity');
     const activityDbId = activityResult.id;
@@ -129,33 +134,36 @@ function storeActivityAndEfforts(
         `  Effort ${i}: strava_segment_id=${stravaSegmentId}, elapsed_time=${effort.elapsed_time}, strava_effort_id=${effort.id}${prAchieved ? ' ⭐ PR' : ''}`
       );
       
-      tx.insert(segmentEffort).values({
-        activity_id: activityDbId,
-        strava_segment_id: stravaSegmentId,
-        strava_effort_id: effort.id,
-        effort_index: i,
-        elapsed_seconds: effort.elapsed_time,
-        start_at: effortStartUnix || 0,
-        pr_achieved: prAchieved,
-        average_watts: effort.average_watts || null,
-        average_heartrate: effort.average_heartrate || null,
-        max_heartrate: effort.max_heartrate || null,
-        average_cadence: effort.average_cadence || null,
-        device_watts: effort.device_watts ?? null
-      }).run();
+      await exec(
+        tx.insert(segmentEffort).values({
+          activity_id: activityDbId,
+          strava_segment_id: stravaSegmentId,
+          strava_effort_id: effort.id,
+          effort_index: i,
+          elapsed_seconds: effort.elapsed_time,
+          start_at: effortStartUnix || 0,
+          pr_achieved: prAchieved,
+          average_watts: effort.average_watts || null,
+          average_heartrate: effort.average_heartrate || null,
+          max_heartrate: effort.max_heartrate || null,
+          average_cadence: effort.average_cadence || null,
+          device_watts: effort.device_watts ?? null
+        })
+      );
     }
 
     // Store result
     // SQLite doesn't support INSERT OR REPLACE directly via Drizzle's standard API easily for complex cases without onConflictDoUpdate
     // But since we deleted everything above, a simple INSERT is correct and safe here.
-    tx.insert(result)
-      .values({
-        week_id: weekId,
-        strava_athlete_id: stravaAthleteId,
-        activity_id: activityDbId,
-        total_time_seconds: activityData.totalTime
-      })
-      .run();
+    await exec(
+      tx.insert(result)
+        .values({
+          week_id: weekId,
+          strava_athlete_id: stravaAthleteId,
+          activity_id: activityDbId,
+          total_time_seconds: activityData.totalTime
+        })
+    );
   });
 }
 

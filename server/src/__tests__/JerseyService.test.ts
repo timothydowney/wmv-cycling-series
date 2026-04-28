@@ -1,6 +1,8 @@
+import type { Pool } from 'pg';
+import type { AppDatabase } from '../db/types';
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import { JerseyService } from '../services/JerseyService';
-import { setupTestDb } from './testDataHelpers';
+import { setupTestDb, teardownTestDb } from './testDataHelpers';
 import {
   createParticipant,
   createSegment,
@@ -10,53 +12,53 @@ import {
 } from './testDataHelpers';
 
 describe('JerseyService', () => {
-  let drizzleDb: any;
-  let sqliteDb: any;
+  let orm: AppDatabase;
+  let pool: Pool;
   let jerseyService: JerseyService;
   let seedData: any;
 
-  beforeAll(() => {
-    const testDb = setupTestDb();
-    drizzleDb = testDb.drizzleDb;
-    sqliteDb = testDb.db;
-    jerseyService = new JerseyService(drizzleDb);
+  beforeAll(async () => {
+    const testDb = setupTestDb({ seed: false });
+    orm = testDb.orm;
+    pool = testDb.pool;
+    jerseyService = new JerseyService(orm);
 
     // Create seed data
     seedData = {
       seasons: [
-        createSeason(drizzleDb, 'Test Season'),
-        createSeason(drizzleDb, 'Another Season'),
+        await createSeason(orm, 'Test Season'),
+        await createSeason(orm, 'Another Season'),
       ],
       participants: [
-        createParticipant(drizzleDb, '70001', 'Alice'),
-        createParticipant(drizzleDb, '70002', 'Bob'),
-        createParticipant(drizzleDb, '70003', 'Charlie'),
+        await createParticipant(orm, '70001', 'Alice'),
+        await createParticipant(orm, '70002', 'Bob'),
+        await createParticipant(orm, '70003', 'Charlie'),
       ],
     };
   });
 
-  afterAll(() => {
-    sqliteDb.close();
+  afterAll(async () => {
+    await teardownTestDb(pool);
   });
 
   describe('isHillClimbWeek', () => {
-    it('should return true for grades > 2%', () => {
+    it('should return true for grades > 2%', async () => {
       expect(jerseyService.isHillClimbWeek(2.5)).toBe(true);
       expect(jerseyService.isHillClimbWeek(5)).toBe(true);
       expect(jerseyService.isHillClimbWeek(10)).toBe(true);
     });
 
-    it('should return false for grades <= 2%', () => {
+    it('should return false for grades <= 2%', async () => {
       expect(jerseyService.isHillClimbWeek(0)).toBe(false);
       expect(jerseyService.isHillClimbWeek(1.5)).toBe(false);
       expect(jerseyService.isHillClimbWeek(2)).toBe(false);
     });
 
-    it('should handle null grade as 0', () => {
+    it('should handle null grade as 0', async () => {
       expect(jerseyService.isHillClimbWeek(null)).toBe(false);
     });
 
-    it('should handle undefined grade as 0', () => {
+    it('should handle undefined grade as 0', async () => {
       expect(jerseyService.isHillClimbWeek(undefined as any)).toBe(false);
     });
   });
@@ -64,15 +66,15 @@ describe('JerseyService', () => {
   describe('getParticipantPolkaDotWins', () => {
     it('should return 0 wins when participant has no hill climb wins', async () => {
       // Create a flat segment (average_grade = 1%)
-      const flatSegment = createSegment(drizzleDb, '70101', 'Flat Road', { averageGrade: 1 });
-      const week = createWeek(drizzleDb, {
+      const flatSegment = await createSegment(orm, '70101', 'Flat Road', { averageGrade: 1 });
+      const week = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: flatSegment.strava_segment_id,
         weekName: 'Flat Week',
       });
 
       // Alice wins the flat week
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: seedData.participants[0].strava_athlete_id,
         stravaActivityId: '70101',
@@ -89,15 +91,15 @@ describe('JerseyService', () => {
 
     it('should count hill climb week wins for a participant', async () => {
       // Create a hill climb segment (average_grade = 5%)
-      const hillSegment = createSegment(drizzleDb, '70102', 'Hill Climb', { averageGrade: 5 });
-      const week = createWeek(drizzleDb, {
+      const hillSegment = await createSegment(orm, '70102', 'Hill Climb', { averageGrade: 5 });
+      const week = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: hillSegment.strava_segment_id,
         weekName: 'Hill Week',
       });
 
       // Alice wins the hill week
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: seedData.participants[0].strava_athlete_id,
         stravaActivityId: '70102a',
@@ -105,7 +107,7 @@ describe('JerseyService', () => {
       });
 
       // Bob doesn't finish
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: seedData.participants[1].strava_athlete_id,
         stravaActivityId: '70102b',
@@ -137,16 +139,16 @@ describe('JerseyService', () => {
 
     it('should count multiple hill climb wins across weeks', async () => {
       // Create two hill climb weeks
-      const hill1 = createSegment(drizzleDb, '70103', 'Hill 1', { averageGrade: 4 });
-      const hill2 = createSegment(drizzleDb, '70104', 'Hill 2', { averageGrade: 3.5 });
+      const hill1 = await createSegment(orm, '70103', 'Hill 1', { averageGrade: 4 });
+      const hill2 = await createSegment(orm, '70104', 'Hill 2', { averageGrade: 3.5 });
 
-      const week1 = createWeek(drizzleDb, {
+      const week1 = await createWeek(orm, {
         seasonId: seedData.seasons[1].id,
         stravaSegmentId: hill1.strava_segment_id,
         weekName: 'Hill Week 1',
       });
 
-      const week2 = createWeek(drizzleDb, {
+      const week2 = await createWeek(orm, {
         seasonId: seedData.seasons[1].id,
         stravaSegmentId: hill2.strava_segment_id,
         weekName: 'Hill Week 2',
@@ -156,28 +158,28 @@ describe('JerseyService', () => {
       const bobId = seedData.participants[1].strava_athlete_id;
 
       // Alice wins both
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week1.id,
         stravaAthleteId: aliceId,
         stravaActivityId: '70103a',
         elapsedSeconds: 500,
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week1.id,
         stravaAthleteId: bobId,
         stravaActivityId: '70103b',
         elapsedSeconds: 600,
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week2.id,
         stravaAthleteId: aliceId,
         stravaActivityId: '70104a',
         elapsedSeconds: 400,
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week2.id,
         stravaAthleteId: bobId,
         stravaActivityId: '70104b',
@@ -200,18 +202,18 @@ describe('JerseyService', () => {
   });
 
   describe('isTimeTrialWeek', () => {
-    it('should return true for grades <= 2%', () => {
+    it('should return true for grades <= 2%', async () => {
       expect(jerseyService.isTimeTrialWeek(0)).toBe(true);
       expect(jerseyService.isTimeTrialWeek(1)).toBe(true);
       expect(jerseyService.isTimeTrialWeek(2)).toBe(true);
     });
 
-    it('should return false for grades > 2%', () => {
+    it('should return false for grades > 2%', async () => {
       expect(jerseyService.isTimeTrialWeek(2.1)).toBe(false);
       expect(jerseyService.isTimeTrialWeek(5)).toBe(false);
     });
 
-    it('should handle null grade as 0 (time trial)', () => {
+    it('should handle null grade as 0 (time trial)', async () => {
       expect(jerseyService.isTimeTrialWeek(null)).toBe(true);
     });
   });
@@ -219,18 +221,18 @@ describe('JerseyService', () => {
   describe('getParticipantTimeTrialWins', () => {
     it('should return 0 wins when participant has no time trial wins', async () => {
       // Create a dedicated season for this test
-      const testSeason = createSeason(drizzleDb, 'TT Test - No Wins');
+      const testSeason = await createSeason(orm, 'TT Test - No Wins');
 
       // Create a steep segment (hill climb, not time trial)
-      const hillSegment = createSegment(drizzleDb, '70201', 'Steep Hill', { averageGrade: 4 });
-      const week = createWeek(drizzleDb, {
+      const hillSegment = await createSegment(orm, '70201', 'Steep Hill', { averageGrade: 4 });
+      const week = await createWeek(orm, {
         seasonId: testSeason.id,
         stravaSegmentId: hillSegment.strava_segment_id,
         weekName: 'Hill Week',
       });
 
       // Alice finishes but doesn't win
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: seedData.participants[0].strava_athlete_id,
         stravaActivityId: '70201b',
@@ -247,18 +249,18 @@ describe('JerseyService', () => {
 
     it('should count time trial week wins for a participant', async () => {
       // Create a dedicated season for this test
-      const testSeason = createSeason(drizzleDb, 'TT Test - One Win');
+      const testSeason = await createSeason(orm, 'TT Test - One Win');
 
       // Create a flat segment (time trial)
-      const flatSegment = createSegment(drizzleDb, '70202', 'Flat Road', { averageGrade: 1 });
-      const week = createWeek(drizzleDb, {
+      const flatSegment = await createSegment(orm, '70202', 'Flat Road', { averageGrade: 1 });
+      const week = await createWeek(orm, {
         seasonId: testSeason.id,
         stravaSegmentId: flatSegment.strava_segment_id,
         weekName: 'TT Week',
       });
 
       // Alice wins the time trial
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: seedData.participants[0].strava_athlete_id,
         stravaActivityId: '70202a',
@@ -266,7 +268,7 @@ describe('JerseyService', () => {
       });
 
       // Bob finishes second
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: seedData.participants[1].strava_athlete_id,
         stravaActivityId: '70202b',
@@ -289,19 +291,19 @@ describe('JerseyService', () => {
 
     it('should count multiple time trial wins across weeks', async () => {
       // Create a dedicated season for this test
-      const testSeason = createSeason(drizzleDb, 'TT Test - Multiple Wins');
+      const testSeason = await createSeason(orm, 'TT Test - Multiple Wins');
 
       // Create two time trial weeks
-      const tt1 = createSegment(drizzleDb, '70203', 'TT 1', { averageGrade: 1.5 });
-      const tt2 = createSegment(drizzleDb, '70204', 'TT 2', { averageGrade: 2 });
+      const tt1 = await createSegment(orm, '70203', 'TT 1', { averageGrade: 1.5 });
+      const tt2 = await createSegment(orm, '70204', 'TT 2', { averageGrade: 2 });
 
-      const week1 = createWeek(drizzleDb, {
+      const week1 = await createWeek(orm, {
         seasonId: testSeason.id,
         stravaSegmentId: tt1.strava_segment_id,
         weekName: 'TT Week 1',
       });
 
-      const week2 = createWeek(drizzleDb, {
+      const week2 = await createWeek(orm, {
         seasonId: testSeason.id,
         stravaSegmentId: tt2.strava_segment_id,
         weekName: 'TT Week 2',
@@ -311,28 +313,28 @@ describe('JerseyService', () => {
       const bobId = seedData.participants[1].strava_athlete_id;
 
       // Alice wins both TT weeks
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week1.id,
         stravaAthleteId: aliceId,
         stravaActivityId: '70203a',
         elapsedSeconds: 500,
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week1.id,
         stravaAthleteId: bobId,
         stravaActivityId: '70203b',
         elapsedSeconds: 600,
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week2.id,
         stravaAthleteId: aliceId,
         stravaActivityId: '70204a',
         elapsedSeconds: 400,
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week2.id,
         stravaAthleteId: bobId,
         stravaActivityId: '70204b',
@@ -357,17 +359,17 @@ describe('JerseyService', () => {
   describe('getPolkaDotWinner', () => {
     it('should return null if no hill climb weeks in season', async () => {
       // Create a dedicated test season for this test (don't reuse beforeAll seasons)
-      const testSeason = createSeason(drizzleDb, 'Flat Only Season');
+      const testSeason = await createSeason(orm, 'Flat Only Season');
 
       // Create a flat week
-      const flatSegment = createSegment(drizzleDb, '70105', 'Flat', { averageGrade: 1 });
-      const week = createWeek(drizzleDb, {
+      const flatSegment = await createSegment(orm, '70105', 'Flat', { averageGrade: 1 });
+      const week = await createWeek(orm, {
         seasonId: testSeason.id,
         stravaSegmentId: flatSegment.strava_segment_id,
         weekName: 'All Flat',
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: seedData.participants[0].strava_athlete_id,
         stravaActivityId: '70105',
@@ -382,25 +384,25 @@ describe('JerseyService', () => {
 
     it('should identify polka dot winner correctly', async () => {
       // Create season with mixed weeks
-      const testSeason = createSeason(drizzleDb, 'Polka Dot Test');
+      const testSeason = await createSeason(orm, 'Polka Dot Test');
 
-      const flatSegment = createSegment(drizzleDb, '70106', 'Flat', { averageGrade: 1 });
-      const hill1 = createSegment(drizzleDb, '70107', 'Hill 1', { averageGrade: 4 });
-      const hill2 = createSegment(drizzleDb, '70108', 'Hill 2', { averageGrade: 3.5 });
+      const flatSegment = await createSegment(orm, '70106', 'Flat', { averageGrade: 1 });
+      const hill1 = await createSegment(orm, '70107', 'Hill 1', { averageGrade: 4 });
+      const hill2 = await createSegment(orm, '70108', 'Hill 2', { averageGrade: 3.5 });
 
-      const flatWeek = createWeek(drizzleDb, {
+      const flatWeek = await createWeek(orm, {
         seasonId: testSeason.id,
         stravaSegmentId: flatSegment.strava_segment_id,
         weekName: 'Flat',
       });
 
-      const hillWeek1 = createWeek(drizzleDb, {
+      const hillWeek1 = await createWeek(orm, {
         seasonId: testSeason.id,
         stravaSegmentId: hill1.strava_segment_id,
         weekName: 'Hill 1',
       });
 
-      const hillWeek2 = createWeek(drizzleDb, {
+      const hillWeek2 = await createWeek(orm, {
         seasonId: testSeason.id,
         stravaSegmentId: hill2.strava_segment_id,
         weekName: 'Hill 2',
@@ -411,21 +413,21 @@ describe('JerseyService', () => {
       const charlieId = seedData.participants[2].strava_athlete_id;
 
       // Alice: wins flat (doesn't count) + hill1 = 1 polka dot
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: flatWeek.id,
         stravaAthleteId: aliceId,
         stravaActivityId: 'alice-flat',
         elapsedSeconds: 500,
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: hillWeek1.id,
         stravaAthleteId: aliceId,
         stravaActivityId: 'alice-h1',
         elapsedSeconds: 300,
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: hillWeek2.id,
         stravaAthleteId: aliceId,
         stravaActivityId: 'alice-h2',
@@ -433,21 +435,21 @@ describe('JerseyService', () => {
       });
 
       // Bob: wins only hill2 = 1 polka dot
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: flatWeek.id,
         stravaAthleteId: bobId,
         stravaActivityId: 'bob-flat',
         elapsedSeconds: 700,
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: hillWeek1.id,
         stravaAthleteId: bobId,
         stravaActivityId: 'bob-h1',
         elapsedSeconds: 400,
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: hillWeek2.id,
         stravaAthleteId: bobId,
         stravaActivityId: 'bob-h2',
@@ -455,21 +457,21 @@ describe('JerseyService', () => {
       });
 
       // Charlie: wins hill1 AND hill2 = 2 polka dots
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: flatWeek.id,
         stravaAthleteId: charlieId,
         stravaActivityId: 'charlie-flat',
         elapsedSeconds: 600,
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: hillWeek1.id,
         stravaAthleteId: charlieId,
         stravaActivityId: 'charlie-h1',
         elapsedSeconds: 290,  // Fastest in hill1
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: hillWeek2.id,
         stravaAthleteId: charlieId,
         stravaActivityId: 'charlie-h2',

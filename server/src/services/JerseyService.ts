@@ -13,13 +13,14 @@
  * - Season Yellow: Won by participant with most total points
  */
 
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { AppDatabase } from '../db/types';
 import { eq } from 'drizzle-orm';
 import { week, segment, result } from '../db/schema';
 import { calculateWeekScoring } from './ScoringService';
+import { getMany } from '../db/asyncQuery';
 
 export class JerseyService {
-  constructor(private db: BetterSQLite3Database) {}
+  constructor(private db: AppDatabase) {}
 
   /**
    * Check if a week is hill climb eligible for polka dot jersey
@@ -48,15 +49,19 @@ export class JerseyService {
    */
   async getPolkaDotWinner(seasonId: number) {
     // Get all weeks in season with their segment info
-    const weeksWithGrades = await this.db
-      .select({
-        week_id: week.id,
-        average_grade: segment.average_grade,
-      })
-      .from(week)
-      .leftJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
-      .where(eq(week.season_id, seasonId))
-      .all();
+    const weeksWithGrades = await getMany<{
+      week_id: number;
+      average_grade: number | null;
+    }>(
+      this.db
+        .select({
+          week_id: week.id,
+          average_grade: segment.average_grade,
+        })
+        .from(week)
+        .leftJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
+        .where(eq(week.season_id, seasonId))
+    );
 
     // Filter to hill climb weeks
     const hillClimbWeeks = weeksWithGrades.filter(w =>
@@ -125,15 +130,19 @@ export class JerseyService {
    */
   async getParticipantPolkaDotWins(seasonId: number, participantId: string) {
     // Get all weeks in season with their segment info
-    const weeksWithGrades = await this.db
-      .select({
-        week_id: week.id,
-        average_grade: segment.average_grade,
-      })
-      .from(week)
-      .leftJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
-      .where(eq(week.season_id, seasonId))
-      .all();
+    const weeksWithGrades = await getMany<{
+      week_id: number;
+      average_grade: number | null;
+    }>(
+      this.db
+        .select({
+          week_id: week.id,
+          average_grade: segment.average_grade,
+        })
+        .from(week)
+        .leftJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
+        .where(eq(week.season_id, seasonId))
+    );
 
     // Filter to hill climb weeks
     const hillClimbWeeks = weeksWithGrades.filter(w =>
@@ -171,21 +180,23 @@ export class JerseyService {
    */
   async getYellowJerseyWinner(seasonId: number) {
     // Get all results for this season
-    const allResults = await this.db
-      .select()
-      .from(result)
-      .all();
+    const allResults = await getMany<typeof result.$inferSelect>(
+      this.db
+        .select()
+        .from(result)
+    );
 
     if (allResults.length === 0) {
       return null; // No results in database
     }
 
     // Get all weeks to filter by season
-    const allWeeks = await this.db
-      .select()
-      .from(week)
-      .where(eq(week.season_id, seasonId))
-      .all();
+    const allWeeks = await getMany<typeof week.$inferSelect>(
+      this.db
+        .select()
+        .from(week)
+        .where(eq(week.season_id, seasonId))
+    );
 
     const weekIds = new Set(allWeeks.map(w => w.id));
 
@@ -276,15 +287,19 @@ export class JerseyService {
     participantId: string
   ): Promise<number> {
     // Get all weeks in season with their segment info
-    const weeksWithGrades = await this.db
-      .select({
-        week_id: week.id,
-        average_grade: segment.average_grade,
-      })
-      .from(week)
-      .leftJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
-      .where(eq(week.season_id, seasonId))
-      .all();
+    const weeksWithGrades = await getMany<{
+      week_id: number;
+      average_grade: number | null;
+    }>(
+      this.db
+        .select({
+          week_id: week.id,
+          average_grade: segment.average_grade,
+        })
+        .from(week)
+        .leftJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
+        .where(eq(week.season_id, seasonId))
+    );
 
     // Filter to TT weeks (not hill climbs)
     const timeTrialWeeks = weeksWithGrades.filter(w =>

@@ -1,5 +1,5 @@
-import { Database } from 'better-sqlite3';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { Pool } from 'pg';
+import type { AppDatabase } from '../db/types';
 import { eq } from 'drizzle-orm';
 import {
   clearAllData,
@@ -19,39 +19,38 @@ jest.mock('../stravaClient', () => ({
 }));
 
 describe('ExplorerMatchingService', () => {
-  let db: Database;
-  let drizzleDb: BetterSQLite3Database;
+  let pool: Pool;
+  let orm: AppDatabase;
 
-  beforeAll(() => {
-    const testDb = setupTestDb();
-    db = testDb.db;
-    drizzleDb = testDb.drizzleDb;
+  beforeAll(async () => {
+    const testDb = setupTestDb({ seed: false });
+    pool = testDb.pool;
+    orm = testDb.orm;
+  });
+  afterAll(async () => {
+    await teardownTestDb(pool);
   });
 
-  afterAll(() => {
-    teardownTestDb(db);
-  });
-
-  beforeEach(() => {
-    clearAllData(drizzleDb);
+  beforeEach(async () => {
+    await clearAllData(orm);
     jest.clearAllMocks();
   });
 
   it('records one match per destination even when a ride repeats the same segment', async () => {
-    createParticipant(drizzleDb, '2001', 'Explorer Rider');
-    const campaign = createExplorerCampaign(drizzleDb, {
+    await createParticipant(orm, '2001', 'Explorer Rider');
+    const campaign = await createExplorerCampaign(orm, {
       startAt: 1748736000,
       endAt: 1751327999,
       displayName: 'Summer Explorer',
     });
 
-    const destination = createExplorerDestination(drizzleDb, {
+    const destination = await createExplorerDestination(orm, {
       explorerCampaignId: campaign.id,
       stravaSegmentId: 'seg-100',
       cachedName: 'Summit Road',
     });
 
-    const service = new ExplorerMatchingService(drizzleDb);
+    const service = new ExplorerMatchingService(orm);
     const result = await service.matchActivity(
       {
         id: 'activity-1',
@@ -79,29 +78,29 @@ describe('ExplorerMatchingService', () => {
     expect(result.matchedDestinations).toBe(1);
     expect(result.newMatches).toBe(1);
 
-    const matches = drizzleDb
+    const matches = await orm
       .select()
       .from(explorerDestinationMatch)
       .where(eq(explorerDestinationMatch.explorer_destination_id, destination.id))
-      .all();
+      .execute();
 
     expect(matches).toHaveLength(1);
     expect(matches[0]?.strava_activity_id).toBe('activity-1');
   });
 
   it('is idempotent when the same activity is processed more than once', async () => {
-    createParticipant(drizzleDb, '2002', 'Repeat Rider');
-    const campaign = createExplorerCampaign(drizzleDb, {
+    await createParticipant(orm, '2002', 'Repeat Rider');
+    const campaign = await createExplorerCampaign(orm, {
       startAt: 1748736000,
       endAt: 1751327999,
     });
 
-    createExplorerDestination(drizzleDb, {
+    await createExplorerDestination(orm, {
       explorerCampaignId: campaign.id,
       stravaSegmentId: 'seg-200',
     });
 
-    const service = new ExplorerMatchingService(drizzleDb);
+    const service = new ExplorerMatchingService(orm);
     const activity = {
       id: 'activity-2',
       name: 'Evening Ride',
@@ -122,23 +121,23 @@ describe('ExplorerMatchingService', () => {
     expect(firstPass.newMatches).toBe(1);
     expect(secondPass.newMatches).toBe(0);
 
-    const matches = drizzleDb.select().from(explorerDestinationMatch).all();
+    const matches = await orm.select().from(explorerDestinationMatch).execute();
     expect(matches).toHaveLength(1);
   });
 
   it('hydrates missing segment efforts during campaign refresh and matches newly added destinations', async () => {
-    createParticipant(drizzleDb, '2003', 'Refresh Rider');
-    const campaign = createExplorerCampaign(drizzleDb, {
+    await createParticipant(orm, '2003', 'Refresh Rider');
+    const campaign = await createExplorerCampaign(orm, {
       startAt: 1749513600,
       endAt: 1750118399,
     });
 
-    createExplorerDestination(drizzleDb, {
+    await createExplorerDestination(orm, {
       explorerCampaignId: campaign.id,
       stravaSegmentId: 'seg-300',
     });
 
-    const service = new ExplorerMatchingService(drizzleDb);
+    const service = new ExplorerMatchingService(orm);
     await service.matchActivity(
       {
         id: 'activity-3',
@@ -156,7 +155,7 @@ describe('ExplorerMatchingService', () => {
       '2003'
     );
 
-    createExplorerDestination(drizzleDb, {
+    await createExplorerDestination(orm, {
       explorerCampaignId: campaign.id,
       stravaSegmentId: 'seg-301',
     });

@@ -1,5 +1,5 @@
-import { Database } from 'better-sqlite3';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { Pool } from 'pg';
+import type { AppDatabase } from '../db/types';
 import { 
   setupTestDb, 
   teardownTestDb, 
@@ -16,27 +16,26 @@ import { webhookEvent, activity } from '../db/schema';
 import { eq } from 'drizzle-orm';
 
 describe('WebhookAdminService enrichment', () => {
-  let db: Database;
-  let drizzleDb: BetterSQLite3Database;
+  let pool: Pool;
+  let orm: AppDatabase;
   let service: WebhookAdminService;
 
-  beforeAll(() => {
-    const testDb = setupTestDb();
-    db = testDb.db;
-    drizzleDb = testDb.drizzleDb;
-    service = new WebhookAdminService(drizzleDb);
+  beforeAll(async () => {
+    const testDb = setupTestDb({ seed: false });
+    pool = testDb.pool;
+    orm = testDb.orm;
+    service = new WebhookAdminService(orm);
   });
-
-  afterAll(() => {
-    teardownTestDb(db);
+  afterAll(async () => {
+    await teardownTestDb(pool);
   });
 
   it('should return a full summary object when an activity event is enriched', async () => {
     // 1. Setup sample data
-    const alice = createParticipant(drizzleDb, '123456', 'Alice');
-    const season = createSeason(drizzleDb, 'Season 2025');
-    const segment = createSegment(drizzleDb, 'seg1', 'Test Segment');
-    const week = createWeek(drizzleDb, {
+    const alice = await createParticipant(orm, '123456', 'Alice');
+    const season = await createSeason(orm, 'Season 2025');
+    const segment = await createSegment(orm, 'seg1', 'Test Segment');
+    const week = await createWeek(orm, {
       seasonId: season.id,
       stravaSegmentId: segment.strava_segment_id,
       weekName: 'Week 1'
@@ -44,7 +43,7 @@ describe('WebhookAdminService enrichment', () => {
 
     // 2. Create a "processed" webhook event for a Strava activity
     const activityId = 999888777;
-    const [event] = await drizzleDb.insert(webhookEvent).values({
+    const [event] = await orm.insert(webhookEvent).values({
       payload: JSON.stringify({
         object_type: 'activity',
         aspect_type: 'create',
@@ -56,7 +55,7 @@ describe('WebhookAdminService enrichment', () => {
     }).returning();
 
     // 3. Create a stored activity that links this event to a week
-    await drizzleDb.insert(activity).values({
+    await orm.insert(activity).values({
       strava_activity_id: activityId.toString(),
       strava_athlete_id: alice.strava_athlete_id,
       week_id: week.id,
@@ -79,7 +78,7 @@ describe('WebhookAdminService enrichment', () => {
   });
 
   it('should return a "not_found" summary for events with no linked activity', async () => {
-    const [event] = await drizzleDb.insert(webhookEvent).values({
+    const [event] = await orm.insert(webhookEvent).values({
       payload: JSON.stringify({
         object_type: 'activity',
         aspect_type: 'create',
@@ -94,23 +93,23 @@ describe('WebhookAdminService enrichment', () => {
   });
 
   it('should return collapsed activity summaries for competition, explorer, both, and none', async () => {
-    const alice = createParticipant(drizzleDb, '777', 'Alice');
-    const season = createSeason(drizzleDb, 'Observability Season');
-    const segment = createSegment(drizzleDb, 'obs-seg', 'Observability Segment');
-    const week = createWeek(drizzleDb, {
+    const alice = await createParticipant(orm, '777', 'Alice');
+    const season = await createSeason(orm, 'Observability Season');
+    const segment = await createSegment(orm, 'obs-seg', 'Observability Segment');
+    const week = await createWeek(orm, {
       seasonId: season.id,
       stravaSegmentId: segment.strava_segment_id,
       weekName: 'Observability Week',
     });
-    const campaign = createExplorerCampaign(drizzleDb, {
+    const campaign = await createExplorerCampaign(orm, {
       displayName: 'Explorer Observability Campaign',
     });
-    const explorerOnlyDestination = createExplorerDestination(drizzleDb, {
+    const explorerOnlyDestination = await createExplorerDestination(orm, {
       explorerCampaignId: campaign.id,
       stravaSegmentId: 'explorer-observability-segment',
       cachedName: 'Explorer Only Destination',
     });
-    const bothDestination = createExplorerDestination(drizzleDb, {
+    const bothDestination = await createExplorerDestination(orm, {
       explorerCampaignId: campaign.id,
       stravaSegmentId: 'explorer-observability-segment-2',
       cachedName: 'Both Destination',
@@ -123,7 +122,7 @@ describe('WebhookAdminService enrichment', () => {
       none: 200004,
     };
 
-    const insertedEvents = await drizzleDb.insert(webhookEvent).values([
+    const insertedEvents = await orm.insert(webhookEvent).values([
       {
         payload: JSON.stringify({ object_type: 'activity', aspect_type: 'create', object_id: activityIds.competitionOnly, owner_id: parseInt(alice.strava_athlete_id), event_time: Math.floor(Date.now() / 1000) }),
         processed: 1,
@@ -142,7 +141,7 @@ describe('WebhookAdminService enrichment', () => {
       },
     ]).returning();
 
-    await drizzleDb.insert(activity).values({
+    await orm.insert(activity).values({
       strava_activity_id: activityIds.competitionOnly.toString(),
       strava_athlete_id: alice.strava_athlete_id,
       week_id: week.id,
@@ -150,14 +149,14 @@ describe('WebhookAdminService enrichment', () => {
       validation_status: 'valid',
     });
 
-    createExplorerMatch(drizzleDb, {
+    await createExplorerMatch(orm, {
       explorerCampaignId: campaign.id,
       explorerDestinationId: explorerOnlyDestination.id,
       stravaAthleteId: alice.strava_athlete_id,
       stravaActivityId: activityIds.explorerOnly.toString(),
     });
 
-    await drizzleDb.insert(activity).values({
+    await orm.insert(activity).values({
       strava_activity_id: activityIds.both.toString(),
       strava_athlete_id: alice.strava_athlete_id,
       week_id: week.id,
@@ -165,7 +164,7 @@ describe('WebhookAdminService enrichment', () => {
       validation_status: 'valid',
     });
 
-    createExplorerMatch(drizzleDb, {
+    await createExplorerMatch(orm, {
       explorerCampaignId: campaign.id,
       explorerDestinationId: bothDestination.id,
       stravaAthleteId: alice.strava_athlete_id,

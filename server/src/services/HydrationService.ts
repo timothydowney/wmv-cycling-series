@@ -1,22 +1,24 @@
 import { eq, isNull, and } from 'drizzle-orm';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { AppDatabase } from '../db/types';
 import { activity, segmentEffort, result, week } from '../db/schema';
 import * as stravaClient from '../stravaClient';
 import { getValidAccessToken } from '../tokenManager';
+import { exec, getMany, getOne } from '../db/asyncQuery';
 import { findBestConsecutiveWindow } from '../activityProcessor';
 
 export class HydrationService {
-  constructor(private db: BetterSQLite3Database) {}
+  constructor(private db: AppDatabase) {}
 
   /**
    * Hydrates a single activity's efforts with performance metrics from Strava using Strava IDs.
    */
   async hydrateByStravaId(stravaActivityId: string): Promise<{ success: boolean; message?: string; updatedCount?: number }> {
     try {
-      const dbActivity = await this.db.select()
-        .from(activity)
-        .where(eq(activity.strava_activity_id, stravaActivityId))
-        .get();
+      const dbActivity = await getOne<typeof activity.$inferSelect>(
+        this.db.select()
+          .from(activity)
+          .where(eq(activity.strava_activity_id, stravaActivityId))
+      );
 
       if (!dbActivity) {
         return { success: false, message: 'Activity not found in local database' };
@@ -37,10 +39,11 @@ export class HydrationService {
    */
   async hydrateActivity(activityId: number): Promise<{ success: boolean; message?: string; updatedCount?: number }> {
     try {
-      const dbActivity = await this.db.select()
-        .from(activity)
-        .where(eq(activity.id, activityId))
-        .get();
+      const dbActivity = await getOne<typeof activity.$inferSelect>(
+        this.db.select()
+          .from(activity)
+          .where(eq(activity.id, activityId))
+      );
 
       if (!dbActivity) {
         return { success: false, message: 'Activity not found' };
@@ -61,10 +64,11 @@ export class HydrationService {
       }
 
       // 3. Get week data to know the segment and required laps
-      const weekData = await this.db.select()
-        .from(week)
-        .where(eq(week.id, dbActivity.week_id))
-        .get();
+      const weekData = await getOne<typeof week.$inferSelect>(
+        this.db.select()
+          .from(week)
+          .where(eq(week.id, dbActivity.week_id))
+      );
 
       if (!weekData) {
         return { success: false, message: 'Week not found for this activity' };
@@ -85,11 +89,12 @@ export class HydrationService {
       const matchingStravaEffortsInWindow = bestWindow.efforts;
 
       // Get existing efforts from DB to match them
-      const dbEfforts = await this.db.select()
-        .from(segmentEffort)
-        .where(eq(segmentEffort.activity_id, dbActivity.id))
-        .orderBy(segmentEffort.effort_index)
-        .all();
+      const dbEfforts = await getMany<typeof segmentEffort.$inferSelect>(
+        this.db.select()
+          .from(segmentEffort)
+          .where(eq(segmentEffort.activity_id, dbActivity.id))
+          .orderBy(segmentEffort.effort_index)
+      );
 
       const updatedEfforts = [];
 
@@ -98,7 +103,7 @@ export class HydrationService {
         const matchedStravaEffort = matchingStravaEffortsInWindow[dbEffort.effort_index];
 
         if (matchedStravaEffort) {
-          const updateResult = await this.db.update(segmentEffort)
+          const [updateResult] = await this.db.update(segmentEffort)
             .set({
               strava_effort_id: String(matchedStravaEffort.id),
               average_watts: matchedStravaEffort.average_watts || null,
@@ -108,8 +113,7 @@ export class HydrationService {
               device_watts: matchedStravaEffort.device_watts ?? null,
             })
             .where(eq(segmentEffort.id, dbEffort.id))
-            .returning()
-            .get();
+            .returning();
 
           if (updateResult) {
             updatedEfforts.push(updateResult);
@@ -119,13 +123,14 @@ export class HydrationService {
 
       // Update the total time in the results table if we updated all efforts
       if (updatedEfforts.length === weekData.required_laps) {
-        await this.db.update(result)
-          .set({
-            total_time_seconds: bestWindow.totalTime,
-            updated_at: new Date().toISOString()
-          })
-          .where(eq(result.activity_id, dbActivity.id))
-          .run();
+        await exec(
+          this.db.update(result)
+            .set({
+              total_time_seconds: bestWindow.totalTime,
+              updated_at: new Date().toISOString()
+            })
+            .where(eq(result.activity_id, dbActivity.id))
+        );
       }
 
       return {
@@ -151,18 +156,19 @@ export class HydrationService {
     // Find activities that have efforts but those efforts are missing metrics
     // We'll look for efforts where average_watts, average_heartrate, and average_cadence are all null
     // but the activity exists.
-    const activitiesToHydrate = await this.db.selectDistinct({ id: activity.id })
-      .from(activity)
-      .innerJoin(segmentEffort, eq(segmentEffort.activity_id, activity.id))
-      .where(
-        and(
-          isNull(segmentEffort.average_watts),
-          isNull(segmentEffort.average_heartrate),
-          isNull(segmentEffort.average_cadence)
+    const activitiesToHydrate = await getMany<{ id: number }>(
+      this.db.selectDistinct({ id: activity.id })
+        .from(activity)
+        .innerJoin(segmentEffort, eq(segmentEffort.activity_id, activity.id))
+        .where(
+          and(
+            isNull(segmentEffort.average_watts),
+            isNull(segmentEffort.average_heartrate),
+            isNull(segmentEffort.average_cadence)
+          )
         )
-      )
-      .limit(limit)
-      .all();
+        .limit(limit)
+    );
 
     if (activitiesToHydrate.length === 0) {
       console.log('[Hydration] No activities found needing hydration.');

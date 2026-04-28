@@ -28,33 +28,31 @@ describe('HydrationService', () => {
     it('should successfully hydrate an activity with performance metrics', async () => {
       // Setup data
       const stravaAthleteId = 'athlete1';
-      createParticipant(orm, stravaAthleteId, 'Test Athlete');
-      const seasonObj = createSeason(orm, 'Season 2025');
-      createSegment(orm, 'seg123', 'Test Segment');
-      const weekObj = createWeek(orm, { 
+      await createParticipant(orm, stravaAthleteId, 'Test Athlete');
+      const seasonObj = await createSeason(orm, 'Season 2025');
+      await createSegment(orm, 'seg123', 'Test Segment');
+      const weekObj = await createWeek(orm, { 
         seasonId: seasonObj.id, 
         stravaSegmentId: 'seg123', 
         requiredLaps: 2 
       });
       
-      const activityObj = createActivity(orm, { 
+      const activityObj = await createActivity(orm, { 
         weekId: weekObj.id, 
         stravaAthleteId 
       });
       
       // Create 2 efforts in DB (missing metrics)
-      createSegmentEffort(orm, { activityId: activityObj.id, stravaSegmentId: 'seg123', effortIndex: 0 });
-      createSegmentEffort(orm, { activityId: activityObj.id, stravaSegmentId: 'seg123', effortIndex: 1 });
+      await createSegmentEffort(orm, { activityId: activityObj.id, stravaSegmentId: 'seg123', effortIndex: 0 });
+      await createSegmentEffort(orm, { activityId: activityObj.id, stravaSegmentId: 'seg123', effortIndex: 1 });
 
       // Create a result record
-      orm.insert(result).values({
+      await orm.insert(result).values({
         week_id: weekObj.id,
         strava_athlete_id: stravaAthleteId,
         activity_id: activityObj.id,
         total_time_seconds: 1200,
-        rank: 1,
-        points: 10
-      }).run();
+      }).execute();
 
       // Mock token - correct pattern: function returns token string
       mockedGetValidAccessToken.mockResolvedValue('fake_token');
@@ -92,14 +90,14 @@ describe('HydrationService', () => {
       expect(res.updatedCount).toBe(2);
 
       // Verify DB updates
-      const updatedEfforts = orm.select().from(segmentEffort).where(eq(segmentEffort.activity_id, activityObj.id)).all();
+      const updatedEfforts = await orm.select().from(segmentEffort).where(eq(segmentEffort.activity_id, activityObj.id)).execute();
       expect(updatedEfforts[0].average_watts).toBe(250);
       expect(updatedEfforts[0].average_heartrate).toBe(150);
       expect(updatedEfforts[1].average_watts).toBe(260);
       expect(updatedEfforts[1].average_heartrate).toBe(155);
       
       // Verify result update
-      const updatedResult = orm.select().from(result).where(eq(result.activity_id, activityObj.id)).get();
+      const [updatedResult] = await orm.select().from(result).where(eq(result.activity_id, activityObj.id)).limit(1).execute();
       expect(updatedResult.total_time_seconds).toBe(1210); // 600 + 610
     });
 
@@ -110,7 +108,12 @@ describe('HydrationService', () => {
     });
 
     it('should return failure if token cannot be retrieved', async () => {
-      const activityObj = createActivity(orm, { weekId: 1, stravaAthleteId: 'athlete1' });
+      const stravaAthleteId = 'athlete1';
+      await createParticipant(orm, stravaAthleteId, 'Test Athlete');
+      const seasonObj = await createSeason(orm, 'Season 2025');
+      await createSegment(orm, 'seg123', 'Test Segment');
+      const weekObj = await createWeek(orm, { seasonId: seasonObj.id, stravaSegmentId: 'seg123' });
+      const activityObj = await createActivity(orm, { weekId: weekObj.id, stravaAthleteId });
       // Mock the function to throw an error instead of returning null
       mockedGetValidAccessToken.mockRejectedValue(new Error('Participant not connected to Strava'));
 
@@ -120,7 +123,12 @@ describe('HydrationService', () => {
     });
 
     it('should return failure if Strava fetch fails', async () => {
-      const activityObj = createActivity(orm, { weekId: 1, stravaAthleteId: 'athlete1' });
+      const stravaAthleteId = 'athlete1';
+      await createParticipant(orm, stravaAthleteId, 'Test Athlete');
+      const seasonObj = await createSeason(orm, 'Season 2025');
+      await createSegment(orm, 'seg123', 'Test Segment');
+      const weekObj = await createWeek(orm, { seasonId: seasonObj.id, stravaSegmentId: 'seg123' });
+      const activityObj = await createActivity(orm, { weekId: weekObj.id, stravaAthleteId });
       mockedGetValidAccessToken.mockResolvedValue('fake_token');
       mockedStravaClient.getActivity.mockResolvedValue(null as any);
 
@@ -131,10 +139,11 @@ describe('HydrationService', () => {
 
     it('should return failure if no matching laps found', async () => {
       const stravaAthleteId = 'athlete1';
-      const seasonObj = createSeason(orm, 'Season 2025');
-      createSegment(orm, 'seg123', 'Test Segment');
-      const weekObj = createWeek(orm, { seasonId: seasonObj.id, stravaSegmentId: 'seg123', requiredLaps: 2 });
-      const activityObj = createActivity(orm, { weekId: weekObj.id, stravaAthleteId });
+      await createParticipant(orm, stravaAthleteId, 'Test Athlete');
+      const seasonObj = await createSeason(orm, 'Season 2025');
+      await createSegment(orm, 'seg123', 'Test Segment');
+      const weekObj = await createWeek(orm, { seasonId: seasonObj.id, stravaSegmentId: 'seg123', requiredLaps: 2 });
+      const activityObj = await createActivity(orm, { weekId: weekObj.id, stravaAthleteId });
 
       mockedGetValidAccessToken.mockResolvedValue('fake_token');
       mockedStravaClient.getActivity.mockResolvedValue({
@@ -155,10 +164,11 @@ describe('HydrationService', () => {
       const stravaAthleteId = 'athlete1';
       const stravaActivityId = 'strava_act_123';
       
-      const seasonObj = createSeason(orm, 'Season 2025');
-      createSegment(orm, 'seg123', 'Test Segment');
-      const weekObj = createWeek(orm, { seasonId: seasonObj.id, stravaSegmentId: 'seg123' });
-      const activityObj = createActivity(orm, { 
+      await createParticipant(orm, stravaAthleteId, 'Test Athlete');
+      const seasonObj = await createSeason(orm, 'Season 2025');
+      await createSegment(orm, 'seg123', 'Test Segment');
+      const weekObj = await createWeek(orm, { seasonId: seasonObj.id, stravaSegmentId: 'seg123' });
+      const activityObj = await createActivity(orm, { 
         weekId: weekObj.id, 
         stravaAthleteId,
         stravaActivityId
@@ -184,15 +194,16 @@ describe('HydrationService', () => {
     it('should process activities missing metrics', async () => {
       // Setup 2 activities needing hydration
       const stravaAthleteId = 'athlete1';
-      const seasonObj = createSeason(orm, 'Season 2025');
-      createSegment(orm, 'seg123', 'Test Segment');
-      const weekObj = createWeek(orm, { seasonId: seasonObj.id, stravaSegmentId: 'seg123' });
+      await createParticipant(orm, stravaAthleteId, 'Test Athlete');
+      const seasonObj = await createSeason(orm, 'Season 2025');
+      await createSegment(orm, 'seg123', 'Test Segment');
+      const weekObj = await createWeek(orm, { seasonId: seasonObj.id, stravaSegmentId: 'seg123' });
       
-      const act1 = createActivity(orm, { weekId: weekObj.id, stravaAthleteId });
-      createSegmentEffort(orm, { activityId: act1.id, stravaSegmentId: 'seg123' });
+      const act1 = await createActivity(orm, { weekId: weekObj.id, stravaAthleteId });
+      await createSegmentEffort(orm, { activityId: act1.id, stravaSegmentId: 'seg123' });
       
-      const act2 = createActivity(orm, { weekId: weekObj.id, stravaAthleteId });
-      createSegmentEffort(orm, { activityId: act2.id, stravaSegmentId: 'seg123' });
+      const act2 = await createActivity(orm, { weekId: weekObj.id, stravaAthleteId });
+      await createSegmentEffort(orm, { activityId: act2.id, stravaSegmentId: 'seg123' });
 
       // Mock hydrateActivity
       const hydrateSpy = jest.spyOn(service, 'hydrateActivity').mockResolvedValue({ success: true });

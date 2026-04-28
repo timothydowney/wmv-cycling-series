@@ -1,11 +1,11 @@
+import type { Pool } from 'pg';
+import type { AppDatabase } from '../db/types';
 // @ts-nocheck
 /**
  * SegmentService Unit Tests
  * Tests for segment metadata fetching and storage service
  */
 
-import { Database } from 'better-sqlite3';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { SegmentService } from '../services/SegmentService';
 import { setupTestDb, teardownTestDb, createParticipant, createSegment, clearAllData } from './testDataHelpers';
 import { segment } from '../db/schema';
@@ -65,32 +65,31 @@ jest.mock('../tokenManager', () => ({
 }));
 
 describe('SegmentService', () => {
-  let db: Database;
-  let drizzleDb: BetterSQLite3Database;
+  let pool: Pool;
+  let orm: AppDatabase;
   let service: SegmentService;
 
   const TEST_SEGMENT_ID = '12345678';
   const TEST_ATHLETE_ID = '999001';
 
-  beforeAll(() => {
-    const testDb = setupTestDb();
-    db = testDb.db;
-    drizzleDb = testDb.drizzleDb;
+  beforeAll(async () => {
+    const testDb = setupTestDb({ seed: false });
+    pool = testDb.pool;
+    orm = testDb.orm;
+  });
+  afterAll(async () => {
+    await teardownTestDb(pool);
   });
 
-  afterAll(() => {
-    teardownTestDb(db);
-  });
-
-  beforeEach(() => {
-    clearAllData(drizzleDb);
-    service = new SegmentService(drizzleDb);
+  beforeEach(async () => {
+    await clearAllData(orm);
+    service = new SegmentService(orm);
   });
 
   describe('fetchAndStoreSegmentMetadata()', () => {
     test('should fetch segment metadata from Strava and store in database', async () => {
       // Setup: Create participant with token
-      createParticipant(drizzleDb, TEST_ATHLETE_ID, 'Test User', {
+      await createParticipant(orm, TEST_ATHLETE_ID, 'Test User', {
         accessToken: 'token_123',
         refreshToken: 'refresh_123',
         expiresAt: Math.floor(Date.now() / 1000) + 3600
@@ -117,7 +116,7 @@ describe('SegmentService', () => {
       });
 
       // Assert: Data stored in database
-      const stored = await drizzleDb.select().from(segment).where(eq(segment.strava_segment_id, TEST_SEGMENT_ID)).get();
+      const [stored] = await orm.select().from(segment).where(eq(segment.strava_segment_id, TEST_SEGMENT_ID));
       expect(stored).toMatchObject({
         strava_segment_id: TEST_SEGMENT_ID,
         name: 'Test Segment Name',
@@ -142,21 +141,21 @@ describe('SegmentService', () => {
       expect(result?.total_elevation_gain).toBeNull();
 
       // Assert: Row exists in database
-      const stored = await drizzleDb.select().from(segment).where(eq(segment.strava_segment_id, TEST_SEGMENT_ID)).get();
+      const [stored] = await orm.select().from(segment).where(eq(segment.strava_segment_id, TEST_SEGMENT_ID));
       expect(stored).toBeDefined();
     });
 
     test('should handle API errors gracefully and create placeholder', async () => {
       // Setup
-      createParticipant(drizzleDb, TEST_ATHLETE_ID, 'Test User', {
+      await createParticipant(orm, TEST_ATHLETE_ID, 'Test User', {
         accessToken: 'token_123',
         refreshToken: 'refresh_123',
         expiresAt: Math.floor(Date.now() / 1000) + 3600
       });
 
       // Mock API failure
-      const { getSegment } = stravaClientMock;
-      getSegment.mockRejectedValueOnce(new Error('Strava API error'));
+      const getSegmentMock = stravaClientMock.getSegment as jest.Mock;
+      getSegmentMock.mockRejectedValueOnce(new Error('Strava API error'));
 
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
@@ -177,7 +176,7 @@ describe('SegmentService', () => {
 
     test('should send user-friendly messages via callback without technical context', async () => {
       // Setup
-      createParticipant(drizzleDb, TEST_ATHLETE_ID, 'Test User', {
+      await createParticipant(orm, TEST_ATHLETE_ID, 'Test User', {
         accessToken: 'token_123',
         refreshToken: 'refresh_123',
         expiresAt: Math.floor(Date.now() / 1000) + 3600
@@ -201,14 +200,14 @@ describe('SegmentService', () => {
 
     test('should send error messages via callback without technical context', async () => {
       // Setup
-      createParticipant(drizzleDb, TEST_ATHLETE_ID, 'Test User', {
+      await createParticipant(orm, TEST_ATHLETE_ID, 'Test User', {
         accessToken: 'token_123',
         refreshToken: 'refresh_123',
         expiresAt: Math.floor(Date.now() / 1000) + 3600
       });
 
-      const { getSegment } = stravaClientMock;
-      getSegment.mockRejectedValueOnce(new Error('Segment not found'));
+      const getSegmentMock = stravaClientMock.getSegment as jest.Mock;
+      getSegmentMock.mockRejectedValueOnce(new Error('Segment not found'));
 
       const logMessages: Array<[string, string]> = [];
       const logCallback = (level: string, msg: string) => {
@@ -227,7 +226,7 @@ describe('SegmentService', () => {
 
     test('should be idempotent (INSERT OR REPLACE)', async () => {
       // Setup
-      createParticipant(drizzleDb, TEST_ATHLETE_ID, 'Test User', {
+      await createParticipant(orm, TEST_ATHLETE_ID, 'Test User', {
         accessToken: 'token_123',
         refreshToken: 'refresh_123',
         expiresAt: Math.floor(Date.now() / 1000) + 3600
@@ -235,22 +234,22 @@ describe('SegmentService', () => {
 
       // First fetch
       await service.fetchAndStoreSegmentMetadata(TEST_SEGMENT_ID, 'test-1');
-      const countRes1 = await drizzleDb.select({ cnt: sql<number>`count(*)` }).from(segment).get();
+      const [countRes1] = await orm.select({ cnt: sql<number>`count(*)`.as('cnt') }).from(segment);
       expect(countRes1?.cnt).toBe(1);
 
       // Second fetch (should update, not insert)
       await service.fetchAndStoreSegmentMetadata(TEST_SEGMENT_ID, 'test-2');
-      const countRes2 = await drizzleDb.select({ cnt: sql<number>`count(*)` }).from(segment).get();
+      const [countRes2] = await orm.select({ cnt: sql<number>`count(*)`.as('cnt') }).from(segment);
       expect(countRes2?.cnt).toBe(1);
 
       // Verify data was updated
-      const stored = await drizzleDb.select().from(segment).where(eq(segment.strava_segment_id, TEST_SEGMENT_ID)).get();
+      const [stored] = await orm.select().from(segment).where(eq(segment.strava_segment_id, TEST_SEGMENT_ID));
       expect(stored?.name).toBe('Test Segment Name');
     });
 
     test('should call token refresh with correct parameters', async () => {
       // Setup
-      createParticipant(drizzleDb, TEST_ATHLETE_ID, 'Test User', {
+      await createParticipant(orm, TEST_ATHLETE_ID, 'Test User', {
         accessToken: 'old_token',
         refreshToken: 'refresh_123',
         expiresAt: Math.floor(Date.now() / 1000) - 3600 // Expired
@@ -271,7 +270,7 @@ describe('SegmentService', () => {
 
     test('should handle different context strings for logging', async () => {
       // Setup
-      createParticipant(drizzleDb, TEST_ATHLETE_ID, 'Test User', {
+      await createParticipant(orm, TEST_ATHLETE_ID, 'Test User', {
         accessToken: 'token_123',
         refreshToken: 'refresh_123',
         expiresAt: Math.floor(Date.now() / 1000) + 3600
@@ -296,7 +295,7 @@ describe('SegmentService', () => {
 
   describe('Utility Methods', () => {
     test('segmentExists() returns true for existing segment', async () => {
-      createSegment(drizzleDb, TEST_SEGMENT_ID, 'Test Segment');
+      await createSegment(orm, TEST_SEGMENT_ID, 'Test Segment');
       expect(await service.segmentExists(TEST_SEGMENT_ID)).toBe(true);
     });
 
@@ -310,9 +309,9 @@ describe('SegmentService', () => {
     });
 
     test('getAllSegments() returns all segments sorted by name', async () => {
-      createSegment(drizzleDb, '111', 'Zebra Climb');
-      createSegment(drizzleDb, '222', 'Apple Ridge');
-      createSegment(drizzleDb, '333', 'Mountain Peak');
+      await createSegment(orm, '111', 'Zebra Climb');
+      await createSegment(orm, '222', 'Apple Ridge');
+      await createSegment(orm, '333', 'Mountain Peak');
 
       const segments = await service.getAllSegments();
       expect(segments).toHaveLength(3);
@@ -322,7 +321,7 @@ describe('SegmentService', () => {
     });
 
     test('getAllSegments() returns complete segment data', async () => {
-      createSegment(drizzleDb, TEST_SEGMENT_ID, 'Test Segment', {
+      await createSegment(orm, TEST_SEGMENT_ID, 'Test Segment', {
         distance: 5000,
         averageGrade: 4.5,
         totalElevationGain: 220,
@@ -359,7 +358,7 @@ describe('SegmentService', () => {
 
   describe('Edge Cases', () => {
     test('should handle null/undefined values in segment data', async () => {
-      createParticipant(drizzleDb, TEST_ATHLETE_ID, 'Test User', {
+      await createParticipant(orm, TEST_ATHLETE_ID, 'Test User', {
         accessToken: 'token_123',
         refreshToken: 'refresh_123',
         expiresAt: Math.floor(Date.now() / 1000) + 3600
@@ -389,9 +388,9 @@ describe('SegmentService', () => {
 
     test('should handle existing placeholder when fetching fails', async () => {
       // Setup: Create placeholder first
-      createSegment(drizzleDb, TEST_SEGMENT_ID, `Segment ${TEST_SEGMENT_ID}`);
+      await createSegment(orm, TEST_SEGMENT_ID, `Segment ${TEST_SEGMENT_ID}`);
 
-      createParticipant(drizzleDb, TEST_ATHLETE_ID, 'Test User', {
+      await createParticipant(orm, TEST_ATHLETE_ID, 'Test User', {
         accessToken: 'token_123',
         refreshToken: 'refresh_123',
         expiresAt: Math.floor(Date.now() / 1000) + 3600
@@ -408,12 +407,12 @@ describe('SegmentService', () => {
       expect(result?.strava_segment_id).toBe(TEST_SEGMENT_ID);
 
       // Assert: Only 1 row in database (not duplicated)
-      const countRes = await drizzleDb.select({ cnt: sql<number>`count(*)` }).from(segment).where(eq(segment.strava_segment_id, TEST_SEGMENT_ID)).get();
+      const [countRes] = await orm.select({ cnt: sql<number>`count(*)`.as('cnt') }).from(segment).where(eq(segment.strava_segment_id, TEST_SEGMENT_ID));
       expect(countRes?.cnt).toBe(1);
     });
 
     test('should not callback when logCallback is undefined', async () => {
-      createParticipant(drizzleDb, TEST_ATHLETE_ID, 'Test User', {
+      await createParticipant(orm, TEST_ATHLETE_ID, 'Test User', {
         accessToken: 'token_123',
         refreshToken: 'refresh_123',
         expiresAt: Math.floor(Date.now() / 1000) + 3600

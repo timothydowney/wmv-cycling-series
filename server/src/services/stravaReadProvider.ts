@@ -1,11 +1,12 @@
 import { desc } from 'drizzle-orm';
-import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { AppDatabase } from '../db/types';
 import { getStravaApiMode } from '../config';
 import { participantToken } from '../db/schema';
 import { getActivity, getAthleteProfile, getLoggedInAthlete } from '../stravaClient';
 import * as stravaClientModule from '../stravaClient';
 import { getValidAccessToken } from '../tokenManager';
 import { fetchWebhookActivity, hasWebhookActivityFixture } from './webhookActivityProvider';
+import { getOne } from '../db/asyncQuery';
 
 interface CachedProfile {
   profile: string | null;
@@ -170,7 +171,7 @@ async function getLiveAthleteProfilePicture(
 
 async function getAuthStatusProfilePicture(
   athleteId: string,
-  db: BetterSQLite3Database
+  db: AppDatabase
 ): Promise<string | null> {
   if (usesDeterministicStravaReads()) {
     return getDeterministicProfilePictureUrl(athleteId);
@@ -182,7 +183,7 @@ async function getAuthStatusProfilePicture(
 
 async function getAthleteProfilePictures(
   athleteIds: string[],
-  db: BetterSQLite3Database
+  db: AppDatabase
 ): Promise<Map<string, string | null>> {
   const results = new Map<string, string | null>();
 
@@ -225,12 +226,13 @@ async function getAthleteProfilePictures(
 
   if (!fallbackToken && athleteTokens.size < uncachedIds.length) {
     try {
-      const anyParticipant = db
-        .select({ strava_athlete_id: participantToken.strava_athlete_id })
-        .from(participantToken)
-        .orderBy(desc(participantToken.updated_at))
-        .limit(1)
-        .get();
+      const anyParticipant = await getOne<{ strava_athlete_id: string }>(
+        db
+          .select({ strava_athlete_id: participantToken.strava_athlete_id })
+          .from(participantToken)
+          .orderBy(desc(participantToken.updated_at))
+          .limit(1)
+      );
 
       if (anyParticipant) {
         fallbackToken = await getValidAccessToken(
@@ -277,7 +279,7 @@ async function getAthleteProfilePictures(
 }
 
 async function checkClubMembership(
-  db: BetterSQLite3Database,
+  db: AppDatabase,
   athleteId: string,
   clubId: string
 ): Promise<boolean> {
@@ -302,7 +304,7 @@ async function checkClubMembership(
 }
 
 async function getWebhookActivityDetails(
-  db: BetterSQLite3Database,
+  db: AppDatabase,
   athleteId: string,
   activityId: string
 ): Promise<WebhookActivityDetails | null> {
@@ -311,7 +313,7 @@ async function getWebhookActivityDetails(
 }
 
 async function getWebhookActivityDetailsResult(
-  db: BetterSQLite3Database,
+  db: AppDatabase,
   athleteId: string,
   activityId: string
 ): Promise<WebhookActivityDetailsResult> {

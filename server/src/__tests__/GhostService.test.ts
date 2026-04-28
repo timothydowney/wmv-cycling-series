@@ -1,31 +1,30 @@
-import { setupTestDb } from './setupTestDb';
+import type { Pool } from 'pg';
+import type { AppDatabase } from '../db/types';
+import { setupTestDb, teardownTestDb } from './setupTestDb';
 import { createSeason, createSegment, createParticipant, createWeek, createResult } from './testDataHelpers';
 import { GhostService } from '../services/GhostService';
-import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import type Database from 'better-sqlite3';
 import { isoToUnix } from '../dateUtils';
 
 describe('GhostService', () => {
-  let db: Database.Database;
-  let drizzleDb: BetterSQLite3Database;
+  let pool: Pool;
+  let orm: AppDatabase;
   let service: GhostService;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     const setup = setupTestDb({ seed: false });
-    db = setup.db;
-    drizzleDb = setup.drizzleDb;
-    service = new GhostService(drizzleDb);
+    pool = setup.pool;
+    orm = setup.orm;
+    service = new GhostService(orm);
   });
-
-  afterEach(() => {
-    db.close();
+  afterAll(async () => {
+    await teardownTestDb(pool);
   });
 
   describe('getGhostData', () => {
     it('should return empty map if no previous week exists', async () => {
-      const season = createSeason(drizzleDb, 'Season 1');
-      const segment = createSegment(drizzleDb, 'seg1');
-      const week = createWeek(drizzleDb, {
+      const season = await createSeason(orm, 'Season 1');
+      const segment = await createSegment(orm, 'seg1');
+      const week = await createWeek(orm, {
         seasonId: season.id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Week 1',
@@ -37,26 +36,26 @@ describe('GhostService', () => {
     });
 
     it('should return ghost data from the most recent previous week with same segment and laps', async () => {
-      const season = createSeason(drizzleDb, 'Season 1');
-      const segment = createSegment(drizzleDb, 'seg1');
-      const participant = createParticipant(drizzleDb, '123', 'Alice');
+      const season = await createSeason(orm, 'Season 1');
+      const segment = await createSegment(orm, 'seg1');
+      const participant = await createParticipant(orm, '123', 'Alice');
 
       // Previous week (Week 1)
-      const week1 = createWeek(drizzleDb, {
+      const week1 = await createWeek(orm, {
         seasonId: season.id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Week 1',
         startTime: '2025-01-01T00:00:00Z',
         requiredLaps: 1,
       });
-      createResult(drizzleDb, {
+      await createResult(orm, {
         weekId: week1.id,
         stravaAthleteId: participant.strava_athlete_id,
         totalTimeSeconds: 100,
       });
 
       // Current week (Week 2)
-      const week2 = createWeek(drizzleDb, {
+      const week2 = await createWeek(orm, {
         seasonId: season.id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Week 2',
@@ -74,27 +73,27 @@ describe('GhostService', () => {
     });
 
     it('should ignore weeks with different segments', async () => {
-      const season = createSeason(drizzleDb, 'Season 1');
-      const segment1 = createSegment(drizzleDb, 'seg1');
-      const segment2 = createSegment(drizzleDb, 'seg2');
-      const participant = createParticipant(drizzleDb, '123', 'Alice');
+      const season = await createSeason(orm, 'Season 1');
+      const segment1 = await createSegment(orm, 'seg1');
+      const segment2 = await createSegment(orm, 'seg2');
+      const participant = await createParticipant(orm, '123', 'Alice');
 
       // Week with different segment
-      const week1 = createWeek(drizzleDb, {
+      const week1 = await createWeek(orm, {
         seasonId: season.id,
         stravaSegmentId: segment2.strava_segment_id, // Different segment
         weekName: 'Week 1',
         startTime: '2025-01-01T00:00:00Z',
         requiredLaps: 1,
       });
-      createResult(drizzleDb, {
+      await createResult(orm, {
         weekId: week1.id,
         stravaAthleteId: participant.strava_athlete_id,
         totalTimeSeconds: 100,
       });
 
       // Current week
-      const week2 = createWeek(drizzleDb, {
+      const week2 = await createWeek(orm, {
         seasonId: season.id,
         stravaSegmentId: segment1.strava_segment_id,
         weekName: 'Week 2',
@@ -107,26 +106,26 @@ describe('GhostService', () => {
     });
 
     it('should ignore weeks with different required laps', async () => {
-      const season = createSeason(drizzleDb, 'Season 1');
-      const segment = createSegment(drizzleDb, 'seg1');
-      const participant = createParticipant(drizzleDb, '123', 'Alice');
+      const season = await createSeason(orm, 'Season 1');
+      const segment = await createSegment(orm, 'seg1');
+      const participant = await createParticipant(orm, '123', 'Alice');
 
       // Week with different laps
-      const week1 = createWeek(drizzleDb, {
+      const week1 = await createWeek(orm, {
         seasonId: season.id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Week 1',
         startTime: '2025-01-01T00:00:00Z',
         requiredLaps: 2, // Different laps
       });
-      createResult(drizzleDb, {
+      await createResult(orm, {
         weekId: week1.id,
         stravaAthleteId: participant.strava_athlete_id,
         totalTimeSeconds: 100,
       });
 
       // Current week
-      const week2 = createWeek(drizzleDb, {
+      const week2 = await createWeek(orm, {
         seasonId: season.id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Week 2',
@@ -139,40 +138,40 @@ describe('GhostService', () => {
     });
 
     it('should pick the most recent previous week if multiple exist', async () => {
-      const season = createSeason(drizzleDb, 'Season 1');
-      const segment = createSegment(drizzleDb, 'seg1');
-      const participant = createParticipant(drizzleDb, '123', 'Alice');
+      const season = await createSeason(orm, 'Season 1');
+      const segment = await createSegment(orm, 'seg1');
+      const participant = await createParticipant(orm, '123', 'Alice');
 
       // Week 1 (Oldest)
-      const week1 = createWeek(drizzleDb, {
+      const week1 = await createWeek(orm, {
         seasonId: season.id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Week 1',
         startTime: '2025-01-01T00:00:00Z',
         requiredLaps: 1,
       });
-      createResult(drizzleDb, {
+      await createResult(orm, {
         weekId: week1.id,
         stravaAthleteId: participant.strava_athlete_id,
         totalTimeSeconds: 100,
       });
 
       // Week 2 (More recent)
-      const week2 = createWeek(drizzleDb, {
+      const week2 = await createWeek(orm, {
         seasonId: season.id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Week 2',
         startTime: '2025-01-08T00:00:00Z',
         requiredLaps: 1,
       });
-      createResult(drizzleDb, {
+      await createResult(orm, {
         weekId: week2.id,
         stravaAthleteId: participant.strava_athlete_id,
         totalTimeSeconds: 90, // Improved time
       });
 
       // Current week (Week 3)
-      const week3 = createWeek(drizzleDb, {
+      const week3 = await createWeek(orm, {
         seasonId: season.id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Week 3',
@@ -190,26 +189,26 @@ describe('GhostService', () => {
     });
 
     it('should ignore weeks that start after the current week', async () => {
-      const season = createSeason(drizzleDb, 'Season 1');
-      const segment = createSegment(drizzleDb, 'seg1');
-      const participant = createParticipant(drizzleDb, '123', 'Alice');
+      const season = await createSeason(orm, 'Season 1');
+      const segment = await createSegment(orm, 'seg1');
+      const participant = await createParticipant(orm, '123', 'Alice');
 
       // Future week
-      const weekFuture = createWeek(drizzleDb, {
+      const weekFuture = await createWeek(orm, {
         seasonId: season.id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Future Week',
         startTime: '2025-02-01T00:00:00Z',
         requiredLaps: 1,
       });
-      createResult(drizzleDb, {
+      await createResult(orm, {
         weekId: weekFuture.id,
         stravaAthleteId: participant.strava_athlete_id,
         totalTimeSeconds: 100,
       });
 
       // Current week
-      const weekCurrent = createWeek(drizzleDb, {
+      const weekCurrent = await createWeek(orm, {
         seasonId: season.id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Current Week',

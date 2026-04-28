@@ -4,6 +4,7 @@ import { and, eq } from 'drizzle-orm';
 import { router, publicProcedure } from '../trpc/init';
 import { ExplorerQueryService } from '../services/ExplorerQueryService';
 import { explorerDestination, explorerDestinationPin } from '../db/schema';
+import { getOne, exec } from '../db/asyncQuery';
 
 export const explorerRouter = router({
   getActiveCampaign: publicProcedure.query(async ({ ctx }) => {
@@ -29,30 +30,32 @@ export const explorerRouter = router({
         throw new TRPCError({ code: 'UNAUTHORIZED' });
       }
 
-      const destination = ctx.orm
-        .select({ id: explorerDestination.id })
-        .from(explorerDestination)
-        .where(
-          and(
-            eq(explorerDestination.id, input.destinationId),
-            eq(explorerDestination.explorer_campaign_id, input.campaignId)
+      const destination = await getOne<{ id: number }>(
+        ctx.orm
+          .select({ id: explorerDestination.id })
+          .from(explorerDestination)
+          .where(
+            and(
+              eq(explorerDestination.id, input.destinationId),
+              eq(explorerDestination.explorer_campaign_id, input.campaignId)
+            )
           )
-        )
-        .get();
+      );
 
       if (!destination) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Destination not found for campaign' });
       }
 
-      ctx.orm
-        .insert(explorerDestinationPin)
-        .values({
-          explorer_campaign_id: input.campaignId,
-          explorer_destination_id: input.destinationId,
-          strava_athlete_id: ctx.userId,
-        })
-        .onConflictDoNothing()
-        .run();
+      await exec(
+        ctx.orm
+          .insert(explorerDestinationPin)
+          .values({
+            explorer_campaign_id: input.campaignId,
+            explorer_destination_id: input.destinationId,
+            strava_athlete_id: ctx.userId,
+          })
+          .onConflictDoNothing()
+      );
 
       return { success: true };
     }),
@@ -64,16 +67,17 @@ export const explorerRouter = router({
         throw new TRPCError({ code: 'UNAUTHORIZED' });
       }
 
-      ctx.orm
-        .delete(explorerDestinationPin)
-        .where(
-          and(
-            eq(explorerDestinationPin.explorer_campaign_id, input.campaignId),
-            eq(explorerDestinationPin.explorer_destination_id, input.destinationId),
-            eq(explorerDestinationPin.strava_athlete_id, ctx.userId)
+      await exec(
+        ctx.orm
+          .delete(explorerDestinationPin)
+          .where(
+            and(
+              eq(explorerDestinationPin.explorer_campaign_id, input.campaignId),
+              eq(explorerDestinationPin.explorer_destination_id, input.destinationId),
+              eq(explorerDestinationPin.strava_athlete_id, ctx.userId)
+            )
           )
-        )
-        .run();
+      );
 
       return { success: true };
     }),

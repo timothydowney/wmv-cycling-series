@@ -101,16 +101,15 @@ test.describe('Authenticated User Features', () => {
   test('admin can open the webhook management page with e2e helper auth', async ({ page }) => {
     await page.getByRole('link', { name: 'Manage Webhooks' }).click();
     await expect(page).toHaveURL(/\/webhooks/);
-    await expect(page.getByRole('button', { name: 'Subscription Status' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Event History' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Storage Usage' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Subscription Status' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Event History' })).toBeVisible();
   });
 
   test('webhook event history sends absolute timestamps for time filters', async ({ page }) => {
     await page.getByRole('link', { name: 'Manage Webhooks' }).click();
     await expect(page).toHaveURL(/\/webhooks/);
 
-    const eventHistoryTab = page.getByRole('button', { name: 'Event History' });
+    const eventHistoryTab = page.getByRole('tab', { name: 'Event History' });
     await eventHistoryTab.click();
 
     const timeFilter = page.locator('#time-filter');
@@ -129,7 +128,7 @@ test.describe('Authenticated User Features', () => {
 
     await page.goto('/webhooks');
     await expect(page).toHaveURL(/\/webhooks/);
-    await page.getByRole('button', { name: 'Event History' }).click();
+    await page.getByRole('tab', { name: 'Event History' }).click();
 
     const refreshedTimeFilter = page.locator('#time-filter');
     await expect(refreshedTimeFilter).toBeVisible();

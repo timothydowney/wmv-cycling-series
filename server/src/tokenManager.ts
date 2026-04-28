@@ -3,10 +3,11 @@
  * Handles token storage, retrieval, decryption, and refresh
  */
 
-import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { AppDatabase } from './db/types';
 import { participantToken } from './db/schema';
 import { eq } from 'drizzle-orm';
 import { decryptToken, encryptToken } from './encryption';
+import { getOne, exec } from './db/asyncQuery';
 import { type RefreshTokenResponse as TokenData } from './stravaClient';
 
 /**
@@ -39,16 +40,17 @@ interface StravaClient {
  * @returns Valid access token
  */
 async function getValidAccessToken(
-  db: BetterSQLite3Database,
+  db: AppDatabase,
   stravaClient: StravaClient,
   stravaAthleteId: string,
   forceRefresh: boolean = false
 ): Promise<string> {
-  const tokenRecord = db
-    .select()
-    .from(participantToken)
-    .where(eq(participantToken.strava_athlete_id, stravaAthleteId))
-    .get();
+  const tokenRecord = await getOne<TokenRecord>(
+    db
+      .select()
+      .from(participantToken)
+      .where(eq(participantToken.strava_athlete_id, stravaAthleteId))
+  );
 
   if (!tokenRecord) {
     throw new Error('Participant not connected to Strava');
@@ -80,16 +82,17 @@ async function getValidAccessToken(
 
       // Update database with NEW tokens (both access and refresh tokens change!)
       // Store encrypted
-      db
-        .update(participantToken)
-        .set({
-          access_token: encryptToken(newTokenData.access_token),
-          refresh_token: encryptToken(newTokenData.refresh_token),
-          expires_at: newTokenData.expires_at,
-          updated_at: new Date().toISOString()
-        })
-        .where(eq(participantToken.strava_athlete_id, stravaAthleteId))
-        .run();
+      await exec(
+        db
+          .update(participantToken)
+          .set({
+            access_token: encryptToken(newTokenData.access_token),
+            refresh_token: encryptToken(newTokenData.refresh_token),
+            expires_at: newTokenData.expires_at,
+            updated_at: new Date().toISOString()
+          })
+          .where(eq(participantToken.strava_athlete_id, stravaAthleteId))
+      );
 
       // Return the plaintext access token (kept in memory for use)
       return newTokenData.access_token;

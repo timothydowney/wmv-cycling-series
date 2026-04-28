@@ -1,3 +1,5 @@
+import type { Pool } from 'pg';
+import type { AppDatabase } from '../db/types';
 /**
  * ChatToolRunner.test.ts
  *
@@ -5,8 +7,6 @@
  * tool calls requested by the Gemini model.
  */
 
-import { Database } from 'better-sqlite3';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { ChatToolRunner } from '../services/ChatToolRunner';
 import {
   setupTestDb,
@@ -21,36 +21,35 @@ import {
 } from './testDataHelpers';
 
 describe('ChatToolRunner', () => {
-  let db: Database;
-  let drizzleDb: BetterSQLite3Database;
+  let pool: Pool;
+  let orm: AppDatabase;
   let runner: ChatToolRunner;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     const setup = setupTestDb({ seed: false });
-    db = setup.db;
-    drizzleDb = setup.drizzleDb;
-    runner = new ChatToolRunner(drizzleDb);
+    pool = setup.pool;
+    orm = setup.orm;
+    runner = new ChatToolRunner(orm);
   });
-
-  afterAll(() => {
-    teardownTestDb(db);
+  afterAll(async () => {
+    await teardownTestDb(pool);
   });
 
   // Seed basic data before each test group
   let seasonId: number;
   let weekId: number;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     // Create test data
-    const season = createSeason(drizzleDb, 'Fall 2025', true);
+    const season = await createSeason(orm, 'Fall 2025', true);
     seasonId = season.id;
 
-    const seg = createSegment(drizzleDb, 'seg001', 'Mountain Loop', {
+    const seg = await createSegment(orm, 'seg001', 'Mountain Loop', {
       averageGrade: 5.0,
       distance: 3200,
     });
 
-    const wk = createWeek(drizzleDb, {
+    const wk = await createWeek(orm, {
       seasonId: season.id,
       stravaSegmentId: seg.strava_segment_id,
       weekName: 'Week 1 - Mountain Loop',
@@ -58,17 +57,17 @@ describe('ChatToolRunner', () => {
     });
     weekId = wk.id;
 
-    createParticipant(drizzleDb, 'athlete1', 'Alice Smith', false);
-    createParticipant(drizzleDb, 'athlete2', 'Bob Johnson', false);
+    await createParticipant(orm, 'athlete1', 'Alice Smith', false);
+    await createParticipant(orm, 'athlete2', 'Bob Johnson', false);
 
-    createActivityWithResult(drizzleDb, {
+    await createActivityWithResult(orm, {
       weekId: wk.id,
       stravaAthleteId: 'athlete1',
       stravaActivityId: 'act001',
       elapsedSeconds: 600,
     });
 
-    createActivityWithResult(drizzleDb, {
+    await createActivityWithResult(orm, {
       weekId: wk.id,
       stravaAthleteId: 'athlete2',
       stravaActivityId: 'act002',
@@ -178,7 +177,7 @@ describe('ChatToolRunner', () => {
 
     it('should return error for athlete not in that week', async () => {
       // Create a new participant with no activity in this week
-      createParticipant(drizzleDb, 'athlete3', 'Charlie Nodata', false);
+      await createParticipant(orm, 'athlete3', 'Charlie Nodata', false);
       const result = await runner.execute('get_effort_details', {
         week_id: weekId,
         athlete_name: 'Charlie',

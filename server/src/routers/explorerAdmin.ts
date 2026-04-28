@@ -42,7 +42,7 @@ export const explorerAdminRouter = router({
       const service = new ExplorerQueryService(ctx.orm);
 
       try {
-        return service.getAdminCampaigns();
+        return await service.getAdminCampaigns();
       } catch (error) {
         throw mapExplorerAdminError(error);
       }
@@ -59,7 +59,7 @@ export const explorerAdminRouter = router({
       const service = new ExplorerAdminService(ctx.orm);
 
       try {
-        return service.createCampaign(input);
+        return await service.createCampaign(input);
       } catch (error) {
         throw mapExplorerAdminError(error);
       }
@@ -77,7 +77,7 @@ export const explorerAdminRouter = router({
       const service = new ExplorerAdminService(ctx.orm);
 
       try {
-        return service.updateCampaign(input);
+        return await service.updateCampaign(input);
       } catch (error) {
         throw mapExplorerAdminError(error);
       }
@@ -110,7 +110,7 @@ export const explorerAdminRouter = router({
       const service = new ExplorerAdminService(ctx.orm);
 
       try {
-        return service.deleteDestination(input);
+        return await service.deleteDestination(input);
       } catch (error) {
         throw mapExplorerAdminError(error);
       }

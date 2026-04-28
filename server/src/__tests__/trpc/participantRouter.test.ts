@@ -1,28 +1,27 @@
-import { Database } from 'better-sqlite3';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { Pool } from 'pg';
+import type { AppDatabase } from '../../db/types';
 import { appRouter } from '../../routers';
 import { createContext } from '../../trpc/context';
 import { setupTestDb, teardownTestDb, clearAllData, createParticipant } from '../testDataHelpers';
 
 describe('participantRouter', () => {
-  let db: Database;
-  let orm: BetterSQLite3Database;
+  let pool: Pool;
+  let orm: AppDatabase;
   let caller: ReturnType<typeof appRouter.createCaller>;
 
-  beforeAll(() => {
-    const testDb = setupTestDb();
-    db = testDb.db;
+  beforeAll(async () => {
+    const testDb = setupTestDb({ seed: false });
+    pool = testDb.pool;
     orm = testDb.orm;
   });
-
-  afterAll(() => {
-    teardownTestDb(db);
+  afterAll(async () => {
+    await teardownTestDb(pool);
   });
 
   // Helper to create caller with specific auth state
-  const getCaller = (isAdmin: boolean) => {
+  const getCaller = async (isAdmin: boolean) => {
     if (isAdmin) {
-      createParticipant(orm, '999001', 'Test Admin', false, true);
+      await createParticipant(orm, '999001', 'Test Admin', false, true);
     }
 
     const req = {
@@ -31,29 +30,29 @@ describe('participantRouter', () => {
       }
     } as any;
     
-    return appRouter.createCaller(createContext({
+    return appRouter.createCaller(() => createContext({
       req,
       res: {} as any,
-      dbOverride: db,
+      dbOverride: pool,
       ormOverride: orm
     }));
   };
 
-  beforeEach(() => {
-    clearAllData(orm);
+  beforeEach(async () => {
+    await clearAllData(orm);
   });
 
   describe('getAll', () => {
     it('should return empty array when no participants exist', async () => {
-      const caller = getCaller(false);
+      const caller = await getCaller(false);
       const result = await caller.participant.getAll();
       expect(result).toEqual([]);
     });
 
     it('should return all participants', async () => {
-      const caller = getCaller(false);
-      createParticipant(orm, '1', 'Alice');
-      createParticipant(orm, '2', 'Bob');
+      const caller = await getCaller(false);
+      await createParticipant(orm, '1', 'Alice');
+      await createParticipant(orm, '2', 'Bob');
 
       const result = await caller.participant.getAll();
       expect(result).toHaveLength(2);
@@ -68,8 +67,8 @@ describe('participantRouter', () => {
 
   describe('getById', () => {
     it('should return a participant by ID', async () => {
-      const caller = getCaller(false);
-      createParticipant(orm, '1', 'Charlie');
+      const caller = await getCaller(false);
+      await createParticipant(orm, '1', 'Charlie');
 
       const result = await caller.participant.getById('1');
       expect(result).toBeDefined();
@@ -77,7 +76,7 @@ describe('participantRouter', () => {
     });
 
     it('should return null for non-existent ID', async () => {
-      const caller = getCaller(false);
+      const caller = await getCaller(false);
       const result = await caller.participant.getById('999');
       expect(result).toBeNull();
     });
@@ -85,9 +84,9 @@ describe('participantRouter', () => {
 
   describe('getAdminCandidates', () => {
     it('should include env and db admin sources for admins', async () => {
-      const caller = getCaller(true);
-      createParticipant(orm, '100', 'Database Admin', false, true);
-      createParticipant(orm, '101', 'Regular User');
+      const caller = await getCaller(true);
+      await createParticipant(orm, '100', 'Database Admin', false, true);
+      await createParticipant(orm, '101', 'Regular User');
 
       const result = await caller.participant.getAdminCandidates();
       const adminCandidate = result.find((participant: any) => participant.strava_athlete_id === '100');
@@ -99,15 +98,15 @@ describe('participantRouter', () => {
     });
 
     it('should reject non-admin callers', async () => {
-      const caller = getCaller(false);
+      const caller = await getCaller(false);
       await expect(caller.participant.getAdminCandidates()).rejects.toThrow('UNAUTHORIZED');
     });
   });
 
   describe('setAdminStatus', () => {
     it('should grant and revoke database-backed admin access', async () => {
-      const caller = getCaller(true);
-      createParticipant(orm, '200', 'Grant Target');
+      const caller = await getCaller(true);
+      await createParticipant(orm, '200', 'Grant Target');
 
       const granted = await caller.participant.setAdminStatus({
         stravaAthleteId: '200',

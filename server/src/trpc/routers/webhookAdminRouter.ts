@@ -10,13 +10,6 @@ export const webhookAdminRouter = router({
       return adminService.getStatus();
     }),
 
-  getStorageStatus: adminProcedure
-    .query(async ({ ctx }) => {
-      const { orm } = ctx;
-      const adminService = new WebhookAdminService(orm);
-      return adminService.getStorageStatus();
-    }),
-
   getEvents: adminProcedure
     .input(z.object({
       limit: z.number().int().min(1).max(500).default(50),

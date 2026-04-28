@@ -4,12 +4,13 @@
  * Calculates season-level standings by aggregating weekly scoring results.
  */
 
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { AppDatabase } from '../db/types';
 import { ScoringService } from './ScoringService';
 import { week, segment } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { JerseyService } from './JerseyService';
 import { getAthleteProfilePictures } from './StravaProfileService';
+import { getMany } from '../db/asyncQuery';
 
 export interface StandingsEntry {
   participantId: string;
@@ -25,7 +26,7 @@ export class StandingsService {
   private scoringService: ScoringService;
   private jerseyService: JerseyService;
 
-  constructor(private db: BetterSQLite3Database) {
+  constructor(private db: AppDatabase) {
     this.scoringService = new ScoringService(db);
     this.jerseyService = new JerseyService(db);
   }
@@ -40,15 +41,16 @@ export class StandingsService {
     options?: { includeProfilePictures?: boolean }
   ): Promise<StandingsEntry[]> {
     const includeProfilePictures = options?.includeProfilePictures ?? true;
-    const weeks = await this.db
-      .select({ 
-        id: week.id,
-        averageGrade: segment.average_grade
-      })
-      .from(week)
-      .leftJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
-      .where(eq(week.season_id, seasonId))
-      .all();
+    const weeks = await getMany<{ id: number; averageGrade: number | null }>(
+      this.db
+        .select({ 
+          id: week.id,
+          averageGrade: segment.average_grade
+        })
+        .from(week)
+        .leftJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
+        .where(eq(week.season_id, seasonId))
+    );
 
     const standingsMap = new Map<string, {
       participantId: string;

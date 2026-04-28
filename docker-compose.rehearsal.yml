@@ -1,0 +1,30 @@
+# Local rehearsal: runs the current branch code against the Railway rehearsal Postgres database.
+#
+# Prerequisites:
+#   1. npm run rehearsal:env     — writes .env.rehearsal from Railway (run once per session)
+#   2. npm run db:railway:rehearse-import   — populate rehearsal DB from production snapshot
+#
+# Usage:
+#   docker compose -f docker-compose.rehearsal.yml up --build   # start (rebuilds image from current source)
+#   docker compose -f docker-compose.rehearsal.yml down          # stop and clean up
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${LOCAL_PORT:-3001}:${LOCAL_PORT:-3001}"
+    env_file:
+      - .env.rehearsal
+    environment:
+      # Override production vars that break local HTTP operation.
+      # NODE_ENV=development disables secure-only session cookies (which would be
+      # silently dropped by the browser over plain HTTP, breaking OAuth login).
+      NODE_ENV: development
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:${LOCAL_PORT:-3001}/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s

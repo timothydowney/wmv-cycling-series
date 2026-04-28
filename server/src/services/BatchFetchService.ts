@@ -3,7 +3,7 @@
  * Handles batch fetching of activities for a week
  */
 
-import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { AppDatabase } from '../db/types';
 import { eq, isNotNull } from 'drizzle-orm';
 import { week, season, segment, participant, participantToken } from '../db/schema';
 import * as stravaClient from '../stravaClient';
@@ -12,6 +12,7 @@ import { storeActivityAndEfforts } from '../activityStorage';
 import { captureAthleteProfile } from './StravaProfileCapture';
 import { LogLevel, LoggerCallback, StructuredLogger } from '../types/Logger';
 import ActivityValidationService from './ActivityValidationService';
+import { getOne, getMany } from '../db/asyncQuery';
 
 interface FetchResult {
   participant_id: string;
@@ -36,9 +37,9 @@ class BatchFetchService {
   private validationService: ActivityValidationService;
 
   constructor(
-    private db: BetterSQLite3Database,
+    private db: AppDatabase,
     private getValidAccessToken: (
-      db: BetterSQLite3Database,
+      db: AppDatabase,
       athleteId: string,
       forceRefresh?: boolean
     ) => Promise<string>
@@ -54,26 +55,40 @@ class BatchFetchService {
     const logger = new StructuredLogger('BatchFetch', onLog);
 
     // ===== FETCH WEEK DETAILS =====
-    const weekData = this.db
-      .select({
-        id: week.id,
-        week_name: week.week_name,
-        season_id: week.season_id,
-        strava_segment_id: week.strava_segment_id,
-        required_laps: week.required_laps,
-        start_at: week.start_at,
-        end_at: week.end_at,
-        segment_name: segment.name,
-        season_id_alias: season.id,
-        season_start_at: season.start_at,
-        season_end_at: season.end_at,
-        season_created_at: season.created_at
-      })
-      .from(week)
-      .leftJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
-      .leftJoin(season, eq(week.season_id, season.id))
-      .where(eq(week.id, weekId))
-      .get();
+    const weekData = await getOne<{
+      id: number;
+      week_name: string;
+      season_id: number;
+      strava_segment_id: string;
+      required_laps: number;
+      start_at: number;
+      end_at: number;
+      segment_name: string | null;
+      season_id_alias: number;
+      season_start_at: number;
+      season_end_at: number;
+      season_created_at: string | null;
+    }>(
+      this.db
+        .select({
+          id: week.id,
+          week_name: week.week_name,
+          season_id: week.season_id,
+          strava_segment_id: week.strava_segment_id,
+          required_laps: week.required_laps,
+          start_at: week.start_at,
+          end_at: week.end_at,
+          segment_name: segment.name,
+          season_id_alias: season.id,
+          season_start_at: season.start_at,
+          season_end_at: season.end_at,
+          season_created_at: season.created_at
+        })
+        .from(week)
+        .leftJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
+        .leftJoin(season, eq(week.season_id, season.id))
+        .where(eq(week.id, weekId))
+    );
 
     if (!weekData) {
       logger.error(`Week ${weekId} not found`);
@@ -123,16 +138,21 @@ class BatchFetchService {
     const endUnix = weekData.end_at;
 
     // Get all connected participants (those with valid tokens)
-    const participants = this.db
-      .select({
-        strava_athlete_id: participant.strava_athlete_id,
-        name: participant.name,
-        access_token: participantToken.access_token
-      })
-      .from(participant)
-      .innerJoin(participantToken, eq(participant.strava_athlete_id, participantToken.strava_athlete_id))
-      .where(isNotNull(participantToken.access_token))
-      .all();
+    const participants = await getMany<{
+      strava_athlete_id: string;
+      name: string;
+      access_token: string | null;
+    }>(
+      this.db
+        .select({
+          strava_athlete_id: participant.strava_athlete_id,
+          name: participant.name,
+          access_token: participantToken.access_token
+        })
+        .from(participant)
+        .innerJoin(participantToken, eq(participant.strava_athlete_id, participantToken.strava_athlete_id))
+        .where(isNotNull(participantToken.access_token))
+    );
 
     if (participants.length === 0) {
       logger.info('No participants connected');

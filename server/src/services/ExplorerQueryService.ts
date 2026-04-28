@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, gte, inArray, lte } from 'drizzle-orm';
-import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { AppDatabase } from '../db/types';
+import { getOne, getMany } from '../db/asyncQuery';
 import {
   explorerCampaign,
   explorerDestination,
@@ -91,7 +92,7 @@ function resolveSegmentName(destination: {
 }
 
 export class ExplorerQueryService {
-  constructor(private readonly db: BetterSQLite3Database) {}
+  constructor(private readonly db: AppDatabase) {}
 
   private mapDestination(destination: {
     id: number;
@@ -143,7 +144,7 @@ export class ExplorerQueryService {
     };
   }
 
-  private listDestinationsByCampaignIds(explorerCampaignIds: number[]): Map<number, ExplorerDestinationView[]> {
+  private async listDestinationsByCampaignIds(explorerCampaignIds: number[]): Promise<Map<number, ExplorerDestinationView[]>> {
     const destinationsByCampaignId = new Map<number, ExplorerDestinationView[]>();
 
     for (const explorerCampaignId of explorerCampaignIds) {
@@ -154,41 +155,42 @@ export class ExplorerQueryService {
       return destinationsByCampaignId;
     }
 
-    const destinations = this.db
-      .select({
-        explorer_campaign_id: explorerDestination.explorer_campaign_id,
-        id: explorerDestination.id,
-        strava_segment_id: explorerDestination.strava_segment_id,
-        display_label: explorerDestination.display_label,
-        cached_name: explorerDestination.cached_name,
-        source_url: explorerDestination.source_url,
-        created_at: explorerDestination.created_at,
-        surface_type: explorerDestination.surface_type,
-        category: explorerDestination.category,
-        display_order: explorerDestination.display_order,
-        segment_name: segment.name,
-        distance: segment.distance,
-        average_grade: segment.average_grade,
-        total_elevation_gain: segment.total_elevation_gain,
-        climb_category: segment.climb_category,
-        start_latitude: segment.start_latitude,
-        start_longitude: segment.start_longitude,
-        end_latitude: segment.end_latitude,
-        end_longitude: segment.end_longitude,
-        metadata_updated_at: segment.metadata_updated_at,
-        city: segment.city,
-        state: segment.state,
-        country: segment.country,
-      })
-      .from(explorerDestination)
-      .leftJoin(segment, eq(explorerDestination.strava_segment_id, segment.strava_segment_id))
-      .where(inArray(explorerDestination.explorer_campaign_id, explorerCampaignIds))
-      .orderBy(
-        asc(explorerDestination.explorer_campaign_id),
-        asc(explorerDestination.display_order),
-        asc(explorerDestination.id)
-      )
-      .all();
+    const destinations = await getMany<any>(
+      this.db
+        .select({
+          explorer_campaign_id: explorerDestination.explorer_campaign_id,
+          id: explorerDestination.id,
+          strava_segment_id: explorerDestination.strava_segment_id,
+          display_label: explorerDestination.display_label,
+          cached_name: explorerDestination.cached_name,
+          source_url: explorerDestination.source_url,
+          created_at: explorerDestination.created_at,
+          surface_type: explorerDestination.surface_type,
+          category: explorerDestination.category,
+          display_order: explorerDestination.display_order,
+          segment_name: segment.name,
+          distance: segment.distance,
+          average_grade: segment.average_grade,
+          total_elevation_gain: segment.total_elevation_gain,
+          climb_category: segment.climb_category,
+          start_latitude: segment.start_latitude,
+          start_longitude: segment.start_longitude,
+          end_latitude: segment.end_latitude,
+          end_longitude: segment.end_longitude,
+          metadata_updated_at: segment.metadata_updated_at,
+          city: segment.city,
+          state: segment.state,
+          country: segment.country,
+        })
+        .from(explorerDestination)
+        .leftJoin(segment, eq(explorerDestination.strava_segment_id, segment.strava_segment_id))
+        .where(inArray(explorerDestination.explorer_campaign_id, explorerCampaignIds))
+        .orderBy(
+          asc(explorerDestination.explorer_campaign_id),
+          asc(explorerDestination.display_order),
+          asc(explorerDestination.id)
+        )
+    );
 
     for (const destination of destinations) {
       const campaignDestinations = destinationsByCampaignId.get(destination.explorer_campaign_id);
@@ -203,24 +205,32 @@ export class ExplorerQueryService {
     return destinationsByCampaignId;
   }
 
-  private listDestinations(explorerCampaignId: number): ExplorerDestinationView[] {
-    return this.listDestinationsByCampaignIds([explorerCampaignId]).get(explorerCampaignId) ?? [];
+  private async listDestinations(explorerCampaignId: number): Promise<ExplorerDestinationView[]> {
+    const map = await this.listDestinationsByCampaignIds([explorerCampaignId]);
+    return map.get(explorerCampaignId) ?? [];
   }
 
-  getAdminCampaigns(): ExplorerAdminCampaignView[] {
-    const campaigns = this.db
-      .select({
-        id: explorerCampaign.id,
-        start_at: explorerCampaign.start_at,
-        end_at: explorerCampaign.end_at,
-        display_name: explorerCampaign.display_name,
-        rules_blurb: explorerCampaign.rules_blurb,
-      })
-      .from(explorerCampaign)
-      .orderBy(desc(explorerCampaign.start_at), desc(explorerCampaign.id))
-      .all();
+  async getAdminCampaigns(): Promise<ExplorerAdminCampaignView[]> {
+    const campaigns = await getMany<{
+      id: number;
+      start_at: number;
+      end_at: number;
+      display_name: string | null;
+      rules_blurb: string | null;
+    }>(
+      this.db
+        .select({
+          id: explorerCampaign.id,
+          start_at: explorerCampaign.start_at,
+          end_at: explorerCampaign.end_at,
+          display_name: explorerCampaign.display_name,
+          rules_blurb: explorerCampaign.rules_blurb,
+        })
+        .from(explorerCampaign)
+        .orderBy(desc(explorerCampaign.start_at), desc(explorerCampaign.id))
+    );
 
-    const destinationsByCampaignId = this.listDestinationsByCampaignIds(
+    const destinationsByCampaignId = await this.listDestinationsByCampaignIds(
       campaigns.map((campaign) => campaign.id)
     );
 
@@ -238,26 +248,33 @@ export class ExplorerQueryService {
   async getActiveCampaign(
     nowTimestamp: number = Math.floor(Date.now() / 1000)
   ): Promise<ActiveExplorerCampaignView | null> {
-    const campaignRecords = this.db
-      .select({
-        id: explorerCampaign.id,
-        start_at: explorerCampaign.start_at,
-        end_at: explorerCampaign.end_at,
-        display_name: explorerCampaign.display_name,
-        rules_blurb: explorerCampaign.rules_blurb,
-      })
-      .from(explorerCampaign)
-      .where(
-        and(
-          lte(explorerCampaign.start_at, nowTimestamp),
-          gte(explorerCampaign.end_at, nowTimestamp)
+    const campaignRecords = await getMany<{
+      id: number;
+      start_at: number;
+      end_at: number;
+      display_name: string | null;
+      rules_blurb: string | null;
+    }>(
+      this.db
+        .select({
+          id: explorerCampaign.id,
+          start_at: explorerCampaign.start_at,
+          end_at: explorerCampaign.end_at,
+          display_name: explorerCampaign.display_name,
+          rules_blurb: explorerCampaign.rules_blurb,
+        })
+        .from(explorerCampaign)
+        .where(
+          and(
+            lte(explorerCampaign.start_at, nowTimestamp),
+            gte(explorerCampaign.end_at, nowTimestamp)
+          )
         )
-      )
-      .orderBy(desc(explorerCampaign.start_at), desc(explorerCampaign.id))
-      .all();
+        .orderBy(desc(explorerCampaign.start_at), desc(explorerCampaign.id))
+    );
 
     for (const campaignRecord of campaignRecords) {
-      const destinations = this.listDestinations(campaignRecord.id);
+      const destinations = await this.listDestinations(campaignRecord.id);
 
       if (destinations.length === 0) {
         continue;
@@ -280,49 +297,64 @@ export class ExplorerQueryService {
     explorerCampaignId: number,
     athleteId: string
   ): Promise<ExplorerCampaignProgressView | null> {
-    const campaignRecord = this.db
-      .select({
-        id: explorerCampaign.id,
-        start_at: explorerCampaign.start_at,
-        end_at: explorerCampaign.end_at,
-        display_name: explorerCampaign.display_name,
-        rules_blurb: explorerCampaign.rules_blurb,
-      })
-      .from(explorerCampaign)
-      .where(eq(explorerCampaign.id, explorerCampaignId))
-      .get();
+    const campaignRecord = await getOne<{
+      id: number;
+      start_at: number;
+      end_at: number;
+      display_name: string | null;
+      rules_blurb: string | null;
+    }>(
+      this.db
+        .select({
+          id: explorerCampaign.id,
+          start_at: explorerCampaign.start_at,
+          end_at: explorerCampaign.end_at,
+          display_name: explorerCampaign.display_name,
+          rules_blurb: explorerCampaign.rules_blurb,
+        })
+        .from(explorerCampaign)
+        .where(eq(explorerCampaign.id, explorerCampaignId))
+    );
 
     if (!campaignRecord) {
       return null;
     }
 
-    const destinations = this.listDestinations(explorerCampaignId);
-    const matches = this.db
-      .select({
-        explorer_destination_id: explorerDestinationMatch.explorer_destination_id,
-        matched_at: explorerDestinationMatch.matched_at,
-        strava_activity_id: explorerDestinationMatch.strava_activity_id,
-      })
-      .from(explorerDestinationMatch)
-      .where(
-        and(
-          eq(explorerDestinationMatch.explorer_campaign_id, explorerCampaignId),
-          eq(explorerDestinationMatch.strava_athlete_id, athleteId)
+    const destinations = await this.listDestinations(explorerCampaignId);
+    const matches = await getMany<{
+      explorer_destination_id: number;
+      matched_at: number;
+      strava_activity_id: string;
+    }>(
+      this.db
+        .select({
+          explorer_destination_id: explorerDestinationMatch.explorer_destination_id,
+          matched_at: explorerDestinationMatch.matched_at,
+          strava_activity_id: explorerDestinationMatch.strava_activity_id,
+        })
+        .from(explorerDestinationMatch)
+        .where(
+          and(
+            eq(explorerDestinationMatch.explorer_campaign_id, explorerCampaignId),
+            eq(explorerDestinationMatch.strava_athlete_id, athleteId)
+          )
         )
-      )
-      .all();
-    const pins = this.db
-      .select({
-        explorer_destination_id: explorerDestinationPin.explorer_destination_id,
-      })
-      .from(explorerDestinationPin)
-      .where(
-        and(
-          eq(explorerDestinationPin.explorer_campaign_id, explorerCampaignId),
-          eq(explorerDestinationPin.strava_athlete_id, athleteId)
+    );
+    const pins = await getMany<{
+      explorer_destination_id: number;
+    }>(
+      this.db
+        .select({
+          explorer_destination_id: explorerDestinationPin.explorer_destination_id,
+        })
+        .from(explorerDestinationPin)
+        .where(
+          and(
+            eq(explorerDestinationPin.explorer_campaign_id, explorerCampaignId),
+            eq(explorerDestinationPin.strava_athlete_id, athleteId)
+          )
         )
-      )
-      .all();
+    );
 
     const matchesByDestinationId = new Map(matches.map((match) => [match.explorer_destination_id, match]));
     const pinnedDestinationIds = new Set(pins.map((pin) => pin.explorer_destination_id));

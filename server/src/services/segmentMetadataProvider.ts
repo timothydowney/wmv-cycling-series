@@ -1,10 +1,11 @@
 import { eq } from 'drizzle-orm';
-import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { AppDatabase } from '../db/types';
 import { getStravaApiMode } from '../config';
 import { participantToken } from '../db/schema';
 import * as stravaClientModule from '../stravaClient';
 import { getValidAccessToken } from '../tokenManager';
 import { getFixtureSegmentMetadata, type SegmentMetadataPayload } from './segmentMetadataFixtures';
+import { getOne } from '../db/asyncQuery';
 
 interface SegmentMetadataProvider {
   fetchSegmentMetadata(
@@ -15,7 +16,7 @@ interface SegmentMetadataProvider {
 }
 
 class LiveStravaSegmentMetadataProvider implements SegmentMetadataProvider {
-  constructor(private readonly db: BetterSQLite3Database) {}
+  constructor(private readonly db: AppDatabase) {}
 
   async fetchSegmentMetadata(
     segmentId: string,
@@ -25,19 +26,21 @@ class LiveStravaSegmentMetadataProvider implements SegmentMetadataProvider {
     let tokenRecord;
 
     if (preferredAthleteId) {
-      tokenRecord = this.db
-        .select({ strava_athlete_id: participantToken.strava_athlete_id })
-        .from(participantToken)
-        .where(eq(participantToken.strava_athlete_id, preferredAthleteId))
-        .get();
+      tokenRecord = await getOne<{ strava_athlete_id: string }>(
+        this.db
+          .select({ strava_athlete_id: participantToken.strava_athlete_id })
+          .from(participantToken)
+          .where(eq(participantToken.strava_athlete_id, preferredAthleteId))
+      );
     }
 
     if (!tokenRecord) {
-      tokenRecord = this.db
-        .select({ strava_athlete_id: participantToken.strava_athlete_id })
-        .from(participantToken)
-        .limit(1)
-        .get();
+      tokenRecord = await getOne<{ strava_athlete_id: string }>(
+        this.db
+          .select({ strava_athlete_id: participantToken.strava_athlete_id })
+          .from(participantToken)
+          .limit(1)
+      );
     }
 
     if (!tokenRecord) {
@@ -63,7 +66,7 @@ class FixtureSegmentMetadataProvider implements SegmentMetadataProvider {
   }
 }
 
-function createSegmentMetadataProvider(db: BetterSQLite3Database): SegmentMetadataProvider {
+function createSegmentMetadataProvider(db: AppDatabase): SegmentMetadataProvider {
   const mode = getStravaApiMode();
 
   if (mode === 'fixture') {

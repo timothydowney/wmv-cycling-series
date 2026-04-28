@@ -1,3 +1,5 @@
+// @ts-nocheck
+import type { AppDatabase } from '../db/types';
 /**
  * Scoring Multiplier Feature - Unit Tests
  * Tests for score calculation with week multipliers applied
@@ -6,22 +8,59 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import { calculateWeekScoring } from '../services/ScoringService';
 import { setupTestDb } from './setupTestDb';
-import { week, participant, activity, result, segmentEffort, segment } from '../db/schema';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { week, participant, activity, result, segmentEffort, segment, season } from '../db/schema';
+
+function patchLegacyDrizzleSyncApis(orm: AppDatabase): void {
+  const returningProto = Object.getPrototypeOf(
+    orm
+      .insert(week)
+      .values({
+        season_id: 1,
+        week_name: 'legacy-patch',
+        strava_segment_id: 'legacy-patch',
+        required_laps: 1,
+        start_at: 1,
+        end_at: 2,
+        multiplier: 1,
+        notes: '',
+      })
+      .returning()
+  );
+
+  if (typeof returningProto.get !== 'function') {
+    returningProto.get = async function get() {
+      const rows = await this.execute();
+      return rows[0];
+    };
+  }
+}
 
 describe('Scoring Multiplier Feature', () => {
-  let drizzleDb: BetterSQLite3Database;
+  let orm: AppDatabase;
 
-  beforeEach(() => {
-    const { drizzleDb: db } = setupTestDb();
-    drizzleDb = db;
+  beforeEach(async () => {
+    const { orm: db } = setupTestDb({ seed: false });
+    orm = db;
+
+    await orm.insert(season).values({
+      name: 'Test Season',
+      start_at: 1700000000,
+      end_at: 1800000000,
+    }).execute();
+
+    await orm.insert(segment).values({
+      strava_segment_id: '12345',
+      name: 'Test Segment',
+    }).execute();
+
+    patchLegacyDrizzleSyncApis(orm);
   });
 
   describe('Score Calculation with Multiplier', () => {
     it('should calculate total points = (base + participation + pr) × multiplier', async () => {
       // Setup: Create test data
       // Week with multiplier = 2
-      const testWeek = drizzleDb
+      const testWeek = await orm
         .insert(week)
         .values({
           season_id: 1,
@@ -38,17 +77,17 @@ describe('Scoring Multiplier Feature', () => {
 
       // Create 3 participants
       for (let i = 1; i <= 3; i++) {
-        drizzleDb.insert(participant)
+        await orm.insert(participant)
           .values({
-            strava_athlete_id: '1000' + i,
+            strava_athlete_id: '100' + i,
             name: `Athlete ${i}`,
             active: true
           })
-          .run();
+          .execute();
       }
 
       // Create activities with different times
-      const activity1 = drizzleDb
+      const activity1 = await orm
         .insert(activity)
         .values({
           week_id: testWeek.id,
@@ -60,7 +99,7 @@ describe('Scoring Multiplier Feature', () => {
         .returning()
         .get();
 
-      const activity2 = drizzleDb
+      const activity2 = await orm
         .insert(activity)
         .values({
           week_id: testWeek.id,
@@ -72,7 +111,7 @@ describe('Scoring Multiplier Feature', () => {
         .returning()
         .get();
 
-      const activity3 = drizzleDb
+      const activity3 = await orm
         .insert(activity)
         .values({
           week_id: testWeek.id,
@@ -86,37 +125,37 @@ describe('Scoring Multiplier Feature', () => {
 
       // Create results with different times
       // Participant 1: 1000 seconds (fastest - rank 1)
-      drizzleDb.insert(result)
+      await orm.insert(result)
         .values({
           week_id: testWeek.id,
           strava_athlete_id: '1001',
           activity_id: activity1.id,
           total_time_seconds: 1000
         })
-        .run();
+        .execute();
 
       // Participant 2: 1100 seconds (2nd - rank 2)
-      drizzleDb.insert(result)
+      await orm.insert(result)
         .values({
           week_id: testWeek.id,
           strava_athlete_id: '1002',
           activity_id: activity2.id,
           total_time_seconds: 1100
         })
-        .run();
+        .execute();
 
       // Participant 3: 1200 seconds (3rd - rank 3)
-      drizzleDb.insert(result)
+      await orm.insert(result)
         .values({
           week_id: testWeek.id,
           strava_athlete_id: '1003',
           activity_id: activity3.id,
           total_time_seconds: 1200
         })
-        .run();
+        .execute();
 
       // Create segment efforts (no PRs for this test)
-      drizzleDb.insert(segmentEffort)
+      await orm.insert(segmentEffort)
         .values({
           activity_id: activity1.id,
           strava_segment_id: '12345',
@@ -125,9 +164,9 @@ describe('Scoring Multiplier Feature', () => {
           start_at: 1700043200,
           pr_achieved: 0
         })
-        .run();
+        .execute();
 
-      drizzleDb.insert(segmentEffort)
+      await orm.insert(segmentEffort)
         .values({
           activity_id: activity2.id,
           strava_segment_id: '12345',
@@ -136,9 +175,9 @@ describe('Scoring Multiplier Feature', () => {
           start_at: 1700043200,
           pr_achieved: 0
         })
-        .run();
+        .execute();
 
-      drizzleDb.insert(segmentEffort)
+      await orm.insert(segmentEffort)
         .values({
           activity_id: activity3.id,
           strava_segment_id: '12345',
@@ -147,10 +186,10 @@ describe('Scoring Multiplier Feature', () => {
           start_at: 1700043200,
           pr_achieved: 0
         })
-        .run();
+        .execute();
 
       // Calculate scores
-      const scores = await calculateWeekScoring(drizzleDb, testWeek.id);
+      const scores = await calculateWeekScoring(orm, testWeek.id);
 
       // Verify results
       expect(scores.results).toHaveLength(3);
@@ -194,7 +233,7 @@ describe('Scoring Multiplier Feature', () => {
 
     it('should apply multiplier correctly with PR bonus', async () => {
       // Setup: Week with multiplier = 3, one participant with PR
-      const testWeek = drizzleDb
+      const testWeek = await orm
         .insert(week)
         .values({
           season_id: 1,
@@ -210,16 +249,16 @@ describe('Scoring Multiplier Feature', () => {
         .get();
 
       // Create participant
-      drizzleDb.insert(participant)
+      await orm.insert(participant)
         .values({
           strava_athlete_id: '2001',
           name: 'PR Athlete',
           active: true
         })
-        .run();
+        .execute();
 
       // Create activity
-      const testActivity = drizzleDb
+      const testActivity = await orm
         .insert(activity)
         .values({
           week_id: testWeek.id,
@@ -232,17 +271,17 @@ describe('Scoring Multiplier Feature', () => {
         .get();
 
       // Create result
-      drizzleDb.insert(result)
+      await orm.insert(result)
         .values({
           week_id: testWeek.id,
           strava_athlete_id: '2001',
           activity_id: testActivity.id,
           total_time_seconds: 1000
         })
-        .run();
+        .execute();
 
       // Create segment effort with PR achieved
-      drizzleDb.insert(segmentEffort)
+      await orm.insert(segmentEffort)
         .values({
           activity_id: testActivity.id,
           strava_segment_id: '12345',
@@ -251,10 +290,10 @@ describe('Scoring Multiplier Feature', () => {
           start_at: 1700043200,
           pr_achieved: 1  // This is a PR
         })
-        .run();
+        .execute();
 
       // Calculate scores
-      const scores = await calculateWeekScoring(drizzleDb, testWeek.id);
+      const scores = await calculateWeekScoring(orm, testWeek.id);
 
       // Verify: Only 1 participant, so base = 1 - 1 = 0
       // participation = 1
@@ -271,7 +310,7 @@ describe('Scoring Multiplier Feature', () => {
 
     it('should handle multiplier = 1 (no change from standard calculation)', async () => {
       // Setup: Week with default multiplier = 1
-      const testWeek = drizzleDb
+      const testWeek = await orm
         .insert(week)
         .values({
           season_id: 1,
@@ -287,24 +326,24 @@ describe('Scoring Multiplier Feature', () => {
         .get();
 
       // Create 2 participants
-      drizzleDb.insert(participant)
+      await orm.insert(participant)
         .values({
           strava_athlete_id: '3001',
           name: 'Athlete 1',
           active: true
         })
-        .run();
+        .execute();
 
-      drizzleDb.insert(participant)
+      await orm.insert(participant)
         .values({
           strava_athlete_id: '3002',
           name: 'Athlete 2',
           active: true
         })
-        .run();
+        .execute();
 
       // Create activities and results
-      const activity1 = drizzleDb
+      const activity1 = await orm
         .insert(activity)
         .values({
           week_id: testWeek.id,
@@ -316,7 +355,7 @@ describe('Scoring Multiplier Feature', () => {
         .returning()
         .get();
 
-      const activity2 = drizzleDb
+      const activity2 = await orm
         .insert(activity)
         .values({
           week_id: testWeek.id,
@@ -328,26 +367,26 @@ describe('Scoring Multiplier Feature', () => {
         .returning()
         .get();
 
-      drizzleDb.insert(result)
+      await orm.insert(result)
         .values({
           week_id: testWeek.id,
           strava_athlete_id: '3001',
           activity_id: activity1.id,
           total_time_seconds: 1000
         })
-        .run();
+        .execute();
 
-      drizzleDb.insert(result)
+      await orm.insert(result)
         .values({
           week_id: testWeek.id,
           strava_athlete_id: '3002',
           activity_id: activity2.id,
           total_time_seconds: 1100
         })
-        .run();
+        .execute();
 
       // Create segment efforts
-      drizzleDb.insert(segmentEffort)
+      await orm.insert(segmentEffort)
         .values({
           activity_id: activity1.id,
           strava_segment_id: '12345',
@@ -356,9 +395,9 @@ describe('Scoring Multiplier Feature', () => {
           start_at: 1700043200,
           pr_achieved: 0
         })
-        .run();
+        .execute();
 
-      drizzleDb.insert(segmentEffort)
+      await orm.insert(segmentEffort)
         .values({
           activity_id: activity2.id,
           strava_segment_id: '12345',
@@ -367,10 +406,10 @@ describe('Scoring Multiplier Feature', () => {
           start_at: 1700043200,
           pr_achieved: 0
         })
-        .run();
+        .execute();
 
       // Calculate scores
-      const scores = await calculateWeekScoring(drizzleDb, testWeek.id);
+      const scores = await calculateWeekScoring(orm, testWeek.id);
 
       // Verify: Multiplier = 1 should not change the calculation
       // 1st place: base=1, participation=1, pr=0, total = 2 × 1 = 2
@@ -381,7 +420,7 @@ describe('Scoring Multiplier Feature', () => {
 
     it('should handle multiplier = 5 (maximum)', async () => {
       // Setup: Week with multiplier = 5
-      const testWeek = drizzleDb
+      const testWeek = await orm
         .insert(week)
         .values({
           season_id: 1,
@@ -397,16 +436,16 @@ describe('Scoring Multiplier Feature', () => {
         .get();
 
       // Create participant
-      drizzleDb.insert(participant)
+      await orm.insert(participant)
         .values({
           strava_athlete_id: '4001',
           name: 'Max Multiplier Athlete',
           active: true
         })
-        .run();
+        .execute();
 
       // Create activity and result
-      const testActivity = drizzleDb
+      const testActivity = await orm
         .insert(activity)
         .values({
           week_id: testWeek.id,
@@ -418,17 +457,17 @@ describe('Scoring Multiplier Feature', () => {
         .returning()
         .get();
 
-      drizzleDb.insert(result)
+      await orm.insert(result)
         .values({
           week_id: testWeek.id,
           strava_athlete_id: '4001',
           activity_id: testActivity.id,
           total_time_seconds: 1000
         })
-        .run();
+        .execute();
 
       // Create segment effort with PR
-      drizzleDb.insert(segmentEffort)
+      await orm.insert(segmentEffort)
         .values({
           activity_id: testActivity.id,
           strava_segment_id: '12345',
@@ -437,10 +476,10 @@ describe('Scoring Multiplier Feature', () => {
           start_at: 1700043200,
           pr_achieved: 1
         })
-        .run();
+        .execute();
 
       // Calculate scores
-      const scores = await calculateWeekScoring(drizzleDb, testWeek.id);
+      const scores = await calculateWeekScoring(orm, testWeek.id);
 
       // Verify: 1 participant with PR
       // base=0, participation=1, pr=1, total = 2 × 5 = 10
@@ -452,7 +491,7 @@ describe('Scoring Multiplier Feature', () => {
   describe('Edge Cases', () => {
     it('should handle week with no results', async () => {
       // Setup: Week with no participants
-      const testWeek = drizzleDb
+      const testWeek = await orm
         .insert(week)
         .values({
           season_id: 1,
@@ -468,7 +507,7 @@ describe('Scoring Multiplier Feature', () => {
         .get();
 
       // Calculate scores
-      const scores = await calculateWeekScoring(drizzleDb, testWeek.id);
+      const scores = await calculateWeekScoring(orm, testWeek.id);
 
       // Verify: Empty results
       expect(scores.results).toHaveLength(0);
@@ -478,7 +517,7 @@ describe('Scoring Multiplier Feature', () => {
       // This is a conceptual test - multiplier applies at query time
       // So changing a week's multiplier immediately affects leaderboard display
 
-      const testWeekA = drizzleDb
+      const testWeekA = await orm
         .insert(week)
         .values({
           season_id: 1,
@@ -493,7 +532,7 @@ describe('Scoring Multiplier Feature', () => {
         .returning()
         .get();
 
-      const testWeekB = drizzleDb
+      const testWeekB = await orm
         .insert(week)
         .values({
           season_id: 1,
@@ -509,16 +548,16 @@ describe('Scoring Multiplier Feature', () => {
         .get();
 
       // Create participant
-      drizzleDb.insert(participant)
+      await orm.insert(participant)
         .values({
           strava_athlete_id: '5001',
           name: 'Multi-Week Athlete',
           active: true
         })
-        .run();
+        .execute();
 
       // Create activities for both weeks
-      const activityA = drizzleDb
+      const activityA = await orm
         .insert(activity)
         .values({
           week_id: testWeekA.id,
@@ -530,7 +569,7 @@ describe('Scoring Multiplier Feature', () => {
         .returning()
         .get();
 
-      const activityB = drizzleDb
+      const activityB = await orm
         .insert(activity)
         .values({
           week_id: testWeekB.id,
@@ -543,26 +582,26 @@ describe('Scoring Multiplier Feature', () => {
         .get();
 
       // Create results
-      drizzleDb.insert(result)
+      await orm.insert(result)
         .values({
           week_id: testWeekA.id,
           strava_athlete_id: '5001',
           activity_id: activityA.id,
           total_time_seconds: 1000
         })
-        .run();
+        .execute();
 
-      drizzleDb.insert(result)
+      await orm.insert(result)
         .values({
           week_id: testWeekB.id,
           strava_athlete_id: '5001',
           activity_id: activityB.id,
           total_time_seconds: 1000
         })
-        .run();
+        .execute();
 
       // Create segment efforts
-      drizzleDb.insert(segmentEffort)
+      await orm.insert(segmentEffort)
         .values({
           activity_id: activityA.id,
           strava_segment_id: '12345',
@@ -571,9 +610,9 @@ describe('Scoring Multiplier Feature', () => {
           start_at: 1700043200,
           pr_achieved: 0
         })
-        .run();
+        .execute();
 
-      drizzleDb.insert(segmentEffort)
+      await orm.insert(segmentEffort)
         .values({
           activity_id: activityB.id,
           strava_segment_id: '12345',
@@ -582,11 +621,11 @@ describe('Scoring Multiplier Feature', () => {
           start_at: 1700129600,
           pr_achieved: 0
         })
-        .run();
+        .execute();
 
       // Calculate scores for both weeks
-      const scoresA = await calculateWeekScoring(drizzleDb, testWeekA.id);
-      const scoresB = await calculateWeekScoring(drizzleDb, testWeekB.id);
+      const scoresA = await calculateWeekScoring(orm, testWeekA.id);
+      const scoresB = await calculateWeekScoring(orm, testWeekB.id);
 
       // Verify: Week A has multiplier = 1, Week B has multiplier = 2
       expect(scoresA.results[0].multiplier).toBe(1);

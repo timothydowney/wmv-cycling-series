@@ -4,10 +4,11 @@
  * DRY consolidation of segment metadata operations used across routes
  */
 
-import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { AppDatabase } from '../db/types';
 import { Segment } from '../db/schema'; // Import Drizzle Segment type
 import { segment } from '../db/schema';
 import { eq, asc } from 'drizzle-orm';
+import { getOne, getMany, exec } from '../db/asyncQuery';
 import { createSegmentMetadataProvider, type SegmentMetadataPayload, type SegmentMetadataProvider } from './segmentMetadataProvider';
 
 interface LogCallback {
@@ -16,7 +17,7 @@ interface LogCallback {
 
 class SegmentService {
   constructor(
-    private db: BetterSQLite3Database,
+    private db: AppDatabase,
     private readonly metadataProvider: SegmentMetadataProvider = createSegmentMetadataProvider(db)
   ) {}
 
@@ -55,8 +56,8 @@ class SegmentService {
   End: ${segmentData.end_latitude ?? '?'}, ${segmentData.end_longitude ?? '?'}
   Location: ${segmentData.city || '?'}, ${segmentData.state || '?'}, ${segmentData.country || '?'}`);
 
-      // Store in database
-      this.storeSegmentMetadata(segmentId, segmentData);
+      // Store in database before returning so preview consumers can read it immediately.
+      await this.storeSegmentMetadata(segmentId, segmentData);
       
       // User-facing success message (no technical context prefix)
       log('success', `✓ Segment metadata updated: ${segmentData.name} (${segmentData.distance}m, ${segmentData.total_elevation_gain}m elev, ${segmentData.average_grade}%)`);
@@ -76,8 +77,8 @@ class SegmentService {
    * Store segment metadata in database
    * INSERT OR REPLACE ensures idempotency
    */
-  private storeSegmentMetadata(segmentId: string, data: SegmentMetadataPayload): void {
-    this.db
+  private async storeSegmentMetadata(segmentId: string, data: SegmentMetadataPayload): Promise<void> {
+    await exec(this.db
       .insert(segment)
       .values({
         strava_segment_id: segmentId,
@@ -112,29 +113,26 @@ class SegmentService {
           country: data.country,
           metadata_updated_at: data.metadata_updated_at ?? new Date().toISOString(),
         }
-      })
-      .run();
+      }));
   }
 
   /**
    * Ensure segment exists in database as placeholder (name only)
    * Used when metadata fetch fails but FK constraint requires the row
    */
-  private createPlaceholderSegment(segmentId: string): Segment | null {
-    const existing = this.db
+  private async createPlaceholderSegment(segmentId: string): Promise<Segment | null> {
+    const existing = await getOne(this.db
       .select({ strava_segment_id: segment.strava_segment_id })
       .from(segment)
-      .where(eq(segment.strava_segment_id, segmentId))
-      .get();
+      .where(eq(segment.strava_segment_id, segmentId)));
       
     if (!existing) {
-      this.db
+      await exec(this.db
         .insert(segment)
         .values({
           strava_segment_id: segmentId,
           name: `Segment ${segmentId}`
-        })
-        .run();
+        }));
     }
     return this.getStoredSegment(segmentId);
   }
@@ -142,12 +140,11 @@ class SegmentService {
   /**
    * Retrieve stored segment from database
    */
-  private getStoredSegment(segmentId: string): Segment | null {
-    const result = this.db
+  private async getStoredSegment(segmentId: string): Promise<Segment | null> {
+    const result = await getOne<Segment>(this.db
       .select()
       .from(segment)
-      .where(eq(segment.strava_segment_id, segmentId))
-      .get();
+      .where(eq(segment.strava_segment_id, segmentId)));
       
     return result || null;
   }
@@ -155,12 +152,11 @@ class SegmentService {
   /**
    * Check if segment exists in database
    */
-  segmentExists(segmentId: string): boolean {
-    const result = this.db
+  async segmentExists(segmentId: string): Promise<boolean> {
+    const result = await getOne(this.db
       .select({ strava_segment_id: segment.strava_segment_id })
       .from(segment)
-      .where(eq(segment.strava_segment_id, segmentId))
-      .get();
+      .where(eq(segment.strava_segment_id, segmentId)));
       
     return !!result;
   }
@@ -168,7 +164,7 @@ class SegmentService {
   /**
    * Create or update a segment manually
    */
-  createSegment(data: {
+  async createSegment(data: {
     strava_segment_id: string;
     name: string;
     distance?: number;
@@ -183,9 +179,9 @@ class SegmentService {
     city?: string;
     state?: string;
     country?: string;
-  }): Segment {
-    this.storeSegmentMetadata(data.strava_segment_id, data);
-    const stored = this.getStoredSegment(data.strava_segment_id);
+  }): Promise<Segment> {
+    await this.storeSegmentMetadata(data.strava_segment_id, data);
+    const stored = await this.getStoredSegment(data.strava_segment_id);
     if (!stored) throw new Error('Failed to create segment');
     return stored;
   }
@@ -193,8 +189,8 @@ class SegmentService {
   /**
    * Get all segments
    */
-  getAllSegments(): Segment[] {
-    return this.db.select().from(segment).orderBy(asc(segment.name)).all();
+  async getAllSegments(): Promise<Segment[]> {
+    return await getMany(this.db.select().from(segment).orderBy(asc(segment.name)));
   }
 }
 

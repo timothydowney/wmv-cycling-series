@@ -1,28 +1,27 @@
-import { Database } from 'better-sqlite3';
+import type { Pool } from 'pg';
+import type { AppDatabase } from '../../db/types';
 import { eq } from 'drizzle-orm';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { week } from '../../db/schema';
 import { appRouter } from '../../routers';
 import { createContext } from '../../trpc/context';
 import { clearAllData, createParticipant, createSeason, createSegment, createWeek, setupTestDb, teardownTestDb } from '../testDataHelpers';
 
 describe('weekRouter', () => {
-  let db: Database;
-  let orm: BetterSQLite3Database;
+  let pool: Pool;
+  let orm: AppDatabase;
 
-  beforeAll(() => {
-    const testDb = setupTestDb();
-    db = testDb.db;
+  beforeAll(async () => {
+    const testDb = setupTestDb({ seed: false });
+    pool = testDb.pool;
     orm = testDb.orm;
   });
-
-  afterAll(() => {
-    teardownTestDb(db);
+  afterAll(async () => {
+    await teardownTestDb(pool);
   });
 
-  const getCaller = (isAdmin: boolean) => {
+  const getCaller = async (isAdmin: boolean) => {
     if (isAdmin) {
-      createParticipant(orm, '999001', 'Test Admin', false, true);
+      await createParticipant(orm, '999001', 'Test Admin', false, true);
     }
 
     const req = {
@@ -31,34 +30,34 @@ describe('weekRouter', () => {
       },
     } as any;
 
-    return appRouter.createCaller(
+    return appRouter.createCaller(() =>
       createContext({
         req,
         res: {} as any,
-        dbOverride: db,
+        dbOverride: pool,
         ormOverride: orm,
       }),
     );
   };
 
-  beforeEach(() => {
-    clearAllData(orm);
+  beforeEach(async () => {
+    await clearAllData(orm);
   });
 
   describe('getAll', () => {
     it('should return empty array when no weeks exist', async () => {
-      const caller = getCaller(false);
-      createSeason(orm, 'Active Season', true);
+      const caller = await getCaller(false);
+      await createSeason(orm, 'Active Season', true);
       const result = await caller.week.getAll({ seasonId: 1 });
       expect(result).toEqual([]);
     });
 
     it('should return weeks for a season', async () => {
-      const caller = getCaller(false);
+      const caller = await getCaller(false);
 
-      const { id: seasonId } = createSeason(orm, 'Season 1', true);
-      createSegment(orm, '12345');
-      createWeek(orm, { seasonId, stravaSegmentId: '12345', weekName: 'Week 1' });
+      const { id: seasonId } = await createSeason(orm, 'Season 1', true);
+      await createSegment(orm, '12345');
+      await createWeek(orm, { seasonId, stravaSegmentId: '12345', weekName: 'Week 1' });
 
       const result = await caller.week.getAll({ seasonId });
       expect(result).toHaveLength(1);
@@ -68,27 +67,27 @@ describe('weekRouter', () => {
 
   describe('getById', () => {
     it('should return a week by ID', async () => {
-      const caller = getCaller(false);
+      const caller = await getCaller(false);
 
-      const { id: seasonId } = createSeason(orm, 'Season 1');
-      createSegment(orm, '12345');
-      const { id: weekId } = createWeek(orm, { seasonId, stravaSegmentId: '12345', weekName: 'Target Week' });
+      const { id: seasonId } = await createSeason(orm, 'Season 1');
+      await createSegment(orm, '12345');
+      const { id: weekId } = await createWeek(orm, { seasonId, stravaSegmentId: '12345', weekName: 'Target Week' });
 
       const result = await caller.week.getById(Number(weekId));
       expect(result.week_name).toBe('Target Week');
     });
 
     it('should throw NOT_FOUND for non-existent week', async () => {
-      const caller = getCaller(false);
+      const caller = await getCaller(false);
       await expect(caller.week.getById(999)).rejects.toThrow('Week not found');
     });
   });
 
   describe('create', () => {
     it('should create a week when admin', async () => {
-      const caller = getCaller(true);
+      const caller = await getCaller(true);
 
-      const { id: seasonId } = createSeason(orm, 'Active Season', true);
+      const { id: seasonId } = await createSeason(orm, 'Active Season', true);
 
       const input = {
         season_id: Number(seasonId),
@@ -104,13 +103,13 @@ describe('weekRouter', () => {
       expect(result.week_name).toBe('New Week');
       expect(result.strava_segment_id).toBe('12345');
 
-      const foundWeek = await orm.select().from(week).where(eq(week.id, result.id)).get();
+      const [foundWeek] = await orm.select().from(week).where(eq(week.id, result.id));
       expect(foundWeek).toBeDefined();
       expect(foundWeek?.week_name).toBe('New Week');
     });
 
     it('should fail when not admin', async () => {
-      const caller = getCaller(false);
+      const caller = await getCaller(false);
 
       const input = {
         week_name: 'New Week',
@@ -124,11 +123,11 @@ describe('weekRouter', () => {
 
   describe('update', () => {
     it('should update a week when admin', async () => {
-      const caller = getCaller(true);
+      const caller = await getCaller(true);
 
-      const { id: seasonId } = createSeason(orm, 'Season 1');
-      createSegment(orm, '12345');
-      const { id: weekId } = createWeek(orm, { seasonId, stravaSegmentId: '12345', weekName: 'Old Name' });
+      const { id: seasonId } = await createSeason(orm, 'Season 1');
+      await createSegment(orm, '12345');
+      const { id: weekId } = await createWeek(orm, { seasonId, stravaSegmentId: '12345', weekName: 'Old Name' });
 
       const result = await caller.week.update({
         id: Number(weekId),
@@ -141,16 +140,16 @@ describe('weekRouter', () => {
 
   describe('delete', () => {
     it('should delete a week when admin', async () => {
-      const caller = getCaller(true);
+      const caller = await getCaller(true);
 
-      const { id: seasonId } = createSeason(orm, 'Season 1');
-      createSegment(orm, '12345');
-      const { id: weekId } = createWeek(orm, { seasonId, stravaSegmentId: '12345' });
+      const { id: seasonId } = await createSeason(orm, 'Season 1');
+      await createSegment(orm, '12345');
+      const { id: weekId } = await createWeek(orm, { seasonId, stravaSegmentId: '12345' });
 
       const result = await caller.week.delete(Number(weekId));
       expect(result.message).toBe('Week deleted successfully');
 
-      const foundWeek = await orm.select().from(week).where(eq(week.id, weekId)).get();
+      const [foundWeek] = await orm.select().from(week).where(eq(week.id, weekId));
       expect(foundWeek).toBeUndefined();
     });
   });

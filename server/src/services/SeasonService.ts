@@ -3,26 +3,31 @@
  * Handles all season-related business logic: CRUD operations, season leaderboard calculation
  */
 
-import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { AppDatabase } from '../db/types';
 import { season, week } from '../db/schema'; // Only import used tables
 import { eq, desc, count } from 'drizzle-orm';
-import { Season } from '../db/schema'; // Import the Drizzle generated Season type
+import { Season, Week } from '../db/schema'; // Import the Drizzle generated types
+import { getMany, getOne, exec } from '../db/asyncQuery';
 
 class SeasonService {
-  constructor(private db: BetterSQLite3Database) {}
+  constructor(private db: AppDatabase) {}
 
   /**
    * Get all seasons ordered by start_at descending (newest first)
    */
-  getAllSeasons(): Season[] {
-    return this.db.select().from(season).orderBy(desc(season.start_at)).all();
+  async getAllSeasons(): Promise<Season[]> {
+    return await getMany<Season>(
+      this.db.select().from(season).orderBy(desc(season.start_at))
+    );
   }
 
   /**
    * Get a season by ID
    */
-  getSeasonById(seasonId: number): Season {
-    const result = this.db.select().from(season).where(eq(season.id, seasonId)).get();
+  async getSeasonById(seasonId: number): Promise<Season> {
+    const result = await getOne<Season>(
+      this.db.select().from(season).where(eq(season.id, seasonId))
+    );
 
     if (!result) {
       throw new Error('Season not found');
@@ -34,22 +39,28 @@ class SeasonService {
   /**
    * Create a new season
    */
-  createSeason(data: {
+  async createSeason(data: {
     name: string;
     start_at: number;
     end_at: number;
-  }): Season {
+  }): Promise<Season> {
     const { name, start_at, end_at } = data;
 
     if (!name || start_at === undefined || end_at === undefined) {
       throw new Error('Missing required fields: name, start_at, end_at');
     }
 
-    const result = this.db.insert(season).values({
-      name,
-      start_at: start_at,
-      end_at: end_at,
-    }).returning().get();
+    const result = await getOne<Season>(
+      this.db.insert(season).values({
+        name,
+        start_at: start_at,
+        end_at: end_at,
+      }).returning()
+    );
+
+    if (!result) {
+      throw new Error('Failed to create season');
+    }
 
     return result;
   }
@@ -57,16 +68,18 @@ class SeasonService {
   /**
    * Update an existing season
    */
-  updateSeason(
+  async updateSeason(
     seasonId: number,
     updates: {
       name?: string;
       start_at?: number;
       end_at?: number;
     }
-  ): Season {
+  ): Promise<Season> {
     // Verify season exists
-    const existingSeason = this.db.select().from(season).where(eq(season.id, seasonId)).get();
+    const existingSeason = await getOne<Season>(
+      this.db.select().from(season).where(eq(season.id, seasonId))
+    );
 
     if (!existingSeason) {
       throw new Error('Season not found');
@@ -82,11 +95,16 @@ class SeasonService {
       throw new Error('No fields to update');
     }
 
-    const updatedSeason = this.db.update(season)
-      .set(updateData)
-      .where(eq(season.id, seasonId))
-      .returning()
-      .get();
+    const updatedSeason = await getOne<Season>(
+      this.db.update(season)
+        .set(updateData)
+        .where(eq(season.id, seasonId))
+        .returning()
+    );
+
+    if (!updatedSeason) {
+      throw new Error('Failed to update season');
+    }
 
     return updatedSeason;
   }
@@ -95,16 +113,20 @@ class SeasonService {
    * Delete a season
    * Validation: cannot delete a season that has weeks
    */
-  deleteSeason(seasonId: number): { message: string } {
+  async deleteSeason(seasonId: number): Promise<{ message: string }> {
     // Verify season exists
-    const existingSeason = this.db.select().from(season).where(eq(season.id, seasonId)).get();
+    const existingSeason = await getOne<Season>(
+      this.db.select().from(season).where(eq(season.id, seasonId))
+    );
 
     if (!existingSeason) {
       throw new Error('Season not found');
     }
 
     // Check if season has weeks
-    const weekCountResult = this.db.select({ count: count() }).from(week).where(eq(week.season_id, seasonId)).get();
+    const weekCountResult = await getOne<{ count: number }>(
+      this.db.select({ count: count() }).from(week).where(eq(week.season_id, seasonId))
+    );
     const weekCount = weekCountResult ? weekCountResult.count : 0;
 
     if (weekCount > 0) {
@@ -113,7 +135,9 @@ class SeasonService {
       );
     }
 
-    this.db.delete(season).where(eq(season.id, seasonId)).run();
+    await exec(
+      this.db.delete(season).where(eq(season.id, seasonId))
+    );
 
     return { message: 'Season deleted successfully' };
   }
@@ -121,15 +145,17 @@ class SeasonService {
   /**
    * Clone an existing season and its weeks to a new start date
    */
-  cloneSeason(sourceSeasonId: number, newStartDate: number, newName: string): Season {
+  async cloneSeason(sourceSeasonId: number, newStartDate: number, newName: string): Promise<Season> {
     // 1. Get source season
-    const sourceSeason = this.getSeasonById(sourceSeasonId);
+    const sourceSeason = await this.getSeasonById(sourceSeasonId);
     if (!sourceSeason) {
       throw new Error('Source season not found');
     }
 
     // 2. Get source weeks
-    const sourceWeeks = this.db.select().from(week).where(eq(week.season_id, sourceSeasonId)).orderBy(week.start_at).all();
+    const sourceWeeks = await getMany<Week>(
+      this.db.select().from(week).where(eq(week.season_id, sourceSeasonId)).orderBy(week.start_at)
+    );
 
     // 3. Calculate new season end date
     // We want the first week to start exactly on newStartDate.
@@ -150,7 +176,7 @@ class SeasonService {
     const newEndDate = newStartDate + seasonDuration;
 
     // 4. Create new season
-    const newSeason = this.createSeason({
+    const newSeason = await this.createSeason({
       name: newName,
       start_at: newStartDate,
       end_at: newEndDate
@@ -169,16 +195,18 @@ class SeasonService {
       const newWeekStart = newStartDate + (daysDiff * 86400);
       const newWeekEnd = newWeekStart + duration;
 
-      this.db.insert(week).values({
-        season_id: newSeason.id,
-        week_name: sourceWeek.week_name,
-        strava_segment_id: sourceWeek.strava_segment_id,
-        required_laps: sourceWeek.required_laps,
-        start_at: newWeekStart,
-        end_at: newWeekEnd,
-        multiplier: sourceWeek.multiplier,
-        notes: sourceWeek.notes
-      }).run();
+      await exec(
+        this.db.insert(week).values({
+          season_id: newSeason.id,
+          week_name: sourceWeek.week_name,
+          strava_segment_id: sourceWeek.strava_segment_id,
+          required_laps: sourceWeek.required_laps,
+          start_at: newWeekStart,
+          end_at: newWeekEnd,
+          multiplier: sourceWeek.multiplier,
+          notes: sourceWeek.notes
+        })
+      );
     }
 
     return newSeason;

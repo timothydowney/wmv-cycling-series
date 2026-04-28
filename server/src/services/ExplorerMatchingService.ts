@@ -1,5 +1,5 @@
 import { and, eq, gte, lte } from 'drizzle-orm';
-import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { AppDatabase } from '../db/types';
 import {
   explorerCampaign,
   explorerDestination,
@@ -11,6 +11,7 @@ import {
   type Activity as StravaActivity,
 } from '../stravaClient';
 import { isoToUnix } from '../dateUtils';
+import { getMany, getOne, exec } from '../db/asyncQuery';
 
 interface MatchActivityResult {
   processedCampaigns: number;
@@ -60,7 +61,7 @@ async function ensureSegmentEfforts(
 }
 
 export class ExplorerMatchingService {
-  constructor(private readonly db: BetterSQLite3Database) {}
+  constructor(private readonly db: AppDatabase) {}
 
   async matchActivity(
     activityData: StravaActivity,
@@ -75,22 +76,23 @@ export class ExplorerMatchingService {
       };
     }
 
-    const activeCampaigns = this.db
-      .select({
-        id: explorerCampaign.id,
-        start_at: explorerCampaign.start_at,
-        end_at: explorerCampaign.end_at,
-        display_name: explorerCampaign.display_name,
-        rules_blurb: explorerCampaign.rules_blurb,
-      })
-      .from(explorerCampaign)
-      .where(
-        and(
-          lte(explorerCampaign.start_at, activityTimestamp),
-          gte(explorerCampaign.end_at, activityTimestamp)
+    const activeCampaigns = await getMany<CampaignWindowRecord>(
+      this.db
+        .select({
+          id: explorerCampaign.id,
+          start_at: explorerCampaign.start_at,
+          end_at: explorerCampaign.end_at,
+          display_name: explorerCampaign.display_name,
+          rules_blurb: explorerCampaign.rules_blurb,
+        })
+        .from(explorerCampaign)
+        .where(
+          and(
+            lte(explorerCampaign.start_at, activityTimestamp),
+            gte(explorerCampaign.end_at, activityTimestamp)
+          )
         )
-      )
-      .all();
+    );
 
     return this.matchActivityAgainstCampaigns(activityData, athleteId, activeCampaigns);
   }
@@ -100,17 +102,18 @@ export class ExplorerMatchingService {
     athleteId: string,
     accessToken: string
   ): Promise<RefreshAthleteCampaignResult> {
-    const campaignRecord = this.db
-      .select({
-        id: explorerCampaign.id,
-        start_at: explorerCampaign.start_at,
-        end_at: explorerCampaign.end_at,
-        display_name: explorerCampaign.display_name,
-        rules_blurb: explorerCampaign.rules_blurb,
-      })
-      .from(explorerCampaign)
-      .where(eq(explorerCampaign.id, explorerCampaignId))
-      .get();
+    const campaignRecord = await getOne<CampaignWindowRecord>(
+      this.db
+        .select({
+          id: explorerCampaign.id,
+          start_at: explorerCampaign.start_at,
+          end_at: explorerCampaign.end_at,
+          display_name: explorerCampaign.display_name,
+          rules_blurb: explorerCampaign.rules_blurb,
+        })
+        .from(explorerCampaign)
+        .where(eq(explorerCampaign.id, explorerCampaignId))
+    );
 
     if (!campaignRecord) {
       return {
@@ -185,11 +188,12 @@ export class ExplorerMatchingService {
     let newMatches = 0;
 
     for (const campaignRecord of campaigns) {
-      const destinations = this.db
-        .select()
-        .from(explorerDestination)
-        .where(eq(explorerDestination.explorer_campaign_id, campaignRecord.id))
-        .all();
+      const destinations = await getMany<any>(
+        this.db
+          .select()
+          .from(explorerDestination)
+          .where(eq(explorerDestination.explorer_campaign_id, campaignRecord.id))
+      );
 
       for (const destination of destinations) {
         if (!segmentIds.has(destination.strava_segment_id)) {
@@ -198,27 +202,44 @@ export class ExplorerMatchingService {
 
         matchedDestinations += 1;
 
-        const inserted = this.db
-          .insert(explorerDestinationMatch)
-          .values({
-            explorer_campaign_id: campaignRecord.id,
-            explorer_destination_id: destination.id,
-            strava_athlete_id: athleteId,
-            strava_activity_id: String(activityData.id),
-            matched_at: activityTimestamp,
-          })
-          .onConflictDoNothing({
-            target: [
-              explorerDestinationMatch.explorer_campaign_id,
-              explorerDestinationMatch.explorer_destination_id,
-              explorerDestinationMatch.strava_athlete_id,
-            ],
-          })
-          .run();
+        const existingMatch = await getOne<{ id: number }>(
+          this.db
+            .select({ id: explorerDestinationMatch.id })
+            .from(explorerDestinationMatch)
+            .where(
+              and(
+                eq(explorerDestinationMatch.explorer_campaign_id, campaignRecord.id),
+                eq(explorerDestinationMatch.explorer_destination_id, destination.id),
+                eq(explorerDestinationMatch.strava_athlete_id, athleteId)
+              )
+            )
+        );
 
-        if (inserted.changes > 0) {
-          newMatches += 1;
+        if (existingMatch) {
+          continue;
         }
+
+        await exec(
+          this.db
+            .insert(explorerDestinationMatch)
+            .values({
+              explorer_campaign_id: campaignRecord.id,
+              explorer_destination_id: destination.id,
+              strava_athlete_id: athleteId,
+              strava_activity_id: String(activityData.id),
+              matched_at: activityTimestamp,
+            })
+            .onConflictDoNothing({
+              target: [
+                explorerDestinationMatch.explorer_campaign_id,
+                explorerDestinationMatch.explorer_destination_id,
+                explorerDestinationMatch.strava_athlete_id,
+              ],
+            })
+            .returning({ id: explorerDestinationMatch.id })
+        );
+
+        newMatches += 1;
       }
     }
 

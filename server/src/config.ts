@@ -43,6 +43,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../', envFile) });
 
 type RuntimeMode = 'default' | 'e2e';
 type StravaApiMode = 'live' | 'fixture' | 'mock-server';
+type DatabaseDialect = 'postgres';
 
 interface Config {
   runtimeMode: RuntimeMode;
@@ -60,6 +61,8 @@ interface Config {
   stravaApiMode: StravaApiMode;
   stravaClubId: string; // Strava club to track membership for
   // Database
+  databaseDialect: DatabaseDialect;
+  databaseUrl: string | undefined;
   databasePath: string;
   e2eSourceDatabasePath: string | undefined;
   e2eResetDatabaseOnStartup: boolean;
@@ -157,6 +160,8 @@ function getConfig(): Config {
     stravaApiMode,
     stravaClubId: process.env.STRAVA_CLUB_ID || '1495648',
     // Database
+    databaseDialect: 'postgres',
+    databaseUrl: process.env.DATABASE_URL,
     databasePath: process.env.DATABASE_PATH || path.join(__dirname, '..', 'data', 'wmv.db'),
     e2eSourceDatabasePath: process.env.WMV_E2E_SOURCE_DATABASE_PATH,
     e2eResetDatabaseOnStartup: process.env.WMV_E2E_RESET_DB_ON_BOOT === 'true',
@@ -206,11 +211,14 @@ export function getStravaApiMode(): StravaApiMode {
 
 export function validateRuntimeConfig(): void {
   if (!isE2EMode()) {
+    if (config.databaseDialect === 'postgres' && !config.databaseUrl) {
+      throw new Error('DB_DIALECT=postgres requires DATABASE_URL to be set');
+    }
     return;
   }
 
-  if (!process.env.DATABASE_PATH) {
-    throw new Error('WMV E2E mode requires DATABASE_PATH to be set explicitly');
+  if (!config.databaseUrl) {
+    throw new Error('WMV E2E mode with Postgres requires DATABASE_URL to be set explicitly');
   }
 
   if (!process.env.STRAVA_API_MODE) {
@@ -301,6 +309,8 @@ export function logEnvironmentVariables(): void {
     APP_BASE_URL: process.env.APP_BASE_URL || '(not set)',
     STRAVA_API_MODE: process.env.STRAVA_API_MODE || '(not set)',
     STRAVA_CLIENT_ID: process.env.STRAVA_CLIENT_ID ? '(set)' : '(not set)',
+    DB_DIALECT: process.env.DB_DIALECT || '(not set, default postgres)',
+    DATABASE_URL: process.env.DATABASE_URL ? '(set)' : '(not set)',
     DATABASE_PATH: process.env.DATABASE_PATH || '(not set)',
     TOKEN_ENCRYPTION_KEY_LENGTH: process.env.TOKEN_ENCRYPTION_KEY
       ? process.env.TOKEN_ENCRYPTION_KEY.length

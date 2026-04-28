@@ -14,7 +14,7 @@ import {
   type GenerateContentConfig,
   FunctionCallingConfigMode,
 } from '@google/genai';
-import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { AppDatabase } from '../db/types';
 import { config } from '../config';
 import { ChatToolRunner } from './ChatToolRunner';
 import { ChatContextBuilder } from './ChatContextBuilder';
@@ -49,10 +49,10 @@ const API_CALL_TIMEOUT_MS = 60_000;
 
 export class ChatService {
   private genAI: GoogleGenAI;
-  private db: BetterSQLite3Database;
+  private db: AppDatabase;
   private toolRunner: ChatToolRunner;
 
-  constructor(db: BetterSQLite3Database) {
+  constructor(db: AppDatabase) {
     if (!config.geminiApiKey) {
       throw new Error('GEMINI_API_KEY is not configured');
     }
@@ -64,9 +64,9 @@ export class ChatService {
   /**
    * Build the shared Gemini config used for every call in the conversation.
    */
-  private buildConfig(userId: string): GenerateContentConfig {
+  private async buildConfig(userId: string): Promise<GenerateContentConfig> {
     return {
-      systemInstruction: ChatContextBuilder.buildSystemPrompt(this.db, userId),
+      systemInstruction: await ChatContextBuilder.buildSystemPrompt(this.db, userId),
       temperature: 0.7,
       maxOutputTokens: 2048,
       tools: [{
@@ -93,7 +93,7 @@ export class ChatService {
         model: config.geminiModel!,
         contents,
         config: {
-          ...this.buildConfig(userId),
+          ...(await this.buildConfig(userId)),
           abortSignal: controller.signal,
         },
       });

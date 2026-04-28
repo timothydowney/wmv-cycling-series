@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: postgres:18
+    container_name: wmv-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: wmv
+      POSTGRES_PASSWORD: wmv
+      POSTGRES_DB: wmv_local
+      PGDATA: /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wmv -d wmv_local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    volumes:
+      - wmv_postgres18_data:/var/lib/postgresql/data
+
+volumes:
+  wmv_postgres18_data:

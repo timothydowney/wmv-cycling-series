@@ -1,8 +1,8 @@
+import type { Pool } from 'pg';
+import type { AppDatabase } from '../db/types';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { Database } from 'better-sqlite3';
-import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { setupTestDb } from './setupTestDb';
-import { createParticipant } from './testDataHelpers';
+import { createParticipant, teardownTestDb } from './testDataHelpers';
 import { WebhookLogger } from '../webhooks/logger';
 import {
   type ActivityIngestionContext,
@@ -23,17 +23,17 @@ import * as stravaClient from '../stravaClient';
 import { getValidAccessToken } from '../tokenManager';
 
 describe('Webhook Processor - Activity Handlers', () => {
-  let db: Database;
-  let orm: BetterSQLite3Database;
+  let pool: Pool;
+  let orm: AppDatabase;
   let logger: WebhookLogger;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     const testDb = setupTestDb({ seed: false });
-    db = testDb.db;
-    orm = testDb.orm || testDb.drizzleDb;
+    pool = testDb.pool;
+    orm = testDb.orm || testDb.orm;
     logger = new WebhookLogger(orm);
 
-    createParticipant(orm, '100', 'Test Athlete', { accessToken: 'fake_token' });
+    await createParticipant(orm, '100', 'Test Athlete', { accessToken: 'fake_token' });
 
     jest.mocked(getValidAccessToken).mockResolvedValue('fake_token');
     jest.mocked(stravaClient.getAthleteProfile).mockResolvedValue({ weight: 72 });
@@ -47,9 +47,9 @@ describe('Webhook Processor - Activity Handlers', () => {
     } as any);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     jest.clearAllMocks();
-    db.close();
+    await teardownTestDb(pool);
   });
 
   it('passes a shared normalized context to registered activity handlers in order', async () => {
