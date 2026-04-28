@@ -236,7 +236,7 @@ export const chainWaxPeriod = pgTable('chain_wax_period', {
   started_at: bigint('started_at', { mode: 'number' }).notNull(), // Unix seconds - when chain was waxed
   ended_at: bigint('ended_at', { mode: 'number' }), // Unix seconds - when next wax happened (NULL = current active period)
   total_distance_meters: doublePrecision('total_distance_meters').default(0).notNull(), // Cached sum
-  created_at: bigint('created_at', { mode: 'number' }).notNull(),
+  created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 });
 
 export const chainWaxActivity = pgTable('chain_wax_activity', {
@@ -246,7 +246,7 @@ export const chainWaxActivity = pgTable('chain_wax_activity', {
   strava_athlete_id: text('strava_athlete_id').notNull(),
   distance_meters: doublePrecision('distance_meters').notNull(),
   activity_start_at: bigint('activity_start_at', { mode: 'number' }).notNull(), // Unix seconds
-  created_at: bigint('created_at', { mode: 'number' }).notNull(),
+  created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 },
 (t) => [
   index('idx_chain_wax_activity_period').on(t.period_id),
@@ -258,7 +258,7 @@ export const chainWaxPuck = pgTable('chain_wax_puck', {
   started_at: bigint('started_at', { mode: 'number' }).notNull(), // Unix seconds
   wax_count: bigint('wax_count', { mode: 'number' }).default(0).notNull(),
   is_current: boolean('is_current').default(true).notNull(),
-  created_at: bigint('created_at', { mode: 'number' }).notNull(),
+  created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 });
 
 // Type exports

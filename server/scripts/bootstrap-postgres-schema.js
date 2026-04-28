@@ -203,7 +203,7 @@ const SCHEMA_SQL = [
     started_at BIGINT NOT NULL,
     ended_at BIGINT,
     total_distance_meters DOUBLE PRECISION NOT NULL DEFAULT 0,
-    created_at BIGINT NOT NULL
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
   )
   `,
   `
@@ -214,7 +214,7 @@ const SCHEMA_SQL = [
     strava_athlete_id TEXT NOT NULL,
     distance_meters DOUBLE PRECISION NOT NULL,
     activity_start_at BIGINT NOT NULL,
-    created_at BIGINT NOT NULL
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
   )
   `,
   `
@@ -223,7 +223,7 @@ const SCHEMA_SQL = [
     started_at BIGINT NOT NULL,
     wax_count BIGINT NOT NULL DEFAULT 0,
     is_current BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at BIGINT NOT NULL
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
   )
   `,
   `CREATE INDEX IF NOT EXISTS idx_week_season ON week (season_id)`,
