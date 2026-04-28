@@ -1,8 +1,6 @@
 import request from 'supertest';
 import express from 'express';
 import session from 'express-session';
-import Database from 'better-sqlite3';
-import { setupTestDb } from './setupTestDb'; // Import setupTestDb
 import { AuthorizationService } from '../services/AuthorizationService';
 
 // We need to set up test environment variables
@@ -21,28 +19,26 @@ describe('AuthorizationService', () => {
 
 
 
-  beforeEach(() => {
+  beforeEach(async () => {
     service = new AuthorizationService(undefined, () => ['12345', '67890']);
   });
 
   describe('isAdmin', () => {
-    test('should return true for admin athlete IDs', () => {
-      expect(service.isAdmin('12345')).toBe(true);
-      expect(service.isAdmin('67890')).toBe(true);
+    test('should return true for admin athlete IDs', async () => {
+      expect(await service.isAdmin('12345')).toBe(true);
+      expect(await service.isAdmin('67890')).toBe(true);
     });
 
-    test('should return false for non-admin athlete IDs', () => {
-      expect(service.isAdmin('99999')).toBe(false);
-      expect(service.isAdmin('11111')).toBe(false);
+    test('should return false for non-admin athlete IDs', async () => {
+      expect(await service.isAdmin('99999')).toBe(false);
+      expect(await service.isAdmin('11111')).toBe(false);
     });
 
 
 
-    test('should return false for null/undefined', () => {
-
-      expect(service.isAdmin(null)).toBe(false);
-
-      expect(service.isAdmin(undefined)).toBe(false);
+    test('should return false for null/undefined', async () => {
+      expect(await service.isAdmin(null)).toBe(false);
+      expect(await service.isAdmin(undefined)).toBe(false);
 
     });
 
@@ -52,9 +48,9 @@ describe('AuthorizationService', () => {
 
   describe('checkAuthorization', () => {
 
-    test('should reject unauthenticated requests (null stravaAthleteId)', () => {
+    test('should reject unauthenticated requests (null stravaAthleteId)', async () => {
 
-      const result = service.checkAuthorization(null, false);
+      const result = await service.checkAuthorization(null, false);
 
       expect(result.authorized).toBe(false);
 
@@ -66,9 +62,9 @@ describe('AuthorizationService', () => {
 
 
 
-    test('should reject unauthenticated requests even if admin not required', () => {
+    test('should reject unauthenticated requests even if admin not required', async () => {
 
-      const result = service.checkAuthorization(null, false);
+      const result = await service.checkAuthorization(null, false);
 
       expect(result.authorized).toBe(false);
 
@@ -78,16 +74,16 @@ describe('AuthorizationService', () => {
 
 
 
-    test('should allow authenticated non-admin users when admin not required', () => {
-      const result = service.checkAuthorization('99999', false);
+    test('should allow authenticated non-admin users when admin not required', async () => {
+      const result = await service.checkAuthorization('99999', false);
       expect(result.authorized).toBe(true);
       expect(result.statusCode).toBe(200);
     });
 
 
 
-    test('should reject authenticated non-admin users when admin required', () => {
-      const result = service.checkAuthorization('99999', true);
+    test('should reject authenticated non-admin users when admin required', async () => {
+      const result = await service.checkAuthorization('99999', true);
       expect(result.authorized).toBe(false);
       expect(result.statusCode).toBe(403);
       expect(result.message).toContain('Admin access required');
@@ -95,16 +91,16 @@ describe('AuthorizationService', () => {
 
 
 
-    test('should allow authenticated admin users when admin required', () => {
-      const result = service.checkAuthorization('12345', true);
+    test('should allow authenticated admin users when admin required', async () => {
+      const result = await service.checkAuthorization('12345', true);
       expect(result.authorized).toBe(true);
       expect(result.statusCode).toBe(200);
     });
 
 
 
-    test('should allow authenticated admin users when admin not required', () => {
-      const result = service.checkAuthorization('12345', false);
+    test('should allow authenticated admin users when admin not required', async () => {
+      const result = await service.checkAuthorization('12345', false);
       expect(result.authorized).toBe(true);
       expect(result.statusCode).toBe(200);
     });
@@ -119,7 +115,7 @@ describe('AuthorizationService', () => {
 
 
 
-    beforeEach(() => {
+    beforeEach(async () => {
 
       app = express();
 
@@ -273,7 +269,7 @@ describe('AuthorizationService', () => {
 
       const middleware = service.createRequireAdminMiddleware();
 
-      middleware(req, res, nextMock);
+      await middleware(req, res, nextMock);
 
 
 
@@ -305,7 +301,7 @@ describe('AuthorizationService', () => {
 
       const middleware = service.createRequireAdminMiddleware();
 
-      middleware(req, res, nextMock);
+      await middleware(req, res, nextMock);
 
 
 
@@ -321,7 +317,7 @@ describe('AuthorizationService', () => {
 
   describe('Service with empty admin list', () => {
 
-    beforeEach(() => {
+    beforeEach(async () => {
 
       service = new AuthorizationService(undefined, () => []);
 
@@ -329,17 +325,15 @@ describe('AuthorizationService', () => {
 
 
 
-    test('should have no admins in empty service', () => {
-
-      expect(service.isAdmin('12345')).toBe(false);
+    test('should have no admins in empty service', async () => {
+      expect(await service.isAdmin('12345')).toBe(false);
 
     });
 
 
 
-    test('should reject all users as admin when list is empty', () => {
-
-      const result = service.checkAuthorization('12345', true);
+    test('should reject all users as admin when list is empty', async () => {
+      const result = await service.checkAuthorization('12345', true);
 
       expect(result.authorized).toBe(false);
 
@@ -353,7 +347,7 @@ describe('AuthorizationService', () => {
 
   describe('Service with no getAdminAthleteIds function', () => {
 
-    beforeEach(() => {
+    beforeEach(async () => {
 
       service = new AuthorizationService();
 
@@ -361,17 +355,15 @@ describe('AuthorizationService', () => {
 
 
 
-    test('should default to empty admin list', () => {
-
-      expect(service.isAdmin('12345')).toBe(false);
+    test('should default to empty admin list', async () => {
+      expect(await service.isAdmin('12345')).toBe(false);
 
     });
 
 
 
-    test('should still authorize non-admin access', () => {
-
-      const result = service.checkAuthorization('12345', false);
+    test('should still authorize non-admin access', async () => {
+      const result = await service.checkAuthorization('12345', false);
 
       expect(result.authorized).toBe(true);
 
@@ -384,13 +376,8 @@ describe('AuthorizationService', () => {
 
 describe('Admin Authorization Integration', () => {
   let app: any;
-  let db: Database.Database; // Specify type for clarity
 
-  beforeAll(() => {
-    // Create in-memory database for tests
-    const { db: newDb } = setupTestDb({ seed: false }); // Use setupTestDb with no seed
-    db = newDb;
-
+  beforeAll(async () => {
     // Import the app factory and create test app
     // We'll create a minimal version with the middleware we need
     app = express();
@@ -468,11 +455,6 @@ describe('Admin Authorization Integration', () => {
       res.json({ success: true, message: 'Admin GET endpoint accessed' });
     });
   });
-
-  afterAll(() => {
-    db.close();
-  });
-
   describe('requireAdmin middleware', () => {
     test('should reject unauthenticated requests with 401', async () => {
       const res = await request(app)

@@ -1,3 +1,5 @@
+import type { Pool } from 'pg';
+import type { AppDatabase } from '../db/types';
 /**
  * Batch Fetch and Webhook Integration Tests
  *
@@ -9,8 +11,6 @@
  * - Score calculations after fetch/webhook events
  */
 
-import { Database } from 'better-sqlite3';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { appRouter } from '../routers';
 import { createContext } from '../trpc/context';
 import {
@@ -23,34 +23,33 @@ import {
 } from './testDataHelpers';
 
 describe('Activity Fetching and Scoring Integration', () => {
-  let db: Database;
-  let drizzleDb: BetterSQLite3Database;
+  let pool: Pool;
+  let orm: AppDatabase;
   let seedData: SeedData;
   let caller: ReturnType<typeof appRouter.createCaller>;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     const setup = setupTestDb({ seed: true });
-    db = setup.db;
-    drizzleDb = setup.drizzleDb;
+    pool = setup.pool;
+    orm = setup.orm;
     seedData = setup.seedData!;
     caller = appRouter.createCaller(
-      createContext({
-        dbOverride: db,
-        drizzleDbOverride: drizzleDb,
+      await createContext({
+        dbOverride: pool,
+        ormOverride: orm,
         req: {} as any,
         res: {} as any,
       })
     );
   });
-
-  afterAll(() => {
-    teardownTestDb(db);
+  afterAll(async () => {
+    await teardownTestDb(pool);
   });
 
   describe('Activity Storage Triggers Scoring', () => {
     it('stores activity and calculates score correctly', async () => {
-      const segment = createSegment(drizzleDb, '50001', 'Integration Segment');
-      const week = createWeek(drizzleDb, {
+      const segment = await createSegment(orm, '50001', 'Integration Segment');
+      const week = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Integration Week',
@@ -60,14 +59,14 @@ describe('Activity Fetching and Scoring Integration', () => {
       const p1 = '50001';
       const p2 = '50002';
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: p1,
         stravaActivityId: '50001',
         elapsedSeconds: 500,
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: p2,
         stravaActivityId: '50002',
@@ -89,22 +88,22 @@ describe('Activity Fetching and Scoring Integration', () => {
     });
 
     it('adds activity for new participant mid-week and recalculates scores', async () => {
-      const segment = createSegment(drizzleDb, '50003', 'Mid-Week Segment');
-      const week = createWeek(drizzleDb, {
+      const segment = await createSegment(orm, '50003', 'Mid-Week Segment');
+      const week = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Mid-Week Week',
       });
 
       // Initial: 2 participants
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: '50101',
         stravaActivityId: '50101',
         elapsedSeconds: 500,
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: '50102',
         stravaActivityId: '50102',
@@ -116,7 +115,7 @@ describe('Activity Fetching and Scoring Integration', () => {
       expect(leaderboard.leaderboard[0].points).toBe(2); // 1st with 2 competitors
 
       // Mid-week: 3rd participant adds activity
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: '50103',
         stravaActivityId: '50103',
@@ -137,8 +136,8 @@ describe('Activity Fetching and Scoring Integration', () => {
     });
 
     it('replaces activity when participant submits better time', async () => {
-      const segment = createSegment(drizzleDb, '50004', 'Improvement Segment');
-      const week = createWeek(drizzleDb, {
+      const segment = await createSegment(orm, '50004', 'Improvement Segment');
+      const week = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Improvement Week',
@@ -147,7 +146,7 @@ describe('Activity Fetching and Scoring Integration', () => {
       const athlete = '50201';
 
       // Initial activity (slower)
-      const result1 = createActivityWithResult(drizzleDb, {
+      const result1 = await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: athlete,
         stravaActivityId: '50201',
@@ -160,7 +159,7 @@ describe('Activity Fetching and Scoring Integration', () => {
       });
 
       // New activity (faster) - should replace
-      const result2 = createActivityWithResult(drizzleDb, {
+      const result2 = await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: athlete,
         stravaActivityId: '50202', // Different activity ID
@@ -177,15 +176,15 @@ describe('Activity Fetching and Scoring Integration', () => {
 
   describe('PR Bonus Integration', () => {
     it('stores PR bonus and calculates additional points', async () => {
-      const segment = createSegment(drizzleDb, '50005', 'PR Segment');
-      const week = createWeek(drizzleDb, {
+      const segment = await createSegment(orm, '50005', 'PR Segment');
+      const week = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'PR Week',
       });
 
       // Activity with PR
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: '50301',
         stravaActivityId: '50301',
@@ -194,7 +193,7 @@ describe('Activity Fetching and Scoring Integration', () => {
       });
 
       // Activity without PR
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: '50302',
         stravaActivityId: '50302',
@@ -218,8 +217,8 @@ describe('Activity Fetching and Scoring Integration', () => {
     });
 
     it('handles activity update with PR change', async () => {
-      const segment = createSegment(drizzleDb, '50006', 'PR Change Segment');
-      const week = createWeek(drizzleDb, {
+      const segment = await createSegment(orm, '50006', 'PR Change Segment');
+      const week = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'PR Change Week',
@@ -228,7 +227,7 @@ describe('Activity Fetching and Scoring Integration', () => {
       const athlete = '50401';
 
       // Initial activity without PR
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: athlete,
         stravaActivityId: '50401',
@@ -240,7 +239,7 @@ describe('Activity Fetching and Scoring Integration', () => {
       expect(leaderboard.leaderboard[0].pr_bonus_points).toBe(0);
 
       // Updated activity (now with PR)
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: athlete,
         stravaActivityId: '50402',
@@ -258,16 +257,16 @@ describe('Activity Fetching and Scoring Integration', () => {
 
   describe('Multiple Weeks Scoring Independence', () => {
     it('week 1 scores independent from week 2', async () => {
-      const segment1 = createSegment(drizzleDb, '50007', 'Week1 Segment');
-      const segment2 = createSegment(drizzleDb, '50008', 'Week2 Segment');
+      const segment1 = await createSegment(orm, '50007', 'Week1 Segment');
+      const segment2 = await createSegment(orm, '50008', 'Week2 Segment');
 
-      const week1 = createWeek(drizzleDb, {
+      const week1 = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment1.strava_segment_id,
         weekName: 'Week 1',
       });
 
-      const week2 = createWeek(drizzleDb, {
+      const week2 = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment2.strava_segment_id,
         weekName: 'Week 2',
@@ -277,14 +276,14 @@ describe('Activity Fetching and Scoring Integration', () => {
       const p2 = '50502';
 
       // Week 1: p1 is faster
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week1.id,
         stravaAthleteId: p1,
         stravaActivityId: '50501',
         elapsedSeconds: 500,
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week1.id,
         stravaAthleteId: p2,
         stravaActivityId: '50502',
@@ -292,14 +291,14 @@ describe('Activity Fetching and Scoring Integration', () => {
       });
 
       // Week 2: p2 is faster
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week2.id,
         stravaAthleteId: p1,
         stravaActivityId: '50503',
         elapsedSeconds: 700,
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week2.id,
         stravaAthleteId: p2,
         stravaActivityId: '50504',
@@ -321,16 +320,16 @@ describe('Activity Fetching and Scoring Integration', () => {
 
   describe('Season Leaderboard After Fetching', () => {
     it('season leaderboard sums points from all weeks', async () => {
-      const segment1 = createSegment(drizzleDb, '50009', 'Season Seg1');
-      const segment2 = createSegment(drizzleDb, '50010', 'Season Seg2');
+      const segment1 = await createSegment(orm, '50009', 'Season Seg1');
+      const segment2 = await createSegment(orm, '50010', 'Season Seg2');
 
-      const week1 = createWeek(drizzleDb, {
+      const week1 = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment1.strava_segment_id,
         weekName: 'Season Week 1',
       });
 
-      const week2 = createWeek(drizzleDb, {
+      const week2 = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment2.strava_segment_id,
         weekName: 'Season Week 2',
@@ -340,14 +339,14 @@ describe('Activity Fetching and Scoring Integration', () => {
       const p2 = '50602';
 
       // Week 1: p1 wins (2 points), p2 second (1 point)
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week1.id,
         stravaAthleteId: p1,
         stravaActivityId: '50601',
         elapsedSeconds: 500,
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week1.id,
         stravaAthleteId: p2,
         stravaActivityId: '50602',
@@ -355,14 +354,14 @@ describe('Activity Fetching and Scoring Integration', () => {
       });
 
       // Week 2: p2 wins (2 points), p1 second (1 point)
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week2.id,
         stravaAthleteId: p1,
         stravaActivityId: '50603',
         elapsedSeconds: 700,
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week2.id,
         stravaAthleteId: p2,
         stravaActivityId: '50604',
@@ -383,15 +382,15 @@ describe('Activity Fetching and Scoring Integration', () => {
     });
 
     it('non-completers excluded from season leaderboard', async () => {
-      const segment = createSegment(drizzleDb, '50011', 'Non-Completer Seg');
-      const week = createWeek(drizzleDb, {
+      const segment = await createSegment(orm, '50011', 'Non-Completer Seg');
+      const week = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Non-Completer Week',
       });
 
       // Only p1 completes
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: '50701',
         stravaActivityId: '50701',
@@ -412,15 +411,15 @@ describe('Activity Fetching and Scoring Integration', () => {
 
   describe('Effort Breakdown Storage', () => {
     it('stores segment efforts with correct timing', async () => {
-      const segment = createSegment(drizzleDb, '50012', 'Effort Segment');
-      const week = createWeek(drizzleDb, {
+      const segment = await createSegment(orm, '50012', 'Effort Segment');
+      const week = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Effort Week',
         requiredLaps: 2,
       });
 
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: '50801',
         stravaActivityId: '50801',
@@ -437,8 +436,8 @@ describe('Activity Fetching and Scoring Integration', () => {
 
   describe('Empty Activities List Scenarios', () => {
     it('week with no qualifying activities shows empty leaderboard', async () => {
-      const segment = createSegment(drizzleDb, '50013', 'Empty Segment');
-      const week = createWeek(drizzleDb, {
+      const segment = await createSegment(orm, '50013', 'Empty Segment');
+      const week = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Empty Week',
@@ -452,8 +451,8 @@ describe('Activity Fetching and Scoring Integration', () => {
     });
 
     it('week with only non-qualifying activities shows empty leaderboard', async () => {
-      const segment = createSegment(drizzleDb, '50014', 'Qual Segment');
-      const week = createWeek(drizzleDb, {
+      const segment = await createSegment(orm, '50014', 'Qual Segment');
+      const week = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'No Qualifiers Week',
@@ -471,14 +470,14 @@ describe('Activity Fetching and Scoring Integration', () => {
 
   describe('Time Window Filtering', () => {
     it('activities outside time window are not counted', async () => {
-      const segment = createSegment(drizzleDb, '50015', 'Time Window Segment');
+      const segment = await createSegment(orm, '50015', 'Time Window Segment');
       
       // Create week with specific time window (using ISO strings)
       const now = Math.floor(Date.now() / 1000);
       const windowStart = new Date((now - 86400) * 1000).toISOString();
       const windowEnd = new Date((now - 82800) * 1000).toISOString(); // 1 hour window
 
-      const week = createWeek(drizzleDb, {
+      const week = await createWeek(orm, {
         seasonId: seedData.seasons[0].id,
         stravaSegmentId: segment.strava_segment_id,
         weekName: 'Time Window Week',
@@ -486,7 +485,7 @@ describe('Activity Fetching and Scoring Integration', () => {
 
       // In real batch fetch, activities outside window are filtered
       // Here we're testing that stored activities calculate scores correctly
-      createActivityWithResult(drizzleDb, {
+      await createActivityWithResult(orm, {
         weekId: week.id,
         stravaAthleteId: '50901',
         stravaActivityId: '50901',

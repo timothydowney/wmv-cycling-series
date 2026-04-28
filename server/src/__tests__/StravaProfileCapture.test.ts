@@ -1,10 +1,11 @@
+import type { Pool } from 'pg';
 /**
  * StravaProfileCapture.test.ts
  * Tests for profile data capture from Strava API
  */
 
 import { captureAthleteProfile } from '../services/StravaProfileCapture';
-import { setupTestDb } from './setupTestDb';
+import { setupTestDb, teardownTestDb } from './setupTestDb';
 import * as stravaClient from '../stravaClient';
 import { participant } from '../db/schema';
 import { eq } from 'drizzle-orm';
@@ -12,14 +13,18 @@ import { eq } from 'drizzle-orm';
 jest.mock('../stravaClient');
 
 describe('StravaProfileCapture', () => {
-  let db: any;
+  let pool: Pool;
   let orm: any;
 
-  beforeEach(() => {
-    const setup = setupTestDb();
-    db = setup.drizzleDb;
+  beforeEach(async () => {
+    const setup = setupTestDb({ seed: false });
+    pool = setup.pool;
     orm = setup.orm;
     jest.clearAllMocks();
+  });
+
+  afterAll(async () => {
+    await teardownTestDb(pool);
   });
 
   it('should capture and store athlete weight', async () => {
@@ -29,17 +34,22 @@ describe('StravaProfileCapture', () => {
     jest.spyOn(stravaClient, 'getAthleteProfile').mockResolvedValue(mockProfile as any);
 
     // Create participant first
-    orm.insert(participant).values({
+    await orm.insert(participant).values({
       strava_athlete_id: athleteId,
       name: 'Test Athlete'
-    }).run();
+    }).execute();
 
     const result = await captureAthleteProfile(orm, athleteId, 'token');
 
     expect(result.weight).toBe(70.5);
 
     // Verify participant was updated
-    const updated = orm.select().from(participant).where(eq(participant.strava_athlete_id, athleteId)).get();
+    const [updated] = await orm
+      .select()
+      .from(participant)
+      .where(eq(participant.strava_athlete_id, athleteId))
+      .limit(1)
+      .execute();
     expect(updated.weight).toBe(70.5);
     expect(updated.weight_updated_at).toBeDefined();
   });
@@ -50,10 +60,10 @@ describe('StravaProfileCapture', () => {
 
     jest.spyOn(stravaClient, 'getAthleteProfile').mockResolvedValue(mockProfile as any);
 
-    orm.insert(participant).values({
+    await orm.insert(participant).values({
       strava_athlete_id: athleteId,
       name: 'Test Athlete'
-    }).run();
+    }).execute();
 
     const result = await captureAthleteProfile(orm, athleteId, 'token');
 
@@ -65,17 +75,22 @@ describe('StravaProfileCapture', () => {
 
     jest.spyOn(stravaClient, 'getAthleteProfile').mockRejectedValue(new Error('API Error'));
 
-    orm.insert(participant).values({
+    await orm.insert(participant).values({
       strava_athlete_id: athleteId,
       name: 'Test Athlete'
-    }).run();
+    }).execute();
 
     const result = await captureAthleteProfile(orm, athleteId, 'token');
 
     expect(result.weight).toBeNull();
 
     // Verify participant was NOT updated
-    const unchanged = orm.select().from(participant).where(eq(participant.strava_athlete_id, athleteId)).get();
+    const [unchanged] = await orm
+      .select()
+      .from(participant)
+      .where(eq(participant.strava_athlete_id, athleteId))
+      .limit(1)
+      .execute();
     expect(unchanged.weight).toBeNull();
   });
 
@@ -85,10 +100,10 @@ describe('StravaProfileCapture', () => {
 
     jest.spyOn(stravaClient, 'getAthleteProfile').mockResolvedValue(mockProfile as any);
 
-    orm.insert(participant).values({
+    await orm.insert(participant).values({
       strava_athlete_id: athleteId,
       name: 'Test Athlete'
-    }).run();
+    }).execute();
 
     const result = await captureAthleteProfile(orm, athleteId, 'token');
 

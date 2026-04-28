@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Local-first Postgres migration tooling, including schema bootstrap, SQLite-to-Postgres import, row-count parity verification, rollback-tag verification, local Docker Postgres compose, and Railway rehearsal import/environment setup scripts.
+
+### Changed
+- Backend runtime and data-access layers now run Postgres-first with async Drizzle query patterns across services, routers, webhook processing, auth/session persistence, and test infrastructure.
+- Development and E2E startup workflows now auto-ensure local Postgres readiness, explicit target database creation, and optional fixture/bootstrap import flows for deterministic test runs.
+
+### Removed
+- Legacy SQLite-specific runtime paths and storage-monitor surfaces that are no longer used in the Postgres-first branch.
+
 ### Changed
 - Webhook admin event history now uses a cleaner leaderboard-inspired card layout with clearer title hierarchy, collapsed match badges for competition and Explorer outcomes, and simpler expanded activity detail cards.
 

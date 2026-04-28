@@ -1,5 +1,5 @@
-import { Database } from 'better-sqlite3';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { Pool } from 'pg';
+import type { AppDatabase } from '../../db/types';
 import { appRouter } from '../../routers';
 import { createContext } from '../../trpc/context';
 import { setupTestDb, teardownTestDb, clearAllData, createSeason, createSegment, createParticipant } from '../testDataHelpers';
@@ -7,24 +7,23 @@ import { season, week } from '../../db/schema';
 import { eq } from 'drizzle-orm';
 
 describe('seasonRouter', () => {
-  let db: Database;
-  let drizzleDb: BetterSQLite3Database;
+  let pool: Pool;
+  let orm: AppDatabase;
   let caller: ReturnType<typeof appRouter.createCaller>;
 
-  beforeAll(() => {
-    const testDb = setupTestDb();
-    db = testDb.db;
-    drizzleDb = testDb.drizzleDb;
+  beforeAll(async () => {
+    const testDb = setupTestDb({ seed: false });
+    pool = testDb.pool;
+    orm = testDb.orm;
   });
-
-  afterAll(() => {
-    teardownTestDb(db);
+  afterAll(async () => {
+    await teardownTestDb(pool);
   });
 
   // Helper to create caller with specific auth state
-  const getCaller = (isAdmin: boolean) => {
+  const getCaller = async (isAdmin: boolean) => {
     if (isAdmin) {
-      createParticipant(drizzleDb, '999001', 'Test Admin', false, true);
+      await createParticipant(orm, '999001', 'Test Admin', false, true);
     }
 
     const req = {
@@ -33,30 +32,30 @@ describe('seasonRouter', () => {
       }
     } as any;
     
-    return appRouter.createCaller(createContext({
+    return appRouter.createCaller(() => createContext({
       req,
       res: {} as any,
-      dbOverride: db,
-      drizzleDbOverride: drizzleDb
+      dbOverride: pool,
+      ormOverride: orm
     }));
   };
 
-  beforeEach(() => {
-    clearAllData(drizzleDb);
+  beforeEach(async () => {
+    await clearAllData(orm);
   });
 
   describe('getAll', () => {
     it('should return empty array when no seasons exist', async () => {
-      const caller = getCaller(false);
+      const caller = await getCaller(false);
       const result = await caller.season.getAll();
       expect(result).toEqual([]);
     });
 
     it('should return seasons ordered by start_at desc', async () => {
-      const caller = getCaller(false);
+      const caller = await getCaller(false);
       
-      createSeason(drizzleDb, 'Season 1', true, { startAt: 1000, endAt: 2000 });
-      createSeason(drizzleDb, 'Season 2', false, { startAt: 3000, endAt: 4000 });
+      await createSeason(orm, 'Season 1', true, { startAt: 1000, endAt: 2000 });
+      await createSeason(orm, 'Season 2', false, { startAt: 3000, endAt: 4000 });
 
       const result = await caller.season.getAll();
       expect(result).toHaveLength(2);
@@ -67,23 +66,23 @@ describe('seasonRouter', () => {
 
   describe('getById', () => {
     it('should return a season by ID', async () => {
-      const caller = getCaller(false);
+      const caller = await getCaller(false);
       
-      const { id: seasonId } = createSeason(drizzleDb, 'Target Season');
+      const { id: seasonId } = await createSeason(orm, 'Target Season');
 
       const result = await caller.season.getById(Number(seasonId));
       expect(result.name).toBe('Target Season');
     });
 
     it('should throw NOT_FOUND for non-existent season', async () => {
-      const caller = getCaller(false);
+      const caller = await getCaller(false);
       await expect(caller.season.getById(999)).rejects.toThrow('Season not found');
     });
   });
 
   describe('create', () => {
     it('should create a season when admin', async () => {
-      const caller = getCaller(true);
+      const caller = await getCaller(true);
       
       const input = {
         name: 'New Season',
@@ -95,14 +94,14 @@ describe('seasonRouter', () => {
       expect(result.name).toBe('New Season');
 
       // Verify in DB
-      const foundSeason = await drizzleDb.select().from(season).where(eq(season.id, result.id)).get();
+      const [foundSeason] = await orm.select().from(season).where(eq(season.id, result.id));
       expect(foundSeason).toBeDefined();
       expect(foundSeason?.name).toBe('New Season');
     });
 
     it('should not alter an existing overlapping season when creating another', async () => {
-      const caller = getCaller(true);
-      const existingSeason = createSeason(drizzleDb, 'Existing Season', true, { startAt: 1000, endAt: 5000 });
+      const caller = await getCaller(true);
+      const existingSeason = await createSeason(orm, 'Existing Season', true, { startAt: 1000, endAt: 5000 });
 
       const createdSeason = await caller.season.create({
         name: 'Concurrent Season',
@@ -110,7 +109,7 @@ describe('seasonRouter', () => {
         end_at: 6000,
       });
 
-      const reloadedExisting = await drizzleDb.select().from(season).where(eq(season.id, existingSeason.id)).get();
+      const [reloadedExisting] = await orm.select().from(season).where(eq(season.id, existingSeason.id));
       expect(createdSeason.name).toBe('Concurrent Season');
       expect(reloadedExisting?.name).toBe('Existing Season');
       expect(reloadedExisting?.start_at).toBe(1000);
@@ -118,7 +117,7 @@ describe('seasonRouter', () => {
     });
 
     it('should fail when not admin', async () => {
-      const caller = getCaller(false);
+      const caller = await getCaller(false);
       
       const input = {
         name: 'New Season',
@@ -133,9 +132,9 @@ describe('seasonRouter', () => {
 
   describe('update', () => {
     it('should update a season when admin', async () => {
-      const caller = getCaller(true);
+      const caller = await getCaller(true);
       
-      const { id: seasonId } = createSeason(drizzleDb, 'Old Name');
+      const { id: seasonId } = await createSeason(orm, 'Old Name');
 
       const result = await caller.season.update({
         id: Number(seasonId),
@@ -146,9 +145,9 @@ describe('seasonRouter', () => {
     });
 
     it('should fail when not admin', async () => {
-      const caller = getCaller(false);
+      const caller = await getCaller(false);
       
-      const { id: seasonId } = createSeason(drizzleDb, 'Old Name');
+      const { id: seasonId } = await createSeason(orm, 'Old Name');
 
       // @ts-ignore
       await expect(caller.season.update({
@@ -160,21 +159,21 @@ describe('seasonRouter', () => {
 
   describe('delete', () => {
     it('should delete a season when admin', async () => {
-      const caller = getCaller(true);
+      const caller = await getCaller(true);
       
-      const { id: seasonId } = createSeason(drizzleDb, 'To Delete');
+      const { id: seasonId } = await createSeason(orm, 'To Delete');
 
       const result = await caller.season.delete(Number(seasonId));
       expect(result.message).toBe('Season deleted successfully');
 
-      const foundSeason = await drizzleDb.select().from(season).where(eq(season.id, seasonId)).get();
+      const [foundSeason] = await orm.select().from(season).where(eq(season.id, seasonId));
       expect(foundSeason).toBeUndefined();
     });
 
     it('should fail when not admin', async () => {
-      const caller = getCaller(false);
+      const caller = await getCaller(false);
       
-      const { id: seasonId } = createSeason(drizzleDb, 'To Delete');
+      const { id: seasonId } = await createSeason(orm, 'To Delete');
 
       // @ts-ignore
       await expect(caller.season.delete(Number(seasonId))).rejects.toThrow('UNAUTHORIZED');
@@ -183,37 +182,37 @@ describe('seasonRouter', () => {
 
   describe('clone', () => {
     it('should clone a season and its weeks', async () => {
-      const caller = getCaller(true);
+      const caller = await getCaller(true);
       
       // Create segment for FK
-      createSegment(drizzleDb, '123', 'Test Segment');
+      await createSegment(orm, '123', 'Test Segment');
 
       // 1. Create source season
       // Start season at 9000, but first week starts at 10000
       // This tests that the clone aligns the first week to the new start date, ignoring the season padding
-      const sourceSeason = createSeason(drizzleDb, 'Source Season', true, { startAt: 9000, endAt: 20000 });
+      const sourceSeason = await createSeason(orm, 'Source Season', true, { startAt: 9000, endAt: 20000 });
       
       // 2. Create source weeks directly
-      drizzleDb.insert(week).values({
+      await orm.insert(week).values({
         season_id: sourceSeason.id,
         week_name: 'Week 1',
         strava_segment_id: '123',
         required_laps: 1,
         start_at: 10000,
         end_at: 11000
-      }).run();
+      });
 
       // Week 2 is exactly 7 days later (7 * 86400 = 604800 seconds)
       // Start: 10000 + 604800 = 614800
       // End: 11000 + 604800 = 615800
-      drizzleDb.insert(week).values({
+      await orm.insert(week).values({
         season_id: sourceSeason.id,
         week_name: 'Week 2',
         strava_segment_id: '123',
         required_laps: 1,
         start_at: 614800,
         end_at: 615800
-      }).run();
+      });
 
       // 3. Clone
       const newStartDate = 30000;
@@ -227,7 +226,7 @@ describe('seasonRouter', () => {
       expect(result.start_at).toBe(newStartDate);
       
       // 4. Verify weeks
-      const newWeeks = await drizzleDb.select().from(week).where(eq(week.season_id, result.id)).orderBy(week.start_at).all();
+      const newWeeks = await orm.select().from(week).where(eq(week.season_id, result.id)).orderBy(week.start_at);
       expect(newWeeks).toHaveLength(2);
 
       // Week 1: offset 0 (relative to first week). New start = 30000. Duration 1000. End = 31000.

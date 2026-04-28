@@ -18,14 +18,15 @@
  * - Re-fetches activity from Strava on retry (not cached payload)
  */
 
-import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { eq } from 'drizzle-orm';
+import type { AppDatabase } from '../db/types';
 import { activity, result, segmentEffort, participantToken, participant } from '../db/schema';
 import { WebhookEvent, ActivityWebhookEvent, AthleteWebhookEvent } from './types';
 import { WebhookLogger } from './logger';
 import { getWebhookConfig } from '../config';
 import ActivityValidationService from '../services/ActivityValidationService';
 import { ChainWaxService } from '../services/ChainWaxService';
+import { getOne, exec } from '../db/asyncQuery';
 import {
   ActivityWebhookHandler,
   createActivityIngestionContext,
@@ -38,9 +39,9 @@ import {
  * Abstracts database operations to make processor testable via dependency injection
  */
 export interface WebhookService {
-  deleteActivity(stravaActivityId: string): { deleted: boolean; changes: number };
-  deleteAthleteTokens(athleteId: string): { deleted: boolean; changes: number };
-  findParticipantByAthleteId(athleteId: string): { name: string } | undefined;
+  deleteActivity(stravaActivityId: string): Promise<{ deleted: boolean; changes: number }>;
+  deleteAthleteTokens(athleteId: string): Promise<{ deleted: boolean; changes: number }>;
+  findParticipantByAthleteId(athleteId: string): Promise<{ name: string | null } | undefined>;
 }
 
 export interface WebhookProcessorOptions {
@@ -51,14 +52,15 @@ export interface WebhookProcessorOptions {
 /**
  * Create default service implementation
  */
-function createDefaultService(db: BetterSQLite3Database): WebhookService {
+function createDefaultService(db: AppDatabase): WebhookService {
   return {
-    deleteActivity(stravaActivityId: string) {
-      const activityRecord = db
-        .select({ id: activity.id, week_id: activity.week_id })
-        .from(activity)
-        .where(eq(activity.strava_activity_id, stravaActivityId))
-        .get();
+    async deleteActivity(stravaActivityId: string) {
+      const activityRecord = await getOne<{ id: number; week_id: number }>(
+        db
+          .select({ id: activity.id, week_id: activity.week_id })
+          .from(activity)
+          .where(eq(activity.strava_activity_id, stravaActivityId))
+      );
 
       if (!activityRecord) {
         return { deleted: false, changes: 0 };
@@ -69,31 +71,30 @@ function createDefaultService(db: BetterSQLite3Database): WebhookService {
       // 2. segment_effort (has FK to activity)
       // 3. activity (depends on above)
       
-      const deletedResults = db.delete(result).where(eq(result.activity_id, activityRecord.id)).run();
-      const deletedEfforts = db.delete(segmentEffort).where(eq(segmentEffort.activity_id, activityRecord.id)).run();
-      const deletedActivity = db.delete(activity).where(eq(activity.id, activityRecord.id)).run();
+      await exec(db.delete(result).where(eq(result.activity_id, activityRecord.id)));
+      await exec(db.delete(segmentEffort).where(eq(segmentEffort.activity_id, activityRecord.id)));
+      await exec(db.delete(activity).where(eq(activity.id, activityRecord.id)));
 
-      const totalChanges =
-        deletedResults.changes + deletedEfforts.changes + deletedActivity.changes;
-
-      return { deleted: true, changes: totalChanges };
+      return { deleted: true, changes: 1 };
     },
 
-    deleteAthleteTokens(athleteId: string) {
-      const deleted = db
-        .delete(participantToken)
-        .where(eq(participantToken.strava_athlete_id, athleteId))
-        .run();
+    async deleteAthleteTokens(athleteId: string) {
+      await exec(
+        db
+          .delete(participantToken)
+          .where(eq(participantToken.strava_athlete_id, athleteId))
+      );
 
-      return { deleted: deleted.changes > 0, changes: deleted.changes };
+      return { deleted: true, changes: 1 };
     },
 
-    findParticipantByAthleteId(athleteId: string) {
-      return db
-        .select({ name: participant.name })
-        .from(participant)
-        .where(eq(participant.strava_athlete_id, athleteId))
-        .get();
+    async findParticipantByAthleteId(athleteId: string) {
+      return await getOne<{ name: string | null }>(
+        db
+          .select({ name: participant.name })
+          .from(participant)
+          .where(eq(participant.strava_athlete_id, athleteId))
+      );
     }
   };
 }
@@ -104,7 +105,7 @@ function createDefaultService(db: BetterSQLite3Database): WebhookService {
  * Accepts optional service for testing/dependency injection
  */
 export function createWebhookProcessor(
-  db: BetterSQLite3Database | null,
+  db: AppDatabase | null,
   service?: WebhookService,
   options?: WebhookProcessorOptions
 ) {
@@ -155,7 +156,7 @@ export function createWebhookProcessor(
 
       const { persistEvents } = getWebhookConfig();
       if (persistEvents) {
-        logger.markProcessed(event);
+        await logger.markProcessed(event);
       }
     } catch (error) {
       const duration = Date.now() - startTime;
@@ -169,7 +170,7 @@ export function createWebhookProcessor(
 
       const { persistEvents } = getWebhookConfig();
       if (persistEvents) {
-        logger.markFailed(
+        await logger.markFailed(
           event,
           error instanceof Error ? error.message : String(error)
         );
@@ -204,7 +205,7 @@ export function createWebhookProcessor(
 async function processActivityEvent(
   event: ActivityWebhookEvent,
   _logger: WebhookLogger,
-  db: BetterSQLite3Database,
+  db: AppDatabase,
   validationService: ActivityValidationService,
   activityHandlers: ActivityWebhookHandler[]
 ): Promise<void> {
@@ -232,7 +233,7 @@ async function processActivityDeletion(
   event: ActivityWebhookEvent,
   _logger: WebhookLogger,
   service: WebhookService,
-  db?: BetterSQLite3Database
+  db?: AppDatabase
 ): Promise<void> {
   const activityId = String(event.object_id);
   const athleteId = String(event.owner_id);
@@ -246,7 +247,7 @@ async function processActivityDeletion(
   if (db && ChainWaxService.isTrackedAthlete(athleteId)) {
     try {
       const chainWaxService = new ChainWaxService(db);
-      const removed = chainWaxService.removeActivity(activityId);
+      const removed = await chainWaxService.removeActivity(activityId);
       if (removed) {
         console.log(`[Webhook:Processor] ✓ Chain wax: removed deleted activity ${activityId}`);
       }
@@ -255,7 +256,7 @@ async function processActivityDeletion(
     }
   }
 
-  const result = service.deleteActivity(activityId);
+  const result = await service.deleteActivity(activityId);
 
   if (result.deleted) {
     console.log(
@@ -291,7 +292,7 @@ async function processAthleteDisconnection(
     athleteId
   });
 
-  const participantRecord = service.findParticipantByAthleteId(athleteId);
+  const participantRecord = await service.findParticipantByAthleteId(athleteId);
 
   if (!participantRecord) {
     console.log(
@@ -300,7 +301,7 @@ async function processAthleteDisconnection(
     return;
   }
 
-  const result = service.deleteAthleteTokens(athleteId);
+  const result = await service.deleteAthleteTokens(athleteId);
 
   if (result.deleted) {
     console.log(

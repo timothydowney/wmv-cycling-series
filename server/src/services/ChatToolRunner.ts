@@ -6,9 +6,10 @@
  * or to live Strava API calls.
  */
 
-import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { AppDatabase } from '../db/types';
 import { eq, and, sql, desc } from 'drizzle-orm';
 import Fuse from 'fuse.js';
+import { getOne, getMany } from '../db/asyncQuery';
 import {
   season, week, segment, participant, activity,
   segmentEffort, result, participantToken,
@@ -163,7 +164,7 @@ export class ChatToolRunner {
   private jerseyService: JerseyService;
   private leaderboardService: LeaderboardService;
 
-  constructor(private db: BetterSQLite3Database) {
+  constructor(private db: AppDatabase) {
     this.scoringService = new ScoringService(db);
     this.standingsService = new StandingsService(db);
     this.profileService = new ProfileService(db);
@@ -237,15 +238,15 @@ export class ChatToolRunner {
 
   // ── Helper: Resolve participant by fuzzy name ──
 
-  private getAllParticipants(): { strava_athlete_id: string; name: string }[] {
-    return this.db.select({
+  private async getAllParticipants(): Promise<{ strava_athlete_id: string; name: string }[]> {
+    return await getMany<{ strava_athlete_id: string; name: string }>(this.db.select({
       strava_athlete_id: participant.strava_athlete_id,
       name: participant.name,
-    }).from(participant).all();
+    }).from(participant));
   }
 
-  private resolveParticipant(athleteName: string): { strava_athlete_id: string; name: string } | { error: string; matches?: string[]; hint?: string } {
-    const all = this.getAllParticipants();
+  private async resolveParticipant(athleteName: string): Promise<{ strava_athlete_id: string; name: string } | { error: string; matches?: string[]; hint?: string }> {
+    const all = await this.getAllParticipants();
     const matches = fuzzyMatchName(all, athleteName);
 
     if (matches.length === 0) {
@@ -261,19 +262,17 @@ export class ChatToolRunner {
 
     // Try to narrow down by checking who has results in the current/latest season
     const now = Math.floor(Date.now() / 1000);
-    const currentSeason = this.db.select({ id: season.id })
+    const currentSeason = await getOne<{ id: number }>(this.db.select({ id: season.id })
       .from(season)
-      .where(and(sql`${season.start_at} <= ${now}`, sql`${season.end_at} >= ${now}`))
-      .get()
-      || this.db.select({ id: season.id }).from(season).orderBy(desc(season.end_at)).limit(1).get();
+      .where(and(sql`${season.start_at} <= ${now}`, sql`${season.end_at} >= ${now}`)))
+      || await getOne<{ id: number }>(this.db.select({ id: season.id }).from(season).orderBy(desc(season.end_at)).limit(1));
 
     let activeHint = '';
     if (currentSeason) {
-      const activeIds = this.db.select({ participantId: result.strava_athlete_id })
+      const activeIds = (await getMany<{ participantId: string }>(this.db.select({ participantId: result.strava_athlete_id })
         .from(result)
         .innerJoin(week, eq(result.week_id, week.id))
-        .where(eq(week.season_id, currentSeason.id))
-        .all()
+        .where(eq(week.season_id, currentSeason.id))))
         .map(r => r.participantId);
 
       const activeMatches = matches.filter(m => activeIds.includes(m.strava_athlete_id));
@@ -298,13 +297,13 @@ export class ChatToolRunner {
 
   // ── Season & Week Tools ──
 
-  private listSeasons() {
-    const seasons = this.db.select({
+  private async listSeasons() {
+    const seasons = await getMany<{ id: number; name: string; start_at: number; end_at: number }>(this.db.select({
       id: season.id,
       name: season.name,
       start_at: season.start_at,
       end_at: season.end_at,
-    }).from(season).orderBy(season.start_at).all();
+    }).from(season).orderBy(season.start_at));
 
     return seasons.map(s => ({
       id: s.id,
@@ -314,9 +313,9 @@ export class ChatToolRunner {
     }));
   }
 
-  private getCurrentSeason() {
+  private async getCurrentSeason() {
     const now = Math.floor(Date.now() / 1000);
-    const current = this.db.select({
+    const current = await getOne<{ id: number; name: string; start_at: number; end_at: number }>(this.db.select({
       id: season.id,
       name: season.name,
       start_at: season.start_at,
@@ -326,17 +325,16 @@ export class ChatToolRunner {
       .where(and(
         sql`${season.start_at} <= ${now}`,
         sql`${season.end_at} >= ${now}`
-      ))
-      .get();
+      )));
 
     if (!current) {
       // Return the most recent season
-      const latest = this.db.select({
+      const latest = await getOne<{ id: number; name: string; start_at: number; end_at: number }>(this.db.select({
         id: season.id,
         name: season.name,
         start_at: season.start_at,
         end_at: season.end_at,
-      }).from(season).orderBy(desc(season.end_at)).limit(1).get();
+      }).from(season).orderBy(desc(season.end_at)).limit(1));
 
       if (!latest) return { error: 'No seasons found' };
       return {
@@ -356,8 +354,12 @@ export class ChatToolRunner {
     };
   }
 
-  private getSeasonWeeks(seasonId: number) {
-    const weeks = this.db.select({
+  private async getSeasonWeeks(seasonId: number) {
+    const weeks = await getMany<{
+      id: number; week_name: string | null; segment_name: string | null; average_grade: number | null;
+      distance: number | null; total_elevation_gain: number | null; required_laps: number; start_at: number;
+      end_at: number; multiplier: number; notes: string | null;
+    }>(this.db.select({
       id: week.id,
       week_name: week.week_name,
       segment_name: segment.name,
@@ -373,8 +375,7 @@ export class ChatToolRunner {
       .from(week)
       .leftJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
       .where(eq(week.season_id, seasonId))
-      .orderBy(week.start_at)
-      .all();
+      .orderBy(week.start_at));
 
     return weeks.map((w, index) => ({
       week_number: index + 1,
@@ -393,9 +394,12 @@ export class ChatToolRunner {
     }));
   }
 
-  private getWeekByNameAndSeason(weekName: string, seasonName?: string) {
+  private async getWeekByNameAndSeason(weekName: string, seasonName?: string) {
     // Get all weeks with segment and season info
-    const allWeeks = this.db.select({
+    const allWeeks = await getMany<{
+      id: number; week_name: string | null; segment_name: string | null; season_id: number; season_name: string | null;
+      start_at: number; end_at: number; average_grade: number | null; required_laps: number; multiplier: number;
+    }>(this.db.select({
       id: week.id,
       week_name: week.week_name,
       segment_name: segment.name,
@@ -410,8 +414,7 @@ export class ChatToolRunner {
       .from(week)
       .leftJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
       .leftJoin(season, eq(week.season_id, season.id))
-      .orderBy(desc(week.start_at))
-      .all();
+      .orderBy(desc(week.start_at)));
 
     // Fuzzy match on week/segment name
     const lower = weekName.toLowerCase();
@@ -506,12 +509,12 @@ export class ChatToolRunner {
 
   // ── Participant Tools ──
 
-  private listParticipants() {
-    const participants = this.db.select({
+  private async listParticipants() {
+    const participants = await getMany<{ name: string; weight_kg: number | null; active: number }>(this.db.select({
       name: participant.name,
       weight_kg: participant.weight,
       active: participant.active,
-    }).from(participant).orderBy(participant.name).all();
+    }).from(participant).orderBy(participant.name));
 
     return participants.map(p => ({
       name: p.name,
@@ -521,7 +524,7 @@ export class ChatToolRunner {
   }
 
   private async getParticipantProfile(athleteName: string) {
-    const resolved = this.resolveParticipant(athleteName);
+    const resolved = await this.resolveParticipant(athleteName);
     if ('error' in resolved) return resolved;
 
     try {
@@ -560,11 +563,14 @@ export class ChatToolRunner {
   }
 
   private async getParticipantHistory(athleteName: string, seasonId?: number) {
-    const resolved = this.resolveParticipant(athleteName);
+    const resolved = await this.resolveParticipant(athleteName);
     if ('error' in resolved) return resolved;
 
     // Get all results for this participant
-    const query = this.db.select({
+    const query = await getMany<{
+      week_id: number; week_name: string | null; season_id: number; season_name: string | null;
+      total_time_seconds: number; segment_name: string | null; average_grade: number | null; start_at: number;
+    }>(this.db.select({
       week_id: result.week_id,
       week_name: week.week_name,
       season_id: week.season_id,
@@ -579,8 +585,7 @@ export class ChatToolRunner {
       .leftJoin(season, eq(week.season_id, season.id))
       .leftJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
       .where(eq(result.strava_athlete_id, resolved.strava_athlete_id))
-      .orderBy(desc(week.start_at))
-      .all();
+      .orderBy(desc(week.start_at)));
 
     let results = query;
     if (seasonId) {
@@ -616,11 +621,13 @@ export class ChatToolRunner {
   // ── Effort & Performance Tools ──
 
   private async getEffortDetails(weekId: number, athleteName: string) {
-    const resolved = this.resolveParticipant(athleteName);
+    const resolved = await this.resolveParticipant(athleteName);
     if ('error' in resolved) return resolved;
 
     // Find the activity for this participant in this week
-    const act = this.db.select({
+    const act = await getOne<{
+      id: number; strava_activity_id: string | null; athlete_weight: number | null; device_name: string | null;
+    }>(this.db.select({
       id: activity.id,
       strava_activity_id: activity.strava_activity_id,
       athlete_weight: activity.athlete_weight,
@@ -630,14 +637,16 @@ export class ChatToolRunner {
       .where(and(
         eq(activity.week_id, weekId),
         eq(activity.strava_athlete_id, resolved.strava_athlete_id)
-      ))
-      .get();
+      )));
 
     if (!act) {
       return { error: `No activity found for ${resolved.name} in week ${weekId}` };
     }
 
-    const efforts = this.db.select({
+    const efforts = await getMany<{
+      effort_index: number; elapsed_seconds: number; average_watts: number | null; average_heartrate: number | null;
+      max_heartrate: number | null; average_cadence: number | null; pr_achieved: number; device_watts: number | null;
+    }>(this.db.select({
       effort_index: segmentEffort.effort_index,
       elapsed_seconds: segmentEffort.elapsed_seconds,
       average_watts: segmentEffort.average_watts,
@@ -649,8 +658,7 @@ export class ChatToolRunner {
     })
       .from(segmentEffort)
       .where(eq(segmentEffort.activity_id, act.id))
-      .orderBy(segmentEffort.effort_index)
-      .all();
+      .orderBy(segmentEffort.effort_index));
 
     return {
       name: resolved.name,
@@ -678,10 +686,10 @@ export class ChatToolRunner {
     weekId?: number,
     seasonId?: number
   ) {
-    const resolved = athleteNames.map(name => ({
+    const resolved = await Promise.all(athleteNames.map(async name => ({
       input: name,
-      result: this.resolveParticipant(name),
-    }));
+      result: await this.resolveParticipant(name),
+    })));
 
     // Check for any errors
     const errors = resolved.filter(r => 'error' in r.result);
@@ -732,9 +740,11 @@ export class ChatToolRunner {
     };
   }
 
-  private getWattsPerKgRanking(weekId: number) {
+  private async getWattsPerKgRanking(weekId: number) {
     // Get all activities for the week with their best effort watts and athlete weight
-    const data = this.db.select({
+    const data = await getMany<{
+      name: string | null; athlete_weight: number | null; avg_watts: number | null; max_watts: number | null;
+    }>(this.db.select({
       name: participant.name,
       athlete_weight: activity.athlete_weight,
       avg_watts: sql<number>`AVG(${segmentEffort.average_watts})`,
@@ -749,8 +759,7 @@ export class ChatToolRunner {
         sql`${activity.athlete_weight} IS NOT NULL`,
         sql`${activity.athlete_weight} > 0`
       ))
-      .groupBy(activity.strava_athlete_id)
-      .all();
+      .groupBy(activity.strava_athlete_id));
 
     if (data.length === 0) {
       return { error: 'No watts/kg data available for this week. Participants may not have power meters or weight data.' };
@@ -779,7 +788,9 @@ export class ChatToolRunner {
 
   private async getImprovementReport(seasonId: number, lastNWeeks?: number) {
     // Get all weeks for the season
-    const weeks = this.db.select({
+    const weeks = await getMany<{
+      id: number; week_name: string | null; strava_segment_id: string; start_at: number;
+    }>(this.db.select({
       id: week.id,
       week_name: week.week_name,
       strava_segment_id: week.strava_segment_id,
@@ -787,8 +798,7 @@ export class ChatToolRunner {
     })
       .from(week)
       .where(eq(week.season_id, seasonId))
-      .orderBy(week.start_at)
-      .all();
+      .orderBy(week.start_at));
 
     if (weeks.length < 2) {
       return { error: 'Need at least 2 weeks to calculate improvement' };
@@ -848,23 +858,25 @@ export class ChatToolRunner {
       const last = appearances[appearances.length - 1];
 
       // Get results for both weeks
-      const firstResults = this.db.select({
+      const firstResults = await getMany<{
+        athlete_id: string; name: string | null; time: number;
+      }>(this.db.select({
         athlete_id: result.strava_athlete_id,
         name: participant.name,
         time: result.total_time_seconds,
       })
         .from(result)
         .leftJoin(participant, eq(result.strava_athlete_id, participant.strava_athlete_id))
-        .where(eq(result.week_id, first.id))
-        .all();
+        .where(eq(result.week_id, first.id)));
 
-      const lastResults = this.db.select({
+      const lastResults = await getMany<{
+        athlete_id: string; time: number;
+      }>(this.db.select({
         athlete_id: result.strava_athlete_id,
         time: result.total_time_seconds,
       })
         .from(result)
-        .where(eq(result.week_id, last.id))
-        .all();
+        .where(eq(result.week_id, last.id)));
 
       for (const fr of firstResults) {
         const lr = lastResults.find(r => r.athlete_id === fr.athlete_id);
@@ -872,7 +884,7 @@ export class ChatToolRunner {
           const diff = fr.time - lr.time;
           improvements.push({
             name: fr.name || 'Unknown',
-            segment: first.week_name,
+            segment: first.week_name || '',
             first_time: secondsToHHMMSS(fr.time) || '',
             last_time: secondsToHHMMSS(lr.time) || '',
             improvement_seconds: diff,
@@ -890,23 +902,28 @@ export class ChatToolRunner {
     };
   }
 
-  private getSegmentRecords(segmentName: string) {
+  private async getSegmentRecords(segmentName: string) {
     // Find matching segments
-    const allSegments = this.db.select({
+    const allSegments = await getMany<{
+      strava_segment_id: string; name: string;
+    }>(this.db.select({
       strava_segment_id: segment.strava_segment_id,
       name: segment.name,
-    }).from(segment).all();
+    }).from(segment));
 
-    const matched = fuzzyMatchSegment(allSegments, segmentName);
+    const matched = fuzzyMatchSegment(allSegments.filter(s => s.name), segmentName);
     if (matched.length === 0) {
-      return { error: `No segment found matching "${segmentName}". Available: ${allSegments.map(s => s.name).join(', ')}` };
+      return { error: `No segment found matching "${segmentName}". Available: ${allSegments.map(s => s.name || 'Unknown').join(', ')}` };
     }
 
     const records: { segment_name: string; name: string; time: string; time_seconds: number; season: string; week: string; date: string }[] = [];
 
     for (const seg of matched) {
       // Get all results for weeks using this segment
-      const weekResults = this.db.select({
+      const weekResults = await getMany<{
+        participant_name: string | null; total_time_seconds: number; season_name: string | null;
+        week_name: string | null; start_at: number;
+      }>(this.db.select({
         participant_name: participant.name,
         total_time_seconds: result.total_time_seconds,
         season_name: season.name,
@@ -919,8 +936,7 @@ export class ChatToolRunner {
         .leftJoin(participant, eq(result.strava_athlete_id, participant.strava_athlete_id))
         .where(eq(week.strava_segment_id, seg.strava_segment_id))
         .orderBy(result.total_time_seconds)
-        .limit(10)
-        .all();
+        .limit(10));
 
       for (const r of weekResults) {
         records.push({
@@ -961,17 +977,16 @@ export class ChatToolRunner {
   // ── Live Strava Tools ──
 
   private async getStravaRecentActivities(athleteName: string, daysBack: number = 7) {
-    const resolved = this.resolveParticipant(athleteName);
+    const resolved = await this.resolveParticipant(athleteName);
     if ('error' in resolved) return resolved;
 
     // Clamp days_back
     const days = Math.min(Math.max(daysBack, 1), 30);
 
     // Check if participant has a token
-    const token = this.db.select({ strava_athlete_id: participantToken.strava_athlete_id })
+    const token = await getOne<{ strava_athlete_id: string }>(this.db.select({ strava_athlete_id: participantToken.strava_athlete_id })
       .from(participantToken)
-      .where(eq(participantToken.strava_athlete_id, resolved.strava_athlete_id))
-      .get();
+      .where(eq(participantToken.strava_athlete_id, resolved.strava_athlete_id)));
 
     if (!token) {
       return { error: `${resolved.name} is not connected to Strava (no token available)` };
@@ -1009,14 +1024,13 @@ export class ChatToolRunner {
   }
 
   private async getStravaAthleteProfile(athleteName: string) {
-    const resolved = this.resolveParticipant(athleteName);
+    const resolved = await this.resolveParticipant(athleteName);
     if ('error' in resolved) return resolved;
 
     // Check if participant has a token
-    const token = this.db.select({ strava_athlete_id: participantToken.strava_athlete_id })
+    const token = await getOne<{ strava_athlete_id: string }>(this.db.select({ strava_athlete_id: participantToken.strava_athlete_id })
       .from(participantToken)
-      .where(eq(participantToken.strava_athlete_id, resolved.strava_athlete_id))
-      .get();
+      .where(eq(participantToken.strava_athlete_id, resolved.strava_athlete_id)));
 
     if (!token) {
       return { error: `${resolved.name} is not connected to Strava (no token available)` };
@@ -1043,11 +1057,10 @@ export class ChatToolRunner {
   // ── Helper ──
 
   private async getLatestSeasonId(): Promise<number | null> {
-    const s = this.db.select({ id: season.id })
+    const s = await getOne<{ id: number }>(this.db.select({ id: season.id })
       .from(season)
       .orderBy(desc(season.end_at))
-      .limit(1)
-      .get();
+      .limit(1));
     return s?.id ?? null;
   }
 }

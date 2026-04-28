@@ -1,3 +1,4 @@
+import type { Pool } from 'pg';
 import { reloadConfig } from '../config';
 import { encryptToken } from '../encryption';
 import { setupTestDb, teardownTestDb } from './setupTestDb';
@@ -22,14 +23,14 @@ const mockStravaClient = stravaClientModule as jest.Mocked<typeof stravaClientMo
 describe('stravaReadProvider', () => {
   let originalEnv: NodeJS.ProcessEnv;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     originalEnv = { ...process.env };
     jest.clearAllMocks();
     resetWebhookActivityFixtures();
     clearWebhookActivityDetailsCache();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     process.env = originalEnv;
     reloadConfig();
     resetWebhookActivityFixtures();
@@ -43,12 +44,12 @@ describe('stravaReadProvider', () => {
     const testDb = setupTestDb({ seed: false });
 
     try {
-      const profileUrl = await getAuthStatusProfilePicture('123456', testDb.drizzleDb);
+      const profileUrl = await getAuthStatusProfilePicture('123456', testDb.orm);
 
       expect(profileUrl).toMatch(/^data:image\/svg\+xml/);
       expect(mockStravaClient.getAthleteProfile).not.toHaveBeenCalled();
     } finally {
-      teardownTestDb(testDb.db);
+      teardownTestDb(testDb.pool);
     }
   });
 
@@ -59,12 +60,12 @@ describe('stravaReadProvider', () => {
     const testDb = setupTestDb({ seed: false });
 
     try {
-      const isMember = await checkClubMembership(testDb.drizzleDb, '123456', '1495648');
+      const isMember = await checkClubMembership(testDb.orm, '123456', '1495648');
 
       expect(isMember).toBe(false);
       expect(mockStravaClient.getLoggedInAthlete).not.toHaveBeenCalled();
     } finally {
-      teardownTestDb(testDb.db);
+      teardownTestDb(testDb.pool);
     }
   });
 
@@ -75,12 +76,12 @@ describe('stravaReadProvider', () => {
     const testDb = setupTestDb({ seed: false });
 
     try {
-      const details = await getWebhookActivityDetails(testDb.drizzleDb, '123456', '999888777');
+      const details = await getWebhookActivityDetails(testDb.orm, '123456', '999888777');
 
       expect(details).toBeNull();
       expect(mockStravaClient.getActivity).not.toHaveBeenCalled();
     } finally {
-      teardownTestDb(testDb.db);
+      teardownTestDb(testDb.pool);
     }
   });
 
@@ -110,7 +111,7 @@ describe('stravaReadProvider', () => {
         ]
       });
 
-      const details = await getWebhookActivityDetails(testDb.drizzleDb, '123456', '999888777');
+      const details = await getWebhookActivityDetails(testDb.orm, '123456', '999888777');
 
       expect(details).toEqual({
         activity_id: '999888777',
@@ -126,7 +127,7 @@ describe('stravaReadProvider', () => {
       });
       expect(mockStravaClient.getActivity).not.toHaveBeenCalled();
     } finally {
-      teardownTestDb(testDb.db);
+      teardownTestDb(testDb.pool);
     }
   });
 
@@ -137,7 +138,7 @@ describe('stravaReadProvider', () => {
     const testDb = setupTestDb({ seed: false });
 
     try {
-      createParticipant(testDb.drizzleDb, '123456', 'Alice', {
+      await createParticipant(testDb.orm, '123456', 'Alice', {
         accessToken: encryptToken('test-access-token'),
         refreshToken: encryptToken('test-refresh-token'),
         expiresAt: Math.floor(Date.now() / 1000) + 86400,
@@ -149,12 +150,12 @@ describe('stravaReadProvider', () => {
         clubs: [{ id: 1495648, name: 'Western Mass Velo' }],
       } as any);
 
-      const isMember = await checkClubMembership(testDb.drizzleDb, '123456', '1495648');
+      const isMember = await checkClubMembership(testDb.orm, '123456', '1495648');
 
       expect(isMember).toBe(true);
       expect(mockStravaClient.getLoggedInAthlete).toHaveBeenCalledTimes(1);
     } finally {
-      teardownTestDb(testDb.db);
+      teardownTestDb(testDb.pool);
     }
   });
 
@@ -165,15 +166,15 @@ describe('stravaReadProvider', () => {
     const testDb = setupTestDb({ seed: false });
 
     try {
-      createParticipant(testDb.drizzleDb, '123456', 'Alice', {
+      await createParticipant(testDb.orm, '123456', 'Alice', {
         accessToken: encryptToken('test-access-token'),
         refreshToken: encryptToken('test-refresh-token'),
         expiresAt: Math.floor(Date.now() / 1000) + 86400,
       });
       mockStravaClient.getActivity.mockRejectedValue({ statusCode: 404 });
 
-      const firstResult = await getWebhookActivityDetailsResult(testDb.drizzleDb, '123456', '999000111');
-      const secondResult = await getWebhookActivityDetailsResult(testDb.drizzleDb, '123456', '999000111');
+      const firstResult = await getWebhookActivityDetailsResult(testDb.orm, '123456', '999000111');
+      const secondResult = await getWebhookActivityDetailsResult(testDb.orm, '123456', '999000111');
 
       expect(firstResult).toMatchObject({
         details: null,
@@ -187,7 +188,7 @@ describe('stravaReadProvider', () => {
       });
       expect(mockStravaClient.getActivity).toHaveBeenCalledTimes(1);
     } finally {
-      teardownTestDb(testDb.db);
+      teardownTestDb(testDb.pool);
     }
   });
 });

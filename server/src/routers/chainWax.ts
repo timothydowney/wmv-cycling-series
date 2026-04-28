@@ -23,20 +23,20 @@ export const chainWaxRouter = router({
     .input(z.object({ waxedAt: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {
       const service = new ChainWaxService(ctx.orm);
-      service.waxChain(input.waxedAt);
-      return service.getCurrentStatus();
+      await service.waxChain(input.waxedAt);
+      return await service.getCurrentStatus();
     }),
 
   newPuck: adminProcedure.mutation(async ({ ctx }) => {
     const service = new ChainWaxService(ctx.orm);
-    service.newPuck();
-    return service.getCurrentStatus();
+    await service.newPuck();
+    return await service.getCurrentStatus();
   }),
 
   resync: adminProcedure.mutation(async ({ ctx }) => {
     const service = new ChainWaxService(ctx.orm);
     const result = await service.resync();
-    const status = service.getCurrentStatus();
+    const status = await service.getCurrentStatus();
     return { ...status, resync: result };
   }),
 

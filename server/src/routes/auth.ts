@@ -202,7 +202,7 @@ export default (services: AuthServices): Router => {
    * POST /auth/disconnect
    * Disconnect Strava account and destroy session
    */
-  router.post('/disconnect', (req: Request, res: Response): void => {
+  router.post('/disconnect', async (req: Request, res: Response): Promise<void> => {
     const sess = req.session as Session & {
       stravaAthleteId?: string;
     };
@@ -214,7 +214,7 @@ export default (services: AuthServices): Router => {
 
     try {
       // Use LoginService to disconnect (delete tokens)
-      loginService.disconnectStrava(athleteId);
+      await loginService.disconnectStrava(athleteId);
 
       // Destroy session
       req.session.destroy((err: Error | null) => {
@@ -228,6 +228,7 @@ export default (services: AuthServices): Router => {
     } catch (error) {
       console.error('Error disconnecting Strava:', error);
       res.status(500).json({ error: 'Failed to disconnect from Strava' });
+      return;
     }
   });
 

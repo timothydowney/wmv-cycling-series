@@ -1,3 +1,4 @@
+import type { AppDatabase } from '../db/types';
 /**
  * Token Manager Tests
  * Tests for OAuth token lifecycle management
@@ -6,9 +7,9 @@
 import { getValidAccessToken } from '../tokenManager';
 import { encryptToken, decryptToken } from '../encryption';
 import { setupTestDb } from './setupTestDb';
-import { participantToken } from '../db/schema';
+import { participant, participantToken } from '../db/schema';
 import { eq } from 'drizzle-orm';
-import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { getOne } from '../db/asyncQuery';
 
 // Mock Strava client interface
 interface MockStravaClient {
@@ -16,13 +17,19 @@ interface MockStravaClient {
 }
 
 describe('Token Manager', () => {
-  let drizzleDb: BetterSQLite3Database;
+  let orm: AppDatabase;
   let mockStravaClient: MockStravaClient;
   const testAthleteId = '12345678';
 
-  beforeEach(() => {
-    const { drizzleDb: testDb } = setupTestDb({ seed: false });
-    drizzleDb = testDb;
+  beforeEach(async () => {
+    const { orm: testDb } = setupTestDb({ seed: false });
+    orm = testDb;
+
+    await orm.insert(participant).values({
+      strava_athlete_id: testAthleteId,
+      name: 'Token Test Athlete',
+      active: true,
+    }).execute();
 
     // Mock Strava client
     mockStravaClient = {
@@ -37,7 +44,7 @@ describe('Token Manager', () => {
       const testRefreshToken = 'test_refresh_token_456';
 
       // Insert a token record
-      drizzleDb.insert(participantToken).values({
+      await orm.insert(participantToken).values({
         strava_athlete_id: testAthleteId,
         access_token: encryptToken(testAccessToken),
         refresh_token: encryptToken(testRefreshToken),
@@ -46,7 +53,7 @@ describe('Token Manager', () => {
       }).execute();
 
       const result = await getValidAccessToken(
-        drizzleDb,
+        orm,
         mockStravaClient as MockStravaClient,
         testAthleteId
       );
@@ -64,7 +71,7 @@ describe('Token Manager', () => {
       const newExpiry = Math.floor(Date.now() / 1000) + 21600; // 6 hours
 
       // Insert old token
-      drizzleDb.insert(participantToken).values({
+      await orm.insert(participantToken).values({
         strava_athlete_id: testAthleteId,
         access_token: encryptToken(oldAccessToken),
         refresh_token: encryptToken(oldRefreshToken),
@@ -80,7 +87,7 @@ describe('Token Manager', () => {
       });
 
       const result = await getValidAccessToken(
-        drizzleDb,
+        orm,
         mockStravaClient as MockStravaClient,
         testAthleteId
       );
@@ -89,11 +96,12 @@ describe('Token Manager', () => {
       expect(mockStravaClient.refreshAccessToken).toHaveBeenCalledWith(oldRefreshToken);
 
       // Verify token was updated in database
-      const updated = drizzleDb
-        .select()
-        .from(participantToken)
-        .where(eq(participantToken.strava_athlete_id, testAthleteId))
-        .get();
+      const updated = await getOne<typeof participantToken.$inferSelect>(
+        orm
+          .select()
+          .from(participantToken)
+          .where(eq(participantToken.strava_athlete_id, testAthleteId))
+      );
 
       expect(updated).toBeDefined();
       if (updated) {
@@ -107,7 +115,7 @@ describe('Token Manager', () => {
       const plaintextToken = 'plaintext_token'; // Not encrypted
 
       // Insert plaintext token (migration scenario)
-      drizzleDb.insert(participantToken).values({
+      await orm.insert(participantToken).values({
         strava_athlete_id: testAthleteId,
         access_token: plaintextToken,
         refresh_token: 'plaintext_refresh',
@@ -116,7 +124,7 @@ describe('Token Manager', () => {
       }).execute();
 
       const result = await getValidAccessToken(
-        drizzleDb,
+        orm,
         mockStravaClient as MockStravaClient,
         testAthleteId
       );
@@ -128,7 +136,7 @@ describe('Token Manager', () => {
     it('should throw error when participant not connected', async () => {
       await expect(
         getValidAccessToken(
-          drizzleDb,
+          orm,
           mockStravaClient as MockStravaClient,
           testAthleteId
         )
@@ -140,7 +148,7 @@ describe('Token Manager', () => {
       const oldAccessToken = 'old_token';
       const oldRefreshToken = 'old_refresh';
 
-      drizzleDb.insert(participantToken).values({
+      await orm.insert(participantToken).values({
         strava_athlete_id: testAthleteId,
         access_token: encryptToken(oldAccessToken),
         refresh_token: encryptToken(oldRefreshToken),
@@ -154,7 +162,7 @@ describe('Token Manager', () => {
 
       await expect(
         getValidAccessToken(
-          drizzleDb,
+          orm,
           mockStravaClient as MockStravaClient,
           testAthleteId
         )
@@ -169,7 +177,7 @@ describe('Token Manager', () => {
       const newRefreshToken = 'new_refresh';
       const newExpiry = Math.floor(Date.now() / 1000) + 21600;
 
-      drizzleDb.insert(participantToken).values({
+      await orm.insert(participantToken).values({
         strava_athlete_id: testAthleteId,
         access_token: encryptToken(oldAccessToken),
         refresh_token: encryptToken(oldRefreshToken),
@@ -184,16 +192,17 @@ describe('Token Manager', () => {
       });
 
       await getValidAccessToken(
-        drizzleDb,
+        orm,
         mockStravaClient as MockStravaClient,
         testAthleteId
       );
 
-      const stored = drizzleDb
-        .select()
-        .from(participantToken)
-        .where(eq(participantToken.strava_athlete_id, testAthleteId))
-        .get();
+      const stored = await getOne<typeof participantToken.$inferSelect>(
+        orm
+          .select()
+          .from(participantToken)
+          .where(eq(participantToken.strava_athlete_id, testAthleteId))
+      );
 
       expect(stored).toBeDefined();
       if (!stored) throw new Error('Token not stored');
@@ -211,7 +220,7 @@ describe('Token Manager', () => {
       const newRefreshToken = 'new_refresh';
       const newExpiry = Math.floor(Date.now() / 1000) + 21600;
 
-      drizzleDb.insert(participantToken).values({
+      await orm.insert(participantToken).values({
         strava_athlete_id: testAthleteId,
         access_token: encryptedAccessToken,
         refresh_token: plaintextRefreshToken,
@@ -226,7 +235,7 @@ describe('Token Manager', () => {
       });
 
       const result = await getValidAccessToken(
-        drizzleDb,
+        orm,
         mockStravaClient as MockStravaClient,
         testAthleteId
       );
@@ -240,7 +249,7 @@ describe('Token Manager', () => {
       const testAccessToken = 'test_token';
       const testRefreshToken = 'test_refresh';
 
-      drizzleDb.insert(participantToken).values({
+      await orm.insert(participantToken).values({
         strava_athlete_id: testAthleteId,
         access_token: encryptToken(testAccessToken),
         refresh_token: encryptToken(testRefreshToken),
@@ -250,7 +259,7 @@ describe('Token Manager', () => {
 
       // First call
       const result1 = await getValidAccessToken(
-        drizzleDb,
+        orm,
         mockStravaClient as MockStravaClient,
         testAthleteId
       );
@@ -258,7 +267,7 @@ describe('Token Manager', () => {
 
       // Second call should work independently
       const result2 = await getValidAccessToken(
-        drizzleDb,
+        orm,
         mockStravaClient as MockStravaClient,
         testAthleteId
       );

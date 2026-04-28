@@ -8,7 +8,7 @@
  * subscription needs renewal (older than 22 hours) and renews if needed.
  */
 
-import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type { AppDatabase } from '../db/types';
 import { WebhookSubscriptionService } from './WebhookSubscriptionService';
 
 export class WebhookRenewalService {
@@ -16,7 +16,7 @@ export class WebhookRenewalService {
   private intervalId: NodeJS.Timeout | null = null;
   private readonly RENEWAL_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
-  constructor(db: BetterSQLite3Database) {
+  constructor(db: AppDatabase) {
     this.subscriptionService = new WebhookSubscriptionService(db);
   }
 
@@ -66,10 +66,10 @@ export class WebhookRenewalService {
    */
   private async checkAndRenewIfNeeded(): Promise<void> {
     try {
-      const needsRenewal = this.subscriptionService.needsRenewal();
+      const needsRenewal = await this.subscriptionService.needsRenewal();
 
       if (!needsRenewal) {
-        const status = this.subscriptionService.getStatus();
+        const status = await this.subscriptionService.getStatus();
         if (status.last_refreshed_at) {
           const ageHours = (Date.now() - new Date(status.last_refreshed_at).getTime()) / (1000 * 60 * 60);
           console.log(`[WebhookRenewalService] Subscription is ${ageHours.toFixed(1)} hours old, no renewal needed`);

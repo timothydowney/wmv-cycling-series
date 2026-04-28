@@ -4,8 +4,9 @@
  * Provides personal stats, participation history, and jersey wins for athletes.
  */
 
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { eq, sql } from 'drizzle-orm';
+import type { AppDatabase } from '../db/types';
+import { eq, inArray, sql } from 'drizzle-orm';
+import { getOne, getMany } from '../db/asyncQuery';
 import { participant, season, participantToken, week, segment, result, activity, segmentEffort } from '../db/schema';
 import { StandingsService } from './StandingsService';
 import { JerseyService } from './JerseyService';
@@ -50,14 +51,16 @@ export class ProfileService {
   private standingsService: StandingsService;
   private jerseyService: JerseyService;
 
-  constructor(private db: BetterSQLite3Database) {
+  constructor(private db: AppDatabase) {
     this.standingsService = new StandingsService(db);
     this.jerseyService = new JerseyService(db);
   }
 
   async getCareerStats(athleteId: string): Promise<CareerStats> {
     // 1. Fetch Weeks with Segment info
-    const weeks = await this.db.select({
+    const weeks = await getMany<{
+      id: number; seasonId: number; multiplier: number; startAt: number; avgGrade: number | null;
+    }>(this.db.select({
       id: week.id,
       seasonId: week.season_id,
       multiplier: week.multiplier,
@@ -65,14 +68,15 @@ export class ProfileService {
       avgGrade: segment.average_grade
     })
       .from(week)
-      .leftJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
-      .all();
+      .leftJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id)));
 
     const weekMap = new Map(weeks.map(w => [w.id, w]));
     const hillClimbWeeks = new Set(weeks.filter(w => this.jerseyService.isHillClimbWeek(w.avgGrade)).map(w => w.id));
 
     // 2. Fetch Results with PR info
-    const allResults = await this.db.select({
+    const allResults = await getMany<{
+      weekId: number; athleteId: string; time: number; pr: number;
+    }>(this.db.select({
       weekId: result.week_id,
       athleteId: result.strava_athlete_id,
       time: result.total_time_seconds,
@@ -81,8 +85,7 @@ export class ProfileService {
       .from(result)
       .leftJoin(activity, eq(result.activity_id, activity.id))
       .leftJoin(segmentEffort, eq(activity.id, segmentEffort.activity_id))
-      .groupBy(result.id)
-      .all();
+      .groupBy(result.id));
 
     // 3. Process Weekly Stats
     const weekResults = new Map<number, typeof allResults>();
@@ -158,14 +161,15 @@ export class ProfileService {
     }
 
     // 5. Query Best Power & PRs directly
-    const powerRaw = await this.db.select({
+    const powerRaw = await getOne<{
+      maxPower: number | null; prCount: number | null;
+    }>(this.db.select({
       maxPower: sql<number>`max(${segmentEffort.average_watts})`,
       prCount: sql<number>`sum(case when ${segmentEffort.pr_achieved} = 1 then 1 else 0 end)`
     })
       .from(segmentEffort)
       .innerJoin(activity, eq(segmentEffort.activity_id, activity.id))
-      .where(eq(activity.strava_athlete_id, athleteId))
-      .get();
+      .where(eq(activity.strava_athlete_id, athleteId)));
 
     // 6. Streak
     const sortedWeeks = weeks.sort((a,b) => a.startAt - b.startAt);
@@ -197,44 +201,81 @@ export class ProfileService {
    */
   async getAthleteProfile(athleteId: string): Promise<ProfileData | null> {
     // 1. Get user info
-    const p = await this.db
+    const p = await getOne<typeof participant.$inferSelect>(this.db
       .select()
       .from(participant)
-      .where(eq(participant.strava_athlete_id, athleteId))
-      .get();
+      .where(eq(participant.strava_athlete_id, athleteId)));
 
     if (!p) return null;
 
     // Check connection status
-    const token = await this.db
+    const token = await getOne<{ id: string }>(this.db
       .select({ id: participantToken.strava_athlete_id })
       .from(participantToken)
-      .where(eq(participantToken.strava_athlete_id, athleteId))
-      .get();
+      .where(eq(participantToken.strava_athlete_id, athleteId)));
 
     // 2. Hydrate all season standings - batch optimization
     // Rather than season-by-season, we can potentially look across all season standings
     // but right now StandingsService is built season-by-season.
     // Let's optimize by only checking seasons that exist.
-    const seasons = await this.db.select().from(season).orderBy(season.id).all();
+    const seasons = await getMany<typeof season.$inferSelect>(this.db.select().from(season).orderBy(season.id));
     
-    // Fetch all user weekly ranks once to avoid N+1 issues
-    const weeklyRanks = await this.db.select({
-      seasonId: week.season_id,
-      weekId: week.id,
-      avgGrade: segment.average_grade,
-      rank: sql<number>`(
-        SELECT count(*) + 1 
-        FROM result r2 
-        WHERE r2.week_id = ${result.week_id} 
-        AND r2.total_time_seconds < ${result.total_time_seconds}
-      )`
-    })
-      .from(result)
-      .innerJoin(week, eq(result.week_id, week.id))
-      .leftJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
-      .where(eq(result.strava_athlete_id, athleteId))
-      .all();
+    // Build weekly ranks in memory. This avoids correlated-subquery SQL that pg-mem
+    // currently cannot execute in tests while preserving runtime behavior.
+    const athleteWeekRows = await getMany<{
+      seasonId: number;
+      weekId: number;
+      avgGrade: number | null;
+      totalTimeSeconds: number;
+    }>(
+      this.db.select({
+        seasonId: week.season_id,
+        weekId: week.id,
+        avgGrade: segment.average_grade,
+        totalTimeSeconds: result.total_time_seconds,
+      })
+        .from(result)
+        .innerJoin(week, eq(result.week_id, week.id))
+        .leftJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
+        .where(eq(result.strava_athlete_id, athleteId))
+    );
+
+    const weekIds = [...new Set(athleteWeekRows.map((row) => row.weekId))];
+    const weekResultRows = weekIds.length > 0
+      ? await getMany<{
+          weekId: number;
+          totalTimeSeconds: number;
+        }>(
+          this.db.select({
+            weekId: result.week_id,
+            totalTimeSeconds: result.total_time_seconds,
+          })
+            .from(result)
+            .where(inArray(result.week_id, weekIds))
+        )
+      : [];
+
+    const timesByWeek = new Map<number, number[]>();
+    for (const row of weekResultRows) {
+      const times = timesByWeek.get(row.weekId);
+      if (times) {
+        times.push(row.totalTimeSeconds);
+      } else {
+        timesByWeek.set(row.weekId, [row.totalTimeSeconds]);
+      }
+    }
+
+    const weeklyRanks = athleteWeekRows.map((row) => {
+      const weekTimes = timesByWeek.get(row.weekId) ?? [];
+      const rank = weekTimes.filter((time) => time < row.totalTimeSeconds).length + 1;
+
+      return {
+        seasonId: row.seasonId,
+        weekId: row.weekId,
+        avgGrade: row.avgGrade,
+        rank,
+      };
+    });
 
     const seasonStats: ProfileSeasonStats[] = [];
     const now = Math.floor(Date.now() / 1000);

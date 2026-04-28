@@ -6,9 +6,10 @@
  * Can be enabled/disabled via WEBHOOK_PERSIST_EVENTS env var.
  */
 
-import { type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { eq, and, desc, sql } from 'drizzle-orm';
+import type { AppDatabase } from '../db/types';
 import { webhookEvent } from '../db/schema';
+import { exec, getOne } from '../db/asyncQuery';
 
 export interface WebhookEventLogEntry {
   payload: unknown;
@@ -17,20 +18,22 @@ export interface WebhookEventLogEntry {
 }
 
 export class WebhookLogger {
-  constructor(private db: BetterSQLite3Database) {}
+  constructor(private db: AppDatabase) {}
 
   /**
    * Log a webhook event to database
    */
-  logEvent(entry: WebhookEventLogEntry): void {
+  async logEvent(entry: WebhookEventLogEntry): Promise<void> {
     try {
       const processedValue = entry.processed ? 1 : 0;
-      this.db.insert(webhookEvent).values({
-        payload: JSON.stringify(entry.payload),
-        processed: processedValue,
-        error_message: entry.errorMessage || null,
-        created_at: new Date().toISOString()
-      }).execute();
+      await exec(
+        this.db.insert(webhookEvent).values({
+          payload: JSON.stringify(entry.payload),
+          processed: processedValue,
+          error_message: entry.errorMessage || null,
+          created_at: new Date().toISOString()
+        })
+      );
     } catch (error) {
       console.error('[Webhook Logger] Failed to log event', {
         error: error instanceof Error ? error.message : String(error)
@@ -42,23 +45,25 @@ export class WebhookLogger {
   /**
    * Mark event as processed by payload ID
    */
-  markProcessed(payload: unknown): void {
+  async markProcessed(payload: unknown): Promise<void> {
     try {
       const payloadStr = JSON.stringify(payload);
-      const record = this.db
-        .select({ id: webhookEvent.id })
-        .from(webhookEvent)
-        .where(and(eq(webhookEvent.payload, payloadStr), eq(webhookEvent.processed, 0)))
-        .orderBy(desc(webhookEvent.created_at))
-        .limit(1)
-        .get();
-
-      if (record) {
+      const firstRecord = await getOne<{ id: number }>(
         this.db
-          .update(webhookEvent)
-          .set({ processed: 1 })
-          .where(eq(webhookEvent.id, record.id))
-          .execute();
+          .select({ id: webhookEvent.id })
+          .from(webhookEvent)
+          .where(and(eq(webhookEvent.payload, payloadStr), eq(webhookEvent.processed, 0)))
+          .orderBy(desc(webhookEvent.created_at))
+          .limit(1)
+      );
+
+      if (firstRecord) {
+        await exec(
+          this.db
+            .update(webhookEvent)
+            .set({ processed: 1 })
+            .where(eq(webhookEvent.id, firstRecord.id))
+        );
       }
     } catch (error) {
       console.error('[Webhook Logger] Failed to mark processed', {
@@ -70,23 +75,25 @@ export class WebhookLogger {
   /**
    * Mark event as failed
    */
-  markFailed(payload: unknown, errorMessage: string): void {
+  async markFailed(payload: unknown, errorMessage: string): Promise<void> {
     try {
       const payloadStr = JSON.stringify(payload);
-      const record = this.db
-        .select({ id: webhookEvent.id })
-        .from(webhookEvent)
-        .where(and(eq(webhookEvent.payload, payloadStr), eq(webhookEvent.processed, 0)))
-        .orderBy(desc(webhookEvent.created_at))
-        .limit(1)
-        .get();
-
-      if (record) {
+      const firstRecord = await getOne<{ id: number }>(
         this.db
-          .update(webhookEvent)
-          .set({ error_message: errorMessage })
-          .where(eq(webhookEvent.id, record.id))
-          .execute();
+          .select({ id: webhookEvent.id })
+          .from(webhookEvent)
+          .where(and(eq(webhookEvent.payload, payloadStr), eq(webhookEvent.processed, 0)))
+          .orderBy(desc(webhookEvent.created_at))
+          .limit(1)
+      );
+
+      if (firstRecord) {
+        await exec(
+          this.db
+            .update(webhookEvent)
+            .set({ error_message: errorMessage })
+            .where(eq(webhookEvent.id, firstRecord.id))
+        );
       }
     } catch (error) {
       console.error('[Webhook Logger] Failed to mark error', {
@@ -98,28 +105,34 @@ export class WebhookLogger {
   /**
    * Get webhook health status (for admin dashboard)
    */
-  getStatus(): {
+  async getStatus(): Promise<{
     totalEvents: number;
     processedCount: number;
     failedCount: number;
     lastEventTime: string | null;
-    } {
+    }> {
     try {
-      const stats = this.db
-        .select({
-          total: sql<number>`COUNT(*)`,
-          successful: sql<number>`SUM(CASE WHEN ${webhookEvent.processed} = 1 THEN 1 ELSE 0 END)`,
-          failed: sql<number>`SUM(CASE WHEN ${webhookEvent.error_message} IS NOT NULL THEN 1 ELSE 0 END)`,
-          last_event: sql<string>`MAX(${webhookEvent.created_at})`
-        })
-        .from(webhookEvent)
-        .get();
+      const firstStats = await getOne<{
+        total: number;
+        successful: number;
+        failed: number;
+        last_event: string | null;
+      }>(
+        this.db
+          .select({
+            total: sql<number>`COUNT(*)`,
+            successful: sql<number>`SUM(CASE WHEN ${webhookEvent.processed} = 1 THEN 1 ELSE 0 END)`,
+            failed: sql<number>`SUM(CASE WHEN ${webhookEvent.error_message} IS NOT NULL THEN 1 ELSE 0 END)`,
+            last_event: sql<string>`MAX(${webhookEvent.created_at})`
+          })
+          .from(webhookEvent)
+      );
 
       return {
-        totalEvents: stats?.total || 0,
-        processedCount: stats?.successful || 0,
-        failedCount: stats?.failed || 0,
-        lastEventTime: stats?.last_event || null
+        totalEvents: firstStats?.total || 0,
+        processedCount: firstStats?.successful || 0,
+        failedCount: firstStats?.failed || 0,
+        lastEventTime: firstStats?.last_event || null
       };
     } catch (error) {
       console.error('[Webhook Logger] Failed to get status', {

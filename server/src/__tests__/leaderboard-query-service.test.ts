@@ -1,28 +1,27 @@
+import type { Pool } from 'pg';
+import type { AppDatabase } from '../db/types';
 /**
  * Tests for LeaderboardQueryService
  * Verifies leaderboard query methods using Drizzle ORM test infrastructure
  */
 
-import { setupTestDb } from './setupTestDb';
+import { setupTestDb, teardownTestDb } from './setupTestDb';
 import { createSeason, createSegment, createParticipant, createWeek, createActivity, createResult, createSegmentEffort } from './testDataHelpers';
 import { LeaderboardQueryService } from '../services/LeaderboardQueryService';
-import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import type Database from 'better-sqlite3';
 
 describe('LeaderboardQueryService', () => {
-  let db: Database.Database;
-  let drizzleDb: BetterSQLite3Database;
+  let pool: Pool;
+  let orm: AppDatabase;
   let service: LeaderboardQueryService;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     const setup = setupTestDb({ seed: false });
-    db = setup.db;
-    drizzleDb = setup.drizzleDb;
-    service = new LeaderboardQueryService(drizzleDb);
+    pool = setup.pool;
+    orm = setup.orm;
+    service = new LeaderboardQueryService(orm);
   });
-
-  afterEach(() => {
-    db.close();
+  afterAll(async () => {
+    await teardownTestDb(pool);
   });
 
   describe('getWeekLeaderboard', () => {
@@ -31,7 +30,7 @@ describe('LeaderboardQueryService', () => {
     });
 
     it('should return week leaderboard with no results', async () => {
-      const week = createWeek(drizzleDb, { weekName: 'Week 1' });
+      const week = await createWeek(orm, { weekName: 'Week 1' });
 
       const leaderboard = await service.getWeekLeaderboard(week.id);
 
@@ -41,15 +40,15 @@ describe('LeaderboardQueryService', () => {
     });
 
     it('should return week leaderboard with results', async () => {
-      const week = createWeek(drizzleDb, { weekName: 'Week 1' });
-      const participant = createParticipant(drizzleDb, '12345', 'Alice');
-      const activity = createActivity(drizzleDb, {
+      const week = await createWeek(orm, { weekName: 'Week 1' });
+      const participant = await createParticipant(orm, '12345', 'Alice');
+      const activity = await createActivity(orm, {
         weekId: week.id,
         stravaAthleteId: participant.strava_athlete_id,
         stravaActivityId: '111',
       });
 
-      createResult(drizzleDb, {
+      await createResult(orm, {
         weekId: week.id,
         stravaAthleteId: participant.strava_athlete_id,
         activityId: activity.id,
@@ -65,27 +64,27 @@ describe('LeaderboardQueryService', () => {
     });
 
     it('should return results ordered by rank', async () => {
-      const week = createWeek(drizzleDb, { weekName: 'Week 1' });
-      const alice = createParticipant(drizzleDb, '12345', 'Alice');
-      const bob = createParticipant(drizzleDb, '67890', 'Bob');
+      const week = await createWeek(orm, { weekName: 'Week 1' });
+      const alice = await createParticipant(orm, '12345', 'Alice');
+      const bob = await createParticipant(orm, '67890', 'Bob');
 
-      const activity1 = createActivity(drizzleDb, {
+      const activity1 = await createActivity(orm, {
         weekId: week.id,
         stravaAthleteId: alice.strava_athlete_id,
         stravaActivityId: '111',
       });
-      const activity2 = createActivity(drizzleDb, {
+      const activity2 = await createActivity(orm, {
         weekId: week.id,
         stravaAthleteId: bob.strava_athlete_id,
         stravaActivityId: '222',
       });
 
-      createResult(drizzleDb, {
+      await createResult(orm, {
         weekId: week.id,
         stravaAthleteId: alice.strava_athlete_id,
         activityId: activity1.id,
       });
-      createResult(drizzleDb, {
+      await createResult(orm, {
         weekId: week.id,
         stravaAthleteId: bob.strava_athlete_id,
         activityId: activity2.id,
@@ -99,30 +98,30 @@ describe('LeaderboardQueryService', () => {
   });
 
   describe('getWeekActivities', () => {
-    it('should return empty activities for week with no activities', () => {
-      const week = createWeek(drizzleDb, { weekName: 'Week 1' });
+    it('should return empty activities for week with no activities', async () => {
+      const week = await createWeek(orm, { weekName: 'Week 1' });
 
-      const activities = service.getWeekActivities(week.id);
+      const activities = await service.getWeekActivities(week.id);
 
       expect(activities).toHaveLength(0);
     });
 
-    it('should return activities for a week', () => {
-      const week = createWeek(drizzleDb, { weekName: 'Week 1' });
-      const participant = createParticipant(drizzleDb, '12345', 'Alice');
-      const activity = createActivity(drizzleDb, {
+    it('should return activities for a week', async () => {
+      const week = await createWeek(orm, { weekName: 'Week 1' });
+      const participant = await createParticipant(orm, '12345', 'Alice');
+      const activity = await createActivity(orm, {
         weekId: week.id,
         stravaAthleteId: participant.strava_athlete_id,
         stravaActivityId: '111',
       });
 
-      createSegmentEffort(drizzleDb, {
+      await createSegmentEffort(orm, {
         activityId: activity.id,
         elapsedSeconds: 600,
         prAchieved: 0
       });
 
-      const activities = service.getWeekActivities(week.id);
+      const activities = await service.getWeekActivities(week.id);
 
       expect(activities).toHaveLength(1);
       // Note: participantName might be undefined due to how SQLite aliases work in raw queries
@@ -131,43 +130,43 @@ describe('LeaderboardQueryService', () => {
       expect(activities[0].segmentEffortCount).toBe(1);
     });
 
-    it('should count PR achievements', () => {
-      const week = createWeek(drizzleDb, { weekName: 'Week 1' });
-      const participant = createParticipant(drizzleDb, '12345', 'Alice');
-      const activity = createActivity(drizzleDb, {
+    it('should count PR achievements', async () => {
+      const week = await createWeek(orm, { weekName: 'Week 1' });
+      const participant = await createParticipant(orm, '12345', 'Alice');
+      const activity = await createActivity(orm, {
         weekId: week.id,
         stravaAthleteId: participant.strava_athlete_id,
         stravaActivityId: '111',
       });
 
-      createSegmentEffort(drizzleDb, {
+      await createSegmentEffort(orm, {
         activityId: activity.id,
         elapsedSeconds: 600,
         prAchieved: 1
       });
 
-      const activities = service.getWeekActivities(week.id);
+      const activities = await service.getWeekActivities(week.id);
 
       expect(activities[0].prCount).toBe(1);
     });
   });
 
   describe('getActivityDetails', () => {
-    it('should return null for non-existent activity', () => {
-      const details = service.getActivityDetails(999);
+    it('should return null for non-existent activity', async () => {
+      const details = await service.getActivityDetails(999);
       expect(details).toBeNull();
     });
 
-    it('should return activity details', () => {
-      const week = createWeek(drizzleDb, { weekName: 'Week 1' });
-      const participant = createParticipant(drizzleDb, '12345', 'Alice');
-      const activity = createActivity(drizzleDb, {
+    it('should return activity details', async () => {
+      const week = await createWeek(orm, { weekName: 'Week 1' });
+      const participant = await createParticipant(orm, '12345', 'Alice');
+      const activity = await createActivity(orm, {
         weekId: week.id,
         stravaAthleteId: participant.strava_athlete_id,
         stravaActivityId: '111',
       });
 
-      const details = service.getActivityDetails(activity.id);
+      const details = await service.getActivityDetails(activity.id);
 
       expect(details).not.toBeNull();
       expect(details?.activity.strava_activity_id).toBe('111');
@@ -175,22 +174,22 @@ describe('LeaderboardQueryService', () => {
       expect(details?.result).toBeNull();
     });
 
-    it('should return segment efforts with activity', () => {
-      const week = createWeek(drizzleDb, { weekName: 'Week 1' });
-      const participant = createParticipant(drizzleDb, '12345', 'Alice');
-      const activity = createActivity(drizzleDb, {
+    it('should return segment efforts with activity', async () => {
+      const week = await createWeek(orm, { weekName: 'Week 1' });
+      const participant = await createParticipant(orm, '12345', 'Alice');
+      const activity = await createActivity(orm, {
         weekId: week.id,
         stravaAthleteId: participant.strava_athlete_id,
         stravaActivityId: '111',
       });
 
-      createSegmentEffort(drizzleDb, {
+      await createSegmentEffort(orm, {
         activityId: activity.id,
         elapsedSeconds: 600,
         prAchieved: 1
       });
 
-      const details = service.getActivityDetails(activity.id);
+      const details = await service.getActivityDetails(activity.id);
 
       expect(details?.segmentEfforts).toHaveLength(1);
       expect(details?.segmentEfforts[0].elapsed_seconds).toBe(600);
@@ -204,7 +203,7 @@ describe('LeaderboardQueryService', () => {
     });
 
     it('should return empty history for participant with no activities', async () => {
-      const participant = createParticipant(drizzleDb, '12345', 'Alice');
+      const participant = await createParticipant(orm, '12345', 'Alice');
 
       const history = await service.getParticipantActivityHistory(participant.strava_athlete_id);
 
@@ -216,15 +215,15 @@ describe('LeaderboardQueryService', () => {
     });
 
     it('should return participant activity history', async () => {
-      const participant = createParticipant(drizzleDb, '12345', 'Alice');
-      const week1 = createWeek(drizzleDb, { weekName: 'Week 1' });
-      const activity = createActivity(drizzleDb, {
+      const participant = await createParticipant(orm, '12345', 'Alice');
+      const week1 = await createWeek(orm, { weekName: 'Week 1' });
+      const activity = await createActivity(orm, {
         weekId: week1.id,
         stravaAthleteId: participant.strava_athlete_id,
         stravaActivityId: '111',
       });
 
-      createResult(drizzleDb, {
+      await createResult(orm, {
         weekId: week1.id,
         stravaAthleteId: participant.strava_athlete_id,
         activityId: activity.id,
@@ -240,30 +239,30 @@ describe('LeaderboardQueryService', () => {
     });
 
     it('should sum points across multiple weeks', async () => {
-      const alice = createParticipant(drizzleDb, '12345', 'Alice');
-      const week1 = createWeek(drizzleDb, { weekName: 'Week 1' });
-      const week2 = createWeek(drizzleDb, { weekName: 'Week 2' });
+      const alice = await createParticipant(orm, '12345', 'Alice');
+      const week1 = await createWeek(orm, { weekName: 'Week 1' });
+      const week2 = await createWeek(orm, { weekName: 'Week 2' });
 
       // Week 1: 2 participants, Alice fastest → 2 points
-      const act1Alice = createActivity(drizzleDb, {
+      const act1Alice = await createActivity(orm, {
         weekId: week1.id,
         stravaAthleteId: alice.strava_athlete_id,
         stravaActivityId: '111',
       });
-      const bob = createParticipant(drizzleDb, '67890', 'Bob');
-      const act1Bob = createActivity(drizzleDb, {
+      const bob = await createParticipant(orm, '67890', 'Bob');
+      const act1Bob = await createActivity(orm, {
         weekId: week1.id,
         stravaAthleteId: bob.strava_athlete_id,
         stravaActivityId: '222',
       });
 
-      createResult(drizzleDb, {
+      await createResult(orm, {
         weekId: week1.id,
         stravaAthleteId: alice.strava_athlete_id,
         activityId: act1Alice.id,
         totalTimeSeconds: 1000,
       });
-      createResult(drizzleDb, {
+      await createResult(orm, {
         weekId: week1.id,
         stravaAthleteId: bob.strava_athlete_id,
         activityId: act1Bob.id,
@@ -271,22 +270,22 @@ describe('LeaderboardQueryService', () => {
       });
 
       // Week 2: 4 participants, Alice fastest → 4 points
-      const act2Alice = createActivity(drizzleDb, {
+      const act2Alice = await createActivity(orm, {
         weekId: week2.id,
         stravaAthleteId: alice.strava_athlete_id,
         stravaActivityId: '333',
       });
-      const p2 = createParticipant(drizzleDb, '22222', 'P2');
-      const p3 = createParticipant(drizzleDb, '33333', 'P3');
-      const p4 = createParticipant(drizzleDb, '44444', 'P4');
-      const act2P2 = createActivity(drizzleDb, { weekId: week2.id, stravaAthleteId: p2.strava_athlete_id, stravaActivityId: '444' });
-      const act2P3 = createActivity(drizzleDb, { weekId: week2.id, stravaAthleteId: p3.strava_athlete_id, stravaActivityId: '555' });
-      const act2P4 = createActivity(drizzleDb, { weekId: week2.id, stravaAthleteId: p4.strava_athlete_id, stravaActivityId: '666' });
+      const p2 = await createParticipant(orm, '22222', 'P2');
+      const p3 = await createParticipant(orm, '33333', 'P3');
+      const p4 = await createParticipant(orm, '44444', 'P4');
+      const act2P2 = await createActivity(orm, { weekId: week2.id, stravaAthleteId: p2.strava_athlete_id, stravaActivityId: '444' });
+      const act2P3 = await createActivity(orm, { weekId: week2.id, stravaAthleteId: p3.strava_athlete_id, stravaActivityId: '555' });
+      const act2P4 = await createActivity(orm, { weekId: week2.id, stravaAthleteId: p4.strava_athlete_id, stravaActivityId: '666' });
 
-      createResult(drizzleDb, { weekId: week2.id, stravaAthleteId: alice.strava_athlete_id, activityId: act2Alice.id, totalTimeSeconds: 900 });
-      createResult(drizzleDb, { weekId: week2.id, stravaAthleteId: p2.strava_athlete_id, activityId: act2P2.id, totalTimeSeconds: 1000 });
-      createResult(drizzleDb, { weekId: week2.id, stravaAthleteId: p3.strava_athlete_id, activityId: act2P3.id, totalTimeSeconds: 1100 });
-      createResult(drizzleDb, { weekId: week2.id, stravaAthleteId: p4.strava_athlete_id, activityId: act2P4.id, totalTimeSeconds: 1200 });
+      await createResult(orm, { weekId: week2.id, stravaAthleteId: alice.strava_athlete_id, activityId: act2Alice.id, totalTimeSeconds: 900 });
+      await createResult(orm, { weekId: week2.id, stravaAthleteId: p2.strava_athlete_id, activityId: act2P2.id, totalTimeSeconds: 1000 });
+      await createResult(orm, { weekId: week2.id, stravaAthleteId: p3.strava_athlete_id, activityId: act2P3.id, totalTimeSeconds: 1100 });
+      await createResult(orm, { weekId: week2.id, stravaAthleteId: p4.strava_athlete_id, activityId: act2P4.id, totalTimeSeconds: 1200 });
 
       const history = await service.getParticipantActivityHistory(alice.strava_athlete_id);
 
@@ -296,55 +295,55 @@ describe('LeaderboardQueryService', () => {
   });
 
   describe('compareActivities', () => {
-    it('should throw error if activity not found', () => {
-      expect(() => service.compareActivities(999, 1)).toThrow('One or both activities not found');
+    it('should throw error if activity not found', async () => {
+      await expect(service.compareActivities(999, 1)).rejects.toThrow('One or both activities not found');
     });
 
-    it('should compare two activities and identify faster one', () => {
-      const week = createWeek(drizzleDb, { weekName: 'Week 1' });
-      const participant = createParticipant(drizzleDb, '12345', 'Alice');
+    it('should compare two activities and identify faster one', async () => {
+      const week = await createWeek(orm, { weekName: 'Week 1' });
+      const participant = await createParticipant(orm, '12345', 'Alice');
       
-      const activity1 = createActivity(drizzleDb, {
+      const activity1 = await createActivity(orm, {
         weekId: week.id,
         stravaAthleteId: participant.strava_athlete_id,
         stravaActivityId: '111',
       });
-      const activity2 = createActivity(drizzleDb, {
+      const activity2 = await createActivity(orm, {
         weekId: week.id,
         stravaAthleteId: participant.strava_athlete_id,
         stravaActivityId: '222',
       });
 
       // Add segment efforts to produce different totals
-      createSegmentEffort(drizzleDb, { activityId: activity1.id, elapsedSeconds: 1000 });
-      createSegmentEffort(drizzleDb, { activityId: activity2.id, elapsedSeconds: 1100 });
+      await createSegmentEffort(orm, { activityId: activity1.id, elapsedSeconds: 1000 });
+      await createSegmentEffort(orm, { activityId: activity2.id, elapsedSeconds: 1100 });
 
-      const comparison = service.compareActivities(activity1.id, activity2.id);
+      const comparison = await service.compareActivities(activity1.id, activity2.id);
 
       expect(comparison.faster).toBe('activity1');
       expect(comparison.timeDifference).toBe(100);
     });
 
-    it('should identify equal times', () => {
-      const week = createWeek(drizzleDb, { weekName: 'Week 1' });
-      const participant = createParticipant(drizzleDb, '12345', 'Alice');
+    it('should identify equal times', async () => {
+      const week = await createWeek(orm, { weekName: 'Week 1' });
+      const participant = await createParticipant(orm, '12345', 'Alice');
       
-      const activity1 = createActivity(drizzleDb, {
+      const activity1 = await createActivity(orm, {
         weekId: week.id,
         stravaAthleteId: participant.strava_athlete_id,
         stravaActivityId: '111',
       });
-      const activity2 = createActivity(drizzleDb, {
+      const activity2 = await createActivity(orm, {
         weekId: week.id,
         stravaAthleteId: participant.strava_athlete_id,
         stravaActivityId: '222',
       });
 
       // Equal segment efforts
-      createSegmentEffort(drizzleDb, { activityId: activity1.id, elapsedSeconds: 1000 });
-      createSegmentEffort(drizzleDb, { activityId: activity2.id, elapsedSeconds: 1000 });
+      await createSegmentEffort(orm, { activityId: activity1.id, elapsedSeconds: 1000 });
+      await createSegmentEffort(orm, { activityId: activity2.id, elapsedSeconds: 1000 });
 
-      const comparison = service.compareActivities(activity1.id, activity2.id);
+      const comparison = await service.compareActivities(activity1.id, activity2.id);
 
       expect(comparison.faster).toBe('equal');
       expect(comparison.timeDifference).toBe(0);
@@ -352,28 +351,28 @@ describe('LeaderboardQueryService', () => {
   });
 
   describe('verifyIdempotency', () => {
-    it('should return null if result not found', () => {
-      const result = service.verifyIdempotency(999, '999');
+    it('should return null if result not found', async () => {
+      const result = await service.verifyIdempotency(999, '999');
       expect(result).toBeNull();
     });
 
-    it('should return result for idempotency verification', () => {
-      const week = createWeek(drizzleDb, { weekName: 'Week 1' });
-      const participant = createParticipant(drizzleDb, '12345', 'Alice');
-      const activity = createActivity(drizzleDb, {
+    it('should return result for idempotency verification', async () => {
+      const week = await createWeek(orm, { weekName: 'Week 1' });
+      const participant = await createParticipant(orm, '12345', 'Alice');
+      const activity = await createActivity(orm, {
         weekId: week.id,
         stravaAthleteId: participant.strava_athlete_id,
         stravaActivityId: '111',
       });
 
-      createResult(drizzleDb, {
+      await createResult(orm, {
         weekId: week.id,
         stravaAthleteId: participant.strava_athlete_id,
         activityId: activity.id,
         totalTimeSeconds: 1100,
       });
 
-      const idempotency = service.verifyIdempotency(week.id, participant.strava_athlete_id);
+      const idempotency = await service.verifyIdempotency(week.id, participant.strava_athlete_id);
 
       expect(idempotency).not.toBeNull();
       expect(idempotency?.resultId).toEqual(expect.any(Number));
@@ -384,8 +383,8 @@ describe('LeaderboardQueryService', () => {
   });
 
   describe('getStatistics', () => {
-    it('should return zero statistics for empty database', () => {
-      const stats = service.getStatistics();
+    it('should return zero statistics for empty database', async () => {
+      const stats = await service.getStatistics();
 
       expect(stats.participantCount).toBe(0);
       expect(stats.weekCount).toBe(0);
@@ -394,22 +393,22 @@ describe('LeaderboardQueryService', () => {
       expect(stats.segmentEffortCount).toBe(0);
     });
 
-    it('should return correct statistics', () => {
-      const participant = createParticipant(drizzleDb, '12345', 'Alice');
-      const week = createWeek(drizzleDb, { weekName: 'Week 1' });
-      const activity = createActivity(drizzleDb, {
+    it('should return correct statistics', async () => {
+      const participant = await createParticipant(orm, '12345', 'Alice');
+      const week = await createWeek(orm, { weekName: 'Week 1' });
+      const activity = await createActivity(orm, {
         weekId: week.id,
         stravaAthleteId: participant.strava_athlete_id,
         stravaActivityId: '111',
       });
 
-      createSegmentEffort(drizzleDb, {
+      await createSegmentEffort(orm, {
         activityId: activity.id,
         elapsedSeconds: 600,
         prAchieved: 0
       });
 
-      const stats = service.getStatistics();
+      const stats = await service.getStatistics();
 
       expect(stats.participantCount).toBe(1);
       expect(stats.weekCount).toBe(1);

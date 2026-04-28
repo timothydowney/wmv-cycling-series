@@ -58,6 +58,7 @@ Before merging or opening a substantive PR, run `npm run audit` locally alongsid
 
 - **Environment:** `e2e/.env.e2e`
 - **Purpose:** Dedicated backend/runtime wiring for deterministic browser tests
+- **Isolation model:** Uses the same local Postgres container/volume as dev, but a different database name (`wmv_e2e` vs `wmv_local`)
 - **Current reality:** If the backend is started without `ENV_FILE=e2e/.env.e2e` or equivalent E2E wiring, config can still use the default `.env`, so do not assume isolation unless the harness explicitly verifies it
 - **Expected direction:** Use an explicit backend E2E mode plus explicit provider selection for outbound integrations, and fail fast when the intended E2E setup is absent
 - **Usage:** Used by `npm run test:e2e*` tasks

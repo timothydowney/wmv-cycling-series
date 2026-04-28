@@ -4,6 +4,7 @@ import { isoToUnix } from '../../dateUtils';
 import { findBestQualifyingActivity } from '../../activityProcessor';
 import { storeActivityAndEfforts } from '../../activityStorage';
 import { type ActivityWebhookHandler } from '../activityHandlerRunner';
+import { getMany } from '../../db/asyncQuery';
 
 export function createCompetitionActivityHandler(): ActivityWebhookHandler {
   return {
@@ -24,7 +25,7 @@ export function createCompetitionActivityHandler(): ActivityWebhookHandler {
         return;
       }
 
-      const seasons = context.validationService.getAllActiveSeasonsContainingTimestamp(activityUnix);
+      const seasons = await context.validationService.getAllActiveSeasonsContainingTimestamp(activityUnix);
 
       if (seasons.length === 0) {
         console.log(
@@ -53,21 +54,30 @@ export function createCompetitionActivityHandler(): ActivityWebhookHandler {
           continue;
         }
 
-        const weeks = context.db
-          .select({
-            id: week.id,
-            week_name: week.week_name,
-            strava_segment_id: week.strava_segment_id,
-            required_laps: week.required_laps,
-            start_at: week.start_at,
-            end_at: week.end_at,
-            segment_name: segment.name
-          })
-          .from(week)
-          .innerJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
-          .where(eq(week.season_id, seasonRecord.id))
-          .orderBy(desc(week.start_at))
-          .all();
+        const weeks = await getMany<{
+          id: number;
+          week_name: string;
+          strava_segment_id: string;
+          required_laps: number;
+          start_at: number;
+          end_at: number;
+          segment_name: string;
+        }>(
+          context.db
+            .select({
+              id: week.id,
+              week_name: week.week_name,
+              strava_segment_id: week.strava_segment_id,
+              required_laps: week.required_laps,
+              start_at: week.start_at,
+              end_at: week.end_at,
+              segment_name: segment.name
+            })
+            .from(week)
+            .innerJoin(segment, eq(week.strava_segment_id, segment.strava_segment_id))
+            .where(eq(week.season_id, seasonRecord.id))
+            .orderBy(desc(week.start_at))
+        );
 
         let processedWeeks = 0;
         let matchedWeeks = 0;
@@ -103,7 +113,7 @@ export function createCompetitionActivityHandler(): ActivityWebhookHandler {
               `[Webhook:Processor] Activity ${context.activityId} qualifies for week ${weekRecord.id}`
             );
 
-            storeActivityAndEfforts(
+            await storeActivityAndEfforts(
               context.db,
               context.athleteId,
               weekRecord.id,
