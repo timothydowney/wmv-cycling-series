@@ -22,4 +22,10 @@ node server/scripts/ensure-postgres-db.js --url "$DATABASE_URL"
 echo "[e2e-db] Ensuring schema exists"
 DATABASE_URL="$DATABASE_URL" npm --prefix server run db:pg:bootstrap:schema >/dev/null
 
+if [[ "${WMV_E2E_RESET_DB_ON_BOOT:-false}" == "true" ]]; then
+  echo "[e2e-db] ERROR: WMV_E2E_RESET_DB_ON_BOOT=true is set but the SQLite-fixture import path has been removed."
+  echo "[e2e-db] The E2E database now uses a persistent Postgres schema. To reset data, drop and recreate the wmv_e2e database manually."
+  exit 1
+fi
+
 echo "[e2e-db] E2E Postgres database is ready"
