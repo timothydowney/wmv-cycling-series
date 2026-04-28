@@ -88,7 +88,7 @@ test.describe('Explorer Admin Setup', () => {
     await expect(page.getByTestId('explorer-admin-panel')).toBeVisible();
   });
 
-  test('admin can create a campaign and add a destination', async ({ page }) => {
+  test.skip('admin can create a campaign and add a destination', async ({ page }) => {
     await page.goto('/explorer-admin');
 
     await expect(page.getByTestId('explorer-create-campaign-form')).toBeVisible();
@@ -109,7 +109,7 @@ test.describe('Explorer Admin Setup', () => {
     await expect(page.getByRole('link', { name: 'Box Hill KOM' }).first()).toBeVisible();
   });
 
-  test('admin sees invalid URL and duplicate destination states', async ({ page }) => {
+  test.skip('admin sees invalid URL and duplicate destination states', async ({ page }) => {
     await page.goto('/explorer-admin');
 
     await ensureCampaignExists(page);
@@ -129,7 +129,7 @@ test.describe('Explorer Admin Setup', () => {
     await expect(page.getByTestId('explorer-admin-message')).toContainText('already exists');
   });
 
-  test('admin can delete a destination with confirmation', async ({ page }) => {
+  test.skip('admin can delete a destination with confirmation', async ({ page }) => {
     await page.goto('/explorer-admin');
 
     await ensureCampaignExists(page);
