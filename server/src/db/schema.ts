@@ -25,7 +25,7 @@ export const sessions = pgTable(
 export const participant = pgTable('participant', {
   strava_athlete_id: text('strava_athlete_id').primaryKey(),
   name: text('name').notNull(),
-  created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
+  created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
   active: boolean('active').default(true).notNull(),
   is_admin: boolean('is_admin').default(false).notNull(),
   weight: doublePrecision('weight'),  // Most recent weight in kg (Strava API format)
@@ -37,7 +37,7 @@ export const season = pgTable('season', {
   name: text('name').notNull(),
   start_at: bigint('start_at', { mode: 'number' }).notNull(),
   end_at: bigint('end_at', { mode: 'number' }).notNull(),
-  created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
+  created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 });
 
 export const week = pgTable('week', {
@@ -49,7 +49,7 @@ export const week = pgTable('week', {
   start_at: bigint('start_at', { mode: 'number' }).notNull(),
   end_at: bigint('end_at', { mode: 'number' }).notNull(),
   multiplier: bigint('multiplier', { mode: 'number' }).default(1).notNull(), // NEW: Scoring multiplier for week (default 1 = no change)
-  created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
+  created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
   notes: text('notes').default(''),
 },
 (t) => [
@@ -66,7 +66,7 @@ export const activity = pgTable('activity', {
   validation_status: text('validation_status').default('valid'),
   validation_message: text('validation_message'),
   validated_at: text('validated_at').default(sql`(CURRENT_TIMESTAMP)`),
-  created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
+  created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
   athlete_weight: doublePrecision('athlete_weight'),  // Weight in kg at activity time (Strava API format, for w/kg calculation)
 },
 (t) => [
@@ -99,8 +99,8 @@ export const result = pgTable('result', {
   strava_athlete_id: text('strava_athlete_id').notNull().references(() => participant.strava_athlete_id),
   activity_id: bigint('activity_id', { mode: 'number' }).references(() => activity.id),
   total_time_seconds: bigint('total_time_seconds', { mode: 'number' }).notNull(),
-  created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
-  updated_at: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`),
+  created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
+  updated_at: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 },
 (t) => [
   index('idx_result_participant').on(t.strava_athlete_id),
@@ -114,8 +114,8 @@ export const participantToken = pgTable('participant_token', {
   refresh_token: text('refresh_token').notNull(),
   expires_at: bigint('expires_at', { mode: 'number' }).notNull(),
   scope: text(),
-  created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
-  updated_at: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`),
+  created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
+  updated_at: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 },
 (t) => [
   index('idx_participant_token_participant').on(t.strava_athlete_id),
@@ -147,7 +147,7 @@ export const segment = pgTable('segment', {
   city: text('city'),
   state: text('state'),
   country: text('country'),
-  created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
+  created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
   metadata_updated_at: text('metadata_updated_at'),
   total_elevation_gain: doublePrecision('total_elevation_gain'),
   climb_category: bigint('climb_category', { mode: 'number' }),
@@ -158,7 +158,7 @@ export const webhookEvent = pgTable('webhook_event', {
   payload: text().notNull(),
   processed: bigint('processed', { mode: 'number' }),
   error_message: text('error_message'),
-  created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
+  created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 },
 (t) => [
   index('idx_webhook_event_created').on(t.created_at),
@@ -178,8 +178,8 @@ export const explorerCampaign = pgTable('explorer_campaign', {
   end_at: bigint('end_at', { mode: 'number' }).notNull(),
   display_name: text('display_name'),
   rules_blurb: text('rules_blurb'),
-  created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
-  updated_at: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`),
+  created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
+  updated_at: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 },
 (t) => [
   index('idx_explorer_campaign_window').on(t.start_at, t.end_at),
@@ -195,8 +195,8 @@ export const explorerDestination = pgTable('explorer_destination', {
   display_order: bigint('display_order', { mode: 'number' }).default(0).notNull(),
   surface_type: text('surface_type'),
   category: text('category'),
-  created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
-  updated_at: text('updated_at').default(sql`(CURRENT_TIMESTAMP)`),
+  created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
+  updated_at: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 },
 (t) => [
   index('idx_explorer_destination_campaign').on(t.explorer_campaign_id),
@@ -211,7 +211,7 @@ export const explorerDestinationMatch = pgTable('explorer_destination_match', {
   strava_athlete_id: text('strava_athlete_id').notNull().references(() => participant.strava_athlete_id, { onDelete: 'cascade' }),
   strava_activity_id: text('strava_activity_id').notNull(),
   matched_at: bigint('matched_at', { mode: 'number' }).notNull(),
-  created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
+  created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 },
 (t) => [
   index('idx_explorer_match_campaign_athlete').on(t.explorer_campaign_id, t.strava_athlete_id),
@@ -224,7 +224,7 @@ export const explorerDestinationPin = pgTable('explorer_destination_pin', {
   explorer_campaign_id: bigint('explorer_campaign_id', { mode: 'number' }).notNull().references(() => explorerCampaign.id, { onDelete: 'cascade' }),
   explorer_destination_id: bigint('explorer_destination_id', { mode: 'number' }).notNull().references(() => explorerDestination.id, { onDelete: 'cascade' }),
   strava_athlete_id: text('strava_athlete_id').notNull().references(() => participant.strava_athlete_id, { onDelete: 'cascade' }),
-  created_at: text('created_at').default(sql`(CURRENT_TIMESTAMP)`),
+  created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 },
 (t) => [
   index('idx_explorer_pin_campaign_athlete').on(t.explorer_campaign_id, t.strava_athlete_id),

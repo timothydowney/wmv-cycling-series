@@ -116,14 +116,14 @@ export class WebhookLogger {
         total: number;
         successful: number;
         failed: number;
-        last_event: string | null;
+        last_event: string | Date | null;
       }>(
         this.db
           .select({
             total: sql<number>`COUNT(*)`,
             successful: sql<number>`SUM(CASE WHEN ${webhookEvent.processed} = 1 THEN 1 ELSE 0 END)`,
             failed: sql<number>`SUM(CASE WHEN ${webhookEvent.error_message} IS NOT NULL THEN 1 ELSE 0 END)`,
-            last_event: sql<string>`MAX(${webhookEvent.created_at})`
+            last_event: sql<string | Date>`MAX(${webhookEvent.created_at})`
           })
           .from(webhookEvent)
       );
@@ -132,7 +132,10 @@ export class WebhookLogger {
         totalEvents: firstStats?.total || 0,
         processedCount: firstStats?.successful || 0,
         failedCount: firstStats?.failed || 0,
-        lastEventTime: firstStats?.last_event || null
+        lastEventTime:
+          firstStats?.last_event instanceof Date
+            ? firstStats.last_event.toISOString()
+            : firstStats?.last_event || null
       };
     } catch (error) {
       console.error('[Webhook Logger] Failed to get status', {

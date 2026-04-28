@@ -114,8 +114,8 @@ CREATE TABLE IF NOT EXISTS participant_token (
   refresh_token TEXT NOT NULL,
   expires_at INTEGER NOT NULL,  -- Unix timestamp
   scope TEXT,                    -- Scopes user actually granted
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY(strava_athlete_id) REFERENCES participants(strava_athlete_id) ON DELETE CASCADE
 );
 
