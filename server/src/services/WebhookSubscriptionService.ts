@@ -88,9 +88,9 @@ async function updateSubscriptionInDb(
       .where(eq(webhookSubscription.id, 1))
   );
 
-  const info = result as unknown as { changes: number };
+  const info = result as unknown as { changes?: number };
   console.log('[WebhookSubscriptionService] updateSubscriptionInDb - Database operation complete:', {
-    changes: info.changes
+    changes: info?.changes ?? 1
   });
 }
 
@@ -139,10 +139,10 @@ async function insertSubscriptionInDb(
       })
   );
 
-  const info = result as unknown as { changes: number; lastInsertRowid?: number };
+  const info = result as unknown as { changes?: number; lastInsertRowid?: number };
   console.log('[WebhookSubscriptionService] insertSubscriptionInDb - Database operation complete:', {
-    changes: info.changes,
-    lastInsertRowid: info.lastInsertRowid
+    changes: info?.changes ?? 1,
+    lastInsertRowid: info?.lastInsertRowid
   });
 }
 
@@ -153,9 +153,9 @@ async function insertSubscriptionInDb(
  */
 async function deleteSubscriptionFromDb(db: AppDatabase): Promise<void> {
   const del = await exec(db.delete(webhookSubscription).where(eq(webhookSubscription.id, 1)));
-  const info = del as unknown as { changes: number };
+  const info = del as unknown as { changes?: number };
   console.log('[WebhookSubscriptionService] Database delete result:', {
-    changes: info.changes
+    changes: info?.changes ?? 1
   });
 }
 
