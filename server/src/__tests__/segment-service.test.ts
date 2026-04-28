@@ -123,8 +123,9 @@ describe('SegmentService', () => {
         distance: 3000,
         start_latitude: 42.3201,
         end_longitude: -72.6122,
-        metadata_updated_at: '2026-04-19T12:00:00Z'
       });
+      // metadata_updated_at is now timestamptz — verify the point in time, not the string format
+      expect(new Date(stored.metadata_updated_at!).getTime()).toBe(new Date('2026-04-19T12:00:00Z').getTime());
     });
 
     test('should create placeholder segment when no connected participants', async () => {
@@ -348,11 +349,12 @@ describe('SegmentService', () => {
         start_longitude: -105.2705,
         end_latitude: 40.025,
         end_longitude: -105.255,
-        metadata_updated_at: '2026-04-18T16:45:00Z',
         city: 'Boulder',
         state: 'CO',
         country: 'USA'
       });
+      // metadata_updated_at is now timestamptz — verify the point in time, not the string format
+      expect(new Date(segments[0].metadata_updated_at!).getTime()).toBe(new Date('2026-04-18T16:45:00Z').getTime());
     });
   });
 

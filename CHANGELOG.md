@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Remaining operational timestamp columns (`activity.validated_at`, `segment.metadata_updated_at`, `webhook_subscription.last_refreshed_at`, `deletion_request.requested_at`/`completed_at`, `schema_migrations.executed_at`, `participant.weight_updated_at`) migrated from `text` to `timestamptz` in Postgres via migration `0017`. Drizzle schema, bootstrap script, and test DDL updated to match.
+
 ### Added
 - Local-first Postgres migration tooling, including schema bootstrap, SQLite-to-Postgres import, row-count parity verification, rollback-tag verification, local Docker Postgres compose, and Railway rehearsal import/environment setup scripts.
 
