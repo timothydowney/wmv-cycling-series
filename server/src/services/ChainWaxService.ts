@@ -103,7 +103,6 @@ export class ChainWaxService {
    */
   async waxChain(waxedAt: number): Promise<void> {
     const currentPeriod = await this.getCurrentPeriod();
-    const now = Math.floor(Date.now() / 1000);
 
     await this.db.transaction(async (tx) => {
       // Close current period
@@ -119,7 +118,6 @@ export class ChainWaxService {
           .values({
             started_at: waxedAt,
             total_distance_meters: 0,
-            created_at: now,
           })
       );
 
@@ -162,7 +160,6 @@ export class ChainWaxService {
             started_at: now,
             wax_count: 0,
             is_current: true,
-            created_at: now,
           })
       );
     });
@@ -186,8 +183,6 @@ export class ChainWaxService {
       return false;
     }
 
-    const now = Math.floor(Date.now() / 1000);
-
     const inserted = await getOne<{ id: number }>(
       this.db.insert(chainWaxActivity).values({
         period_id: currentPeriod.id,
@@ -195,7 +190,6 @@ export class ChainWaxService {
         strava_athlete_id: athleteId,
         distance_meters: distanceMeters,
         activity_start_at: activityStartAt,
-        created_at: now
       }).onConflictDoNothing().returning({ id: chainWaxActivity.id })
     );
 
