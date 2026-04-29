@@ -189,6 +189,55 @@ Keep `DATABASE_PATH` only for rollback bridge tooling during observation window;
 5. Switch runtime to Postgres and deploy.
 6. Keep pre-cutover SQLite artifact during observation window.
 
+## Post-Cutover: Schema Change Workflow
+
+After production cutover, all schema changes go through Drizzle migrations. This is the canonical path for every schema change from this point forward.
+
+### Making a Schema Change
+
+1. **Edit `server/src/db/schema.ts`** — the single source of truth for all Postgres table definitions.
+
+2. **Generate the migration file:**
+   ```bash
+   DATABASE_URL="******localhost:5432/wmv_local" npm run db:generate
+   ```
+   This runs `drizzle-kit generate` and writes a new numbered SQL file to `server/drizzle/` and updates `server/drizzle/meta/_journal.json`.
+
+3. **Review the generated SQL** in `server/drizzle/<number>_<name>.sql` before applying. Never edit the baseline or previously-applied migrations.
+
+4. **Apply locally:**
+   ```bash
+   DATABASE_URL="******localhost:5432/wmv_local" npm run db:migrate
+   ```
+   Or just start the dev server — migrations apply automatically at startup:
+   ```bash
+   npm run dev
+   ```
+
+5. **Commit both the schema change and the migration file** together in the same PR.
+
+6. **Production apply** — migrations run automatically when the new server binary starts on Railway. No manual step is required after deploy.
+
+### How It Works
+
+- `server/drizzle/0000_postgres_baseline.sql` is the single baseline representing the full schema at Postgres cutover. It is applied by Drizzle on fresh databases (new dev environments, CI).
+- Drizzle tracks applied migrations in the `drizzle.__drizzle_migrations` table.
+- On databases bootstrapped before this workflow was adopted, the server automatically stamps the baseline as already-applied (detected by the absence of the `drizzle` schema on a non-empty database).
+- Every subsequent schema change goes through `db:generate` → review → `db:migrate`.
+
+### Generating Without a Live DB
+
+`drizzle-kit generate` reads `schema.ts` and compares against the last snapshot in `drizzle/meta/`. It does not require a live database connection:
+
+```bash
+npm run db:generate
+# → prompts for migration name, writes server/drizzle/<N>_<name>.sql
+```
+
+### CI Validation
+
+The CI build runs `npm run build` which compiles TypeScript and will catch schema/type mismatches. Migrations themselves are applied by the server at startup and are not run as a separate CI step — add a migration smoke test if that becomes a requirement.
+
 ## Local Cleanup Commands
 
 Stop local Postgres:
@@ -200,3 +249,4 @@ Reset local Postgres volume:
 ```bash
 npm run db:postgres:reset
 ```
+

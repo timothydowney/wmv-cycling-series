@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Drizzle migration lifecycle for Postgres: a Postgres baseline migration (`server/drizzle/0000_postgres_baseline.sql`) is now the single source of truth for schema creation. New schema changes are generated with `npm run db:generate` and applied with `npm run db:migrate` (or automatically at server startup).
+- `db:generate` and `db:migrate` npm scripts added to both root and `server/package.json` for forward migrations.
+- `server/drizzle.config.ts` updated to Postgres-only dialect; SQLite conditional removed.
+- Post-cutover schema change workflow documented in `docs/POSTGRES_MIGRATION_RUNBOOK.md`.
+- Old SQLite-era migration files archived to `server/drizzle/_sqlite_history/` to keep the active migration directory clean.
+
 ### Changed
 - Removed legacy SQLite-style query compatibility shim (`wrapQueryBuilder`, `wrapOrmWithLegacyCompat`) from the test helper `setupTestDb`. All test queries now use idiomatic async Postgres-style Drizzle calls (`.execute()`) directly.
 
