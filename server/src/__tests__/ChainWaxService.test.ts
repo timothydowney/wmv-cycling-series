@@ -30,14 +30,12 @@ describe('ChainWaxService', () => {
     await orm.insert(chainWaxPeriod).values({
       started_at: now - 86400, // 1 day ago
       total_distance_meters: 0,
-      created_at: now,
     }).execute();
 
     await orm.insert(chainWaxPuck).values({
       started_at: now,
       wax_count: 0,
       is_current: true,
-      created_at: now,
     }).execute();
   });
 

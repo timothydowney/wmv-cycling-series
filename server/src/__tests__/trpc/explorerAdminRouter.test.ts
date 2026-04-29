@@ -13,6 +13,7 @@ import {
   createSegment,
   setupTestDb,
   teardownTestDb,
+  timestampStringToEpochMs,
 } from '../testDataHelpers';
 
 describe('explorerAdminRouter', () => {
@@ -247,11 +248,12 @@ describe('explorerAdminRouter', () => {
       startLongitude: -72.6425,
       endLatitude: 42.3251,
       endLongitude: -72.6184,
-      metadataUpdatedAt: '2026-04-19T12:00:00Z',
       city: 'Northampton',
       state: 'MA',
       country: 'USA',
     });
+    // metadataUpdatedAt is now timestamptz — verify the point in time, not the string format
+    expect(timestampStringToEpochMs(result[1]!.destinations[0]!.metadataUpdatedAt!)).toBe(new Date('2026-04-19T12:00:00Z').getTime());
   });
 
   it('preserves a null raw display name for unnamed campaigns', async () => {

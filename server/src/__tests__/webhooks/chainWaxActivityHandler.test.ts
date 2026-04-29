@@ -14,13 +14,11 @@ async function seedChainWaxState(orm: AppDatabase): Promise<void> {
   await orm.insert(chainWaxPeriod).values({
     started_at: now - 3600,
     total_distance_meters: 0,
-    created_at: now
   }).execute();
   await orm.insert(chainWaxPuck).values({
     started_at: now,
     wax_count: 0,
     is_current: true,
-    created_at: now
   }).execute();
 }
 
