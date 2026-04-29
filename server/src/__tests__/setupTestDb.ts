@@ -145,6 +145,9 @@ export function setupTestDb(options?: { seed?: boolean }): TestDbResult {
   // Each test file gets its own isolated in-memory Postgres instance.
   const memDb = newDb();
 
+  // Keep timestamptz behavior deterministic across developer machines and CI.
+  memDb.public.none("SET TIME ZONE 'UTC'");
+
   // Bootstrap schema synchronously via pg-mem's direct interface.
   for (const stmt of SCHEMA_DDL) {
     memDb.public.none(stmt);

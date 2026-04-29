@@ -7,7 +7,7 @@ import type { AppDatabase } from '../db/types';
  */
 
 import { SegmentService } from '../services/SegmentService';
-import { setupTestDb, teardownTestDb, createParticipant, createSegment, clearAllData } from './testDataHelpers';
+import { setupTestDb, teardownTestDb, createParticipant, createSegment, clearAllData, timestampStringToEpochMs } from './testDataHelpers';
 import { segment } from '../db/schema';
 import { eq, sql } from 'drizzle-orm';
 import * as stravaClientMock from '../stravaClient';
@@ -125,7 +125,7 @@ describe('SegmentService', () => {
         end_longitude: -72.6122,
       });
       // metadata_updated_at is now timestamptz — verify the point in time, not the string format
-      expect(new Date(stored.metadata_updated_at!).getTime()).toBe(new Date('2026-04-19T12:00:00Z').getTime());
+      expect(timestampStringToEpochMs(stored.metadata_updated_at!)).toBe(new Date('2026-04-19T12:00:00Z').getTime());
     });
 
     test('should create placeholder segment when no connected participants', async () => {
@@ -354,7 +354,7 @@ describe('SegmentService', () => {
         country: 'USA'
       });
       // metadata_updated_at is now timestamptz — verify the point in time, not the string format
-      expect(new Date(segments[0].metadata_updated_at!).getTime()).toBe(new Date('2026-04-18T16:45:00Z').getTime());
+      expect(timestampStringToEpochMs(segments[0].metadata_updated_at!)).toBe(new Date('2026-04-18T16:45:00Z').getTime());
     });
   });
 

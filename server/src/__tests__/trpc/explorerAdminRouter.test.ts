@@ -13,6 +13,7 @@ import {
   createSegment,
   setupTestDb,
   teardownTestDb,
+  timestampStringToEpochMs,
 } from '../testDataHelpers';
 
 describe('explorerAdminRouter', () => {
@@ -252,7 +253,7 @@ describe('explorerAdminRouter', () => {
       country: 'USA',
     });
     // metadataUpdatedAt is now timestamptz — verify the point in time, not the string format
-    expect(new Date(result[1]!.destinations[0]!.metadataUpdatedAt!).getTime()).toBe(new Date('2026-04-19T12:00:00Z').getTime());
+    expect(timestampStringToEpochMs(result[1]!.destinations[0]!.metadataUpdatedAt!)).toBe(new Date('2026-04-19T12:00:00Z').getTime());
   });
 
   it('preserves a null raw display name for unnamed campaigns', async () => {
