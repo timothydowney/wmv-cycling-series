@@ -56,6 +56,8 @@
     "db:postgres:migrate-dev": "npm --prefix server run db:pg:migrate:from-sqlite -- --source-env dev-sqlite --target-env dev-postgres --confirm-destructive",
     "db:postgres:verify-dev": "npm --prefix server run db:pg:verify:parity",
     "db:postgres:verify-rollback-tag": "bash scripts/verify-postgres-rollback-tag.sh",
+    "db:generate": "npm --prefix server run db:generate",
+    "db:migrate": "npm --prefix server run db:migrate",
     "postinstall": "cd server && npm install",
     "prepare": "node scripts/install-hooks.cjs"
   },
