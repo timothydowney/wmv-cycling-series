@@ -128,9 +128,9 @@ describe('Batch Fetch - POST /admin/weeks/:id/fetch-results', () => {
     // We should probably NOT call clearAllData(orm) in beforeEach if we rely on beforeAll setup.
     // Or move setup to beforeEach.
     // For now, I'll just delete results/activities manually to keep it simple and fast.
-    orm.delete(result).run();
-    orm.delete(segmentEffort).run();
-    orm.delete(activity).run();
+    await orm.delete(result).execute();
+    await orm.delete(segmentEffort).execute();
+    await orm.delete(activity).execute();
   });
 
   test('should return 200 OK when fetching results for a valid week', async () => {

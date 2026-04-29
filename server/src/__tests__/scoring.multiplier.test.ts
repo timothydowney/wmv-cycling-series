@@ -10,31 +10,6 @@ import { calculateWeekScoring } from '../services/ScoringService';
 import { setupTestDb } from './setupTestDb';
 import { week, participant, activity, result, segmentEffort, segment, season } from '../db/schema';
 
-function patchLegacyDrizzleSyncApis(orm: AppDatabase): void {
-  const returningProto = Object.getPrototypeOf(
-    orm
-      .insert(week)
-      .values({
-        season_id: 1,
-        week_name: 'legacy-patch',
-        strava_segment_id: 'legacy-patch',
-        required_laps: 1,
-        start_at: 1,
-        end_at: 2,
-        multiplier: 1,
-        notes: '',
-      })
-      .returning()
-  );
-
-  if (typeof returningProto.get !== 'function') {
-    returningProto.get = async function get() {
-      const rows = await this.execute();
-      return rows[0];
-    };
-  }
-}
-
 describe('Scoring Multiplier Feature', () => {
   let orm: AppDatabase;
 
@@ -52,15 +27,13 @@ describe('Scoring Multiplier Feature', () => {
       strava_segment_id: '12345',
       name: 'Test Segment',
     }).execute();
-
-    patchLegacyDrizzleSyncApis(orm);
   });
 
   describe('Score Calculation with Multiplier', () => {
     it('should calculate total points = (base + participation + pr) × multiplier', async () => {
       // Setup: Create test data
       // Week with multiplier = 2
-      const testWeek = await orm
+      const [testWeek] = await orm
         .insert(week)
         .values({
           season_id: 1,
@@ -73,7 +46,7 @@ describe('Scoring Multiplier Feature', () => {
           notes: ''
         })
         .returning()
-        .get();
+        .execute();
 
       // Create 3 participants
       for (let i = 1; i <= 3; i++) {
@@ -87,7 +60,7 @@ describe('Scoring Multiplier Feature', () => {
       }
 
       // Create activities with different times
-      const activity1 = await orm
+      const [activity1] = await orm
         .insert(activity)
         .values({
           week_id: testWeek.id,
@@ -97,9 +70,9 @@ describe('Scoring Multiplier Feature', () => {
           device_name: 'Garmin'
         })
         .returning()
-        .get();
+        .execute();
 
-      const activity2 = await orm
+      const [activity2] = await orm
         .insert(activity)
         .values({
           week_id: testWeek.id,
@@ -109,9 +82,9 @@ describe('Scoring Multiplier Feature', () => {
           device_name: 'Garmin'
         })
         .returning()
-        .get();
+        .execute();
 
-      const activity3 = await orm
+      const [activity3] = await orm
         .insert(activity)
         .values({
           week_id: testWeek.id,
@@ -121,7 +94,7 @@ describe('Scoring Multiplier Feature', () => {
           device_name: 'Garmin'
         })
         .returning()
-        .get();
+        .execute();
 
       // Create results with different times
       // Participant 1: 1000 seconds (fastest - rank 1)
@@ -233,7 +206,7 @@ describe('Scoring Multiplier Feature', () => {
 
     it('should apply multiplier correctly with PR bonus', async () => {
       // Setup: Week with multiplier = 3, one participant with PR
-      const testWeek = await orm
+      const [testWeek] = await orm
         .insert(week)
         .values({
           season_id: 1,
@@ -246,7 +219,7 @@ describe('Scoring Multiplier Feature', () => {
           notes: ''
         })
         .returning()
-        .get();
+        .execute();
 
       // Create participant
       await orm.insert(participant)
@@ -258,7 +231,7 @@ describe('Scoring Multiplier Feature', () => {
         .execute();
 
       // Create activity
-      const testActivity = await orm
+      const [testActivity] = await orm
         .insert(activity)
         .values({
           week_id: testWeek.id,
@@ -268,7 +241,7 @@ describe('Scoring Multiplier Feature', () => {
           device_name: 'Garmin'
         })
         .returning()
-        .get();
+        .execute();
 
       // Create result
       await orm.insert(result)
@@ -310,7 +283,7 @@ describe('Scoring Multiplier Feature', () => {
 
     it('should handle multiplier = 1 (no change from standard calculation)', async () => {
       // Setup: Week with default multiplier = 1
-      const testWeek = await orm
+      const [testWeek] = await orm
         .insert(week)
         .values({
           season_id: 1,
@@ -323,7 +296,7 @@ describe('Scoring Multiplier Feature', () => {
           notes: ''
         })
         .returning()
-        .get();
+        .execute();
 
       // Create 2 participants
       await orm.insert(participant)
@@ -343,7 +316,7 @@ describe('Scoring Multiplier Feature', () => {
         .execute();
 
       // Create activities and results
-      const activity1 = await orm
+      const [activity1] = await orm
         .insert(activity)
         .values({
           week_id: testWeek.id,
@@ -353,9 +326,9 @@ describe('Scoring Multiplier Feature', () => {
           device_name: 'Garmin'
         })
         .returning()
-        .get();
+        .execute();
 
-      const activity2 = await orm
+      const [activity2] = await orm
         .insert(activity)
         .values({
           week_id: testWeek.id,
@@ -365,7 +338,7 @@ describe('Scoring Multiplier Feature', () => {
           device_name: 'Garmin'
         })
         .returning()
-        .get();
+        .execute();
 
       await orm.insert(result)
         .values({
@@ -420,7 +393,7 @@ describe('Scoring Multiplier Feature', () => {
 
     it('should handle multiplier = 5 (maximum)', async () => {
       // Setup: Week with multiplier = 5
-      const testWeek = await orm
+      const [testWeek] = await orm
         .insert(week)
         .values({
           season_id: 1,
@@ -433,7 +406,7 @@ describe('Scoring Multiplier Feature', () => {
           notes: ''
         })
         .returning()
-        .get();
+        .execute();
 
       // Create participant
       await orm.insert(participant)
@@ -445,7 +418,7 @@ describe('Scoring Multiplier Feature', () => {
         .execute();
 
       // Create activity and result
-      const testActivity = await orm
+      const [testActivity] = await orm
         .insert(activity)
         .values({
           week_id: testWeek.id,
@@ -455,7 +428,7 @@ describe('Scoring Multiplier Feature', () => {
           device_name: 'Garmin'
         })
         .returning()
-        .get();
+        .execute();
 
       await orm.insert(result)
         .values({
@@ -491,7 +464,7 @@ describe('Scoring Multiplier Feature', () => {
   describe('Edge Cases', () => {
     it('should handle week with no results', async () => {
       // Setup: Week with no participants
-      const testWeek = await orm
+      const [testWeek] = await orm
         .insert(week)
         .values({
           season_id: 1,
@@ -504,7 +477,7 @@ describe('Scoring Multiplier Feature', () => {
           notes: ''
         })
         .returning()
-        .get();
+        .execute();
 
       // Calculate scores
       const scores = await calculateWeekScoring(orm, testWeek.id);
@@ -517,7 +490,7 @@ describe('Scoring Multiplier Feature', () => {
       // This is a conceptual test - multiplier applies at query time
       // So changing a week's multiplier immediately affects leaderboard display
 
-      const testWeekA = await orm
+      const [testWeekA] = await orm
         .insert(week)
         .values({
           season_id: 1,
@@ -530,9 +503,9 @@ describe('Scoring Multiplier Feature', () => {
           notes: ''
         })
         .returning()
-        .get();
+        .execute();
 
-      const testWeekB = await orm
+      const [testWeekB] = await orm
         .insert(week)
         .values({
           season_id: 1,
@@ -545,7 +518,7 @@ describe('Scoring Multiplier Feature', () => {
           notes: ''
         })
         .returning()
-        .get();
+        .execute();
 
       // Create participant
       await orm.insert(participant)
@@ -557,7 +530,7 @@ describe('Scoring Multiplier Feature', () => {
         .execute();
 
       // Create activities for both weeks
-      const activityA = await orm
+      const [activityA] = await orm
         .insert(activity)
         .values({
           week_id: testWeekA.id,
@@ -567,9 +540,9 @@ describe('Scoring Multiplier Feature', () => {
           device_name: 'Garmin'
         })
         .returning()
-        .get();
+        .execute();
 
-      const activityB = await orm
+      const [activityB] = await orm
         .insert(activity)
         .values({
           week_id: testWeekB.id,
@@ -579,7 +552,7 @@ describe('Scoring Multiplier Feature', () => {
           device_name: 'Garmin'
         })
         .returning()
-        .get();
+        .execute();
 
       // Create results
       await orm.insert(result)
