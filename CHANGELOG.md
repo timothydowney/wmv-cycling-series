@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Removed legacy SQLite-style query compatibility shim (`wrapQueryBuilder`, `wrapOrmWithLegacyCompat`) from the test helper `setupTestDb`. All test queries now use idiomatic async Postgres-style Drizzle calls (`.execute()`) directly.
+
 ### Fixed
 - Remaining operational timestamp columns (`activity.validated_at`, `segment.metadata_updated_at`, `webhook_subscription.last_refreshed_at`, `deletion_request.requested_at`/`completed_at`, `schema_migrations.executed_at`, `participant.weight_updated_at`) migrated from `text` to `timestamptz` in Postgres via migration `0017`. Drizzle schema, bootstrap script, and test DDL updated to match.
 - `chain_wax_period.created_at`, `chain_wax_activity.created_at`, and `chain_wax_puck.created_at` migrated from `bigint` Unix seconds to `timestamptz` in Postgres via migration `0018` using `to_timestamp()`. Service code updated to use DB defaults; bootstrap script, test DDL, and all chain-wax tests updated accordingly.

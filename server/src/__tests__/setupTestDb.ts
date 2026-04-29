@@ -16,83 +16,6 @@ export interface TestDbResult {
   seedData?: SeedData;
 }
 
-const builderProxyCache = new WeakMap<object, any>();
-
-function wrapQueryBuilder<T extends object>(builder: T): T {
-  const existing = builderProxyCache.get(builder);
-  if (existing) {
-    return existing;
-  }
-
-  const proxy = new Proxy(builder as any, {
-    get(target, prop, receiver) {
-      if (prop === 'get') {
-        return async () => {
-          const limited = typeof target.limit === 'function' ? target.limit(1) : target;
-          const rows = await limited.execute();
-          return Array.isArray(rows) ? rows[0] : rows;
-        };
-      }
-
-      if (prop === 'all') {
-        return async () => {
-          const rows = await target.execute();
-          return Array.isArray(rows) ? rows : [rows];
-        };
-      }
-
-      if (prop === 'run') {
-        return async () => {
-          const result = await target.execute();
-
-          if (Array.isArray(result)) {
-            return { changes: result.length };
-          }
-
-          return result;
-        };
-      }
-
-      const value = Reflect.get(target, prop, receiver);
-
-      if (typeof value === 'function') {
-        return (...args: any[]) => {
-          const result = value.apply(target, args);
-          if (result && typeof result === 'object' && typeof (result as any).execute === 'function') {
-            return wrapQueryBuilder(result);
-          }
-          return result;
-        };
-      }
-
-      return value;
-    },
-  });
-
-  builderProxyCache.set(builder, proxy);
-  return proxy;
-}
-
-function wrapOrmWithLegacyCompat(orm: AppDatabase): AppDatabase {
-  return new Proxy(orm as any, {
-    get(target, prop, receiver) {
-      const value = Reflect.get(target, prop, receiver);
-
-      if (typeof value !== 'function') {
-        return value;
-      }
-
-      return (...args: any[]) => {
-        const result = value.apply(target, args);
-        if (result && typeof result === 'object' && typeof (result as any).execute === 'function') {
-          return wrapQueryBuilder(result);
-        }
-        return result;
-      };
-    },
-  }) as AppDatabase;
-}
-
 // Full Postgres DDL — kept aligned with bootstrap-postgres-schema.js for test fidelity.
 // pg-mem executes these synchronously so setupTestDb stays synchronous.
 const SCHEMA_DDL = [
@@ -209,7 +132,7 @@ export function setupTestDb(options?: { seed?: boolean }): TestDbResult {
     proto.__wmvPatchedAdaptQuery = true;
   }
   const pool = new Pool() as unknown as import('pg').Pool;
-  const orm = wrapOrmWithLegacyCompat(drizzle(pool, { schema }) as AppDatabase);
+  const orm = drizzle(pool, { schema }) as AppDatabase;
   const drizzleDb = orm; // alias for backward compat
 
   return { orm, drizzleDb, pool, seedData };
