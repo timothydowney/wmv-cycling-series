@@ -52,8 +52,9 @@ export class WebhookAdminService {
     const successfulEvents = await countAll(eq(webhookEvent.processed, 1));
     const failedEvents = await countAll(and(eq(webhookEvent.processed, 0), sql`${webhookEvent.error_message} IS NOT NULL`));
     const pendingRetries = failedEvents;
+    const last24hCutoffIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const eventsLast24h = await countAll(
-      sql`${webhookEvent.created_at} > now() - interval '1 day'`
+      sql`${webhookEvent.created_at} > ${last24hCutoffIso}`
     );
 
     const successRate =
