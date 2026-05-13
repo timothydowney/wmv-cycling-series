@@ -236,7 +236,7 @@ const SubscriptionStatusCard: React.FC<Props> = ({ subscription, onStatusUpdate 
               </div>
               <div className="info-row auto-renewal-info">
                 <span className="label">Auto-renewal:</span>
-                <span className="value">Renews automatically every ~24 hours</span>
+                <span className="value">Checks every 6h; renews after ~22h since last refresh</span>
               </div>
             </div>
           </>
@@ -255,7 +255,7 @@ const SubscriptionStatusCard: React.FC<Props> = ({ subscription, onStatusUpdate 
               className="action-btn primary"
               onClick={handleRenew}
               disabled={loading}
-              title="Manually renew subscription (normally auto-renews every 6 hours)"
+              title="Manually renew subscription (scheduler checks every 6 hours, renews near 22 hours)"
             >
               {loading ? 'Renewing...' : 'Renew Now'}
             </button>
