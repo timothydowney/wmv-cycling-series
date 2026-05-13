@@ -133,6 +133,11 @@ Before merging or opening a substantive PR, run `npm run audit` locally alongsid
    - Treat `docs/LEADERBOARD_DESIGN_SYSTEM.md` as the canonical reference for the end-user Weekly, Season, and Schedule design language
    - Do not use legacy admin CSS as the default source of truth for public Explorer UI
    - If the leaderboard does not define a needed pattern, record that gap explicitly instead of freehanding a new local style system
+11. **Postgres schema change workflow:**
+   - `server/src/db/schema.ts` is the authoritative application schema definition for tables, indexes, and timestamp column intent.
+   - `server/src/db/postgresSchemaDdl.ts` is the canonical bootstrap DDL consumed by both runtime bootstrap (`npm --prefix server run db:pg:bootstrap:schema`) and pg-mem test setup.
+   - Keep both files aligned in the same change; `server/src/__tests__/schemaDefinitionConsistency.test.ts` is the drift gate that fails on table/index/TIMESTAMPTZ mismatches.
+   - For schema changes, run backend tests (or at minimum `npx jest --coverage=false src/__tests__/schemaDefinitionConsistency.test.ts`) before pushing.
 
 ## Special Tasks
 
