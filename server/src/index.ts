@@ -18,7 +18,7 @@ import connectPgSimple from 'connect-pg-simple';
 import strava from 'strava-v3';
 import * as stravaClient from './stravaClient';
 import { getValidAccessToken } from './tokenManager';
-import { season } from './db/schema';
+import { activity, participant, result, season, segment, week } from './db/schema';
 import LoginService from './services/LoginService';
 import BatchFetchService from './services/BatchFetchService';
 import WeekService from './services/WeekService';
@@ -34,6 +34,7 @@ import { createWebhookRouter } from './routes/webhooks';
 import { WebhookLogger } from './webhooks/logger';
 import { setupWebhookSubscription } from './webhooks/subscriptionManager';
 import { WebhookRenewalService } from './services/WebhookRenewalService';
+import { sql } from 'drizzle-orm';
 
 // Route modules (lazily loaded to avoid circular dependencies)
 const routes = {
@@ -181,11 +182,36 @@ async function verifyDatabaseReady(): Promise<void> {
 
   console.log(`[DB] ✓ Database has ${tableNames.length} tables: ${tableNames.join(', ')}`);
 
-  const tablesToCheck = ['participant', 'week', 'season', 'activity', 'result', 'segment'];
+  const tableRowCountChecks = [
+    {
+      tableName: 'participant',
+      query: () => drizzleDb.select({ cnt: sql<number>`count(*)::int`.as('cnt') }).from(participant).execute()
+    },
+    {
+      tableName: 'week',
+      query: () => drizzleDb.select({ cnt: sql<number>`count(*)::int`.as('cnt') }).from(week).execute()
+    },
+    {
+      tableName: 'season',
+      query: () => drizzleDb.select({ cnt: sql<number>`count(*)::int`.as('cnt') }).from(season).execute()
+    },
+    {
+      tableName: 'activity',
+      query: () => drizzleDb.select({ cnt: sql<number>`count(*)::int`.as('cnt') }).from(activity).execute()
+    },
+    {
+      tableName: 'result',
+      query: () => drizzleDb.select({ cnt: sql<number>`count(*)::int`.as('cnt') }).from(result).execute()
+    },
+    {
+      tableName: 'segment',
+      query: () => drizzleDb.select({ cnt: sql<number>`count(*)::int`.as('cnt') }).from(segment).execute()
+    }
+  ] as const;
   console.log('[DB] Row counts:');
-  for (const tableName of tablesToCheck) {
-    const countResult = await db.query<{ cnt: number }>(`SELECT COUNT(*)::int AS cnt FROM ${tableName}`);
-    console.log(`[DB]   ${tableName}: ${countResult.rows[0]?.cnt ?? 0} rows`);
+  for (const { tableName, query } of tableRowCountChecks) {
+    const countResult = await query();
+    console.log(`[DB]   ${tableName}: ${countResult[0]?.cnt ?? 0} rows`);
   }
 }
 
