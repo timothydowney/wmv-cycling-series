@@ -35,7 +35,7 @@ export interface SubscriptionStatus {
   id: number | null;
   subscription_id: number | null;
   created_at: string | null;
-  expires_at: string | null; // Calculated as created_at + 24 hours
+  expires_at: string | null; // Calculated as renewal baseline + 24 hours (prefers last_refreshed_at)
   last_refreshed_at: string | null;
   callback_url: string | null;
 }
@@ -375,12 +375,16 @@ export class WebhookSubscriptionService {
         console.warn('[WebhookSubscriptionService] getStatus - subscription_payload is NULL in database despite row existing');
       }
 
-      // Calculate expires_at (24 hours from created_at)
+      // Calculate expires_at from renewal baseline (24 hours from last_refreshed_at).
+      // Fall back to created_at only when last_refreshed_at is missing.
       let expires_at: string | null = null;
-      if (payload?.created_at) {
-        const created = new Date(payload.created_at);
-        const expires = new Date(created.getTime() + 24 * 60 * 60 * 1000);
-        expires_at = expires.toISOString();
+      const renewalBaseline = row.last_refreshed_at ?? payload?.created_at ?? null;
+      if (renewalBaseline) {
+        const baseline = new Date(renewalBaseline);
+        if (!Number.isNaN(baseline.getTime())) {
+          const expires = new Date(baseline.getTime() + 24 * 60 * 60 * 1000);
+          expires_at = expires.toISOString();
+        }
       }
 
       // Use subscription_id from column (clean, reliable source)
