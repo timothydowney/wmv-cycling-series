@@ -9,6 +9,20 @@ on:
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: wmv
+          POSTGRES_PASSWORD: wmv
+          POSTGRES_DB: wmv_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U wmv -d wmv_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,6 +38,14 @@ jobs:
 
       - name: Audit dependencies
         run: npm run audit
+
+      - name: Validate Drizzle migration metadata
+        run: npm run db:check
+
+      - name: Apply Drizzle migrations on clean Postgres
+        env:
+          DATABASE_URL: postgresql://wmv:wmv@localhost:5432/wmv_ci
+        run: npm run db:migrate
 
       - name: Typecheck (frontend + server)
         run: npm run typecheck
@@ -57,4 +79,3 @@ jobs:
           echo "3. Connect GitHub repo"
           echo "4. Railway will auto-deploy on push to main"
         shell: bash
-

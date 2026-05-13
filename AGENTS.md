@@ -40,6 +40,9 @@ npm run build        # Build both frontend + backend for production
 npm run lint         # Lint both frontend + backend
 npm run typecheck    # Typecheck both frontend + backend
 npm run audit        # Security audit (frontend + backend)
+npm run db:generate  # Generate next Postgres Drizzle migration from schema changes
+npm run db:migrate   # Apply Postgres Drizzle migrations
+npm run db:check     # Validate Drizzle migration metadata consistency
 ```
 
 Before merging or opening a substantive PR, run `npm run audit` locally alongside lint, typecheck, tests, and build so CI is not the first place dependency vulnerabilities are discovered.

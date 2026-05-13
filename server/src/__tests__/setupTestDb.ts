@@ -16,7 +16,7 @@ export interface TestDbResult {
   seedData?: SeedData;
 }
 
-// Full Postgres DDL — kept aligned with bootstrap-postgres-schema.js for test fidelity.
+// Full Postgres DDL — kept aligned with Drizzle Postgres baseline schema for test fidelity.
 // pg-mem executes these synchronously so setupTestDb stays synchronous.
 const SCHEMA_DDL = [
   'CREATE TABLE IF NOT EXISTS sessions (sid TEXT PRIMARY KEY, sess JSONB NOT NULL, expire TIMESTAMP NOT NULL)',

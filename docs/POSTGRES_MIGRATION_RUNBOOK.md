@@ -19,6 +19,30 @@ Important local isolation note:
 - Do not delete SQLite snapshots used for cutover rehearsal.
 - Keep a rollback tag on main before merge/cutover. Current checkpoint tag: `pre-postgres-migration-sqlite-20260425`.
 
+## Drizzle Post-Cutover Migration Lifecycle (Postgres Only)
+
+Source of truth for schema evolution:
+- Drizzle schema: `server/src/db/schema.ts`
+- Applied migration history: `server/drizzle/*.sql` + `server/drizzle/meta/_journal.json`
+
+Standard forward-migration flow:
+
+1. Generate a new migration from schema changes:
+```bash
+npm run db:generate
+```
+2. Review generated SQL in `server/drizzle/`.
+3. Apply locally:
+```bash
+DATABASE_URL="postgresql://wmv:wmv@localhost:5432/wmv_local" npm run db:migrate
+```
+4. Validate migration metadata consistency:
+```bash
+npm run db:check
+```
+
+CI now validates both migration metadata (`db:check`) and clean application against a fresh Postgres database (`db:migrate`).
+
 Verify rollback tag presence on origin:
 ```bash
 npm run db:postgres:verify-rollback-tag
@@ -50,12 +74,12 @@ Current branch status: backend runtime is Postgres-only. SQLite is retained only
 
 ## Phase 2: Prepare Postgres Schema
 
-Initialize the local Postgres schema bridge:
+Initialize the local Postgres schema from Drizzle migrations:
 ```bash
 DATABASE_URL="postgresql://wmv:wmv@localhost:5432/wmv_local" npm run db:postgres:bootstrap-schema
 ```
 
-This creates all current application tables and indexes in local Postgres to enable data import rehearsal.
+This applies the Drizzle baseline and any incremental migrations in order.
 
 ## Phase 3: Migrate Local SQLite Dev Data
 

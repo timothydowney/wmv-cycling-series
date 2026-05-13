@@ -20,8 +20,10 @@
     "seed": "node scripts/seed.js",
     "export:season": "node scripts/export-season-data.js",
     "import:season": "node scripts/import-season-data.js",
+    "db:generate": "drizzle-kit generate",
+    "db:check": "drizzle-kit check",
     "db:migrate": "drizzle-kit migrate",
-    "db:pg:bootstrap:schema": "node scripts/bootstrap-postgres-schema.js",
+    "db:pg:bootstrap:schema": "npm run db:migrate",
     "db:pg:migrate:from-sqlite": "node scripts/migrate-sqlite-to-postgres.js",
     "db:pg:verify:parity": "node scripts/verify-sqlite-postgres-parity.js"
   },
