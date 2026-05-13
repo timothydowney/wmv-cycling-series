@@ -59,6 +59,27 @@ jobs:
       - name: Test (server)
         run: npm test
 
+      - name: Test (E2E)
+        env:
+          ENV_FILE: e2e/.env.e2e
+          DATABASE_URL: postgresql://wmv:wmv@localhost:5432/wmv_e2e
+          WMV_SKIP_DOCKER_STARTUP: "true"
+        run: |
+          # Create wmv_e2e database in the CI Postgres service
+          node server/scripts/ensure-postgres-db.js --url postgresql://wmv:wmv@localhost:5432/wmv_e2e
+          # Apply Drizzle schema migrations
+          DATABASE_URL=postgresql://wmv:wmv@localhost:5432/wmv_e2e npm --prefix server run db:migrate
+          # Seed E2E database from the sanitised SQLite fixture
+          DATABASE_URL=postgresql://wmv:wmv@localhost:5432/wmv_e2e \
+            node server/scripts/migrate-sqlite-to-postgres.js \
+              --sqlite server/data/wmv_e2e_fixture.db \
+              --postgres postgresql://wmv:wmv@localhost:5432/wmv_e2e \
+              --confirm-destructive
+          # Install Playwright Chromium and required OS dependencies
+          npx playwright install --with-deps chromium
+          # Run E2E tests (Playwright webServer boots the backend + frontend)
+          npm run test:e2e
+
       - name: Build Docker image
         run: docker build -t wmv-cycling:ci .
 

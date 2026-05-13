@@ -20,7 +20,49 @@ echo "[e2e-db] Ensuring target Postgres database exists"
 node server/scripts/ensure-postgres-db.js --url "$DATABASE_URL"
 
 echo "[e2e-db] Ensuring schema exists"
-DATABASE_URL="$DATABASE_URL" npm --prefix server run db:pg:bootstrap:schema >/dev/null
+DATABASE_URL="$DATABASE_URL" npm --prefix server run db:pg:bootstrap:schema >/dev/null 2>&1 || true
+
+# Verify that the schema is actually in place after the migration attempt.
+DB_SCHEMA_OK=$(cd server && node -e "
+const { Client } = require('pg');
+const c = new Client({ connectionString: process.argv[1] });
+c.connect()
+  .then(() => c.query(\"SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='participant'\"))
+  .then(r => { console.log(r.rowCount > 0 ? 'ok' : 'missing'); })
+  .catch(() => { console.log('missing'); })
+  .finally(() => c.end());
+" "$DATABASE_URL" 2>/dev/null)
+
+if [[ "$DB_SCHEMA_OK" != "ok" ]]; then
+  echo "[e2e-db] ERROR: schema bootstrap failed — participant table is missing"
+  exit 1
+fi
+
+# Seed from the SQLite fixture if the DB is empty (e.g., fresh CI environment).
+PARTICIPANT_COUNT=$(cd server && node -e "
+const { Client } = require('pg');
+const c = new Client({ connectionString: process.argv[1] });
+c.connect()
+  .then(() => c.query('SELECT COUNT(*) AS count FROM participant'))
+  .then(r => { console.log(r.rows[0].count); })
+  .catch(() => { console.log('0'); })
+  .finally(() => c.end());
+" "$DATABASE_URL" 2>/dev/null)
+
+if [[ "${PARTICIPANT_COUNT:-0}" == "0" ]]; then
+  FIXTURE_PATH="server/data/wmv_e2e_fixture.db"
+  if [[ -f "$FIXTURE_PATH" ]]; then
+    echo "[e2e-db] Seeding E2E database from fixture (${FIXTURE_PATH})"
+    DATABASE_URL="$DATABASE_URL" node server/scripts/migrate-sqlite-to-postgres.js \
+      --sqlite "$FIXTURE_PATH" \
+      --postgres "$DATABASE_URL" \
+      --confirm-destructive
+  else
+    echo "[e2e-db] WARNING: fixture file not found at ${FIXTURE_PATH}; E2E DB will be empty"
+  fi
+else
+  echo "[e2e-db] E2E database already has data (${PARTICIPANT_COUNT} participants), skipping seed"
+fi
 
 if [[ "${WMV_E2E_RESET_DB_ON_BOOT:-false}" == "true" ]]; then
   echo "[e2e-db] ERROR: WMV_E2E_RESET_DB_ON_BOOT=true is no longer supported by scripts/ensure-e2e-db.sh."

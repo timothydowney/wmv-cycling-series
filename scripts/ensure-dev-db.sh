@@ -40,31 +40,48 @@ if [[ "$DATABASE_HOST_VALUE" != "localhost" && "$DATABASE_HOST_VALUE" != "127.0.
   exit 0
 fi
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "[dev-db] ERROR: docker is required for local Postgres host (${DATABASE_HOST_VALUE})"
-  exit 1
-fi
-
-echo "[dev-db] Ensuring local Postgres container is running"
-docker compose up -d postgres >/dev/null
-
 POSTGRES_USER_VALUE="${POSTGRES_USER:-wmv}"
 POSTGRES_DB_VALUE="${POSTGRES_DB:-$DATABASE_NAME_VALUE}"
 
-for attempt in $(seq 1 40); do
-  if docker compose exec -T postgres pg_isready -U "$POSTGRES_USER_VALUE" -d "$POSTGRES_DB_VALUE" >/dev/null 2>&1; then
-    echo "[dev-db] Postgres is ready"
-    break
+if [[ "${WMV_SKIP_DOCKER_STARTUP:-false}" == "true" ]]; then
+  echo "[dev-db] WMV_SKIP_DOCKER_STARTUP=true — skipping Docker Compose startup (assuming Postgres is already running)"
+  # Wait for Postgres to be ready using pg_isready from the system path or node pg client.
+  for attempt in $(seq 1 20); do
+    if (cd server && node -e "
+const { Client } = require('pg');
+const c = new Client({ connectionString: process.argv[1] });
+c.connect().then(() => { c.end(); process.exit(0); }).catch(() => process.exit(1));" \
+"$DATABASE_URL_VALUE" 2>/dev/null); then
+      echo "[dev-db] Postgres is ready"
+      break
+    fi
+    sleep 1
+    echo "[dev-db] Waiting for Postgres... (${attempt}/20)"
+  done
+else
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "[dev-db] ERROR: docker is required for local Postgres host (${DATABASE_HOST_VALUE})"
+    exit 1
   fi
-  sleep 1
-  echo "[dev-db] Waiting for Postgres... (${attempt}/40)"
-done
 
-if ! docker compose exec -T postgres pg_isready -U "$POSTGRES_USER_VALUE" -d "$POSTGRES_DB_VALUE" >/dev/null 2>&1; then
-  echo "[dev-db] ERROR: Timed out waiting for Postgres to become ready"
-  echo "[dev-db] Check container logs with: npm run db:postgres:logs"
-  echo "[dev-db] If logs mention PostgreSQL 18 layout/upgrade conflicts, reset local volume with: npm run db:postgres:reset"
-  exit 1
+  echo "[dev-db] Ensuring local Postgres container is running"
+  docker compose up -d postgres >/dev/null
+
+  for attempt in $(seq 1 40); do
+    if docker compose exec -T postgres pg_isready -U "$POSTGRES_USER_VALUE" -d "$POSTGRES_DB_VALUE" >/dev/null 2>&1; then
+      echo "[dev-db] Postgres is ready"
+      break
+    fi
+    sleep 1
+    echo "[dev-db] Waiting for Postgres... (${attempt}/40)"
+  done
+
+  if ! docker compose exec -T postgres pg_isready -U "$POSTGRES_USER_VALUE" -d "$POSTGRES_DB_VALUE" >/dev/null 2>&1; then
+    echo "[dev-db] ERROR: Timed out waiting for Postgres to become ready"
+    echo "[dev-db] Check container logs with: npm run db:postgres:logs"
+    echo "[dev-db] If logs mention PostgreSQL 18 layout/upgrade conflicts, reset local volume with: npm run db:postgres:reset"
+    exit 1
+  fi
 fi
 
 if [[ "$AUTO_BOOTSTRAP_VALUE" != "true" ]]; then

@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- E2E test harness migrated from SQLite fixture file to Postgres: `ensure-e2e-db.sh` now creates the `wmv_e2e` database, applies Drizzle migrations, and auto-seeds from `wmv_e2e_fixture.db` when the database is empty. Idempotent on re-runs.
+- `scripts/ensure-dev-db.sh` supports `WMV_SKIP_DOCKER_STARTUP=true` for CI environments where Postgres runs as a native service rather than a Docker Compose container.
+
+### Added
+- CI workflow now includes an E2E test step (`Test (E2E)`) that provisions `wmv_e2e`, seeds it from the SQLite fixture, installs Playwright Chromium, and runs the full Playwright suite against the live dev servers.
+
 - Removed legacy SQLite-style query compatibility shim (`wrapQueryBuilder`, `wrapOrmWithLegacyCompat`) from the test helper `setupTestDb`. All test queries now use idiomatic async Postgres-style Drizzle calls (`.execute()`) directly.
 
 ### Fixed

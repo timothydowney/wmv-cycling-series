@@ -1,3 +1,14 @@
+## Troubleshooting
+
+**Migration errors (e.g., relation already exists):**
+If you see errors like `relation ... already exists` when running E2E tests, your `wmv_e2e` database may be out of sync or partially migrated. To fix:
+
+1. Connect to Postgres (e.g., `psql -U wmv -h localhost`)
+2. Run: `DROP DATABASE wmv_e2e;`
+3. Run: `CREATE DATABASE wmv_e2e;`
+4. Re-run `npm run test:e2e` (the harness will recreate schema)
+
+This ensures a clean E2E DB for migrations.
 # E2E Testing with Playwright
 
 End-to-end tests for UI-specific regressions and responsive design. These tests run **separately** from Jest unit tests.
@@ -51,9 +62,18 @@ These principles describe the intended direction for the E2E harness as it becom
 - Use explicit provider selection for outbound integrations when behavior must differ in E2E, for example live, fixture-backed, or mock-server-backed Strava behavior.
 - Fail fast if the intended E2E env file or backend mode is missing instead of silently falling back to the normal development environment.
 
-Current reality: Playwright now boots dedicated frontend and backend E2E servers for `npm run test:e2e`, the backend uses an explicit E2E runtime mode for harness boot concerns, and deterministic backend Strava behavior is selected through explicit providers for the current Explorer and read-side flows. The E2E database resets from the committed sanitized fixture at `server/data/wmv_e2e_fixture.db`, so the suite no longer depends on a contributor's local `wmv.db` to run on a fresh clone.
 
-This matters for Explorer admin flows because destination authoring fetches segment metadata from the backend, so Playwright browser interception alone is not sufficient for repeatable coverage and is one reason the stricter harness direction is needed.
+Current reality: Playwright now boots dedicated frontend and backend E2E servers for `npm run test:e2e`, the backend uses an explicit E2E runtime mode for harness boot concerns, and deterministic backend Strava behavior is selected through explicit providers for the current Explorer and read-side flows. The E2E database is now Postgres-only (no SQLite). The suite uses the `wmv_e2e` Postgres database, which is created and migrated automatically by the harness scripts. The legacy SQLite fixture import/reset flow is removed.
+
+
+**Local E2E DB setup:**
+
+1. Ensure Docker is running.
+2. Run `docker compose up -d` to start the Postgres service (creates both `wmv_local` and `wmv_e2e` DBs).
+3. Run `npm run test:e2e` to execute Playwright tests. The harness will migrate the E2E DB automatically.
+4. To reset the E2E DB, drop and recreate `wmv_e2e` (see scripts/ensure-e2e-db.sh for details).
+
+**No SQLite fallback:** All E2E and dev/test DBs are now Postgres. If you see DB errors, check your Docker and Postgres setup.
 
 ## Phase 1 Status: Setup
 
