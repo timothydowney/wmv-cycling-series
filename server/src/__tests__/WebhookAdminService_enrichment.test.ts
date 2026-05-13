@@ -1,5 +1,6 @@
 import type { Pool } from 'pg';
 import type { AppDatabase } from '../db/types';
+import { jest } from '@jest/globals';
 import { 
   setupTestDb, 
   teardownTestDb, 
@@ -242,5 +243,46 @@ describe('WebhookAdminService enrichment', () => {
     const objectIds = result.events.map((event) => event.payload.object_id);
     expect(objectIds).toContain(222);
     expect(objectIds).not.toContain(111);
+  });
+
+  it('should count events_last24h using created_at cutoff without timestamp type errors', async () => {
+    await orm.delete(webhookEvent);
+
+    const fixedNow = new Date('2026-05-13T12:00:00.000Z').getTime();
+    const cutoff = fixedNow - (24 * 60 * 60 * 1000);
+    const dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
+
+    try {
+      await orm.insert(webhookEvent).values([
+        {
+          payload: JSON.stringify({
+            object_type: 'athlete',
+            aspect_type: 'update',
+            object_id: 333,
+            owner_id: 333,
+            event_time: 1714608000,
+          }),
+          processed: 1,
+          created_at: new Date(cutoff - 1000).toISOString(),
+        },
+        {
+          payload: JSON.stringify({
+            object_type: 'athlete',
+            aspect_type: 'update',
+            object_id: 444,
+            owner_id: 444,
+            event_time: 1714694400,
+          }),
+          processed: 1,
+          created_at: new Date(cutoff + 1000).toISOString(),
+        },
+      ]);
+
+      const status = await service.getStatus();
+      expect(status.metrics.total_events).toBe(2);
+      expect(status.metrics.events_last24h).toBe(1);
+    } finally {
+      dateNowSpy.mockRestore();
+    }
   });
 });
