@@ -1,40 +1,45 @@
-import { getTableName } from 'drizzle-orm';
+import { getTableName, is, Table } from 'drizzle-orm';
+import type { AnyPgTable } from 'drizzle-orm/pg-core';
 import * as schema from '../db/schema';
 import { POSTGRES_SCHEMA_DDL } from '../db/postgresSchemaDdl';
 
-function getDrizzleTables(): any[] {
-  return Object.values(schema).filter((value: any) => {
-    if (!value || typeof value !== 'object') {
-      return false;
-    }
+type IndexBuilderLike = { config?: { name?: string } };
+type TimestampColumnLike = { withTimezone?: boolean; name?: string };
+const tableSymbols = (Table as unknown as {
+  Symbol: { ExtraConfigBuilder: symbol; ExtraConfigColumns: symbol };
+}).Symbol;
 
-    const isDrizzleTableSymbol = Object.getOwnPropertySymbols(value).find(
-      (symbol) => String(symbol) === 'Symbol(drizzle:IsDrizzleTable)'
-    );
-    return Boolean(isDrizzleTableSymbol && value[isDrizzleTableSymbol]);
-  });
+function isDrizzleTable(value: unknown): value is AnyPgTable {
+  return is(value, Table);
 }
 
-function getDrizzleIndexNames(tables: any[]): string[] {
+function isTimestampColumn(value: unknown): value is TimestampColumnLike {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const typedValue = value as TimestampColumnLike;
+  return typedValue.withTimezone === true && typeof typedValue.name === 'string';
+}
+
+function getDrizzleTables(): AnyPgTable[] {
+  return Object.values(schema).filter(isDrizzleTable);
+}
+
+function getDrizzleIndexNames(tables: AnyPgTable[]): string[] {
   const names: string[] = [];
 
   for (const table of tables) {
-    const symbols = Object.getOwnPropertySymbols(table);
-    const extraConfigBuilderSymbol = symbols.find((symbol) => String(symbol) === 'Symbol(drizzle:ExtraConfigBuilder)');
-    const extraConfigColumnsSymbol = symbols.find((symbol) => String(symbol) === 'Symbol(drizzle:ExtraConfigColumns)');
-    if (!extraConfigBuilderSymbol || !extraConfigColumnsSymbol) {
-      continue;
-    }
-
-    const extraConfigBuilder = table[extraConfigBuilderSymbol];
-    const extraConfigColumns = table[extraConfigColumnsSymbol];
+    const tableCandidate = table as unknown as Record<symbol, unknown>;
+    const extraConfigBuilder = tableCandidate[tableSymbols.ExtraConfigBuilder];
+    const extraConfigColumns = tableCandidate[tableSymbols.ExtraConfigColumns];
     if (typeof extraConfigBuilder !== 'function') {
       continue;
     }
 
     const extraConfig = extraConfigBuilder(extraConfigColumns);
     const indexBuilders = Array.isArray(extraConfig) ? extraConfig : [];
-    for (const builder of indexBuilders) {
+    for (const builder of indexBuilders as IndexBuilderLike[]) {
       if (builder?.config?.name) {
         names.push(builder.config.name);
       }
@@ -44,19 +49,14 @@ function getDrizzleIndexNames(tables: any[]): string[] {
   return names.sort();
 }
 
-function getDrizzleTimestamptzColumns(tables: any[]): string[] {
+function getDrizzleTimestamptzColumns(tables: AnyPgTable[]): string[] {
   const columns: string[] = [];
 
   for (const table of tables) {
     const tableName = getTableName(table);
     for (const value of Object.values(table)) {
-      const column = value as any;
-      if (!column || typeof column !== 'object') {
-        continue;
-      }
-
-      if (column.withTimezone === true && typeof column.name === 'string') {
-        columns.push(`${tableName}.${column.name}`);
+      if (isTimestampColumn(value)) {
+        columns.push(`${tableName}.${value.name}`);
       }
     }
   }
@@ -89,10 +89,8 @@ function getDdlTimestamptzColumns(): string[] {
 
     const [, tableName, tableBody] = tableMatch;
     const timestamptzColumnRegex = /\b([a-z_][a-z0-9_]*)\s+TIMESTAMPTZ\b/gi;
-    let match = timestamptzColumnRegex.exec(tableBody);
-    while (match) {
+    for (const match of tableBody.matchAll(timestamptzColumnRegex)) {
       columns.push(`${tableName}.${match[1]}`);
-      match = timestamptzColumnRegex.exec(tableBody);
     }
   }
 
