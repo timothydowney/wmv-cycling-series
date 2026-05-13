@@ -122,4 +122,88 @@ describe('WebhookSubscriptionService DB compatibility', () => {
 
     expect(deleteLog?.[1]).toMatchObject({ changes: undefined, changesKnown: false });
   });
+
+  it('uses last_refreshed_at as renewal baseline for fresh subscriptions', async () => {
+    const fixedNow = new Date('2026-05-13T12:00:00.000Z').getTime();
+    const dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
+
+    try {
+      const refreshedAtIso = '2026-05-13T11:00:00.000Z';
+      await orm.insert(webhookSubscription).values({
+        id: 1,
+        verify_token: 'local-token',
+        subscription_payload: JSON.stringify({
+          id: 101,
+          created_at: '2026-05-10T00:00:00.000Z',
+          updated_at: '2026-05-10T00:00:00.000Z',
+          callback_url: 'https://example.com/webhook',
+          application_id: 123,
+        }),
+        subscription_id: 101,
+        last_refreshed_at: refreshedAtIso,
+      });
+
+      const status = await service.getStatus();
+      expect(status.expires_at).toBe('2026-05-14T11:00:00.000Z');
+      await expect(service.needsRenewal()).resolves.toBe(false);
+    } finally {
+      dateNowSpy.mockRestore();
+    }
+  });
+
+  it('surfaces near-renewal status from last_refreshed_at age', async () => {
+    const fixedNow = new Date('2026-05-13T12:00:00.000Z').getTime();
+    const dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
+
+    try {
+      const refreshedAtIso = '2026-05-12T14:30:00.000Z'; // 21.5 hours ago
+      await orm.insert(webhookSubscription).values({
+        id: 1,
+        verify_token: 'local-token',
+        subscription_payload: JSON.stringify({
+          id: 202,
+          created_at: '2026-05-12T15:00:00.000Z',
+          updated_at: '2026-05-12T15:00:00.000Z',
+          callback_url: 'https://example.com/webhook',
+          application_id: 123,
+        }),
+        subscription_id: 202,
+        last_refreshed_at: refreshedAtIso,
+      });
+
+      const status = await service.getStatus();
+      expect(status.expires_at).toBe('2026-05-13T14:30:00.000Z');
+      await expect(service.needsRenewal()).resolves.toBe(false);
+    } finally {
+      dateNowSpy.mockRestore();
+    }
+  });
+
+  it('treats stale last_refreshed_at as expired even if created_at is newer', async () => {
+    const fixedNow = new Date('2026-05-13T12:00:00.000Z').getTime();
+    const dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
+
+    try {
+      const refreshedAtIso = '2026-05-12T10:00:00.000Z'; // 26 hours ago
+      await orm.insert(webhookSubscription).values({
+        id: 1,
+        verify_token: 'local-token',
+        subscription_payload: JSON.stringify({
+          id: 303,
+          created_at: '2026-05-13T11:55:00.000Z',
+          updated_at: '2026-05-13T11:55:00.000Z',
+          callback_url: 'https://example.com/webhook',
+          application_id: 123,
+        }),
+        subscription_id: 303,
+        last_refreshed_at: refreshedAtIso,
+      });
+
+      const status = await service.getStatus();
+      expect(status.expires_at).toBe('2026-05-13T10:00:00.000Z');
+      await expect(service.needsRenewal()).resolves.toBe(true);
+    } finally {
+      dateNowSpy.mockRestore();
+    }
+  });
 });
