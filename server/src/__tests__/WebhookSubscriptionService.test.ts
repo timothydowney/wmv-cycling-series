@@ -28,8 +28,18 @@ describe('WebhookSubscriptionService DB compatibility', () => {
   let orm: AppDatabase;
   let service: WebhookSubscriptionService;
   let logSpy: ReturnType<typeof jest.spyOn>;
-  const add24HoursIso = (value: string): string =>
+  const addExpirationWindow = (value: string): string =>
     new Date(new Date(value).getTime() + 24 * 60 * 60 * 1000).toISOString();
+  const getStoredRefreshTimestamp = async (testName: string): Promise<string> => {
+    const [stored] = await orm
+      .select({ last_refreshed_at: webhookSubscription.last_refreshed_at })
+      .from(webhookSubscription)
+      .limit(1);
+    if (!stored?.last_refreshed_at) {
+      throw new Error(`Expected stored last_refreshed_at for ${testName}`);
+    }
+    return stored.last_refreshed_at;
+  };
   const RENEWAL_THRESHOLD_MS = 22 * 60 * 60 * 1000;
 
   beforeEach(() => {
@@ -145,15 +155,12 @@ describe('WebhookSubscriptionService DB compatibility', () => {
         subscription_id: 101,
         last_refreshed_at: refreshedAtIso,
       });
-      const [stored] = await orm
-        .select({ last_refreshed_at: webhookSubscription.last_refreshed_at })
-        .from(webhookSubscription)
-        .limit(1);
+      const storedRefreshedAt = await getStoredRefreshTimestamp('fresh renewal baseline');
 
       const status = await service.getStatus();
-      expect(status.expires_at).toBe(add24HoursIso(stored.last_refreshed_at ?? refreshedAtIso));
+      expect(status.expires_at).toBe(addExpirationWindow(storedRefreshedAt));
       const expectedNeedsRenewal =
-        fixedNow - new Date(stored.last_refreshed_at ?? refreshedAtIso).getTime() >= RENEWAL_THRESHOLD_MS;
+        fixedNow - new Date(storedRefreshedAt).getTime() >= RENEWAL_THRESHOLD_MS;
       await expect(service.needsRenewal()).resolves.toBe(expectedNeedsRenewal);
     } finally {
       dateNowSpy.mockRestore();
@@ -179,13 +186,10 @@ describe('WebhookSubscriptionService DB compatibility', () => {
         subscription_id: 202,
         last_refreshed_at: refreshedAtIso,
       });
-      const [stored] = await orm
-        .select({ last_refreshed_at: webhookSubscription.last_refreshed_at })
-        .from(webhookSubscription)
-        .limit(1);
+      const storedRefreshedAt = await getStoredRefreshTimestamp('near-renewal window');
 
       const status = await service.getStatus();
-      expect(status.expires_at).toBe(add24HoursIso(stored.last_refreshed_at ?? refreshedAtIso));
+      expect(status.expires_at).toBe(addExpirationWindow(storedRefreshedAt));
       await expect(service.needsRenewal()).resolves.toBe(false);
     } finally {
       dateNowSpy.mockRestore();
@@ -211,13 +215,10 @@ describe('WebhookSubscriptionService DB compatibility', () => {
         subscription_id: 303,
         last_refreshed_at: refreshedAtIso,
       });
-      const [stored] = await orm
-        .select({ last_refreshed_at: webhookSubscription.last_refreshed_at })
-        .from(webhookSubscription)
-        .limit(1);
+      const storedRefreshedAt = await getStoredRefreshTimestamp('expired renewal baseline');
 
       const status = await service.getStatus();
-      expect(status.expires_at).toBe(add24HoursIso(stored.last_refreshed_at ?? refreshedAtIso));
+      expect(status.expires_at).toBe(addExpirationWindow(storedRefreshedAt));
       await expect(service.needsRenewal()).resolves.toBe(true);
     } finally {
       dateNowSpy.mockRestore();
