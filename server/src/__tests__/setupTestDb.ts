@@ -11,7 +11,6 @@ export interface SeedData {
 
 export interface TestDbResult {
   orm: AppDatabase;
-  drizzleDb: AppDatabase;
   pool: Pool;
   seedData?: SeedData;
 }
@@ -133,9 +132,8 @@ export function setupTestDb(options?: { seed?: boolean }): TestDbResult {
   }
   const pool = new Pool() as unknown as import('pg').Pool;
   const orm = drizzle(pool, { schema }) as AppDatabase;
-  const drizzleDb = orm; // alias for backward compat
 
-  return { orm, drizzleDb, pool, seedData };
+  return { orm, pool, seedData };
 }
 
 // End the pool when a test file is done. Safe to call multiple times.
