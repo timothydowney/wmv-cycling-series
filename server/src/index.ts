@@ -5,9 +5,11 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import type { Request } from 'express';
 
 import { db, drizzleDb } from './db';
+import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import * as trpcExpress from '@trpc/server/adapters/express';
 import { createContext } from './trpc/context';
 import { appRouter } from './routers';
@@ -159,6 +161,111 @@ const REQUIRED_TABLES = [
   'chain_wax_puck',
 ] as const;
 
+const MIGRATIONS_FOLDER = path.join(__dirname, '../drizzle');
+
+/**
+ * Ensures the Drizzle migration tracking table reflects the new baseline before
+ * migrate() runs. Handles three database states:
+ *
+ * 1. Fresh database (no drizzle schema, no app tables):
+ *    No-op. migrate() applies the baseline from scratch.
+ *
+ * 2. Legacy-bootstrapped database (no drizzle schema, app tables exist):
+ *    Arose from bootstrap-postgres-schema.js before the Drizzle lifecycle was adopted.
+ *    Creates the drizzle tracking schema and stamps the baseline so migrate() skips it.
+ *
+ * 3. Production database with old migration history (drizzle schema exists, but
+ *    baseline hash not yet in tracking table):
+ *    The old 19-migration history (0000_init … 0018_chain_wax_created_at_timestamptz)
+ *    is no longer in the migrations folder. migrate() would try to apply the new
+ *    baseline and fail with "table already exists". We replace the old tracking rows
+ *    with the single baseline entry so migrate() skips it cleanly.
+ *    This is safe: the schema is already fully current.
+ */
+async function stampBaselineIfBootstrapped(): Promise<void> {
+  const journalPath = path.join(MIGRATIONS_FOLDER, 'meta/_journal.json');
+  const journal = JSON.parse(fs.readFileSync(journalPath, 'utf-8')) as {
+    entries: { idx: number; tag: string; when: number }[];
+  };
+  const baselineEntry = journal.entries[0];
+  if (!baselineEntry) {
+    console.warn('[DB] No baseline entry in journal — skipping stamp');
+    return;
+  }
+
+  const baselineSql = fs.readFileSync(
+    path.join(MIGRATIONS_FOLDER, `${baselineEntry.tag}.sql`),
+    'utf-8'
+  );
+  const baselineHash = crypto.createHash('sha256').update(baselineSql).digest('hex');
+
+  const drizzleSchemaResult = await db.query<{ exists: boolean }>(
+    'SELECT EXISTS(SELECT 1 FROM information_schema.schemata WHERE schema_name = \'drizzle\') AS exists'
+  );
+  const drizzleSchemaExists = drizzleSchemaResult.rows[0]?.exists ?? false;
+
+  if (drizzleSchemaExists) {
+    // Drizzle schema already exists. Check whether the baseline is already stamped.
+    const baselineTrackedResult = await db.query<{ exists: boolean }>(
+      'SELECT EXISTS(SELECT 1 FROM drizzle.__drizzle_migrations WHERE hash = $1) AS exists',
+      [baselineHash]
+    );
+    if (baselineTrackedResult.rows[0]?.exists) {
+      return; // Baseline already stamped — migrate() handles everything normally
+    }
+
+    // The drizzle schema exists but has old migration entries (e.g. production before
+    // re-baseline). The schema is fully current; just replace the old tracking rows
+    // with the new baseline so migrate() skips it.
+    console.log('[DB] Old migration history detected. Replacing with Postgres baseline stamp...');
+    await db.query('TRUNCATE drizzle.__drizzle_migrations RESTART IDENTITY');
+    await db.query(
+      'INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ($1, $2)',
+      [baselineHash, baselineEntry.when]
+    );
+    console.log(`[DB] ✓ Migration tracking reset to baseline "${baselineEntry.tag}"`);
+    return;
+  }
+
+  // Drizzle schema does not exist at all.
+  const participantTableResult = await db.query<{ tablename: string }>(
+    'SELECT tablename FROM pg_tables WHERE schemaname = \'public\' AND tablename = \'participant\''
+  );
+  if (participantTableResult.rows.length === 0) {
+    return; // Truly fresh database — migrate() will apply the baseline from scratch
+  }
+
+  // Legacy-bootstrapped database: app tables exist but Drizzle was never tracking.
+  console.log('[DB] Bootstrapped database detected. Stamping Drizzle baseline migration as applied...');
+  await db.query('CREATE SCHEMA IF NOT EXISTS drizzle');
+  // Manually create the same table structure that drizzle-orm/node-postgres/migrator
+  // creates internally. We do this here because we need to pre-populate it with the
+  // baseline hash before calling migrate(), so Drizzle skips the baseline on this DB.
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (
+      id SERIAL PRIMARY KEY,
+      hash TEXT NOT NULL,
+      created_at BIGINT
+    )
+  `);
+  await db.query(
+    'INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ($1, $2)',
+    [baselineHash, baselineEntry.when]
+  );
+  console.log(`[DB] ✓ Baseline migration "${baselineEntry.tag}" stamped`);
+}
+
+async function applyPendingMigrations(): Promise<void> {
+  // stampBaselineIfBootstrapped() MUST run before migrate(). On databases that were
+  // bootstrapped by bootstrap-postgres-schema.js (before this Drizzle lifecycle was
+  // adopted), migrate() would otherwise try to re-apply the baseline and fail because
+  // the tables already exist. Stamping pre-fills Drizzle's tracking table so the
+  // baseline is skipped and only genuinely new migrations are applied.
+  await stampBaselineIfBootstrapped();
+  await migrate(drizzleDb, { migrationsFolder: MIGRATIONS_FOLDER });
+  console.log('[DB] ✓ Schema migrations are up to date');
+}
+
 async function verifyDatabaseReady(): Promise<void> {
   const connection = await db.query<{ current_database: string; now: string }>(
     'SELECT current_database() AS current_database, NOW()::text AS now'
@@ -175,7 +282,8 @@ async function verifyDatabaseReady(): Promise<void> {
   if (missingTables.length > 0) {
     throw new Error(
       `Postgres schema is missing required tables: ${missingTables.join(', ')}. ` +
-        'Run the Postgres bootstrap and SQLite import scripts before starting the backend.'
+        'Run "npm run db:migrate" to apply pending migrations, or start the server ' +
+        '(migrations run automatically at startup).'
     );
   }
 
@@ -319,6 +427,7 @@ app.use(routes.fallback());
 export { app, db, checkAuthorization };
 
 async function startServer(): Promise<void> {
+  await applyPendingMigrations();
   await verifyDatabaseReady();
 
   if (!isTestMode()) {

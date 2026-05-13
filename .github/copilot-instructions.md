@@ -1,6 +1,6 @@
 # GitHub Copilot Instructions
 
-WMV Cycling Series: React 19 + TypeScript frontend with Node.js 24 Express + tRPC backend. SQLite database via Drizzle ORM.
+WMV Cycling Series: React 19 + TypeScript frontend with Node.js 24 Express + tRPC backend. Postgres database via Drizzle ORM.
 
 ---
 
@@ -88,8 +88,7 @@ When a PR changes shipped behavior, an approved slice, a rollout boundary, or an
 ```
 /src                     # React frontend (TypeScript)
 /server/src              # Express + tRPC backend (TypeScript)
-/server/data/wmv.db      # Development database (SQLite)
-/server/data/wmv_e2e.db  # E2E test database (production copy)
+/server/drizzle/         # Drizzle migrations (Postgres-only)
 /e2e                     # Playwright end-to-end tests
 /docs                    # Documentation (not /docs-site)
 .github/workflows/       # CI/CD pipelines
@@ -107,13 +106,13 @@ When a PR changes shipped behavior, an approved slice, a rollout boundary, or an
 - **Express** on Node.js 24.x
 - **tRPC** for type-safe RPC procedures
 - **Drizzle ORM** for database queries
-- **SQLite** via better-sqlite3 (file-based)
+- **Postgres** via `pg` / `drizzle-orm/node-postgres`
 - **TypeScript only** (no `.js` files in `/server/src`)
 
 ### Testing
 - **Vitest** for frontend tests
-- **Jest + ts-jest** for backend unit tests (in-memory SQLite)
-- **Playwright** for E2E tests (uses wmv_e2e.db)
+- **Jest + ts-jest** for backend unit tests (in-memory Postgres via pg-mem)
+- **Playwright** for E2E tests (uses a dedicated Postgres database)
 
 ## Operational Reference
 
@@ -132,14 +131,14 @@ For GitHub operations such as pull request review, issue lookup, labels, search,
 
 **Dependency Injection for Services:**
 ```typescript
-// Services receive drizzleDb in constructor
+// Services receive a Drizzle Postgres DB instance in constructor
 class ActivityService {
-  constructor(private db: BetterSQLite3Database) {}
+  constructor(private db: PostgresJsDatabase) {}
   
   async getActivities(weekId: number) {
     return this.db.select().from(activity)
       .where(eq(activity.week_id, weekId))
-      .all();
+      .execute();
   }
 }
 
@@ -149,7 +148,7 @@ export const leaderboardRouter = router({
     .input(z.object({ weekId: z.number() }))
     .query(async ({ ctx, input }) => {
       const { drizzleDb } = ctx;
-      return await drizzleDb.select().from(result).all();
+      return await drizzleDb.select().from(result).execute();
     })
 });
 ```
@@ -266,7 +265,7 @@ See [docs/STRAVA_INTEGRATION.md](./docs/STRAVA_INTEGRATION.md) for complete guid
 npm test              # All tests
 npm run test:watch    # Watch mode
 ```
-- In-memory SQLite via `setupTestDb` pattern
+- In-memory Postgres via pg-mem and `setupTestDb` pattern
 - Tests in `server/src/__tests__/`
 - Cover happy path + error cases
 - Aim for >85% coverage
@@ -277,10 +276,10 @@ npm run test:e2e           # Headless (CI-friendly)
 npm run test:e2e:headed    # Visible browser
 npm run test:e2e:ui        # Interactive debugging
 ```
-- Use separate `wmv_e2e.db` (production copy)
+- Use a dedicated E2E Postgres database
 - Tests in `e2e/tests/`
 - Use `data-testid` for robust selectors
-- Run against http://localhost:3001 and :5173
+- Run against http://localhost:3002 and :5174
 
 ## Pre-Commit Workflow
 
@@ -326,10 +325,11 @@ All checks must pass before merge.
 
 **Key requirements:**
 - Node.js 24.x
-- Persistent volume at `/data` (SQLite database)
-- Environment variables in Railway dashboard
+- Postgres database (Railway managed Postgres or external)
+- Environment variables in Railway dashboard (`DATABASE_URL` required)
 - HTTPS auto-configured
 - Auto-deploys on push to main branch
+- Schema migrations run automatically at server startup
 
 See [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) for complete setup.
 
@@ -373,13 +373,15 @@ npm install
 npm run dev
 ```
 
-### "Database locked" (E2E tests)
+### "Database connection error"
 ```bash
-npm run dev:cleanup
-npm run test:e2e
+# Ensure local Postgres is running
+npm run db:postgres:up
+# Check DATABASE_URL in .env
+cat .env | grep DATABASE_URL
 ```
 
-### TypeScript errors in IDE
+### "TypeScript errors in IDE"
 ```bash
 npm run typecheck
 ```
@@ -403,14 +405,14 @@ For detailed information:
 | Item | Value |
 |------|-------|
 | Node.js | 24.x (required) |
-| Database | SQLite (better-sqlite3) + Drizzle ORM |
+| Database | Postgres + Drizzle ORM |
 | Frontend | React 19 + TypeScript + Vite |
 | Backend | Express + tRPC + TypeScript |
-| Testing | Vitest (frontend) + Jest (backend) + Playwright (E2E) |
+| Testing | Vitest (frontend) + Jest/pg-mem (backend) + Playwright (E2E) |
 | Deployment | Railway.app |
 | Hosting | Production: Railway, Development: Local |
 
 ---
 
-**Last Updated:** February 2026  
-**Version:** 3.0 (Added Version & Changelog Requirements)
+**Last Updated:** April 2026  
+**Version:** 4.0 (Postgres-only; SQLite removed)

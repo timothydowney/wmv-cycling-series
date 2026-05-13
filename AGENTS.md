@@ -48,10 +48,10 @@ Before merging or opening a substantive PR, run `npm run audit` locally alongsid
 
 ### Local Development
 
-- **File:** `server/data/wmv.db`
+- **URL:** `DATABASE_URL` in `.env` pointing at your local Postgres instance
 - **Environment:** `.env`
 - **Purpose:** Local development database
-- **Setup:** Auto-created on first run
+- **Setup:** `npm run db:postgres:up` then `npm run dev` (migrations run at startup)
 - **Usage:** Used by `npm run dev`, `npm test`, and other dev tasks
 
 ### E2E Testing
@@ -65,16 +65,16 @@ Before merging or opening a substantive PR, run `npm run audit` locally alongsid
 
 ### Production
 
-- **File:** `server/data/wmv_prod.db`
-- **Environment:** `.env.prod` (Railway)
+- **URL:** `DATABASE_URL` Railway managed Postgres (set in Railway dashboard)
+- **Environment:** Railway environment variables
 - **Purpose:** Live production database
-- **Location:** Railway persistent volume at `/data/wmv.db`
+- **Migrations:** Run automatically at server startup via Drizzle `migrate()`
 
 ## When to Use Which Task
 
 | Scenario | Command | Database | Why |
 |----------|---------|----------|-----|
-| Local development | `npm run dev` | wmv.db | Interactive frontend + backend |
+| Local development | `npm run dev` | Local Postgres (`DATABASE_URL`) | Interactive frontend + backend |
 | Running unit tests | `npm test` | frontend: none, backend: in-memory | Fast, isolated tests across frontend + backend |
 | Running E2E tests | `npm run test:e2e` | explicit E2E env | Test against deterministic, intentionally wired backend behavior |
 | Verifying prod build | `npm run build` | (doesn't use) | Ensure TypeScript compiles, Vite builds |
@@ -90,9 +90,9 @@ Before merging or opening a substantive PR, run `npm run audit` locally alongsid
    ```
 
 2. **Use correct environment files:**
-   - Dev tasks → `.env` (uses wmv.db)
+   - Dev tasks → `.env` (must have `DATABASE_URL` pointing at local Postgres)
    - E2E tasks → `e2e/.env.e2e` (must declare E2E wiring explicitly and should fail fast if missing)
-   - Production → `.env.prod` (Railway secrets)
+   - Production → Railway environment variables (`DATABASE_URL` managed by Railway)
 
 3. **Never mix databases:**
    - Do not let Playwright silently reuse shared dev state
