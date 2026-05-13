@@ -185,32 +185,32 @@ async function verifyDatabaseReady(): Promise<void> {
   const tableRowCountChecks = [
     {
       tableName: 'participant',
-      query: () => drizzleDb.select({ cnt: sql<number>`count(*)::int`.as('cnt') }).from(participant).execute()
+      table: participant
     },
     {
       tableName: 'week',
-      query: () => drizzleDb.select({ cnt: sql<number>`count(*)::int`.as('cnt') }).from(week).execute()
+      table: week
     },
     {
       tableName: 'season',
-      query: () => drizzleDb.select({ cnt: sql<number>`count(*)::int`.as('cnt') }).from(season).execute()
+      table: season
     },
     {
       tableName: 'activity',
-      query: () => drizzleDb.select({ cnt: sql<number>`count(*)::int`.as('cnt') }).from(activity).execute()
+      table: activity
     },
     {
       tableName: 'result',
-      query: () => drizzleDb.select({ cnt: sql<number>`count(*)::int`.as('cnt') }).from(result).execute()
+      table: result
     },
     {
       tableName: 'segment',
-      query: () => drizzleDb.select({ cnt: sql<number>`count(*)::int`.as('cnt') }).from(segment).execute()
+      table: segment
     }
   ] as const;
   console.log('[DB] Row counts:');
-  for (const { tableName, query } of tableRowCountChecks) {
-    const countResult = await query();
+  for (const { tableName, table } of tableRowCountChecks) {
+    const countResult = await drizzleDb.select({ cnt: sql<number>`count(*)::int`.as('cnt') }).from(table).execute();
     console.log(`[DB]   ${tableName}: ${countResult[0]?.cnt ?? 0} rows`);
   }
 }
