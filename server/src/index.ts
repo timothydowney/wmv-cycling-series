@@ -8,6 +8,7 @@ import fs from 'fs';
 import type { Request } from 'express';
 
 import { db, drizzleDb } from './db';
+import { buildCountRowsQuery } from './db/sqlIdentifier';
 import * as trpcExpress from '@trpc/server/adapters/express';
 import { createContext } from './trpc/context';
 import { appRouter } from './routers';
@@ -184,7 +185,7 @@ async function verifyDatabaseReady(): Promise<void> {
   const tablesToCheck = ['participant', 'week', 'season', 'activity', 'result', 'segment'];
   console.log('[DB] Row counts:');
   for (const tableName of tablesToCheck) {
-    const countResult = await db.query<{ cnt: number }>(`SELECT COUNT(*)::int AS cnt FROM ${tableName}`);
+    const countResult = await db.query<{ cnt: number }>(buildCountRowsQuery(tableName));
     console.log(`[DB]   ${tableName}: ${countResult.rows[0]?.cnt ?? 0} rows`);
   }
 }
