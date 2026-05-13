@@ -28,7 +28,7 @@ describe('WebhookSubscriptionService DB compatibility', () => {
   let orm: AppDatabase;
   let service: WebhookSubscriptionService;
   let logSpy: ReturnType<typeof jest.spyOn>;
-  const addExpirationWindow = (value: string): string =>
+  const calculateExpiresAt = (value: string): string =>
     new Date(new Date(value).getTime() + 24 * 60 * 60 * 1000).toISOString();
   const getStoredRefreshTimestamp = async (testName: string): Promise<string> => {
     const [stored] = await orm
@@ -40,6 +40,7 @@ describe('WebhookSubscriptionService DB compatibility', () => {
     }
     return stored.last_refreshed_at;
   };
+  // Service renews around 22h age so subscriptions are refreshed before 24h expiry.
   const RENEWAL_THRESHOLD_MS = 22 * 60 * 60 * 1000;
 
   beforeEach(() => {
@@ -158,7 +159,7 @@ describe('WebhookSubscriptionService DB compatibility', () => {
       const storedRefreshedAt = await getStoredRefreshTimestamp('fresh renewal baseline');
 
       const status = await service.getStatus();
-      expect(status.expires_at).toBe(addExpirationWindow(storedRefreshedAt));
+      expect(status.expires_at).toBe(calculateExpiresAt(storedRefreshedAt));
       const expectedNeedsRenewal =
         fixedNow - new Date(storedRefreshedAt).getTime() >= RENEWAL_THRESHOLD_MS;
       await expect(service.needsRenewal()).resolves.toBe(expectedNeedsRenewal);
@@ -189,7 +190,7 @@ describe('WebhookSubscriptionService DB compatibility', () => {
       const storedRefreshedAt = await getStoredRefreshTimestamp('near-renewal window');
 
       const status = await service.getStatus();
-      expect(status.expires_at).toBe(addExpirationWindow(storedRefreshedAt));
+      expect(status.expires_at).toBe(calculateExpiresAt(storedRefreshedAt));
       await expect(service.needsRenewal()).resolves.toBe(false);
     } finally {
       dateNowSpy.mockRestore();
@@ -218,7 +219,7 @@ describe('WebhookSubscriptionService DB compatibility', () => {
       const storedRefreshedAt = await getStoredRefreshTimestamp('expired renewal baseline');
 
       const status = await service.getStatus();
-      expect(status.expires_at).toBe(addExpirationWindow(storedRefreshedAt));
+      expect(status.expires_at).toBe(calculateExpiresAt(storedRefreshedAt));
       await expect(service.needsRenewal()).resolves.toBe(true);
     } finally {
       dateNowSpy.mockRestore();
