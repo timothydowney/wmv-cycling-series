@@ -1,37 +1,30 @@
 import React, { useState } from 'react';
 import { trpc } from '../../utils/trpc'; // Import trpc
 import './SubscriptionStatusCard.css';
+import type { inferRouterOutputs } from '@trpc/server';
+import type { AppRouter } from '../../../server/src/routers';
 
-interface SubscriptionStatus {
-  enabled: boolean;
-  subscription_id: number | null;
-  created_at: string | null;
-  expires_at: string | null;
-  last_refreshed_at: string | null;
-  metrics: {
-    total_events: number;
-    successful_events: number;
-    failed_events: number;
-    pending_retries: number;
-    events_last24h: number; // Changed from events_last_24h to match tRPC output
-    success_rate: number;
+type RouterOutput = inferRouterOutputs<AppRouter>;
+type SubscriptionStatus = RouterOutput['webhookAdmin']['getStatus'];
+
+type DeliveryHealth = 'healthy' | 'warning' | 'degraded' | 'broken';
+
+interface NormalizedDiagnostics {
+  isAvailable: boolean;
+  delivery_health: DeliveryHealth;
+  config: {
+    webhook_enabled: boolean | null;
+    persist_events: boolean | null;
   };
-  diagnostics?: {
-    delivery_health: 'healthy' | 'warning' | 'degraded' | 'broken';
-    config: {
-      webhook_enabled: boolean;
-      persist_events: boolean;
-    };
-    last_receipt_at: string | null;
-    last_success_at: string | null;
-    last_failure_at: string | null;
-    last_failure_error: string | null;
-    warnings: Array<{
-      code: string;
-      severity: 'warning' | 'degraded' | 'broken';
-      message: string;
-    }>;
-  };
+  last_receipt_at: string | null;
+  last_success_at: string | null;
+  last_failure_at: string | null;
+  last_failure_error: string | null;
+  warnings: Array<{
+    code: string;
+    severity: 'warning' | 'degraded' | 'broken';
+    message: string;
+  }>;
 }
 
 interface Props {
@@ -76,55 +69,66 @@ const SubscriptionStatusCard: React.FC<Props> = ({ subscription, onStatusUpdate 
 
   const [message, setMessage] = useState<string | null>(null);
 
-  const diagnostics = {
-    delivery_health: subscription.enabled ? 'healthy' : 'warning',
-    config: {
-      webhook_enabled: subscription.enabled,
-      persist_events: true,
-    },
-    last_receipt_at: null,
-    last_success_at: null,
-    last_failure_at: null,
-    last_failure_error: null,
-    warnings: [],
-    ...(subscription.diagnostics ?? {}),
-  };
+  const diagnostics: NormalizedDiagnostics = subscription.diagnostics
+    ? {
+        ...subscription.diagnostics,
+        isAvailable: true,
+      }
+    : {
+        isAvailable: false,
+        delivery_health: subscription.enabled ? 'healthy' : 'warning',
+        config: {
+          webhook_enabled: null,
+          persist_events: null,
+        },
+        last_receipt_at: null,
+        last_success_at: null,
+        last_failure_at: null,
+        last_failure_error: null,
+        warnings: [],
+      };
 
   const loading = enableMutation.isPending || disableMutation.isPending || renewMutation.isPending;
 
   const getStatusIcon = (): string => {
+    if (!diagnostics.isAvailable) {
+      return subscription.enabled ? '✓' : '✕';
+    }
+
     if (diagnostics.delivery_health === 'broken') {
       return '✕';
     }
     if (diagnostics.delivery_health === 'degraded') {
       return '!';
     }
-    if (diagnostics.delivery_health === 'warning' || !subscription.enabled) {
+    if (diagnostics.delivery_health === 'warning') {
       return '⚠';
-    }
-    if (!subscription.enabled) {
-      return '✕';
     }
     return '✓';
   };
 
   const getStatusColor = (): string => {
+    if (!diagnostics.isAvailable) {
+      return subscription.enabled ? '#27ae60' : '#95a5a6';
+    }
+
     if (diagnostics.delivery_health === 'broken') {
       return '#c0392b';
     }
     if (diagnostics.delivery_health === 'degraded') {
       return '#d35400';
     }
-    if (diagnostics.delivery_health === 'warning' || !subscription.enabled) {
+    if (diagnostics.delivery_health === 'warning') {
       return '#b7950b';
-    }
-    if (!subscription.enabled) {
-      return '#95a5a6';
     }
     return '#27ae60';
   };
 
   const getStatusLabel = (): string => {
+    if (!diagnostics.isAvailable) {
+      return subscription.enabled ? 'Webhooks Active' : 'Webhooks Inactive';
+    }
+
     if (diagnostics.delivery_health === 'broken') {
       return 'Delivery Broken';
     }
@@ -133,9 +137,6 @@ const SubscriptionStatusCard: React.FC<Props> = ({ subscription, onStatusUpdate 
     }
     if (diagnostics.delivery_health === 'warning') {
       return 'Needs Attention';
-    }
-    if (!subscription.enabled) {
-      return 'Webhooks Inactive';
     }
     return 'Webhooks Active';
   };
@@ -341,10 +342,14 @@ const SubscriptionStatusCard: React.FC<Props> = ({ subscription, onStatusUpdate 
                 <p>1. Confirm Strava dashboard shows recent delivery attempts.</p>
                 <p>2. Use Renew Now to force a fresh subscription sync.</p>
                 <p>3. Review Event History for newest receipt and error details.</p>
-                <p>
-                  4. Verify runtime flags: WEBHOOK_ENABLED={String(diagnostics.config.webhook_enabled)};
-                  WEBHOOK_PERSIST_EVENTS={String(diagnostics.config.persist_events)}.
-                </p>
+                {diagnostics.isAvailable ? (
+                  <p>
+                    4. Verify runtime flags: WEBHOOK_ENABLED={String(diagnostics.config.webhook_enabled)};
+                    WEBHOOK_PERSIST_EVENTS={String(diagnostics.config.persist_events)}.
+                  </p>
+                ) : (
+                  <p>4. Runtime flags unavailable until backend diagnostics payload is enabled.</p>
+                )}
               </div>
             </div>
           </>

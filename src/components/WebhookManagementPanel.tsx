@@ -5,39 +5,6 @@ import { trpc } from '../utils/trpc'; // Import trpc
 import SubscriptionStatusCard from './WebhookComponents/SubscriptionStatusCard';
 import WebhookEventHistory from './WebhookComponents/WebhookEventHistory';
 
-// Interfaces for tRPC query results
-interface SubscriptionStatus {
-  enabled: boolean;
-  subscription_id: number | null;
-  created_at: string | null;
-  expires_at: string | null;
-  last_refreshed_at: string | null;
-  metrics: {
-    total_events: number;
-    successful_events: number;
-    failed_events: number;
-    pending_retries: number;
-    events_last24h: number; // Changed from events_last_24h to match tRPC output
-    success_rate: number;
-  };
-  diagnostics: {
-    delivery_health: 'healthy' | 'warning' | 'degraded' | 'broken';
-    config: {
-      webhook_enabled: boolean;
-      persist_events: boolean;
-    };
-    last_receipt_at: string | null;
-    last_success_at: string | null;
-    last_failure_at: string | null;
-    last_failure_error: string | null;
-    warnings: Array<{
-      code: string;
-      severity: 'warning' | 'degraded' | 'broken';
-      message: string;
-    }>;
-  };
-}
-
 export const WebhookManagementPanel: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'status' | 'events'>('status');
 
@@ -101,7 +68,7 @@ export const WebhookManagementPanel: React.FC = () => {
       <div className="webhook-content">
         {activeTab === 'status' && subscription && (
           <SubscriptionStatusCard
-            subscription={subscription as SubscriptionStatus} // Cast to correct type
+            subscription={subscription}
             onStatusUpdate={handleRefresh}
           />
         )}

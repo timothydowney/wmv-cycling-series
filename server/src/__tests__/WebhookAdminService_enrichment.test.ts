@@ -13,22 +13,34 @@ import {
   createSegment 
 } from './testDataHelpers';
 import { WebhookAdminService } from '../services/WebhookAdminService';
-import { webhookEvent, activity } from '../db/schema';
+import { webhookEvent, activity, webhookSubscription } from '../db/schema';
 import { eq } from 'drizzle-orm';
+import { reloadConfig } from '../config';
 
 describe('WebhookAdminService enrichment', () => {
   let pool: Pool;
   let orm: AppDatabase;
   let service: WebhookAdminService;
+  let originalEnv: NodeJS.ProcessEnv;
 
   beforeAll(async () => {
     const testDb = setupTestDb({ seed: false });
     pool = testDb.pool;
     orm = testDb.orm;
     service = new WebhookAdminService(orm);
+    originalEnv = { ...process.env };
   });
   afterAll(async () => {
+    process.env = originalEnv;
+    reloadConfig();
     await teardownTestDb(pool);
+  });
+
+  beforeEach(async () => {
+    await orm.delete(webhookEvent);
+    await orm.delete(webhookSubscription);
+    process.env = { ...originalEnv };
+    reloadConfig();
   });
 
   it('should return a full summary object when an activity event is enriched', async () => {
@@ -246,8 +258,6 @@ describe('WebhookAdminService enrichment', () => {
   });
 
   it('should count events_last24h using created_at cutoff without timestamp type errors', async () => {
-    await orm.delete(webhookEvent);
-
     const fixedNow = new Date('2026-05-13T12:00:00.000Z').getTime();
     const cutoff = fixedNow - (24 * 60 * 60 * 1000);
     const dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
@@ -289,5 +299,73 @@ describe('WebhookAdminService enrichment', () => {
     } finally {
       dateNowSpy.mockRestore();
     }
+  });
+
+  it('should classify healthy delivery when events are processing successfully', async () => {
+    process.env.WEBHOOK_ENABLED = 'true';
+    process.env.WEBHOOK_PERSIST_EVENTS = 'true';
+    reloadConfig();
+
+    await orm.insert(webhookSubscription).values({
+      verify_token: 'test-token',
+      subscription_payload: JSON.stringify({ id: 317445, callback_url: 'https://example.com/webhooks/strava' }),
+      subscription_id: 317445,
+      last_refreshed_at: new Date().toISOString(),
+    });
+
+    await orm.insert(webhookEvent).values({
+      payload: JSON.stringify({ object_type: 'activity', aspect_type: 'create', object_id: 5001, owner_id: 123, event_time: Math.floor(Date.now() / 1000) }),
+      processed: 1,
+      created_at: new Date().toISOString(),
+    });
+
+    const status = await service.getStatus();
+    expect(status.diagnostics.delivery_health).toBe('healthy');
+    expect(status.diagnostics.warnings).toHaveLength(0);
+  });
+
+  it('should classify degraded delivery when subscription is active with zero receipts in 24h', async () => {
+    process.env.WEBHOOK_ENABLED = 'true';
+    process.env.WEBHOOK_PERSIST_EVENTS = 'true';
+    reloadConfig();
+
+    await orm.insert(webhookSubscription).values({
+      verify_token: 'test-token',
+      subscription_payload: JSON.stringify({ id: 317445, callback_url: 'https://example.com/webhooks/strava' }),
+      subscription_id: 317445,
+      last_refreshed_at: new Date().toISOString(),
+    });
+
+    const status = await service.getStatus();
+    expect(status.diagnostics.delivery_health).toBe('degraded');
+    expect(status.diagnostics.warnings.some((warning) => warning.code === 'NO_RECEIPTS_24H')).toBe(true);
+  });
+
+  it('should classify broken delivery when only failures are present', async () => {
+    process.env.WEBHOOK_ENABLED = 'true';
+    process.env.WEBHOOK_PERSIST_EVENTS = 'true';
+    reloadConfig();
+
+    await orm.insert(webhookEvent).values({
+      payload: JSON.stringify({ object_type: 'activity', aspect_type: 'create', object_id: 5002, owner_id: 123, event_time: Math.floor(Date.now() / 1000) }),
+      processed: 0,
+      error_message: 'Token refresh failed',
+      created_at: new Date().toISOString(),
+    });
+
+    const status = await service.getStatus();
+    expect(status.diagnostics.delivery_health).toBe('broken');
+    expect(status.diagnostics.warnings.some((warning) => warning.code === 'ONLY_FAILURES')).toBe(true);
+  });
+
+  it('should emit config warnings when webhook flags are disabled', async () => {
+    process.env.WEBHOOK_ENABLED = 'false';
+    process.env.WEBHOOK_PERSIST_EVENTS = 'false';
+    reloadConfig();
+
+    const status = await service.getStatus();
+    expect(status.diagnostics.delivery_health).toBe('warning');
+    expect(status.diagnostics.warnings.some((warning) => warning.code === 'WEBHOOK_DISABLED')).toBe(true);
+    expect(status.diagnostics.warnings.some((warning) => warning.code === 'WEBHOOK_PERSIST_DISABLED')).toBe(true);
   });
 });
