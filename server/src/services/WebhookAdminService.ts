@@ -15,6 +15,7 @@ import { createWebhookProcessor } from '../webhooks/processor';
 import { WebhookLogger } from '../webhooks/logger';
 import { getWebhookActivityDetailsResult } from './stravaReadProvider';
 import { getOne, getMany, exec } from '../db/asyncQuery';
+import { config } from '../config';
 
 export interface ParsedWebhookPayload {
   aspect_type: 'create' | 'update' | 'delete';
@@ -24,6 +25,14 @@ export interface ParsedWebhookPayload {
   owner_id: number;
   subscription_id: number;
   updates?: Record<string, unknown>;
+}
+
+export type WebhookHealthState = 'healthy' | 'warning' | 'degraded' | 'broken';
+
+export interface DiagnosticsWarning {
+  code: string;
+  severity: 'warning' | 'degraded' | 'broken';
+  message: string;
 }
 
 export class WebhookAdminService {
@@ -60,8 +69,82 @@ export class WebhookAdminService {
     const successRate =
       totalEvents > 0 ? ((successfulEvents / totalEvents) * 100).toFixed(1) : '0.0';
 
+    const [lastReceipt, lastSuccessful, lastFailed] = await Promise.all([
+      getOne<{ created_at: string | null }>(
+        this.db
+          .select({ created_at: webhookEvent.created_at })
+          .from(webhookEvent)
+          .orderBy(desc(webhookEvent.created_at))
+          .limit(1)
+      ),
+      getOne<{ created_at: string | null }>(
+        this.db
+          .select({ created_at: webhookEvent.created_at })
+          .from(webhookEvent)
+          .where(eq(webhookEvent.processed, 1))
+          .orderBy(desc(webhookEvent.created_at))
+          .limit(1)
+      ),
+      getOne<{ created_at: string | null; error_message: string | null }>(
+        this.db
+          .select({
+            created_at: webhookEvent.created_at,
+            error_message: webhookEvent.error_message,
+          })
+          .from(webhookEvent)
+          .where(and(eq(webhookEvent.processed, 0), sql`${webhookEvent.error_message} IS NOT NULL`))
+          .orderBy(desc(webhookEvent.created_at))
+          .limit(1)
+      )
+    ]);
+
+    const warnings: DiagnosticsWarning[] = [];
+    let deliveryHealth: WebhookHealthState = 'healthy';
+
+    const hasActiveSubscription = subscriptionStatus.id !== null;
+
+    if (!config.webhookEnabled) {
+      warnings.push({
+        code: 'WEBHOOK_DISABLED',
+        severity: 'warning',
+        message: 'WEBHOOK_ENABLED is false. Incoming events will not be processed.',
+      });
+    }
+
+    if (!config.webhookPersistEvents) {
+      warnings.push({
+        code: 'WEBHOOK_PERSIST_DISABLED',
+        severity: 'warning',
+        message: 'WEBHOOK_PERSIST_EVENTS is false. Event audit history will be incomplete.',
+      });
+    }
+
+    if (hasActiveSubscription && eventsLast24h === 0) {
+      warnings.push({
+        code: 'NO_RECEIPTS_24H',
+        severity: 'degraded',
+        message: 'Subscription appears active but no webhook receipts were recorded in the last 24 hours.',
+      });
+    }
+
+    if (failedEvents > 0 && successfulEvents === 0) {
+      warnings.push({
+        code: 'ONLY_FAILURES',
+        severity: 'broken',
+        message: 'Webhook events are arriving but none have processed successfully yet.',
+      });
+    }
+
+    if (warnings.some((warning) => warning.severity === 'broken')) {
+      deliveryHealth = 'broken';
+    } else if (warnings.some((warning) => warning.severity === 'degraded')) {
+      deliveryHealth = 'degraded';
+    } else if (warnings.length > 0 || !hasActiveSubscription) {
+      deliveryHealth = 'warning';
+    }
+
     return {
-      enabled: subscriptionStatus.id !== null,
+      enabled: hasActiveSubscription,
       subscription_id: subscriptionStatus.subscription_id,
       created_at: subscriptionStatus.created_at,
       expires_at: subscriptionStatus.expires_at,
@@ -73,6 +156,18 @@ export class WebhookAdminService {
         pending_retries: pendingRetries,
         events_last24h: eventsLast24h,
         success_rate: parseFloat(successRate)
+      },
+      diagnostics: {
+        delivery_health: deliveryHealth,
+        config: {
+          webhook_enabled: config.webhookEnabled,
+          persist_events: config.webhookPersistEvents,
+        },
+        last_receipt_at: lastReceipt?.created_at ?? null,
+        last_success_at: lastSuccessful?.created_at ?? null,
+        last_failure_at: lastFailed?.created_at ?? null,
+        last_failure_error: lastFailed?.error_message ?? null,
+        warnings,
       }
     };
   }

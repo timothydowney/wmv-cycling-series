@@ -20,6 +20,22 @@ interface SubscriptionStatus {
     events_last24h: number; // Changed from events_last_24h to match tRPC output
     success_rate: number;
   };
+  diagnostics: {
+    delivery_health: 'healthy' | 'warning' | 'degraded' | 'broken';
+    config: {
+      webhook_enabled: boolean;
+      persist_events: boolean;
+    };
+    last_receipt_at: string | null;
+    last_success_at: string | null;
+    last_failure_at: string | null;
+    last_failure_error: string | null;
+    warnings: Array<{
+      code: string;
+      severity: 'warning' | 'degraded' | 'broken';
+      message: string;
+    }>;
+  };
 }
 
 export const WebhookManagementPanel: React.FC = () => {

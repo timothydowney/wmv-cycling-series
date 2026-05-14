@@ -32,6 +32,31 @@ interface SubscriptionResponse {
   resource_state: number;
 }
 
+function normalizeSubscriptionResponse(payload: unknown): SubscriptionResponse | null {
+  const candidate = Array.isArray(payload) ? payload[0] : payload;
+
+  if (!candidate || typeof candidate !== 'object') {
+    return null;
+  }
+
+  const raw = candidate as Partial<SubscriptionResponse>;
+  if (typeof raw.id !== 'number' || !Number.isFinite(raw.id)) {
+    return null;
+  }
+
+  if (typeof raw.callback_url !== 'string' || raw.callback_url.length === 0) {
+    return null;
+  }
+
+  return {
+    id: raw.id,
+    callback_url: raw.callback_url,
+    created_at: typeof raw.created_at === 'string' ? raw.created_at : 'unknown',
+    updated_at: typeof raw.updated_at === 'string' ? raw.updated_at : 'unknown',
+    resource_state: typeof raw.resource_state === 'number' ? raw.resource_state : 2,
+  };
+}
+
 /**
  * Service layer interface for Strava subscription operations
  * Abstracts HTTP communication to Strava API for testability
@@ -127,7 +152,16 @@ function createDefaultService(): SubscriptionService {
           return null;
         }
 
-        const subscription = (await response.json()) as SubscriptionResponse;
+        const responsePayload = (await response.json()) as unknown;
+        const subscription = normalizeSubscriptionResponse(responsePayload);
+
+        if (!subscription) {
+          console.warn(
+            '[Webhook:SubscriptionManager] Subscription lookup returned no active subscription payload'
+          );
+          return null;
+        }
+
         console.log('[Webhook:SubscriptionManager] Found existing subscription', {
           id: subscription.id,
           callbackUrl: subscription.callback_url,
@@ -243,6 +277,31 @@ export async function setupWebhookSubscription(service?: SubscriptionService): P
     const existing = await svc.getExistingSubscription(clientId, clientSecret);
 
     if (existing) {
+      if (existing.callback_url !== callbackUrl) {
+        console.warn(
+          '[Webhook:SubscriptionManager] Existing subscription callback mismatch, recreating',
+          {
+            existingCallbackUrl: existing.callback_url,
+            expectedCallbackUrl: callbackUrl,
+            existingSubscriptionId: existing.id,
+          }
+        );
+
+        await svc.deleteSubscription(existing.id, clientId, clientSecret);
+        const recreatedSubscription = await svc.createSubscription(
+          callbackUrl,
+          verifyToken,
+          clientId,
+          clientSecret
+        );
+
+        console.log('[Webhook:SubscriptionManager] ✓ Recreated subscription with expected callback', {
+          subscriptionId: recreatedSubscription.id,
+          callbackUrl: recreatedSubscription.callback_url,
+        });
+        return;
+      }
+
       console.log('[Webhook:SubscriptionManager] ✓ Already subscribed, using existing', {
         subscriptionId: existing.id,
         ...(isMockMode && { mode: '🧪 MOCK' })

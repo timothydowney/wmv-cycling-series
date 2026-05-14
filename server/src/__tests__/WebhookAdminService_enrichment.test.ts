@@ -281,6 +281,11 @@ describe('WebhookAdminService enrichment', () => {
       const status = await service.getStatus();
       expect(status.metrics.total_events).toBe(2);
       expect(status.metrics.events_last24h).toBe(1);
+      expect(status.diagnostics).toBeDefined();
+      expect(['healthy', 'warning', 'degraded', 'broken']).toContain(status.diagnostics.delivery_health);
+      expect(Array.isArray(status.diagnostics.warnings)).toBe(true);
+      expect(status.diagnostics.config).toHaveProperty('webhook_enabled');
+      expect(status.diagnostics.config).toHaveProperty('persist_events');
     } finally {
       dateNowSpy.mockRestore();
     }

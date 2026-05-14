@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Webhook startup subscription detection now normalizes Strava list responses safely (array/object), treats invalid or empty payloads as not active, and warns/recreates when callback URLs drift, avoiding ambiguous "active" logs while keeping startup non-blocking.
+- Manage Webhooks now surfaces richer diagnostics for production triage: delivery health state (`healthy`/`warning`/`degraded`/`broken`), last receipt/success/failure timestamps, last failure summary, runtime flag snapshot, and structured warnings for contradictory states such as active subscription with no receipts in 24 hours.
 - E2E Postgres seed export now scrubs `weight` and `weight_updated_at` to `NULL` for all participant rows before committing the artifact, preventing real athlete body-weight values from entering source control as PII.
 - Manage Webhooks subscription status now derives expiry from `last_refreshed_at` (the same renewal source of truth used by backend renewal checks), and the Subscription Status card copy now matches actual scheduler behavior (checks every 6 hours, renews after about 22 hours).
 - Remaining operational timestamp columns (`activity.validated_at`, `segment.metadata_updated_at`, `webhook_subscription.last_refreshed_at`, `deletion_request.requested_at`/`completed_at`, `schema_migrations.executed_at`, `participant.weight_updated_at`) migrated from `text` to `timestamptz` in Postgres via migration `0017`. Drizzle schema, bootstrap script, and test DDL updated to match.

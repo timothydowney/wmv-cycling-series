@@ -16,6 +16,22 @@ interface SubscriptionStatus {
     events_last24h: number; // Changed from events_last_24h to match tRPC output
     success_rate: number;
   };
+  diagnostics: {
+    delivery_health: 'healthy' | 'warning' | 'degraded' | 'broken';
+    config: {
+      webhook_enabled: boolean;
+      persist_events: boolean;
+    };
+    last_receipt_at: string | null;
+    last_success_at: string | null;
+    last_failure_at: string | null;
+    last_failure_error: string | null;
+    warnings: Array<{
+      code: string;
+      severity: 'warning' | 'degraded' | 'broken';
+      message: string;
+    }>;
+  };
 }
 
 interface Props {
@@ -63,6 +79,15 @@ const SubscriptionStatusCard: React.FC<Props> = ({ subscription, onStatusUpdate 
   const loading = enableMutation.isPending || disableMutation.isPending || renewMutation.isPending;
 
   const getStatusIcon = (): string => {
+    if (subscription.diagnostics.delivery_health === 'broken') {
+      return '✕';
+    }
+    if (subscription.diagnostics.delivery_health === 'degraded') {
+      return '!';
+    }
+    if (subscription.diagnostics.delivery_health === 'warning' || !subscription.enabled) {
+      return '⚠';
+    }
     if (!subscription.enabled) {
       return '✕';
     }
@@ -70,6 +95,15 @@ const SubscriptionStatusCard: React.FC<Props> = ({ subscription, onStatusUpdate 
   };
 
   const getStatusColor = (): string => {
+    if (subscription.diagnostics.delivery_health === 'broken') {
+      return '#c0392b';
+    }
+    if (subscription.diagnostics.delivery_health === 'degraded') {
+      return '#d35400';
+    }
+    if (subscription.diagnostics.delivery_health === 'warning' || !subscription.enabled) {
+      return '#b7950b';
+    }
     if (!subscription.enabled) {
       return '#95a5a6';
     }
@@ -77,6 +111,15 @@ const SubscriptionStatusCard: React.FC<Props> = ({ subscription, onStatusUpdate 
   };
 
   const getStatusLabel = (): string => {
+    if (subscription.diagnostics.delivery_health === 'broken') {
+      return 'Delivery Broken';
+    }
+    if (subscription.diagnostics.delivery_health === 'degraded') {
+      return 'Delivery Degraded';
+    }
+    if (subscription.diagnostics.delivery_health === 'warning') {
+      return 'Needs Attention';
+    }
     if (!subscription.enabled) {
       return 'Webhooks Inactive';
     }
@@ -237,6 +280,57 @@ const SubscriptionStatusCard: React.FC<Props> = ({ subscription, onStatusUpdate 
               <div className="info-row auto-renewal-info">
                 <span className="label">Auto-renewal:</span>
                 <span className="value">Checks every 6h; renews after ~22h since last refresh</span>
+              </div>
+              <div className="info-row">
+                <span className="label">Last receipt:</span>
+                <span className="value">{formatDateTime(subscription.diagnostics.last_receipt_at)}</span>
+              </div>
+              <div className="info-row">
+                <span className="label">Last success:</span>
+                <span className="value">{formatDateTime(subscription.diagnostics.last_success_at)}</span>
+              </div>
+              <div className="info-row">
+                <span className="label">Last failure:</span>
+                <span className="value">{formatDateTime(subscription.diagnostics.last_failure_at)}</span>
+              </div>
+              {subscription.diagnostics.last_failure_error && (
+                <div className="diagnostic-error">
+                  <strong>Latest error:</strong> {subscription.diagnostics.last_failure_error}
+                </div>
+              )}
+              <div className="metrics-grid">
+                <div className="metric-chip">
+                  <span className="metric-label">24h receipts</span>
+                  <span className="metric-value">{subscription.metrics.events_last24h}</span>
+                </div>
+                <div className="metric-chip">
+                  <span className="metric-label">Success rate</span>
+                  <span className="metric-value">{subscription.metrics.success_rate}%</span>
+                </div>
+                <div className="metric-chip">
+                  <span className="metric-label">Failures</span>
+                  <span className="metric-value">{subscription.metrics.failed_events}</span>
+                </div>
+              </div>
+              {subscription.diagnostics.warnings.length > 0 && (
+                <div className="diagnostics-warnings">
+                  <p className="diagnostics-title">Troubleshooting warnings</p>
+                  {subscription.diagnostics.warnings.map((warning) => (
+                    <div key={warning.code} className={`diagnostic-warning ${warning.severity}`}>
+                      {warning.message}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="diagnostics-checklist">
+                <p className="diagnostics-title">Quick checks</p>
+                <p>1. Confirm Strava dashboard shows recent delivery attempts.</p>
+                <p>2. Use Renew Now to force a fresh subscription sync.</p>
+                <p>3. Review Event History for newest receipt and error details.</p>
+                <p>
+                  4. Verify runtime flags: WEBHOOK_ENABLED={String(subscription.diagnostics.config.webhook_enabled)};
+                  WEBHOOK_PERSIST_EVENTS={String(subscription.diagnostics.config.persist_events)}.
+                </p>
               </div>
             </div>
           </>

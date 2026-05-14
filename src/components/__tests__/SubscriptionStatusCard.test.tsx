@@ -46,6 +46,18 @@ const baseSubscription = {
     events_last24h: 0,
     success_rate: 0,
   },
+  diagnostics: {
+    delivery_health: 'healthy',
+    config: {
+      webhook_enabled: true,
+      persist_events: true,
+    },
+    last_receipt_at: null,
+    last_success_at: null,
+    last_failure_at: null,
+    last_failure_error: null,
+    warnings: [],
+  },
 };
 
 async function renderCard(overrides: Partial<typeof baseSubscription> = {}) {
