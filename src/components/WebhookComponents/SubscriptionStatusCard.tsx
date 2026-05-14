@@ -16,7 +16,7 @@ interface SubscriptionStatus {
     events_last24h: number; // Changed from events_last_24h to match tRPC output
     success_rate: number;
   };
-  diagnostics: {
+  diagnostics?: {
     delivery_health: 'healthy' | 'warning' | 'degraded' | 'broken';
     config: {
       webhook_enabled: boolean;
@@ -76,16 +76,30 @@ const SubscriptionStatusCard: React.FC<Props> = ({ subscription, onStatusUpdate 
 
   const [message, setMessage] = useState<string | null>(null);
 
+  const diagnostics = {
+    delivery_health: subscription.enabled ? 'healthy' : 'warning',
+    config: {
+      webhook_enabled: subscription.enabled,
+      persist_events: true,
+    },
+    last_receipt_at: null,
+    last_success_at: null,
+    last_failure_at: null,
+    last_failure_error: null,
+    warnings: [],
+    ...(subscription.diagnostics ?? {}),
+  };
+
   const loading = enableMutation.isPending || disableMutation.isPending || renewMutation.isPending;
 
   const getStatusIcon = (): string => {
-    if (subscription.diagnostics.delivery_health === 'broken') {
+    if (diagnostics.delivery_health === 'broken') {
       return '✕';
     }
-    if (subscription.diagnostics.delivery_health === 'degraded') {
+    if (diagnostics.delivery_health === 'degraded') {
       return '!';
     }
-    if (subscription.diagnostics.delivery_health === 'warning' || !subscription.enabled) {
+    if (diagnostics.delivery_health === 'warning' || !subscription.enabled) {
       return '⚠';
     }
     if (!subscription.enabled) {
@@ -95,13 +109,13 @@ const SubscriptionStatusCard: React.FC<Props> = ({ subscription, onStatusUpdate 
   };
 
   const getStatusColor = (): string => {
-    if (subscription.diagnostics.delivery_health === 'broken') {
+    if (diagnostics.delivery_health === 'broken') {
       return '#c0392b';
     }
-    if (subscription.diagnostics.delivery_health === 'degraded') {
+    if (diagnostics.delivery_health === 'degraded') {
       return '#d35400';
     }
-    if (subscription.diagnostics.delivery_health === 'warning' || !subscription.enabled) {
+    if (diagnostics.delivery_health === 'warning' || !subscription.enabled) {
       return '#b7950b';
     }
     if (!subscription.enabled) {
@@ -111,13 +125,13 @@ const SubscriptionStatusCard: React.FC<Props> = ({ subscription, onStatusUpdate 
   };
 
   const getStatusLabel = (): string => {
-    if (subscription.diagnostics.delivery_health === 'broken') {
+    if (diagnostics.delivery_health === 'broken') {
       return 'Delivery Broken';
     }
-    if (subscription.diagnostics.delivery_health === 'degraded') {
+    if (diagnostics.delivery_health === 'degraded') {
       return 'Delivery Degraded';
     }
-    if (subscription.diagnostics.delivery_health === 'warning') {
+    if (diagnostics.delivery_health === 'warning') {
       return 'Needs Attention';
     }
     if (!subscription.enabled) {
@@ -283,19 +297,19 @@ const SubscriptionStatusCard: React.FC<Props> = ({ subscription, onStatusUpdate 
               </div>
               <div className="info-row">
                 <span className="label">Last receipt:</span>
-                <span className="value">{formatDateTime(subscription.diagnostics.last_receipt_at)}</span>
+                <span className="value">{formatDateTime(diagnostics.last_receipt_at)}</span>
               </div>
               <div className="info-row">
                 <span className="label">Last success:</span>
-                <span className="value">{formatDateTime(subscription.diagnostics.last_success_at)}</span>
+                <span className="value">{formatDateTime(diagnostics.last_success_at)}</span>
               </div>
               <div className="info-row">
                 <span className="label">Last failure:</span>
-                <span className="value">{formatDateTime(subscription.diagnostics.last_failure_at)}</span>
+                <span className="value">{formatDateTime(diagnostics.last_failure_at)}</span>
               </div>
-              {subscription.diagnostics.last_failure_error && (
+              {diagnostics.last_failure_error && (
                 <div className="diagnostic-error">
-                  <strong>Latest error:</strong> {subscription.diagnostics.last_failure_error}
+                  <strong>Latest error:</strong> {diagnostics.last_failure_error}
                 </div>
               )}
               <div className="metrics-grid">
@@ -312,10 +326,10 @@ const SubscriptionStatusCard: React.FC<Props> = ({ subscription, onStatusUpdate 
                   <span className="metric-value">{subscription.metrics.failed_events}</span>
                 </div>
               </div>
-              {subscription.diagnostics.warnings.length > 0 && (
+              {diagnostics.warnings.length > 0 && (
                 <div className="diagnostics-warnings">
                   <p className="diagnostics-title">Troubleshooting warnings</p>
-                  {subscription.diagnostics.warnings.map((warning) => (
+                  {diagnostics.warnings.map((warning) => (
                     <div key={warning.code} className={`diagnostic-warning ${warning.severity}`}>
                       {warning.message}
                     </div>
@@ -328,8 +342,8 @@ const SubscriptionStatusCard: React.FC<Props> = ({ subscription, onStatusUpdate 
                 <p>2. Use Renew Now to force a fresh subscription sync.</p>
                 <p>3. Review Event History for newest receipt and error details.</p>
                 <p>
-                  4. Verify runtime flags: WEBHOOK_ENABLED={String(subscription.diagnostics.config.webhook_enabled)};
-                  WEBHOOK_PERSIST_EVENTS={String(subscription.diagnostics.config.persist_events)}.
+                  4. Verify runtime flags: WEBHOOK_ENABLED={String(diagnostics.config.webhook_enabled)};
+                  WEBHOOK_PERSIST_EVENTS={String(diagnostics.config.persist_events)}.
                 </p>
               </div>
             </div>
