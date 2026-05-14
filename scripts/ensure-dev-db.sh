@@ -30,6 +30,7 @@ fi
 
 DATABASE_HOST_VALUE=$(node -e "const u = new URL(process.argv[1]); console.log(u.hostname);" "$DATABASE_URL_VALUE")
 DATABASE_NAME_VALUE=$(node -e "const u = new URL(process.argv[1]); console.log(u.pathname.replace(/^\//, ''));" "$DATABASE_URL_VALUE")
+DATABASE_ADMIN_URL_VALUE=$(node -e "const u = new URL(process.argv[1]); u.pathname = '/postgres'; u.search = ''; console.log(u.toString());" "$DATABASE_URL_VALUE")
 
 if [[ -z "$DATABASE_NAME_VALUE" ]]; then
   echo "[dev-db] ERROR: DATABASE_URL must include a database name"
@@ -51,7 +52,7 @@ if [[ "$DATABASE_HOST_VALUE" != "localhost" && "$DATABASE_HOST_VALUE" != "127.0.
 fi
 
 POSTGRES_USER_VALUE="${POSTGRES_USER:-wmv}"
-POSTGRES_DB_VALUE="${POSTGRES_DB:-$DATABASE_NAME_VALUE}"
+POSTGRES_READY_DB_VALUE="${POSTGRES_READY_DB:-postgres}"
 
 if [[ "${WMV_SKIP_DOCKER_STARTUP:-false}" == "true" ]]; then
   echo "[dev-db] WMV_SKIP_DOCKER_STARTUP=true — skipping Docker Compose startup (assuming Postgres is already running)"
@@ -61,13 +62,23 @@ if [[ "${WMV_SKIP_DOCKER_STARTUP:-false}" == "true" ]]; then
 const { Client } = require('pg');
 const c = new Client({ connectionString: process.argv[1] });
 c.connect().then(() => { c.end(); process.exit(0); }).catch(() => process.exit(1));" \
-"$DATABASE_URL_VALUE" 2>/dev/null); then
+"$DATABASE_ADMIN_URL_VALUE" 2>/dev/null); then
       echo "[dev-db] Postgres is ready"
       break
     fi
     sleep 1
     echo "[dev-db] Waiting for Postgres... (${attempt}/20)"
   done
+
+  if ! (cd server && node -e "
+const { Client } = require('pg');
+const c = new Client({ connectionString: process.argv[1] });
+c.connect().then(() => { c.end(); process.exit(0); }).catch(() => process.exit(1));" \
+"$DATABASE_ADMIN_URL_VALUE" 2>/dev/null); then
+    echo "[dev-db] ERROR: Postgres is not reachable with WMV_SKIP_DOCKER_STARTUP=true"
+    echo "[dev-db] Verify DATABASE_URL host/port and that Postgres is running before retrying."
+    exit 1
+  fi
 else
   if ! command -v docker >/dev/null 2>&1; then
     echo "[dev-db] ERROR: docker is required for local Postgres host (${DATABASE_HOST_VALUE})"
@@ -78,7 +89,7 @@ else
   docker compose up -d postgres >/dev/null
 
   for attempt in $(seq 1 40); do
-    if docker compose exec -T postgres pg_isready -U "$POSTGRES_USER_VALUE" -d "$POSTGRES_DB_VALUE" >/dev/null 2>&1; then
+    if docker compose exec -T postgres pg_isready -U "$POSTGRES_USER_VALUE" -d "$POSTGRES_READY_DB_VALUE" >/dev/null 2>&1; then
       echo "[dev-db] Postgres is ready"
       break
     fi
@@ -86,7 +97,7 @@ else
     echo "[dev-db] Waiting for Postgres... (${attempt}/40)"
   done
 
-  if ! docker compose exec -T postgres pg_isready -U "$POSTGRES_USER_VALUE" -d "$POSTGRES_DB_VALUE" >/dev/null 2>&1; then
+  if ! docker compose exec -T postgres pg_isready -U "$POSTGRES_USER_VALUE" -d "$POSTGRES_READY_DB_VALUE" >/dev/null 2>&1; then
     echo "[dev-db] ERROR: Timed out waiting for Postgres to become ready"
     echo "[dev-db] Check container logs with: npm run db:postgres:logs"
     echo "[dev-db] If logs mention PostgreSQL 18 layout/upgrade conflicts, reset local volume with: npm run db:postgres:reset"

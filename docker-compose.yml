@@ -9,7 +9,6 @@ services:
       POSTGRES_USER: wmv
       POSTGRES_PASSWORD: wmv
       POSTGRES_DB: wmv_local
-      POSTGRES_MULTIPLE_DATABASES: wmv_local,wmv_e2e
       PGDATA: /var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U wmv -d wmv_local"]

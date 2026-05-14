@@ -37,10 +37,8 @@ docker compose exec -T postgres pg_dump \
   --no-privileges \
   "${TABLE_ARGS[@]}" > "$OUTPUT_PATH"
 
-# pg_dump 18 emits \restrict/\unrestrict meta commands; strip for plain SQL replay via node pg.
-sed -i '/^\\restrict /d;/^\\unrestrict /d' "$OUTPUT_PATH"
-
 # Scrub PII: replace real weight values with NULL in participant INSERT rows.
+# Also strip pg_dump 18 \restrict/\unrestrict meta commands for plain SQL replay via node pg.
 # Pattern matches the weight and weight_updated_at values at end of each participant row.
 # Before: ..., 85.8196, '2026-02-15 20:02:43.808+00');
 # After:  ..., NULL, NULL);
@@ -49,6 +47,8 @@ import re, sys
 path = sys.argv[1]
 with open(path) as f:
     sql = f.read()
+
+sql = re.sub(r'^\\(?:restrict|unrestrict)\s.*\n?', '', sql, flags=re.MULTILINE)
 
 # Match participant INSERT lines and null out the last two columns (weight, weight_updated_at).
 # Column order is: strava_athlete_id, name, created_at, active, is_admin, weight, weight_updated_at

@@ -25,6 +25,7 @@ import ChainChecker from './components/ChainChecker';
 import { UnitProvider } from './context/UnitContext';
 import { getDefaultSeason, getDefaultWeek } from './utils/defaultSelection';
 import { useClubMembership } from './hooks/useClubMembership';
+import { getBackendBaseUrl } from './utils/backendBaseUrl';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { httpBatchLink } from '@trpc/client';
@@ -312,21 +313,7 @@ function App() {
       links: [
         httpBatchLink({
           url: (() => {
-            const baseUrl = import.meta.env.REACT_APP_BACKEND_URL || (() => {
-              if (typeof window !== 'undefined') {
-                const { hostname, protocol } = window.location;
-                // Keep local dev robust for localhost, 127.0.0.1, and LAN host access.
-                if (hostname === 'localhost' || hostname === '127.0.0.1' || /^\d+\.\d+\.\d+\.\d+$/.test(hostname)) {
-                  return `${protocol}//${hostname}:3001`;
-                }
-
-                if (window.location.port === '5173' || window.location.port === '5174') {
-                  return `${protocol}//${hostname}:3001`;
-                }
-              }
-
-              return '';
-            })();
+            const baseUrl = getBackendBaseUrl();
             const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
             return `${cleanBaseUrl}/trpc`;
           })(),

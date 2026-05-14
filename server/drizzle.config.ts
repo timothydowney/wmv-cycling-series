@@ -10,6 +10,6 @@ export default defineConfig({
   out: './drizzle',
   dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL || 'postgresql://wmv:wmv@localhost:5432/wmv_local',
+    url: process.env.DATABASE_URL || 'postgresql://invalid:invalid@invalid.invalid:5432/invalid',
   },
 });

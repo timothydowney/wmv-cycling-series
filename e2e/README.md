@@ -1,14 +1,3 @@
-## Troubleshooting
-
-**Migration errors (e.g., relation already exists):**
-If you see errors like `relation ... already exists` when running E2E tests, your `wmv_e2e` database may be out of sync or partially migrated. To fix:
-
-1. Connect to Postgres (e.g., `psql -U wmv -h localhost`)
-2. Run: `DROP DATABASE wmv_e2e;`
-3. Run: `CREATE DATABASE wmv_e2e;`
-4. Re-run `npm run test:e2e` (the harness will recreate schema)
-
-This ensures a clean E2E DB for migrations.
 # E2E Testing with Playwright
 
 End-to-end tests for UI-specific regressions and responsive design. These tests run **separately** from Jest unit tests.
@@ -69,7 +58,7 @@ Current reality: Playwright now boots dedicated frontend and backend E2E servers
 **Local E2E DB setup:**
 
 1. Ensure Docker is running.
-2. Run `docker compose up -d` to start the Postgres service (creates both `wmv_local` and `wmv_e2e` DBs).
+2. Run `docker compose up -d` to start the Postgres service (`wmv_local` is created by default).
 3. Run `npm run test:e2e` to execute Playwright tests. The harness will migrate the E2E DB automatically.
 4. To reset the E2E DB, drop and recreate `wmv_e2e` (see scripts/ensure-e2e-db.sh for details).
 
@@ -101,3 +90,15 @@ See [docs/PLAYWRIGHT_TESTING_PLAN.md](../docs/PLAYWRIGHT_TESTING_PLAN.md) for co
 - Existing authenticated tests can keep using the backend e2e-login helper.
 - The main change for new Explorer admin E2E coverage is that server-side Strava-dependent behavior must run through an explicit backend provider mode rather than relying on browser interception.
 - Existing tests should not need a broad rewrite, but the harness should become stricter about env setup and fixture data so it cannot silently run against unintended local state.
+
+## Troubleshooting
+
+**Migration errors (e.g., relation already exists):**
+If you see errors like `relation ... already exists` when running E2E tests, your `wmv_e2e` database may be out of sync or partially migrated. To fix:
+
+1. Connect to Postgres (e.g., `psql -U wmv -h localhost`)
+2. Run: `DROP DATABASE wmv_e2e;`
+3. Run: `CREATE DATABASE wmv_e2e;`
+4. Re-run `npm run test:e2e` (the harness will recreate schema)
+
+This ensures a clean E2E DB for migrations.

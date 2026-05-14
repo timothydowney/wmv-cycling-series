@@ -1,25 +1,11 @@
 import { parseSSE } from './utils/sseParser';
 import { Season, Week, AuthStatus, AdminSegment, ValidatedSegmentDetails, LeaderboardEntry } from './types';
+import { getBackendBaseUrl } from './utils/backendBaseUrl';
 
 export type { Season, Week, AuthStatus, AdminSegment, ValidatedSegmentDetails, LeaderboardEntry };
 
 // Backend API client
-const API_BASE_URL = import.meta.env.REACT_APP_BACKEND_URL || (() => {
-  if (typeof window !== 'undefined') {
-    const { hostname, protocol } = window.location;
-    // In local dev, frontends are commonly opened via localhost, 127.0.0.1, or LAN IPs.
-    // Default to same host on backend port 3001 to avoid falling back to relative /trpc routes.
-    if (hostname === 'localhost' || hostname === '127.0.0.1' || /^\d+\.\d+\.\d+\.\d+$/.test(hostname)) {
-      return `${protocol}//${hostname}:3001`;
-    }
-
-    if (window.location.port === '5173' || window.location.port === '5174') {
-      return `${protocol}//${hostname}:3001`;
-    }
-  }
-
-  return '';
-})();
+const API_BASE_URL = getBackendBaseUrl();
 
 export const api = {
   // AUTH (Express routes)
