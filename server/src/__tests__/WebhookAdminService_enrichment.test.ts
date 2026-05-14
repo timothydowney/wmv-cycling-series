@@ -368,4 +368,22 @@ describe('WebhookAdminService enrichment', () => {
     expect(status.diagnostics.warnings.some((warning) => warning.code === 'WEBHOOK_DISABLED')).toBe(true);
     expect(status.diagnostics.warnings.some((warning) => warning.code === 'WEBHOOK_PERSIST_DISABLED')).toBe(true);
   });
+
+  it('should treat subscription rows without subscription_id as inactive and warn operators', async () => {
+    process.env.WEBHOOK_ENABLED = 'true';
+    process.env.WEBHOOK_PERSIST_EVENTS = 'true';
+    reloadConfig();
+
+    await orm.insert(webhookSubscription).values({
+      verify_token: 'test-token',
+      subscription_payload: JSON.stringify({ callback_url: 'https://example.com/webhooks/strava' }),
+      subscription_id: null,
+      last_refreshed_at: new Date().toISOString(),
+    });
+
+    const status = await service.getStatus();
+    expect(status.enabled).toBe(false);
+    expect(status.diagnostics.delivery_health).toBe('warning');
+    expect(status.diagnostics.warnings.some((warning) => warning.code === 'SUBSCRIPTION_ID_MISSING')).toBe(true);
+  });
 });

@@ -137,7 +137,7 @@ describe('SubscriptionStatusCard renewal semantics', () => {
 
   it('renders safely when diagnostics payload is missing', async () => {
     const { container } = await renderCard({
-      diagnostics: undefined as any,
+      diagnostics: undefined,
     });
 
     expect(container.textContent).toContain('Webhooks Active');
@@ -169,5 +169,26 @@ describe('SubscriptionStatusCard renewal semantics', () => {
     expect(container.textContent).toContain('Troubleshooting warnings');
     expect(container.textContent).toContain('Token refresh failed');
     expect(container.textContent).toContain('WEBHOOK_ENABLED=true');
+  });
+
+  it('shows inactive header state when subscription is disabled even if diagnostics are present', async () => {
+    const { container } = await renderCard({
+      enabled: false,
+      diagnostics: {
+        delivery_health: 'warning',
+        config: {
+          webhook_enabled: true,
+          persist_events: true,
+        },
+        last_receipt_at: null,
+        last_success_at: null,
+        last_failure_at: null,
+        last_failure_error: null,
+        warnings: [],
+      },
+    });
+
+    expect(container.textContent).toContain('Webhooks Inactive');
+    expect(container.querySelector('.inactive-message')?.textContent).toContain('Enable real-time activity updates from Strava');
   });
 });

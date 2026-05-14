@@ -101,7 +101,16 @@ export class WebhookAdminService {
     const warnings: DiagnosticsWarning[] = [];
     let deliveryHealth: WebhookHealthState = 'healthy';
 
-    const hasActiveSubscription = subscriptionStatus.id !== null;
+    const hasSubscriptionRow = subscriptionStatus.id !== null;
+    const hasActiveSubscription = hasSubscriptionRow && subscriptionStatus.subscription_id !== null;
+
+    if (hasSubscriptionRow && !hasActiveSubscription) {
+      warnings.push({
+        code: 'SUBSCRIPTION_ID_MISSING',
+        severity: 'warning',
+        message: 'Webhook subscription row exists but Strava subscription_id is missing. Re-enable webhooks to recover.',
+      });
+    }
 
     if (!config.webhookEnabled) {
       warnings.push({

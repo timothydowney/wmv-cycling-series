@@ -91,8 +91,12 @@ const SubscriptionStatusCard: React.FC<Props> = ({ subscription, onStatusUpdate 
   const loading = enableMutation.isPending || disableMutation.isPending || renewMutation.isPending;
 
   const getStatusIcon = (): string => {
+    if (!subscription.enabled) {
+      return '✕';
+    }
+
     if (!diagnostics.isAvailable) {
-      return subscription.enabled ? '✓' : '✕';
+      return '✓';
     }
 
     if (diagnostics.delivery_health === 'broken') {
@@ -108,8 +112,12 @@ const SubscriptionStatusCard: React.FC<Props> = ({ subscription, onStatusUpdate 
   };
 
   const getStatusColor = (): string => {
+    if (!subscription.enabled) {
+      return '#95a5a6';
+    }
+
     if (!diagnostics.isAvailable) {
-      return subscription.enabled ? '#27ae60' : '#95a5a6';
+      return '#27ae60';
     }
 
     if (diagnostics.delivery_health === 'broken') {
@@ -125,8 +133,12 @@ const SubscriptionStatusCard: React.FC<Props> = ({ subscription, onStatusUpdate 
   };
 
   const getStatusLabel = (): string => {
+    if (!subscription.enabled) {
+      return 'Webhooks Inactive';
+    }
+
     if (!diagnostics.isAvailable) {
-      return subscription.enabled ? 'Webhooks Active' : 'Webhooks Inactive';
+      return 'Webhooks Active';
     }
 
     if (diagnostics.delivery_health === 'broken') {

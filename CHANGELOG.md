@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Manage Webhooks now treats subscriptions as active only when a Strava `subscription_id` exists, warns when a partial subscription row is detected, and keeps the status-card header in a consistent inactive state when webhooks are disabled.
 - Webhook startup subscription detection now normalizes Strava list responses safely (array/object), treats invalid or empty payloads as not active, and warns/recreates when callback URLs drift, avoiding ambiguous "active" logs while keeping startup non-blocking.
 - Manage Webhooks now surfaces richer diagnostics for production triage: delivery health state (`healthy`/`warning`/`degraded`/`broken`), last receipt/success/failure timestamps, last failure summary, runtime flag snapshot, and structured warnings for contradictory states such as active subscription with no receipts in 24 hours.
 - E2E Postgres seed export now scrubs `weight` and `weight_updated_at` to `NULL` for all participant rows before committing the artifact, preventing real athlete body-weight values from entering source control as PII.
