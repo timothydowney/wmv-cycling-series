@@ -68,7 +68,7 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 | Should athlete campaign summaries be computed on read or stored in a cached summary table for v1? | Closed For v1 | No | V1 uses computed-on-read summaries with `ExplorerDestinationMatch` as the durable source of truth. |
 | Should Explorer reuse the existing segment table, store Explorer-local cached metadata, or do both? | Closed For v1 | No | V1 uses a hybrid strategy: shared segment reuse when present plus Explorer-local cached display metadata. |
 | How should webhook regression protection be documented for the delegated-handler refactor? | Closed For Phase 1 | No | The preservation target now lives in this worklog and the handler seam is covered by focused webhook tests. |
-| What is the exact E2E data strategy for Explorer flows? | Closed For 4B-1 | No | The baseline data source is the committed sanitized fixture at `server/data/wmv_e2e_fixture.db`, with deterministic backend Strava reads selected through explicit providers. |
+| What is the exact E2E data strategy for Explorer flows? | Closed For 4B-1 | No | The baseline data source is the committed sanitized Postgres seed at `server/data/wmv_e2e_seed.sql`, with deterministic backend Strava reads selected through explicit providers. |
 | Should deleted source activities retract Explorer completions in v1? | Open | No | Safe to defer if behavior is documented. |
 | Should pre-release Explorer UI remain admin-gated until launch approval? | Closed | No | Yes. Do not expose Explorer UI to non-admin users before a viable release decision. |
 | Should Explorer depend on the competition `Season` model in v1? | Closed | Yes | No. `Season` returns to competition-only semantics and Explorer uses campaign-owned dates. |

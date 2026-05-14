@@ -10,12 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- E2E Postgres seed export now scrubs `weight` and `weight_updated_at` to `NULL` for all participant rows before committing the artifact, preventing real athlete body-weight values from entering source control as PII.
+
 ### Changed
-- E2E test harness migrated from SQLite fixture file to Postgres: `ensure-e2e-db.sh` now creates the `wmv_e2e` database, applies Drizzle migrations, and auto-seeds from `wmv_e2e_fixture.db` when the database is empty. Idempotent on re-runs.
+- E2E test harness now uses a Postgres-only baseline flow: `ensure-e2e-db.sh` creates `wmv_e2e`, applies Drizzle migrations, and auto-seeds from the committed Postgres snapshot `server/data/wmv_e2e_seed.sql` when the database is empty.
 - `scripts/ensure-dev-db.sh` supports `WMV_SKIP_DOCKER_STARTUP=true` for CI environments where Postgres runs as a native service rather than a Docker Compose container.
 
 ### Added
-- CI workflow now includes an E2E test step (`Test (E2E)`) that provisions `wmv_e2e`, seeds it from the SQLite fixture, installs Playwright Chromium, and runs the full Playwright suite against the live dev servers.
+- CI workflow now includes an E2E test step (`Test (E2E)`) that bootstraps the Postgres E2E harness (schema + committed Postgres seed), installs Playwright Chromium, and runs the full Playwright suite against the live dev servers.
 
 - Removed legacy SQLite-style query compatibility shim (`wrapQueryBuilder`, `wrapOrmWithLegacyCompat`) from the test helper `setupTestDb`. All test queries now use idiomatic async Postgres-style Drizzle calls (`.execute()`) directly.
 

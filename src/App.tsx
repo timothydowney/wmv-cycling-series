@@ -313,9 +313,18 @@ function App() {
         httpBatchLink({
           url: (() => {
             const baseUrl = import.meta.env.REACT_APP_BACKEND_URL || (() => {
-              if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-                return 'http://localhost:3001';
+              if (typeof window !== 'undefined') {
+                const { hostname, protocol } = window.location;
+                // Keep local dev robust for localhost, 127.0.0.1, and LAN host access.
+                if (hostname === 'localhost' || hostname === '127.0.0.1' || /^\d+\.\d+\.\d+\.\d+$/.test(hostname)) {
+                  return `${protocol}//${hostname}:3001`;
+                }
+
+                if (window.location.port === '5173' || window.location.port === '5174') {
+                  return `${protocol}//${hostname}:3001`;
+                }
               }
+
               return '';
             })();
             const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;

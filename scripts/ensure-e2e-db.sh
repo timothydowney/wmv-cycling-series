@@ -13,6 +13,7 @@ fi
 export DB_DIALECT="${DB_DIALECT:-postgres}"
 export DATABASE_URL="${DATABASE_URL:-postgresql://wmv:wmv@localhost:5432/wmv_e2e}"
 export WMV_AUTO_BOOTSTRAP_DB=false
+SEED_SQL_PATH="${WMV_E2E_SEED_SQL_PATH:-server/data/wmv_e2e_seed.sql}"
 
 bash scripts/ensure-dev-db.sh
 
@@ -38,7 +39,7 @@ if [[ "$DB_SCHEMA_OK" != "ok" ]]; then
   exit 1
 fi
 
-# Seed from the SQLite fixture if the DB is empty (e.g., fresh CI environment).
+# Seed from the committed Postgres seed when the DB is empty (e.g., fresh CI environment).
 PARTICIPANT_COUNT=$(cd server && node -e "
 const { Client } = require('pg');
 const c = new Client({ connectionString: process.argv[1] });
@@ -50,15 +51,13 @@ c.connect()
 " "$DATABASE_URL" 2>/dev/null)
 
 if [[ "${PARTICIPANT_COUNT:-0}" == "0" ]]; then
-  FIXTURE_PATH="server/data/wmv_e2e_fixture.db"
-  if [[ -f "$FIXTURE_PATH" ]]; then
-    echo "[e2e-db] Seeding E2E database from fixture (${FIXTURE_PATH})"
-    DATABASE_URL="$DATABASE_URL" node server/scripts/migrate-sqlite-to-postgres.js \
-      --sqlite "$FIXTURE_PATH" \
+  if [[ -f "$SEED_SQL_PATH" ]]; then
+    echo "[e2e-db] Seeding E2E database from Postgres seed (${SEED_SQL_PATH})"
+    DATABASE_URL="$DATABASE_URL" node server/scripts/import-postgres-seed.js \
       --postgres "$DATABASE_URL" \
-      --confirm-destructive
+      --sql "$SEED_SQL_PATH"
   else
-    echo "[e2e-db] WARNING: fixture file not found at ${FIXTURE_PATH}; E2E DB will be empty"
+    echo "[e2e-db] WARNING: seed file not found at ${SEED_SQL_PATH}; E2E DB will be empty"
   fi
 else
   echo "[e2e-db] E2E database already has data (${PARTICIPANT_COUNT} participants), skipping seed"
@@ -66,7 +65,7 @@ fi
 
 if [[ "${WMV_E2E_RESET_DB_ON_BOOT:-false}" == "true" ]]; then
   echo "[e2e-db] ERROR: WMV_E2E_RESET_DB_ON_BOOT=true is no longer supported by scripts/ensure-e2e-db.sh."
-  echo "[e2e-db] The legacy SQLite fixture import/reset flow has been removed, so WMV_E2E_RESET_DB_ON_BOOT and WMV_E2E_SOURCE_DATABASE_PATH are ignored here."
+  echo "[e2e-db] Automatic reset-on-boot is not supported. Drop and recreate the Postgres database, then rerun this script."
   echo "[e2e-db] Supported reset workflow: drop and recreate the Postgres database referenced by DATABASE_URL (for local E2E this is usually wmv_e2e), then rerun this script to recreate the schema."
   exit 1
 fi

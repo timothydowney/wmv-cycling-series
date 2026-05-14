@@ -63,7 +63,7 @@ These principles describe the intended direction for the E2E harness as it becom
 - Fail fast if the intended E2E env file or backend mode is missing instead of silently falling back to the normal development environment.
 
 
-Current reality: Playwright now boots dedicated frontend and backend E2E servers for `npm run test:e2e`, the backend uses an explicit E2E runtime mode for harness boot concerns, and deterministic backend Strava behavior is selected through explicit providers for the current Explorer and read-side flows. The E2E database is now Postgres-only (no SQLite). The suite uses the `wmv_e2e` Postgres database, which is created and migrated automatically by the harness scripts. The legacy SQLite fixture import/reset flow is removed.
+Current reality: Playwright now boots dedicated frontend and backend E2E servers for `npm run test:e2e`, the backend uses an explicit E2E runtime mode for harness boot concerns, and deterministic backend Strava behavior is selected through explicit providers for the current Explorer and read-side flows. The E2E database is Postgres-only (no SQLite). The suite uses the `wmv_e2e` Postgres database, which is created and migrated automatically by the harness scripts, then seeded from the committed Postgres SQL snapshot at `server/data/wmv_e2e_seed.sql` when empty.
 
 
 **Local E2E DB setup:**
@@ -74,6 +74,8 @@ Current reality: Playwright now boots dedicated frontend and backend E2E servers
 4. To reset the E2E DB, drop and recreate `wmv_e2e` (see scripts/ensure-e2e-db.sh for details).
 
 **No SQLite fallback:** All E2E and dev/test DBs are now Postgres. If you see DB errors, check your Docker and Postgres setup.
+
+To refresh the committed Postgres E2E seed after intentionally updating baseline data, run `npm run test:e2e:refresh-seed`.
 
 ## Phase 1 Status: Setup
 

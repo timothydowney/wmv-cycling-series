@@ -35,7 +35,8 @@
     "test:e2e:ui": "ENV_FILE=e2e/.env.e2e playwright test --ui",
     "test:e2e:report": "playwright show-report",
     "test:e2e:auth": "ENV_FILE=e2e/.env.e2e playwright test --project=setup --headed",
-    "test:e2e:refresh-fixture": "node server/scripts/build-e2e-fixture.cjs",
+    "test:e2e:refresh-seed": "bash scripts/export-e2e-postgres-seed.sh",
+    "test:e2e:refresh-fixture": "npm run test:e2e:refresh-seed",
     "lint:frontend": "eslint src",
     "lint:server": "npm --prefix server run lint",
     "lint": "npm run lint:frontend && npm run lint:server",
@@ -56,8 +57,6 @@
     "db:check": "npm --prefix server run db:check",
     "db:migrate": "npm --prefix server run db:migrate",
     "db:postgres:bootstrap-schema": "npm --prefix server run db:pg:bootstrap:schema",
-    "db:postgres:migrate-dev": "npm --prefix server run db:pg:migrate:from-sqlite -- --source-env dev-sqlite --target-env dev-postgres --confirm-destructive",
-    "db:postgres:verify-dev": "npm --prefix server run db:pg:verify:parity",
     "db:postgres:verify-rollback-tag": "bash scripts/verify-postgres-rollback-tag.sh",
     "postinstall": "cd server && npm install",
     "prepare": "node scripts/install-hooks.cjs"
