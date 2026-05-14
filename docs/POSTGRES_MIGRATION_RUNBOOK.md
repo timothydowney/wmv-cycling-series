@@ -19,6 +19,30 @@ Important local isolation note:
 - Do not delete SQLite snapshots used for cutover rehearsal.
 - Keep a rollback tag on main before merge/cutover. Current checkpoint tag: `pre-postgres-migration-sqlite-20260425`.
 
+## Drizzle Post-Cutover Migration Lifecycle (Postgres Only)
+
+Source of truth for schema evolution:
+- Drizzle schema: `server/src/db/schema.ts`
+- Applied migration history: `server/drizzle/*.sql` + `server/drizzle/meta/_journal.json`
+
+Standard forward-migration flow:
+
+1. Generate a new migration from schema changes:
+```bash
+npm run db:generate
+```
+2. Review generated SQL in `server/drizzle/`.
+3. Apply locally:
+```bash
+DATABASE_URL="postgresql://wmv:wmv@localhost:5432/wmv_local" npm run db:migrate
+```
+4. Validate migration metadata consistency:
+```bash
+npm run db:check
+```
+
+CI now validates both migration metadata (`db:check`) and clean application against a fresh Postgres database (`db:migrate`).
+
 Verify rollback tag presence on origin:
 ```bash
 npm run db:postgres:verify-rollback-tag
@@ -50,30 +74,25 @@ Current branch status: backend runtime is Postgres-only. SQLite is retained only
 
 ## Phase 2: Prepare Postgres Schema
 
-Initialize the local Postgres schema bridge:
+Initialize the local Postgres schema from Drizzle migrations:
 ```bash
 DATABASE_URL="postgresql://wmv:wmv@localhost:5432/wmv_local" npm run db:postgres:bootstrap-schema
 ```
 
-This creates all current application tables and indexes in local Postgres to enable data import rehearsal.
+This applies the Drizzle baseline and any incremental migrations in order.
 
-## Phase 3: Migrate Local SQLite Dev Data
+## Phase 3: Seed Local Postgres Baseline Data
 
-1. Migrate the local dev SQLite database:
+1. Seed the local dev Postgres database from the committed Postgres E2E baseline:
 ```bash
-npm run db:postgres:migrate-dev
+npm run test:e2e:refresh-seed
+npm run dev:server
 ```
 
-By default this reads `server/data/wmv.db` and writes to `DATABASE_URL`.
+`npm run test:e2e:refresh-seed` refreshes `server/data/wmv_e2e_seed.sql` from `wmv_e2e`.
+`npm run dev:server` auto-creates and auto-migrates `wmv_local`, then seeds from that SQL snapshot when the DB is empty.
 
-## Phase 4: Validate Local Parity
-
-Run row-count parity check:
-```bash
-npm run db:postgres:verify-dev
-```
-
-If parity fails, stop and inspect source rows and failed tables before continuing.
+## Phase 4: Validate Local Runtime
 
 ## Phase 5: Local Smoke Validation
 
@@ -104,7 +123,7 @@ What happens automatically before backend E2E startup:
 - Docker Postgres is started if `DATABASE_URL` host is localhost
 - E2E target DB is created if missing
 - Schema bootstrap runs
-- If `WMV_E2E_RESET_DB_ON_BOOT=true`, fixture data from `server/data/wmv_e2e_fixture.db` is imported
+- If the E2E DB is empty, baseline data from `server/data/wmv_e2e_seed.sql` is imported
 
 ## Optional: Point E2E at Dev or Prod Snapshot Data
 

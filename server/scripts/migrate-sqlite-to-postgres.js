@@ -17,7 +17,6 @@ const TABLE_ORDER = [
   'result',
   'participant_token',
   'deletion_request',
-  'schema_migrations',
   'webhook_event',
   'webhook_subscription',
   'explorer_campaign',
@@ -123,8 +122,19 @@ function convertValue(value, pgType) {
     return null;
   }
 
+  // Drizzle stores default expression placeholders as string literals in SQLite (e.g. "sql`(CURRENT_TIMESTAMP)`").
+  // These are not real data values — treat them as NULL so Postgres uses its column default.
+  if (typeof value === 'string' && value.startsWith('sql`')) {
+    return null;
+  }
+
   if (pgType === 'boolean' && (value === 0 || value === 1)) {
     return Boolean(value);
+  }
+
+  // SQLite stores timestamps as Unix seconds (integer); Postgres timestamptz expects ISO strings.
+  if ((pgType === 'timestamp with time zone' || pgType === 'timestamp without time zone') && typeof value === 'number') {
+    return new Date(value * 1000).toISOString();
   }
 
   return value;

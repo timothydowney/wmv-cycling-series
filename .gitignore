@@ -31,7 +31,7 @@ dist-ssr
 server/data/
 !server/data/
 server/data/*
-!server/data/wmv_e2e_fixture.db
+!server/data/wmv_e2e_seed.sql
 
 # Test coverage
 coverage/
