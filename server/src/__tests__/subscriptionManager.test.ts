@@ -22,6 +22,55 @@ describe('Webhook Subscription Manager', () => {
       expect(typeof service.getExistingSubscription).toBe('function');
       expect(typeof service.deleteSubscription).toBe('function');
     });
+
+    it('should parse array-based Strava subscription responses', async () => {
+      const originalFetch = global.fetch;
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue([
+          {
+            id: 317445,
+            callback_url: 'https://example.com/webhooks/strava',
+            created_at: '2026-01-01T00:00:00Z',
+            updated_at: '2026-01-01T00:00:00Z',
+            resource_state: 2,
+          },
+        ]),
+      } as any);
+
+      try {
+        const service = createDefaultService();
+        const existing = await service.getExistingSubscription('client-id', 'client-secret');
+        expect(existing?.id).toBe(317445);
+        expect(existing?.callback_url).toBe('https://example.com/webhooks/strava');
+      } finally {
+        global.fetch = originalFetch;
+        consoleWarnSpy.mockRestore();
+      }
+    });
+
+    it('should return null for empty Strava subscription arrays', async () => {
+      const originalFetch = global.fetch;
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue([]),
+      } as any);
+
+      try {
+        const service = createDefaultService();
+        const existing = await service.getExistingSubscription('client-id', 'client-secret');
+        expect(existing).toBeNull();
+      } finally {
+        global.fetch = originalFetch;
+        consoleWarnSpy.mockRestore();
+      }
+    });
   });
 
   // ============================================================================
@@ -177,10 +226,11 @@ describe('Webhook Subscription Manager', () => {
 
     it('should check for existing subscription when enabled and configured', async () => {
       process.env.WEBHOOK_ENABLED = 'true';
-      process.env.WEBHOOK_CALLBACK_URL = 'https://example.com/webhooks';
       process.env.WEBHOOK_VERIFY_TOKEN = 'test-token';
       process.env.STRAVA_CLIENT_ID = 'test-id';
       process.env.STRAVA_CLIENT_SECRET = 'test-secret';
+      process.env.FRONTEND_URL = 'http://localhost:5173';
+      process.env.BACKEND_URL = 'https://example.com';
       reloadConfig();
 
       const mockService: SubscriptionService = {
@@ -189,7 +239,7 @@ describe('Webhook Subscription Manager', () => {
           id: 123,
           created_at: '2025-11-22T00:00:00Z',
           updated_at: '2025-11-22T00:00:00Z',
-          callback_url: 'https://example.com/webhooks',
+          callback_url: 'https://example.com/webhooks/strava',
           resource_state: 2
         }),
         deleteSubscription: jest.fn()
@@ -203,10 +253,11 @@ describe('Webhook Subscription Manager', () => {
 
     it('should use existing subscription if it exists', async () => {
       process.env.WEBHOOK_ENABLED = 'true';
-      process.env.WEBHOOK_CALLBACK_URL = 'https://example.com/webhooks';
       process.env.WEBHOOK_VERIFY_TOKEN = 'test-token';
       process.env.STRAVA_CLIENT_ID = 'test-id';
       process.env.STRAVA_CLIENT_SECRET = 'test-secret';
+      process.env.FRONTEND_URL = 'http://localhost:5173';
+      process.env.BACKEND_URL = 'https://example.com';
       reloadConfig();
 
       const mockService: SubscriptionService = {
@@ -215,7 +266,7 @@ describe('Webhook Subscription Manager', () => {
           id: 456,
           created_at: '2025-11-20T00:00:00Z',
           updated_at: '2025-11-22T00:00:00Z',
-          callback_url: 'https://example.com/webhooks',
+          callback_url: 'https://example.com/webhooks/strava',
           resource_state: 2
         }),
         deleteSubscription: jest.fn()
@@ -229,6 +280,44 @@ describe('Webhook Subscription Manager', () => {
         .join('\n');
       expect(logCalls).toContain('Already subscribed');
       expect(mockService.createSubscription).not.toHaveBeenCalled();
+    });
+
+    it('should recreate subscription if existing callback URL does not match expected callback', async () => {
+      process.env.WEBHOOK_ENABLED = 'true';
+      process.env.WEBHOOK_VERIFY_TOKEN = 'test-token';
+      process.env.STRAVA_CLIENT_ID = 'test-id';
+      process.env.STRAVA_CLIENT_SECRET = 'test-secret';
+      process.env.FRONTEND_URL = 'http://localhost:5173';
+      process.env.BACKEND_URL = 'https://expected.example.com';
+      reloadConfig();
+
+      const mockService: SubscriptionService = {
+        createSubscription: jest.fn().mockResolvedValue({
+          id: 999,
+          created_at: '2026-05-01T00:00:00Z',
+          updated_at: '2026-05-01T00:00:00Z',
+          callback_url: 'https://expected.example.com/webhooks/strava',
+          resource_state: 2,
+        }),
+        getExistingSubscription: jest.fn().mockResolvedValue({
+          id: 123,
+          created_at: '2026-04-01T00:00:00Z',
+          updated_at: '2026-04-01T00:00:00Z',
+          callback_url: 'https://old.example.com/webhooks/strava',
+          resource_state: 2,
+        }),
+        deleteSubscription: jest.fn(),
+      };
+
+      await setupWebhookSubscription(mockService);
+
+      expect(mockService.deleteSubscription).toHaveBeenCalledWith(123, 'test-id', 'test-secret');
+      expect(mockService.createSubscription).toHaveBeenCalledWith(
+        'https://expected.example.com/webhooks/strava',
+        'test-token',
+        'test-id',
+        'test-secret'
+      );
     });
 
     // ========== Happy Path: Create New Subscription ==========

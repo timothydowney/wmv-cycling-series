@@ -157,6 +157,99 @@
   border: 1px solid #c0392b;
 }
 
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.metric-chip {
+  border: 1px solid #d9e2f2;
+  border-radius: 6px;
+  background: #f8fbff;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metric-label {
+  font-size: 11px;
+  color: #5d6d7e;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.metric-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1b2631;
+}
+
+.diagnostics-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #2c3e50;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.diagnostic-error {
+  border: 1px solid #f5c6cb;
+  border-radius: 6px;
+  background: #fef2f2;
+  color: #8a1f11;
+  padding: 10px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.diagnostics-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.diagnostic-warning {
+  border-left: 3px solid #b7950b;
+  background: #fdf8e4;
+  color: #6f5b08;
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.diagnostic-warning.degraded {
+  border-left-color: #d35400;
+  background: #fff2e8;
+  color: #8b3f03;
+}
+
+.diagnostic-warning.broken {
+  border-left-color: #c0392b;
+  background: #fdebea;
+  color: #7b241c;
+}
+
+.diagnostics-checklist {
+  border: 1px dashed #bdc3c7;
+  border-radius: 6px;
+  background: #f8f9fb;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.diagnostics-checklist p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #34495e;
+}
+
 @keyframes slideIn {
   from {
     opacity: 0;
