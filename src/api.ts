@@ -1,15 +1,11 @@
 import { parseSSE } from './utils/sseParser';
 import { Season, Week, AuthStatus, AdminSegment, ValidatedSegmentDetails, LeaderboardEntry } from './types';
+import { getBackendBaseUrl } from './utils/backendBaseUrl';
 
 export type { Season, Week, AuthStatus, AdminSegment, ValidatedSegmentDetails, LeaderboardEntry };
 
 // Backend API client
-const API_BASE_URL = import.meta.env.REACT_APP_BACKEND_URL || (() => {
-  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-    return 'http://localhost:3001';
-  }
-  return '';
-})();
+const API_BASE_URL = getBackendBaseUrl();
 
 export const api = {
   // AUTH (Express routes)

@@ -19,5 +19,7 @@ services:
     volumes:
       - wmv_postgres18_data:/var/lib/postgresql/data
 
+
+
 volumes:
   wmv_postgres18_data:
