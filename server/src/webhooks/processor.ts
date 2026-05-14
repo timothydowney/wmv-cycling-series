@@ -212,6 +212,11 @@ async function processActivityEvent(
   const context = await createActivityIngestionContext(event, db, validationService);
 
   if (!context) {
+    console.warn('[Webhook:Processor] Skipping activity event due to missing ingestion context', {
+      activityId: event.object_id,
+      athleteId: event.owner_id,
+      aspect: event.aspect_type,
+    });
     return;
   }
 

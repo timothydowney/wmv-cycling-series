@@ -151,6 +151,13 @@ export function createWebhookRouter(logger: WebhookLogger, db: AppDatabase): Rou
           err instanceof Error ? err.message : String(err)
         );
       });
+    } else {
+      console.warn('[Webhook] Event received but processing is disabled (WEBHOOK_ENABLED=false)', {
+        type: event.object_type,
+        aspect: event.aspect_type,
+        objectId: event.object_id,
+        ownerId: event.owner_id,
+      });
     }
   });
 

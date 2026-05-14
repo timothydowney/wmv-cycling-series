@@ -41,11 +41,20 @@ function extractSinceFromWebhookRequest(urlString: string): number | null {
     return null;
   }
 
-  const parsedInput = JSON.parse(inputParam) as Record<string, { since?: number; json?: { since?: number } }>;
-  const firstBatchEntry = Object.values(parsedInput)[0];
-  const since = firstBatchEntry?.since ?? firstBatchEntry?.json?.since;
+  const parsedInput = JSON.parse(inputParam) as Record<
+    string,
+    { since?: number; json?: { since?: number } }
+  >;
 
-  return typeof since === 'number' ? since : null;
+  // Requests may be batched with other procedures, so find the first numeric since value.
+  for (const batchEntry of Object.values(parsedInput)) {
+    const since = batchEntry?.since ?? batchEntry?.json?.since;
+    if (typeof since === 'number') {
+      return since;
+    }
+  }
+
+  return null;
 }
 
 test.describe('Authenticated User Features', () => {

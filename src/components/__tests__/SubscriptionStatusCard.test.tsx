@@ -46,6 +46,18 @@ const baseSubscription = {
     events_last24h: 0,
     success_rate: 0,
   },
+  diagnostics: {
+    delivery_health: 'healthy',
+    config: {
+      webhook_enabled: true,
+      persist_events: true,
+    },
+    last_receipt_at: null,
+    last_success_at: null,
+    last_failure_at: null,
+    last_failure_error: null,
+    warnings: [],
+  },
 };
 
 async function renderCard(overrides: Partial<typeof baseSubscription> = {}) {
@@ -121,5 +133,62 @@ describe('SubscriptionStatusCard renewal semantics', () => {
 
     expect(container.textContent).toContain('Expired');
     expect(container.textContent).toContain('(expired - renew to reactivate)');
+  });
+
+  it('renders safely when diagnostics payload is missing', async () => {
+    const { container } = await renderCard({
+      diagnostics: undefined,
+    });
+
+    expect(container.textContent).toContain('Webhooks Active');
+    expect(container.textContent).toContain('Runtime flags unavailable until backend diagnostics payload is enabled.');
+  });
+
+  it('renders troubleshooting warnings when diagnostics are present', async () => {
+    const { container } = await renderCard({
+      diagnostics: {
+        delivery_health: 'degraded',
+        config: {
+          webhook_enabled: true,
+          persist_events: true,
+        },
+        last_receipt_at: '2026-05-13T10:00:00.000Z',
+        last_success_at: null,
+        last_failure_at: '2026-05-13T10:30:00.000Z',
+        last_failure_error: 'Token refresh failed',
+        warnings: [
+          {
+            code: 'NO_RECEIPTS_24H',
+            severity: 'degraded',
+            message: 'Subscription appears active but no webhook receipts were recorded in the last 24 hours.',
+          },
+        ],
+      },
+    });
+
+    expect(container.textContent).toContain('Troubleshooting warnings');
+    expect(container.textContent).toContain('Token refresh failed');
+    expect(container.textContent).toContain('WEBHOOK_ENABLED=true');
+  });
+
+  it('shows inactive header state when subscription is disabled even if diagnostics are present', async () => {
+    const { container } = await renderCard({
+      enabled: false,
+      diagnostics: {
+        delivery_health: 'warning',
+        config: {
+          webhook_enabled: true,
+          persist_events: true,
+        },
+        last_receipt_at: null,
+        last_success_at: null,
+        last_failure_at: null,
+        last_failure_error: null,
+        warnings: [],
+      },
+    });
+
+    expect(container.textContent).toContain('Webhooks Inactive');
+    expect(container.querySelector('.inactive-message')?.textContent).toContain('Enable real-time activity updates from Strava');
   });
 });
