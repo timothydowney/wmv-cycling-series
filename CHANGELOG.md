@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Chain wax webhook writes now set `created_at` explicitly for periods, activities, and pucks. Added Postgres migration `0001_ensure_chain_wax_defaults.sql` to ensure `DEFAULT CURRENT_TIMESTAMP` exists on all chain_wax tables, fixing schema drift where production tables lacked the default after earlier migrations.
 - Manage Webhooks now treats subscriptions as active only when a Strava `subscription_id` exists, warns when a partial subscription row is detected, and keeps the status-card header in a consistent inactive state when webhooks are disabled.
 - Webhook startup subscription detection now normalizes Strava list responses safely (array/object), treats invalid or empty payloads as not active, and warns/recreates when callback URLs drift, avoiding ambiguous "active" logs while keeping startup non-blocking.
 - Manage Webhooks now surfaces richer diagnostics for production triage: delivery health state (`healthy`/`warning`/`degraded`/`broken`), last receipt/success/failure timestamps, last failure summary, runtime flag snapshot, and structured warnings for contradictory states such as active subscription with no receipts in 24 hours.
