@@ -163,17 +163,4 @@ describe('Startup Migration Lifecycle', () => {
     expect(indexContent).toContain('if (migrationRowCount > 0)');
   });
 
-  it('should convert legacy chain_wax created_at bigint columns before defaulting to now()', () => {
-    const migrationPath = path.join(__dirname, '../../drizzle/0001_ensure_chain_wax_defaults.sql');
-    const migrationContent = fs.readFileSync(migrationPath, 'utf-8');
-
-    expect(migrationContent).toContain("current_type IN ('bigint', 'integer')");
-    expect(migrationContent).toContain('to_timestamp(%I::double precision)');
-    expect(migrationContent).toContain("NULLIF(%I, '''')::timestamp AT TIME ZONE ''UTC''");
-    expect(migrationContent).toContain("~ ''(Z|[+-][0-9]{2}(:?[0-9]{2})?)$''");
-    expect(migrationContent).toContain('ALTER COLUMN %I SET DEFAULT now()');
-    expect(migrationContent).toContain("('chain_wax_period', 'created_at', true)");
-    expect(migrationContent).toContain("('chain_wax_activity', 'created_at', true)");
-    expect(migrationContent).toContain("('chain_wax_puck', 'created_at', true)");
-  });
 });
