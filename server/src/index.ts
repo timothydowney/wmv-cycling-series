@@ -189,7 +189,7 @@ async function stampBaselineIfBootstrapped(): Promise<void> {
   const journal = JSON.parse(fs.readFileSync(journalPath, 'utf-8')) as {
     entries: { idx: number; tag: string; when: number }[];
   };
-  const baselineEntryByIndex = journal.entries.reduce<{ idx: number; tag: string; when: number } | undefined>(
+  const lowestIndexEntry = journal.entries.reduce<{ idx: number; tag: string; when: number } | undefined>(
     (lowest, entry) => {
       if (!lowest || entry.idx < lowest.idx) {
         return entry;
@@ -198,7 +198,7 @@ async function stampBaselineIfBootstrapped(): Promise<void> {
     },
     undefined
   );
-  const baselineEntry = journal.entries.find((entry) => entry.tag === '0000_postgres_baseline') ?? baselineEntryByIndex;
+  const baselineEntry = journal.entries.find((entry) => entry.tag === '0000_postgres_baseline') ?? lowestIndexEntry;
   if (!baselineEntry) {
     console.warn('[DB] No baseline entry in journal — skipping stamp');
     return;
@@ -210,6 +210,8 @@ async function stampBaselineIfBootstrapped(): Promise<void> {
   );
   const hash = crypto.createHash('sha256').update(baselineSql).digest('hex');
 
+  // Serialize baseline-stamp attempts across concurrent startups so only one process
+  // can inspect/create/populate drizzle.__drizzle_migrations at a time.
   await db.query('SELECT pg_advisory_lock($1)', [BASELINE_STAMP_LOCK_ID]);
   try {
     await db.query('CREATE SCHEMA IF NOT EXISTS drizzle');
