@@ -59,9 +59,15 @@ BEGIN
 			);
 		ELSIF current_type = 'text' THEN
 			EXECUTE format(
-				'ALTER TABLE %I.%I ALTER COLUMN %I TYPE timestamptz USING NULLIF(%I, '''')::timestamptz',
+				'ALTER TABLE %I.%I ALTER COLUMN %I TYPE timestamptz USING CASE ' ||
+				'WHEN NULLIF(%I, '''') IS NULL THEN NULL ' ||
+				'WHEN NULLIF(%I, '''') ~ ''(Z|[+-][0-9]{2}(:?[0-9]{2})?)$'' THEN NULLIF(%I, '''')::timestamptz ' ||
+				'ELSE (NULLIF(%I, '''')::timestamp AT TIME ZONE ''UTC'') END',
 				'public',
 				target.table_name,
+				target.column_name,
+				target.column_name,
+				target.column_name,
 				target.column_name,
 				target.column_name
 			);

@@ -169,7 +169,8 @@ describe('Startup Migration Lifecycle', () => {
 
     expect(migrationContent).toContain("current_type IN ('bigint', 'integer')");
     expect(migrationContent).toContain('to_timestamp(%I::double precision)');
-    expect(migrationContent).toContain("NULLIF(%I, '''')::timestamptz");
+    expect(migrationContent).toContain("NULLIF(%I, '''')::timestamp AT TIME ZONE ''UTC''");
+    expect(migrationContent).toContain("~ ''(Z|[+-][0-9]{2}(:?[0-9]{2})?)$''");
     expect(migrationContent).toContain('ALTER COLUMN %I SET DEFAULT now()');
     expect(migrationContent).toContain("('chain_wax_period', 'created_at', true)");
     expect(migrationContent).toContain("('chain_wax_activity', 'created_at', true)");
