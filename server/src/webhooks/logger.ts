@@ -31,7 +31,6 @@ export class WebhookLogger {
           payload: JSON.stringify(entry.payload),
           processed: processedValue,
           error_message: entry.errorMessage || null,
-          created_at: new Date().toISOString()
         })
       );
     } catch (error) {
