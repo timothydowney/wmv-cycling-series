@@ -3,7 +3,7 @@ import type { AppDatabase } from '../db/types';
 import { setupTestDb, teardownTestDb } from './setupTestDb';
 import { ChainWaxService } from '../services/ChainWaxService';
 import { chainWaxPeriod, chainWaxActivity, chainWaxPuck } from '../db/schema';
-import { isNull } from 'drizzle-orm';
+import { isNull, eq } from 'drizzle-orm';
 
 describe('ChainWaxService', () => {
   let pool: Pool;
@@ -91,12 +91,23 @@ describe('ChainWaxService', () => {
   });
 
   describe('recordActivity', () => {
-    it('records a new activity and updates total distance', async () => {
+    it('records a new activity with explicit created_at timestamp', async () => {
       const service = new ChainWaxService(orm);
       const now = Math.floor(Date.now() / 1000);
 
       const recorded = await service.recordActivity('act1', '366880', 25_000, now);
       expect(recorded).toBe(true);
+
+      const [recordedActivity] = await orm
+        .select()
+        .from(chainWaxActivity)
+        .where(eq(chainWaxActivity.strava_activity_id, 'act1'))
+        .execute();
+
+      expect(recordedActivity).toBeDefined();
+      expect(recordedActivity!.created_at).toBeTruthy();
+      // Verify the timestamp is a valid ISO string (explicit write, not relying on DB default)
+      expect(new Date(recordedActivity!.created_at!).getTime()).toBeGreaterThan(0);
 
       const status = await service.getCurrentStatus();
       expect(status.currentPeriod.totalDistanceMeters).toBe(25_000);

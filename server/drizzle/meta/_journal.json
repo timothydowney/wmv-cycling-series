@@ -8,6 +8,13 @@
       "when": 1778692131744,
       "tag": "0000_postgres_baseline",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1778805900000,
+      "tag": "0001_ensure_chain_wax_defaults",
+      "breakpoints": true
     }
   ]
 }
