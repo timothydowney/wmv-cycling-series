@@ -103,7 +103,6 @@ export class ChainWaxService {
    */
   async waxChain(waxedAt: number): Promise<void> {
     const currentPeriod = await this.getCurrentPeriod();
-    const createdAt = new Date().toISOString();
 
     await this.db.transaction(async (tx) => {
       // Close current period
@@ -119,7 +118,6 @@ export class ChainWaxService {
           .values({
             started_at: waxedAt,
             total_distance_meters: 0,
-            created_at: createdAt,
           })
       );
 
@@ -146,7 +144,6 @@ export class ChainWaxService {
    */
   async newPuck(): Promise<void> {
     const now = Math.floor(Date.now() / 1000);
-    const createdAt = new Date().toISOString();
 
     await this.db.transaction(async (tx) => {
       // Retire current puck
@@ -163,7 +160,6 @@ export class ChainWaxService {
             started_at: now,
             wax_count: 0,
             is_current: true,
-            created_at: createdAt,
           })
       );
     });
@@ -181,7 +177,6 @@ export class ChainWaxService {
     activityStartAt: number
   ): Promise<boolean> {
     const currentPeriod = await this.getCurrentPeriod();
-    const createdAt = new Date().toISOString();
 
     // Only count activities that started after the current wax period began
     if (activityStartAt < currentPeriod.started_at) {
@@ -195,7 +190,6 @@ export class ChainWaxService {
         strava_athlete_id: athleteId,
         distance_meters: distanceMeters,
         activity_start_at: activityStartAt,
-        created_at: createdAt,
       }).onConflictDoNothing().returning({ id: chainWaxActivity.id })
     );
 
