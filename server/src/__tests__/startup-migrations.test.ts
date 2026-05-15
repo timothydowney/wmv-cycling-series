@@ -35,6 +35,7 @@ describe('Startup Migration Lifecycle', () => {
 
     // Check that stampBaselineIfBootstrapped is defined
     expect(indexContent).toContain('async function stampBaselineIfBootstrapped');
+    expect(indexContent).toContain("entry.tag === '0000_postgres_baseline'");
 
     // Check that startServer calls applyPendingMigrations BEFORE verifyDatabaseReady
     const startServerMatch = indexContent.match(
@@ -151,5 +152,14 @@ describe('Startup Migration Lifecycle', () => {
     expect(applyIndex).toBeGreaterThan(-1);
     expect(verifyIndex).toBeGreaterThan(-1);
     expect(applyIndex).toBeLessThan(verifyIndex);
+  });
+
+  it('should gate baseline stamping on migration table rows, not just drizzle schema existence', () => {
+    const indexPath = path.join(__dirname, '../index.ts');
+    const indexContent = fs.readFileSync(indexPath, 'utf-8');
+
+    expect(indexContent).toContain('CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations');
+    expect(indexContent).toContain('SELECT COUNT(*)::text AS count FROM drizzle.__drizzle_migrations');
+    expect(indexContent).toContain('if (migrationRowCount > 0)');
   });
 });

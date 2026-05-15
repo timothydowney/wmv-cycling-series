@@ -177,13 +177,6 @@ const REQUIRED_TABLES = [
  * apply the baseline normally to create all tables from scratch.
  */
 async function stampBaselineIfBootstrapped(): Promise<void> {
-  const drizzleSchemaResult = await db.query<{ exists: boolean }>(
-    'SELECT EXISTS(SELECT 1 FROM information_schema.schemata WHERE schema_name = \'drizzle\') AS exists'
-  );
-  if (drizzleSchemaResult.rows[0]?.exists) {
-    return; // Drizzle already tracking migrations — migrate() handles everything
-  }
-
   const participantTableResult = await db.query<{ tablename: string }>(
     'SELECT tablename FROM pg_tables WHERE schemaname = \'public\' AND tablename = \'participant\''
   );
@@ -191,13 +184,12 @@ async function stampBaselineIfBootstrapped(): Promise<void> {
     return; // Fresh database — migrate() will apply the baseline from scratch
   }
 
-  console.log('[DB] Bootstrapped database detected. Stamping Drizzle baseline migration as applied...');
-
   const journalPath = path.join(MIGRATIONS_FOLDER, 'meta/_journal.json');
   const journal = JSON.parse(fs.readFileSync(journalPath, 'utf-8')) as {
-    entries: { idx: number; tag: string; when: number }[];
+    entries: { idx: number; tag: string; when: number; breakpoints: boolean }[];
   };
-  const baselineEntry = journal.entries[0];
+  const baselineEntry = journal.entries.find((entry) => entry.tag === '0000_postgres_baseline') ??
+    [...journal.entries].sort((a, b) => a.idx - b.idx)[0];
   if (!baselineEntry) {
     console.warn('[DB] No baseline entry in journal — skipping stamp');
     return;
@@ -209,21 +201,36 @@ async function stampBaselineIfBootstrapped(): Promise<void> {
   );
   const hash = crypto.createHash('sha256').update(baselineSql).digest('hex');
 
-  await db.query('CREATE SCHEMA IF NOT EXISTS drizzle');
-  // Manually create the same table structure that drizzle-orm/node-postgres/migrator
-  // creates internally. We do this here because we need to pre-populate it with the
-  // baseline hash before calling migrate(), so Drizzle skips the baseline on this DB.
-  await db.query(`
-    CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (
-      id SERIAL PRIMARY KEY,
-      hash TEXT NOT NULL,
-      created_at BIGINT
-    )
-  `);
-  await db.query(
-    'INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ($1, $2)',
-    [hash, baselineEntry.when]
-  );
+  await db.query('SELECT pg_advisory_lock($1)', [70210001]);
+  try {
+    await db.query('CREATE SCHEMA IF NOT EXISTS drizzle');
+    // Manually create the same table structure that drizzle-orm/node-postgres/migrator
+    // creates internally. We do this here because we need to pre-populate it with the
+    // baseline hash before calling migrate(), so Drizzle skips the baseline on this DB.
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (
+        id SERIAL PRIMARY KEY,
+        hash TEXT NOT NULL,
+        created_at BIGINT
+      )
+    `);
+
+    const migrationRowCountResult = await db.query<{ count: string }>(
+      'SELECT COUNT(*)::text AS count FROM drizzle.__drizzle_migrations'
+    );
+    const migrationRowCount = Number.parseInt(migrationRowCountResult.rows[0]?.count ?? '0', 10);
+    if (migrationRowCount > 0) {
+      return;
+    }
+
+    console.log('[DB] Bootstrapped database detected. Stamping Drizzle baseline migration as applied...');
+    await db.query(
+      'INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ($1, $2)',
+      [hash, baselineEntry.when]
+    );
+  } finally {
+    await db.query('SELECT pg_advisory_unlock($1)', [70210001]);
+  }
 
   console.log(`[DB] ✓ Baseline migration "${baselineEntry.tag}" stamped`);
 }
