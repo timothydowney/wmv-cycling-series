@@ -108,7 +108,6 @@ describe('webhookAdminRouter - replayEvent mutation', () => {
           payload: JSON.stringify(eventPayload),
           processed: 0,
           error_message: null,
-          created_at: new Date().toISOString()
         })
         .returning()
         .execute();
@@ -151,7 +150,6 @@ describe('webhookAdminRouter - replayEvent mutation', () => {
           payload: JSON.stringify(eventPayload),
           processed: 0,
           error_message: null,
-          created_at: new Date().toISOString()
         })
         .returning()
         .execute();
@@ -194,7 +192,6 @@ describe('webhookAdminRouter - replayEvent mutation', () => {
           payload: JSON.stringify(eventPayload),
           processed: 0,
           error_message: 'Activity not found on Strava',
-          created_at: new Date().toISOString()
         })
         .returning()
         .execute();
@@ -231,7 +228,6 @@ describe('webhookAdminRouter - replayEvent mutation', () => {
           payload: JSON.stringify({ object_id: 111, owner_id: 100 }),
           processed: 0,
           error_message: null,
-          created_at: new Date().toISOString()
         })
         .returning()
         .execute();
@@ -242,7 +238,6 @@ describe('webhookAdminRouter - replayEvent mutation', () => {
           payload: JSON.stringify({ object_id: 222, owner_id: 200 }),
           processed: 0,
           error_message: null,
-          created_at: new Date().toISOString()
         })
         .returning()
         .execute();
@@ -253,7 +248,6 @@ describe('webhookAdminRouter - replayEvent mutation', () => {
           payload: JSON.stringify({ object_id: 333, owner_id: 300 }),
           processed: 0,
           error_message: null,
-          created_at: new Date().toISOString()
         })
         .returning()
         .execute();
@@ -281,7 +275,6 @@ describe('webhookAdminRouter - replayEvent mutation', () => {
           payload: JSON.stringify({ data: 'first' }),
           processed: 0,
           error_message: null,
-          created_at: new Date().toISOString()
         })
         .returning()
         .execute();
@@ -292,7 +285,6 @@ describe('webhookAdminRouter - replayEvent mutation', () => {
           payload: JSON.stringify({ data: 'second' }),
           processed: 0,
           error_message: null,
-          created_at: new Date().toISOString()
         })
         .returning()
         .execute();
@@ -339,7 +331,6 @@ describe('webhookAdminRouter - replayEvent mutation', () => {
           payload: JSON.stringify(complexPayload),
           processed: 0,
           error_message: null,
-          created_at: new Date().toISOString()
         })
         .returning()
         .execute();
@@ -379,7 +370,6 @@ describe('webhookAdminRouter - replayEvent mutation', () => {
           payload: JSON.stringify(athleteDisconnectPayload),
           processed: 0,
           error_message: null,
-          created_at: new Date().toISOString()
         })
         .returning()
         .execute();
@@ -413,7 +403,6 @@ describe('webhookAdminRouter - replayEvent mutation', () => {
           payload: JSON.stringify(minimalPayload),
           processed: 0,
           error_message: null,
-          created_at: new Date().toISOString()
         })
         .returning()
         .execute();
@@ -497,7 +486,6 @@ describe('webhookAdminRouter - replayEvent mutation', () => {
           payload: JSON.stringify(eventPayload),
           processed: 0,
           error_message: null,
-          created_at: new Date().toISOString()
         })
         .returning()
         .execute();
@@ -535,7 +523,6 @@ describe('webhookAdminRouter - replayEvent mutation', () => {
           payload: JSON.stringify(eventPayload),
           processed: 0,
           error_message: null,
-          created_at: new Date().toISOString()
         })
         .returning()
         .execute();
