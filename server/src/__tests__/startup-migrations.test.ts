@@ -162,4 +162,5 @@ describe('Startup Migration Lifecycle', () => {
     expect(indexContent).toContain('SELECT COUNT(*)::text AS count FROM drizzle.__drizzle_migrations');
     expect(indexContent).toContain('if (migrationRowCount > 0)');
   });
+
 });
