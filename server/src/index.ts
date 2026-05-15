@@ -139,6 +139,7 @@ if (isTestMode()) {
 }
 
 const MIGRATIONS_FOLDER = path.join(__dirname, '../drizzle');
+const BASELINE_STAMP_LOCK_ID = 70210001;
 
 const REQUIRED_TABLES = [
   'sessions',
@@ -186,10 +187,18 @@ async function stampBaselineIfBootstrapped(): Promise<void> {
 
   const journalPath = path.join(MIGRATIONS_FOLDER, 'meta/_journal.json');
   const journal = JSON.parse(fs.readFileSync(journalPath, 'utf-8')) as {
-    entries: { idx: number; tag: string; when: number; breakpoints: boolean }[];
+    entries: { idx: number; tag: string; when: number }[];
   };
-  const baselineEntry = journal.entries.find((entry) => entry.tag === '0000_postgres_baseline') ??
-    [...journal.entries].sort((a, b) => a.idx - b.idx)[0];
+  const baselineEntryByIndex = journal.entries.reduce<{ idx: number; tag: string; when: number } | undefined>(
+    (lowest, entry) => {
+      if (!lowest || entry.idx < lowest.idx) {
+        return entry;
+      }
+      return lowest;
+    },
+    undefined
+  );
+  const baselineEntry = journal.entries.find((entry) => entry.tag === '0000_postgres_baseline') ?? baselineEntryByIndex;
   if (!baselineEntry) {
     console.warn('[DB] No baseline entry in journal — skipping stamp');
     return;
@@ -201,7 +210,7 @@ async function stampBaselineIfBootstrapped(): Promise<void> {
   );
   const hash = crypto.createHash('sha256').update(baselineSql).digest('hex');
 
-  await db.query('SELECT pg_advisory_lock($1)', [70210001]);
+  await db.query('SELECT pg_advisory_lock($1)', [BASELINE_STAMP_LOCK_ID]);
   try {
     await db.query('CREATE SCHEMA IF NOT EXISTS drizzle');
     // Manually create the same table structure that drizzle-orm/node-postgres/migrator
@@ -220,6 +229,7 @@ async function stampBaselineIfBootstrapped(): Promise<void> {
     );
     const migrationRowCount = Number.parseInt(migrationRowCountResult.rows[0]?.count ?? '0', 10);
     if (migrationRowCount > 0) {
+      console.log('[DB] Drizzle migrations already tracked. Skipping baseline stamp.');
       return;
     }
 
@@ -229,7 +239,7 @@ async function stampBaselineIfBootstrapped(): Promise<void> {
       [hash, baselineEntry.when]
     );
   } finally {
-    await db.query('SELECT pg_advisory_unlock($1)', [70210001]);
+    await db.query('SELECT pg_advisory_unlock($1)', [BASELINE_STAMP_LOCK_ID]);
   }
 
   console.log(`[DB] ✓ Baseline migration "${baselineEntry.tag}" stamped`);
