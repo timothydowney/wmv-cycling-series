@@ -606,7 +606,7 @@ describe('ExplorerHubPage', () => {
     await clickElement(container.querySelector('[data-testid="explorer-tab-destinations"]'));
 
     expect(container.querySelector('[data-testid="explorer-tab-destinations"]')?.getAttribute('aria-pressed')).toBe('true');
-    expect(container.querySelector('[data-testid="explorer-tab-map"]')?.getAttribute('aria-disabled')).toBe('true');
+    expect(container.querySelector('[data-testid="explorer-tab-map"]')).toBeNull();
     expect(container.querySelector('[data-testid="explorer-destinations-view"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="explorer-search-card"]')).not.toBeNull();
 

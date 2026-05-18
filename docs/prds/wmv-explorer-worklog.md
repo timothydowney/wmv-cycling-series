@@ -4,7 +4,7 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 
 ## Current Focus
 
-- Keep the merged 5A through 5D-0 Explorer baseline and the merged auth-access posture documented as the current starting point.
+- Keep the merged 5A through 5D-0 Explorer baseline, the 5D-0.1 copy cleanup, and the merged auth-access posture documented as the current starting point.
 - Treat map and social rollout as the next planning boundary after the newly landed logged-in public read surface.
 - Keep Explorer management workflows admin-only while the athlete read surface is available to all logged-in users.
 - Keep the next planning handoff aligned with the merged campaign-first model, shared segment metadata baseline, logged-in Explorer read exposure, and tighter signed-out app posture.
@@ -12,7 +12,7 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 
 ## Current Go State
 
-- **Readiness:** Phase 1 Complete; Campaign-First Explorer Correction Landed; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Phase 4B-3 Campaign Decoupling And Unified Admin Shell Merged; Phase 4B-4 Admin Workflow Hierarchy And Destination Management Merged; Phase 4B-5 Segment Metadata Fidelity And Freshness Merged; Phase 5A Athlete Hub Read Surface Merged; Phase 5B Checklist And Browse Refinement Merged; Phase 5C Pinned Destinations And Hub Prioritization Merged; Phase 5D-0 Public Explorer Read Exposure Merged
+- **Readiness:** Phase 1 Complete; Campaign-First Explorer Correction Landed; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Phase 4B-3 Campaign Decoupling And Unified Admin Shell Merged; Phase 4B-4 Admin Workflow Hierarchy And Destination Management Merged; Phase 4B-5 Segment Metadata Fidelity And Freshness Merged; Phase 5A Athlete Hub Read Surface Merged; Phase 5B Checklist And Browse Refinement Merged; Phase 5C Pinned Destinations And Hub Prioritization Merged; Phase 5D-0 Public Explorer Read Exposure Merged; Phase 5D-0.1 Public Page Copy Cleanup Merged
 - **Immediate scope:** plan and approve the next post-5D-0 slice, with map discovery as the leading candidate
 
 ## Decisions Made
@@ -55,6 +55,7 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 - The 5C slice now lets a logged-in athlete pin destinations from the Destinations tab and uses that preference state to prioritize remaining destinations on the Hub page without changing campaign order or completion semantics elsewhere.
 - Map-based discovery is important follow-on work, but it should start only after the list-first athlete page exists and the map product questions are answered explicitly.
 - Social visibility can grow later, but a social feed is not the smallest useful first athlete-facing Explorer surface.
+- The 5D-0.1 cleanup removed the developer-internal roadmap card ("Later phases – Map and social work stay deferred"), the disabled Map tab from the bottom navigation, and all third-person admin-style copy from the public Explorer hub; these items were never intended for end users.
 
 ## Open Questions
 

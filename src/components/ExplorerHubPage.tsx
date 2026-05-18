@@ -8,7 +8,6 @@ import {
   ClockIcon,
   FlagIcon,
   MagnifyingGlassIcon,
-  MapPinIcon,
 } from '@heroicons/react/24/outline';
 import { trpc } from '../utils/trpc';
 import { formatUnixDate } from '../utils/dateUtils';
@@ -472,7 +471,7 @@ function ExplorerHubPage({ isConnected }: ExplorerHubPageProps) {
               {remainingDestinations.length === 0 ? (
                 <div className="explorer-hub-empty-state compact" data-testid="explorer-remaining-empty-state">
                   <h4>All destinations completed</h4>
-                  <p>This athlete has checked off every destination in the active campaign.</p>
+                  <p>You've completed every destination in this campaign.</p>
                 </div>
               ) : pinnedRemainingDestinations.length === 0 ? (
                 <>
@@ -547,12 +546,12 @@ function ExplorerHubPage({ isConnected }: ExplorerHubPageProps) {
               {progressQuery.isLoading && isConnected ? (
                 <div className="explorer-hub-empty-state compact" data-testid="explorer-progress-loading-state">
                   <h4>Loading progress</h4>
-                  <p>Pulling the athlete's current Explorer matches.</p>
+                  <p>Loading your Explorer progress.</p>
                 </div>
               ) : finishedDestinations.length === 0 ? (
                 <div className="explorer-hub-empty-state compact" data-testid="explorer-completed-empty-state">
                   <h4>No destinations completed yet</h4>
-                  <p>Completed destinations will appear here as the athlete checks them off.</p>
+                  <p>Completed destinations will appear here once you start riding.</p>
                 </div>
               ) : (
                 <div className="explorer-hub-destination-list">
@@ -582,19 +581,6 @@ function ExplorerHubPage({ isConnected }: ExplorerHubPageProps) {
               )}
             </section>
           </div>
-
-          <section className="leaderboard-card explorer-hub-follow-on-card" data-testid="explorer-follow-on-card">
-            <div className="explorer-hub-follow-on-header">
-              <div>
-                <p className="explorer-section-label">Later phases</p>
-                <h3>Map and social work stay deferred</h3>
-              </div>
-              <MapPinIcon aria-hidden="true" />
-            </div>
-            <p className="explorer-hub-secondary-copy">
-              This first athlete page stays list-first on purpose. Map discovery and broader social visibility can layer onto this route later without turning the initial release into an overloaded surface.
-            </p>
-          </section>
         </>
       ) : (
         <section className="explorer-hub-destinations-view" data-testid="explorer-destinations-view">

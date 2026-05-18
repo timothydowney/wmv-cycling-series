@@ -26,7 +26,6 @@
 .explorer-hub-hero h2,
 .explorer-hub-progress-card h3,
 .explorer-hub-section h3,
-.explorer-hub-follow-on-card h3,
 .explorer-hub-destination-card h3 {
   margin: 0;
 }
@@ -64,7 +63,6 @@
 .explorer-hub-hero,
 .explorer-hub-progress-card,
 .explorer-hub-search-card,
-.explorer-hub-follow-on-card,
 .explorer-hub-destination-card {
   cursor: default;
   border-left-color: transparent;
@@ -73,15 +71,13 @@
 .explorer-hub-hero:hover,
 .explorer-hub-progress-card:hover,
 .explorer-hub-search-card:hover,
-.explorer-hub-follow-on-card:hover,
 .explorer-hub-destination-card:hover {
   transform: none;
 }
 
 .explorer-hub-hero,
 .explorer-hub-progress-card,
-.explorer-hub-search-card,
-.explorer-hub-follow-on-card {
+.explorer-hub-search-card {
   padding: 1.5rem;
   border-radius: 20px;
   border: 1px solid rgba(123, 63, 242, 0.08);
@@ -97,15 +93,13 @@
 .explorer-hub-hero-topline,
 .explorer-hub-progress-header,
 .explorer-hub-section-header,
-.explorer-hub-destination-header,
-.explorer-hub-follow-on-header {
+.explorer-hub-destination-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
 }
 
-.explorer-hub-preview-pill,
 .explorer-hub-section-count {
   display: inline-flex;
   align-items: center;
@@ -114,12 +108,6 @@
   font-size: var(--font-xs);
   font-weight: 700;
   letter-spacing: 0.02em;
-}
-
-.explorer-hub-preview-pill {
-  padding: 0.45rem 0.8rem;
-  background: rgba(123, 63, 242, 0.12);
-  color: var(--wmv-purple-dark);
 }
 
 .explorer-section-label {
@@ -377,15 +365,10 @@
   font-weight: 500;
 }
 
-.explorer-hub-completion-copy svg,
-.explorer-hub-follow-on-header svg {
+.explorer-hub-completion-copy svg {
   width: 1rem;
   height: 1rem;
   color: var(--wmv-orange);
-}
-
-.explorer-hub-follow-on-card {
-  background: linear-gradient(180deg, rgba(245, 96, 4, 0.04), rgba(255, 255, 255, 1));
 }
 
 .explorer-search-stub-input {
@@ -484,7 +467,6 @@
 
   .explorer-hub-hero,
   .explorer-hub-progress-card,
-  .explorer-hub-follow-on-card,
   .explorer-hub-empty-state,
   .explorer-hub-access-denied {
     padding: 1.1rem;
@@ -493,13 +475,11 @@
   .explorer-hub-hero-topline,
   .explorer-hub-progress-header,
   .explorer-hub-section-header,
-  .explorer-hub-destination-header,
-  .explorer-hub-follow-on-header {
+  .explorer-hub-destination-header {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .explorer-hub-preview-pill,
   .explorer-hub-status-pill,
   .explorer-hub-section-count {
     align-self: flex-start;
