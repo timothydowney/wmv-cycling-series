@@ -30,5 +30,5 @@ BEGIN
 			PERFORM setval(sequence_name, max_id, true);
 		END IF;
 	END LOOP;
-END
+END;
 $$;
