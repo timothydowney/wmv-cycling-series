@@ -10,11 +10,10 @@ Complete information for deploying WMV Cycling Series to production.
 
 1. Create account at [railway.app](https://railway.app) (sign in with GitHub)
 2. Click "New Project" → "Deploy from GitHub repo" → select `strava-ncc-scrape`
-3. **⚠️ CRITICAL - Create Persistent Volume (Manual Step):**
-   - Go to Service Settings → Volumes
-   - Click "Add Volume"
-   - Mount path: `/data`, Size: `5GB`
-   - Save/Create
+3. **⚠️ CRITICAL - Create or connect Railway Postgres:**
+   - Add the Railway Postgres service to the project, or link the app to the existing managed database service.
+   - Make sure the app service receives the Postgres connection string from Railway variables.
+   - Keep the service name and credentials aligned with the environment you deploy.
 4. Set environment variables in Railway dashboard:
    - `NODE_ENV=production`
    - `PORT=3001`
@@ -22,13 +21,13 @@ Complete information for deploying WMV Cycling Series to production.
    - `STRAVA_CLIENT_ID` (from [strava.com/settings/api](https://www.strava.com/settings/api))
    - `STRAVA_CLIENT_SECRET` (from [strava.com/settings/api](https://www.strava.com/settings/api))
    - `STRAVA_REDIRECT_URI=https://yourapp.railway.app/auth/strava/callback`
-   - `DATABASE_PATH=/data/wmv.db` (CRITICAL: Must match volume mount)
-   - `RAILWAY_RUN_UID=0` (CRITICAL: Allows non-root user to write to persistent volume)
+   - `DATABASE_URL=<railway postgres connection string>` (CRITICAL: Must point at the managed Postgres service)
+   - `RAILWAY_RUN_UID=0` only if some other mounted path still requires elevated write access
    - `SESSION_SECRET` (generate: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`)
 5. Update Strava OAuth app: Change "Authorization Callback Domain" to `yourapp.railway.app`
 6. Push code to `main` branch → Railway auto-deploys
 7. Visit your Railway URL and test the OAuth flow
-8. Verify data persists after a redeploy by checking logs for `[DB] ✓ Database file EXISTS`
+8. Verify data persists after a redeploy by checking logs for `[DB] ✓ Database connection succeeds`
 
 **See sections below for detailed troubleshooting and advanced setup.**
 
@@ -86,88 +85,60 @@ const userLocal = new Intl.DateTimeFormat('en-US', {
 
 ## CRITICAL: Persistent Volume Configuration (Railway)
 
-⚠️ **IMPORTANT:** SQLite databases MUST be stored on a persistent volume, not in the ephemeral container filesystem. Without this, your data is deleted every time the app restarts or redeploys.
+⚠️ **IMPORTANT:** Railway Postgres must be provided as a managed database service, not recreated inside the ephemeral app container. Without a managed database, your data will be lost when the container restarts or redeploys.
 
 ### The Problem
 
-Railway containers have two types of storage:
-- **Ephemeral:** Container root filesystem (deleted on restart/redeploy)
-- **Persistent:** Mounted volumes (survives restarts and redeploys)
+Railway app containers are ephemeral. If the database lives inside the app container, it will be recreated on every restart or redeploy.
 
-If you store databases in the wrong place (e.g., `/app/server/data/`), they will be recreated fresh every time Railway restarts the container.
+### The Solution
 
-### The Solution - Two Required Steps
+#### Step 1: Provision or connect the managed Railway Postgres service
 
-#### Step 1: Create the Persistent Volume in Railway Dashboard
+**⚠️ THIS MUST BE DONE IN THE RAILWAY PROJECT - Not in the app container!**
 
-**⚠️ THIS MUST BE DONE MANUALLY - Not Automatic!**
-
-1. Go to Railway dashboard → Select your project/service
-2. Go to "Settings" tab
-3. Scroll to "Volumes" section
-4. Click "Create Volume" or "Add Volume"
-5. **Configure:**
-   - Mount path: `/data`
-   - Size: `5GB` (can be increased later if needed)
-6. **Save/Create**
-
-This creates the persistent volume that survives redeploys. The `railway.toml` configuration file alone is NOT enough - you must also create the volume in the Railway web UI.
+1. Open the Railway project that hosts the app.
+2. Add the Postgres service if it is not already present.
+3. Ensure the app service is linked to that Postgres service so Railway injects the connection string.
+4. Confirm the database service name and the application environment match the intended deployment.
 
 #### Step 2: Set Required Environment Variables
 
 **In Railway Variables/Secrets:**
 
-- `DATABASE_PATH=/data/wmv.db` (main database)
-- `RAILWAY_RUN_UID=0` (CRITICAL: Allows non-root user to write to volume)
-
-**Why `RAILWAY_RUN_UID=0`?**
-
-Railway mounts volumes as the root user, but your Docker image runs as a non-root user (`nodejs`). Without this variable, your app cannot write to the persistent volume due to permission restrictions. See [Railway Volume Permissions Documentation](https://docs.railway.com/develop/volumes#permissions).
+- `DATABASE_URL=<railway postgres connection string>` (main database)
+- `RAILWAY_RUN_UID=0` only if some other mounted path still requires elevated write access
 
 #### Step 3: Verify Configuration
 
-Your `railway.toml` already has the correct volume configuration:
-```toml
-[[volumes]]
-mountPath = "/data"
-size = "5GB"
-```
-
-But `railway.toml` alone doesn't create the volume - it only describes it. The manual web UI creation (Step 1) is necessary.
-
-### Why `/data`?**
-   - This path must match your persistent volume mount point
-   - Anything in `/app/` is ephemeral and will be lost
-   - The Dockerfile creates this directory and ensures proper permissions
+Verify that the app is reading the managed Postgres connection string, not a path under `/app/`.
 
 ### How to Verify
 
 After deployment:
-1. Check logs for paths being used:
+1. Check logs for the connection string target:
    ```
-   DATABASE_PATH: '/data/wmv.db'  ✅ Good (persistent)
-   DATABASE_PATH: '/app/server/data/wmv.db'  ❌ Bad (ephemeral)
+   DATABASE_URL: a Railway Postgres connection string  ✅ Good
+   DATABASE_URL: a path under `/app/`  ❌ Bad
    ```
 
 2. Look for success message in logs:
    ```
-   [DB] ✓ Database file EXISTS
-   [DB]   Directory is WRITABLE
+   [DB] ✓ Database connection succeeds
+   [DB]   Connected to the managed Postgres service
    ```
-   If you see permission errors, verify `RAILWAY_RUN_UID=0` is set.
 
 3. Make changes, restart the app, verify changes persist
 4. If data disappears on restart, check:
-   - [ ] Volume is created in Railway web UI (Settings → Volumes)
-   - [ ] Volume is mounted at `/data`
-   - [ ] `DATABASE_PATH=/data/wmv.db` env var is set
-   - [ ] `RAILWAY_RUN_UID=0` env var is set
+   - [ ] The Railway Postgres service exists and is linked to the app
+   - [ ] `DATABASE_URL` points at the managed Postgres connection string
+   - [ ] `RAILWAY_RUN_UID=0` is set only if some other mounted path still requires it
 
 ### What Gets Stored Where
 
 | Item | Path | Volume |
 |------|------|--------|
-| Main database (data + sessions) | `/data/wmv.db` | Persistent volume |
+| Main database (data + sessions) | `DATABASE_URL` target | Managed Postgres service |
 | Frontend assets | `/app/dist/` | Ephemeral (rebuilt on deploy) |
 | Node modules | `/app/node_modules/` | Ephemeral (rebuilt on deploy) |
 
@@ -183,14 +154,14 @@ After deployment:
 
 ### Backend (Node.js + Express)
 - Needs persistent Node.js runtime
-- SQLite database (file-based, grows with data)
+- Postgres database service that grows with data
 - API endpoints must be always available
 - Minimal compute requirements (~100 MB RAM)
 - Needs environment variables for Strava secrets
 
-### Database (SQLite)
-- File-based, no separate DB server needed
-- Requires persistent storage (not ephemeral)
+### Database (Postgres)
+- Managed database service, not an embedded file
+- Requires backups and connection monitoring
 - ~5-50 MB depending on activity data
 - Needs regular backups
 
@@ -203,7 +174,7 @@ After deployment:
 **Why it's the best choice for Western Mass Velo:**
 - Simple deployment from GitHub
 - Node.js runtime included
-- Persistent volume for SQLite database
+- Managed Postgres service for the database
 - Free tier: $5 monthly credit (enough for this project)
 - Automatic HTTPS
 - Environment variables management
@@ -213,7 +184,7 @@ After deployment:
 **Pros:**
 - Deploy directly from GitHub repo (one click)
 - Automatic builds and deployments on push
-- Persistent storage for SQLite database
+- Managed Postgres service for the database
 - Built-in PostgreSQL if you ever need it (you don't yet)
 - Free tier covers small hobby projects
 - Great developer experience (just push code)
@@ -244,7 +215,7 @@ After deployment:
 **Pros:**
 - Free tier available
 - Static site + web services
-- Persistent disks for SQLite
+- Persistent disks for Postgres
 - Auto-deploy from GitHub
 - Automatic HTTPS
 
@@ -263,7 +234,7 @@ After deployment:
 
 **Pros:**
 - Global edge deployment
-- Persistent volumes for SQLite
+- Managed Postgres storage
 - Free tier: 3GB storage, 160GB transfer
 - Fast deploys
 
@@ -282,14 +253,14 @@ After deployment:
 
 **Why it won't work:**
 - Static hosting only (no Node.js runtime)
-- Serverless functions don't support persistent SQLite
+- Serverless functions don't support persistent Postgres
 - No persistent filesystem in functions
 - Would need separate backend host + PostgreSQL
 
 **What you'd need:**
 - Host frontend here
 - Host backend elsewhere (Railway/Render)
-- Use PostgreSQL instead of SQLite
+- Use PostgreSQL instead of Postgres
 - Massive over-complication
 
 **Verdict:** NOT recommended for this architecture
@@ -331,24 +302,24 @@ After deployment:
 ### Why This is Perfect for WMV
 
 **Single Platform for Everything:**
-- Deploy backend with SQLite on persistent volume
+- Deploy backend with managed Postgres service
 - Railway serves the built frontend static files
 - Total cost: $0-5/month (likely stays in free tier)
 
-**SQLite is Perfect at This Scale:**
+**Postgres is Perfect at This Scale:**
 - 100 participants × 52 weeks = 5,200 activities/year
 - Tiny dataset (thousands of rows, not millions)
-- SQLite can handle millions of rows—you'll have thousands
-- No need for PostgreSQL or managed database
+- Postgres can handle millions of rows—you'll have thousands
+- No need for separate database hosting
 - No additional database service to pay for or maintain
 
 **Architecture is Simple:**
-- One platform, one database file, one deployment
+- One platform, one database service, one deployment
 - Less to break, easier to debug
 - Minimal maintenance overhead
 
 **You DON'T Need:**
-- PostgreSQL or managed database (SQLite is perfect)
+- Separate database hosting (Postgres is perfect)
 - Multiple hosting platforms
 - Load balancing or CDN (minimal traffic)
 - Caching layers (responses are fast enough)
@@ -367,7 +338,7 @@ CLIENT_BASE_URL=https://yourdomain.com
 STRAVA_CLIENT_ID=170916
 STRAVA_CLIENT_SECRET=8b6e881a410ba3f4313c85b88796d982f38a59a9
 STRAVA_REDIRECT_URI=https://yourdomain.com/auth/strava/callback
-DATABASE_PATH=/data/wmv.db
+DATABASE_URL=<railway postgres connection string>
 RAILWAY_RUN_UID=0
 SESSION_SECRET=<generate-random-string>
 ADMIN_ATHLETE_IDS=<comma-separated-athlete-ids>
@@ -375,8 +346,8 @@ ADMIN_ATHLETE_IDS=<comma-separated-athlete-ids>
 
 **CRITICAL VARIABLES:**
 
-- `DATABASE_PATH=/data/wmv.db` - Must point to persistent volume (not `/app/*`)
-- `RAILWAY_RUN_UID=0` - **REQUIRED** for non-root user to write to persistent volume (see Volume Permissions section)
+- `DATABASE_URL=<railway postgres connection string>` - Must point to the managed Postgres service
+- `RAILWAY_RUN_UID=0` - Only required if some other mounted path still needs non-root write access
 
 **Generate SESSION_SECRET:**
 ```bash
@@ -482,27 +453,28 @@ For detailed proxy issues, see [docs/OAUTH_SESSION_FIX.md](OAUTH_SESSION_FIX.md)
 
 ## Database Backup Strategy
 
-**Critical:** SQLite file must be backed up regularly!
+**Critical:** Postgres data must be backed up regularly!
 
 ### Options
 
-#### 1. Manual Backups via SFTP/SCP
-- Weekly backup to your local machine
+#### 1. Manual Backups via `pg_dump`
+- Weekly backup to your local machine or secure storage
 - Simple but requires manual action
 
 #### 2. Automated Cron Job to Cloud Storage
-- Script copies DB to S3, Azure Blob, etc.
+- Script uses `pg_dump` and uploads the dump to S3, Azure Blob, etc.
 - Runs on a schedule (e.g., daily)
 - Cost: Minimal (S3 is cheap)
 
 #### 3. Platform Snapshots (Railway)
-- Railway provides volume snapshots
+- Railway can snapshot or otherwise protect the managed Postgres service
 - Can restore quickly if needed
-- Check Railway dashboard for snapshot settings
+- Check Railway dashboard for the available backup options
 
 **Recommended:** Automated backup to cloud storage bucket
 - Set cron job to run daily at 2 AM UTC
-- Copy DB to S3 bucket
+- Use `pg_dump` to export the database to an encrypted dump file
+- Upload the dump to S3 bucket
 - Costs ~$1/month
 - Can restore from any point in time
 
@@ -512,12 +484,11 @@ For detailed proxy issues, see [docs/OAUTH_SESSION_FIX.md](OAUTH_SESSION_FIX.md)
 #!/bin/bash
 # backup-db.sh - Run via cron job
 
-DB_FILE="/data/wmv.db"
 BACKUP_TIME=$(date +%Y%m%d_%H%M%S)
-BACKUP_FILE="/tmp/wmv_backup_${BACKUP_TIME}.db"
+BACKUP_FILE="/tmp/wmv_backup_${BACKUP_TIME}.sql"
 
-# Copy database
-cp $DB_FILE $BACKUP_FILE
+# Export database
+pg_dump "$DATABASE_URL" > "$BACKUP_FILE"
 
 # Upload to S3 (requires AWS CLI)
 aws s3 cp $BACKUP_FILE s3://your-bucket/wmv-backups/
@@ -527,7 +498,7 @@ rm $BACKUP_FILE
 
 # Keep only last 30 days on S3
 aws s3 rm s3://your-bucket/wmv-backups/ \
-  --older-than 30
+   --recursive
 ```
 
 ---
@@ -661,7 +632,7 @@ feature branch → PR → CI tests → merge to main → Railway deploys
 **For now:** This architecture handles <100 participants indefinitely.
 
 **If you ever need to scale:**
-- Migrate from SQLite to PostgreSQL
+- Migrate from Postgres to PostgreSQL
 - Use Railway's PostgreSQL addon (one click)
 - No code changes needed (same SQL)
 - Costs ~$15/month for managed PostgreSQL
@@ -709,7 +680,7 @@ Before going live for the first time:
   - [ ] `STRAVA_CLIENT_ID` from Strava app
   - [ ] `STRAVA_CLIENT_SECRET` from Strava app
   - [ ] `STRAVA_REDIRECT_URI` matches production URL
-  - [ ] `DATABASE_PATH=/data/wmv.db`
+  - [ ] `DATABASE_URL=postgresql://wmv:wmv@localhost:5432/wmv_local`
   - [ ] `SESSION_SECRET` generated and set
 - [ ] Strava OAuth app updated with production domain
 - [ ] GitHub Actions CI/CD working (tests passing)
@@ -862,7 +833,7 @@ After deployment, verify it's working:
 1. Check environment variables (all required ones present?)
 2. Check logs on Railway dashboard
 3. Verify Node version: 24.x required
-4. Check database file permissions
+4. Check database connection and environment variables
 
 ### Slow Response Times
 
@@ -874,7 +845,7 @@ After deployment, verify it's working:
 ### Database Issues
 
 1. Download backup from Railway
-2. Verify database integrity: `sqlite3 wmv.db "PRAGMA integrity_check;"`
+2. Verify database connectivity: `psql "$DATABASE_URL" -c "SELECT 1;"`
 3. Restore from backup if corrupted
 4. Test backup restoration regularly
 
@@ -894,7 +865,7 @@ After deployment, verify it's working:
 | Service | Cost | Notes |
 |---------|------|-------|
 | Railway (backend) | $0 | Free tier (~$5 credit) |
-| Railway (SQLite) | $0 | Included in free tier |
+| Railway (Postgres) | $0 | Included in free tier |
 | Strava API | $0 | Free for your usage |
 | Domain (optional) | ~$1 | Amortized yearly cost |
 | Database backups | ~$1 | S3 storage |
@@ -929,7 +900,7 @@ After deployment, verify it's working:
 - [Railway GitHub Integration](https://docs.railway.app/guides/github)
 - [Railway Environment Variables](https://docs.railway.app/develop/variables)
 - [Strava API Settings](https://www.strava.com/settings/api)
-- [SQLite Backup Strategy](https://www.sqlite.org/backup.html)
+- [Postgres Backup Strategy](https://www.postgres.org/backup.html)
 
 See also:
 - `docs/STRAVA_INTEGRATION.md` - OAuth and token management

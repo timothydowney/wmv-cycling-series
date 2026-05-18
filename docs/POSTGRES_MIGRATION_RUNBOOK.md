@@ -1,6 +1,6 @@
 # Postgres Migration Runbook
 
-Local-first migration from SQLite to Postgres.
+Local-first Postgres cutover runbook.
 
 This runbook is the source of truth for rehearsal and production cutover decisions.
 
@@ -14,10 +14,10 @@ Important local isolation note:
 
 ## Guardrails
 
-- Keep SQLite-to-Postgres migration tooling in this branch until production cutover succeeds.
+- Keep Postgres-to-Postgres migration tooling in this branch until production cutover succeeds.
 - Runtime can move to Postgres-only, but migration bridge scripts must remain available.
-- Do not delete SQLite snapshots used for cutover rehearsal.
-- Keep a rollback tag on main before merge/cutover. Current checkpoint tag: `pre-postgres-migration-sqlite-20260425`.
+- Do not delete Postgres snapshots used for cutover rehearsal.
+- Keep a rollback tag on main before merge/cutover. Current checkpoint tag: `pre-postgres-migration-postgres-20260425`.
 
 ## Drizzle Post-Cutover Migration Lifecycle (Postgres Only)
 
@@ -70,7 +70,7 @@ Optional convenience startup using standard dev workflow:
 npm run dev:postgres
 ```
 
-Current branch status: backend runtime is Postgres-only. SQLite is retained only as an export/import bridge during migration and rollback rehearsal.
+Current branch status: backend runtime is Postgres-only. Bridge scripts and snapshot artifacts remain available only for migration rehearsal and rollback recovery.
 
 ## Phase 2: Prepare Postgres Schema
 
@@ -148,11 +148,11 @@ All items below must be true before touching production:
 - Local migration rehearsal is repeatable.
 - Row-count parity checks pass consistently.
 - Postgres runtime path passes lint, typecheck, and tests.
-- Rollback runbook is prepared with immutable SQLite snapshot artifacts.
+- Rollback runbook is prepared with immutable Postgres snapshot artifacts.
 
 ## Railway Rehearsal via CLI (No Runtime Cutover)
 
-Goal: provision Railway Postgres and validate SQLite -> Postgres export/import without deploying the Postgres runtime path.
+Goal: provision Railway Postgres and validate Postgres -> Postgres export/import without deploying the Postgres runtime path.
 
 Notes:
 - For Railway managed Postgres, you provision a Postgres service, not a manual Docker-style volume mount.
@@ -166,7 +166,7 @@ npm run db:railway:rehearse-import
 What this script does safely and idempotently:
 - Ensures rehearsal environment exists (`postgres-rehearsal`, duplicated from `production` when needed)
 - Ensures a managed Postgres service exists (uses configured name or existing `Postgres` service)
-- Fetches the latest production SQLite snapshot with checksum verification
+- Fetches the latest production Postgres snapshot with checksum verification
 - Resolves a local-reachable Railway Postgres URL (`DATABASE_PUBLIC_URL`)
 - Bootstraps schema, imports snapshot, and verifies row-count parity
 - Restores the originally linked Railway environment on exit
@@ -177,7 +177,7 @@ REHEARSAL_ENV=postgres-rehearsal \
 REHEARSAL_DB_SERVICE=wmv-postgres-rehearsal \
 PRODUCTION_APP_SERVICE=wmv-cycling-series \
 PRODUCTION_ENV=production \
-SQLITE_SNAPSHOT_PATH=server/data/wmv_prod.db \
+LEGACY_SNAPSHOT_PATH=server/data/wmv_prod.db \
 npm run db:railway:rehearse-import
 ```
 
@@ -197,16 +197,16 @@ Minimum production env at cutover:
 - `DATABASE_URL=<railway postgres url>`
 - existing app vars (`APP_BASE_URL`, Strava secrets, session secret, encryption key)
 
-Keep `DATABASE_PATH` only for rollback bridge tooling during observation window; runtime will use `DATABASE_URL`.
+Keep `DATABASE_URL` only for rollback bridge tooling during observation window; runtime will use `DATABASE_URL`.
 
 ## Production Cutover Outline
 
 1. Freeze writes in production.
-2. Snapshot and checksum the production SQLite database.
+2. Snapshot and checksum the production Postgres database.
 3. Import snapshot into Railway Postgres.
 4. Validate parity and smoke checks.
 5. Switch runtime to Postgres and deploy.
-6. Keep pre-cutover SQLite artifact during observation window.
+6. Keep pre-cutover Postgres artifact during observation window.
 
 ## Local Cleanup Commands
 

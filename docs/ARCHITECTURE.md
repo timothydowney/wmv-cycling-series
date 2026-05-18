@@ -5,8 +5,8 @@ High-level system design for WMV Cycling Series.
 ## Tech Stack
 
 - **Frontend:** React 18 + TypeScript (Vite) + **tRPC Client**
-- **Backend:** Node.js 24.x + Express + **tRPC Server** + SQLite
-- **Database:** SQLite via **Drizzle ORM** (better-sqlite3 driver)
+- **Backend:** Node.js 24.x + Express + **tRPC Server** + Postgres
+- **Database:** Postgres via **Drizzle ORM** (pg driver)
 - **Auth:** Express sessions + Strava OAuth
 
 ## System Architecture
@@ -38,7 +38,7 @@ Express app on http://localhost:3001
 - `server/src/services/` - Business logic services (`.ts` files) - injected with `drizzleDb`
 - `server/src/__tests__/` - Jest test suite (TypeScript test files)
 - `server/dist/` - Compiled JavaScript output (production)
-- `server/data/wmv.db` - SQLite database
+- `wmv_local` - Postgres database
 - `server/scripts/` - Database seed/import/export helpers
 
 **API Endpoints (tRPC):**
@@ -67,7 +67,7 @@ See `docs/API.md` for complete endpoint reference.
 
 ### Database
 
-SQLite file-based database at `server/data/wmv.db`, managed by **Drizzle ORM**.
+Postgres database (local default `wmv_local`) managed by **Drizzle ORM**.
 
 **Core tables (defined in `server/src/db/schema.ts`):**
 - `participant` - Users
@@ -464,7 +464,7 @@ Outputs static files to `dist/`
 
 ### Backend
 - Node.js only (no build needed)
-- Better-sqlite3 requires compilation on install
+- Pg requires compilation on install
 
 ### Production Build
 ```bash
@@ -479,7 +479,7 @@ Builds frontend and ensures backend deps installed
 **Designed for:** <100 participants, weekly competitions
 
 **Database Performance:**
-- SQLite handles thousands of activities easily
+- Postgres handles thousands of activities easily
 - Indexes on week, participant, activity lookups
 - No pagination needed (data set is small)
 
@@ -501,8 +501,8 @@ Builds frontend and ensures backend deps installed
 
 | Decision | Rationale |
 |----------|-----------|
-| **SQLite** | Simple, no extra service, perfect for <100 participants |
-| **Node.js 24** | Required for better-sqlite3 native module support |
+| **Postgres** | Simple, no extra service, perfect for <100 participants |
+| **Node.js 24** | Required for pg native module support |
 | **Express** | Lightweight, perfect for simple REST API |
 | **React** | Modern UI framework, excellent for leaderboards |
 | **Vite** | Fast dev server, small bundle size |

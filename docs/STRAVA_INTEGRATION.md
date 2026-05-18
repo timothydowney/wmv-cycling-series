@@ -244,7 +244,7 @@ POST /admin/weeks/:id/fetch-results # Fetch all participant activities for a wee
 ## Security Best Practices
 
 ### Token Storage
-- **Development:** Plaintext in SQLite (acceptable for local testing)
+- **Development:** Plaintext in Postgres (acceptable for local testing)
 - **Production:** Encrypt at rest using `crypto` or `node-vault`
 
 ### API Rate Limits

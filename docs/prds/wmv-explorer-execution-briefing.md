@@ -76,7 +76,7 @@ Use Copilot CLI after a slice already exists and the task is terminal-centered.
 
 ### Repo-specific CLI note
 
-Under WSL, use the Linux Node 24 toolchain rather than a Windows Node/npm path. Native modules such as `better-sqlite3` are sensitive to the wrong toolchain.
+Under WSL, use the Linux Node 24 toolchain rather than a Windows Node/npm path. Native modules such as `pg` are sensitive to the wrong toolchain.
 
 ### Practical Copilot CLI usage
 
@@ -180,7 +180,7 @@ Prompts should remain narrow and convenient.
 ### Slice-splitting note for Explorer follow-on work
 
 - The earlier 4B split is now complete through 4B-5: 4B-1 hardened the portable E2E harness, 4B-2 landed the minimal admin-only Explorer UI, 4B-3 corrected the campaign model and unified admin shell, 4B-4 refined the admin workflow hierarchy, and 4B-5 landed the shared segment metadata fidelity baseline.
-- The first athlete-facing slices are now merged: 5A landed the admin-gated Explorer hub read surface, 5B merged the lightweight checklist and browse refinement on top of it, and 5C merged athlete-specific pinned-destination prioritization on top of that browse surface.
+- The first athlete-facing slices are now merged: 5A landed the initial Explorer hub read surface, 5B merged the lightweight checklist and browse refinement on top of it, 5C merged athlete-specific pinned-destination prioritization, and 5D-0 exposed that existing read surface to logged-in non-admin athletes.
 - The merged auth-access work now tightens the broader app so logged-out users see only a branded WMV sign-in or join shell by default.
 - That auth slice keeps the signed-out copy generic, oriented around joining Western Mass Velo with Strava, and does not leave alternate public destinations such as About reachable before login.
 - With that auth slice merged, follow-on Explorer work should return to planning before approving a later slice such as map or social follow-on work.
@@ -192,6 +192,7 @@ Prompts should remain narrow and convenient.
 - If a merged implementation slice changes the approved next step, readiness wording, or phase completion state, the implementation PR is expected to record that closeout directly rather than leaving the planning set stale until a later cleanup pass.
 - Hand back to `explorer-planner` when closing the slice requires new product decisions, broader readiness re-evaluation, or reshaping later slice boundaries rather than simply recording the completed state.
 - This keeps implementation PRs from leaving stale planning guidance behind while still reserving real planning work for the planning agent.
+- If adjacent cleanup work is operational rather than Explorer-functional, for example runtime env normalization, bridge-script retirement, or production-debug runbook hardening, record it as a separate operations slice instead of broadening an Explorer closeout PR.
 
 ### 4. CLI support if needed
 

@@ -317,7 +317,7 @@
 ## Known Limitations
 
 ### Current
-- **SQLite only:** Scales to ~100 participants. Migrate to PostgreSQL if bigger.
+- **Postgres only:** Scales to ~100 participants. Migrate to PostgreSQL if bigger.
 - **Manual admin trigger:** Results require "Fetch Results" button click
 - **No webhooks:** Can't detect new activities in real-time
 - **Email:** No notification system
@@ -335,7 +335,7 @@
 |---|---|---|
 | <100 | ✅ Current setup | No changes needed |
 | 100-500 | Webhooks + archives | Add webhooks, start archiving seasons |
-| 500-1000 | PostgreSQL migration | Switch from SQLite to PostgreSQL |
+| 500-1000 | PostgreSQL migration | Switch from Postgres to PostgreSQL |
 | 1000+ | Read replica + cache | Add Redis, read replicas |
 
 **We are currently at <100. Enjoy the simplicity!**

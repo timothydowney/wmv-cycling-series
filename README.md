@@ -1,6 +1,6 @@
 # WMV Cycling Series
 
-Western Mass Velo's weekly Zwift/Strava hill climb & time trial series. React + TypeScript frontend, Express + SQLite backend. Simple to run locally; designed for small clubs.
+Western Mass Velo's weekly Zwift/Strava hill climb & time trial series. React + TypeScript frontend, Express + Postgres backend. Simple to run locally; designed for small clubs.
 
 ## 📖 User Documentation
 
@@ -28,7 +28,7 @@ See [Quick Start Guide](./docs/QUICK_START.md) for developer setup details.
 
 ## Requirements
 
-- **Node.js 24.x** (required for better-sqlite3)
+- **Node.js 24.x** (required for pg)
 - npm (bundled with Node)
 
 **Install Node 24:**
@@ -58,15 +58,15 @@ For the env-mode matrix and what each variable actually means, see [URL Configur
 - ✅ Admin week and segment management
 - ✅ Strava OAuth (participants connect once, activities fetched automatically)
 - ✅ OAuth token encryption (AES-256-GCM at rest in database)
-- ✅ SQLite database with test data
+- ✅ Postgres database with test data
 - ✅ 450+ backend tests (including encryption security tests)
 - ✅ Complete documentation (including security audit and encryption guide)
 
 ## Architecture
 
 - **Frontend:** React 18 + TypeScript (Vite) + tRPC Client
-- **Backend:** Node.js 24.x + Express + tRPC Server + SQLite
-- **Database:** SQLite via Drizzle ORM
+- **Backend:** Node.js 24.x + Express + tRPC Server + Postgres
+- **Database:** Postgres via Drizzle ORM
 - **Auth:** Strava OAuth (per-participant tokens)
 - **Deployment:** Railway.app (recommended)
 
@@ -104,7 +104,7 @@ npm run dev
 **Build errors?**
 ```bash
 npm install
-cd server && npm rebuild better-sqlite3
+cd server && npm rebuild pg
 ```
 
 See [Quick Start Guide](./docs/QUICK_START.md) for more troubleshooting.

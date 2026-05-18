@@ -36,7 +36,7 @@ npm run db:fetch-prod
 ```
 
 That script:
-- downloads `/data/wmv.db` from Railway into `server/data/wmv_prod.db`
+- downloads the production data snapshot from Railway into `server/data/wmv_prod.db`
 - verifies the checksum
 - generates `.env.prod` with the production secrets needed to read and decrypt that database locally
 

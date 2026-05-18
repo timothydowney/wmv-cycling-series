@@ -66,7 +66,7 @@ BACKEND_URL=http://localhost:3001
 ```dotenv
 FRONTEND_URL=http://localhost:5173
 BACKEND_URL=http://localhost:3001
-DATABASE_PATH=./data/wmv_prod.db
+DATABASE_URL=postgresql://wmv:wmv@localhost:5432/wmv_local
 ```
 
 **What gets derived:**
@@ -149,7 +149,7 @@ Use when frontend and backend share the **same domain**.
 ### Environment Checklist
 
 - [ ] `APP_BASE_URL` set to production domain
-- [ ] `DATABASE_PATH=/data/wmv.db`
+- [ ] `DATABASE_URL=postgresql://wmv:wmv@localhost:5432/wmv_local`
 - [ ] `STRAVA_CLIENT_ID` set
 - [ ] `STRAVA_CLIENT_SECRET` set
 - [ ] `SESSION_SECRET` set (unique for prod)

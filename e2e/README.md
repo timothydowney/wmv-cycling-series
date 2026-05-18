@@ -52,17 +52,17 @@ These principles describe the intended direction for the E2E harness as it becom
 - Fail fast if the intended E2E env file or backend mode is missing instead of silently falling back to the normal development environment.
 
 
-Current reality: Playwright now boots dedicated frontend and backend E2E servers for `npm run test:e2e`, the backend uses an explicit E2E runtime mode for harness boot concerns, and deterministic backend Strava behavior is selected through explicit providers for the current Explorer and read-side flows. The E2E database is Postgres-only (no SQLite). The suite uses the `wmv_e2e` Postgres database, which is created and migrated automatically by the harness scripts, then seeded from the committed Postgres SQL snapshot at `server/data/wmv_e2e_seed.sql` when empty.
+Current reality: Playwright now boots dedicated frontend and backend E2E servers for `npm run test:e2e`, the backend uses an explicit E2E runtime mode for harness boot concerns, and deterministic backend Strava behavior is selected through explicit providers for the current Explorer and read-side flows. The E2E database is Postgres-only. The suite uses the `wmv_e2e` Postgres database, which is created and migrated automatically by the harness scripts, then seeded from the committed Postgres SQL snapshot at `server/data/wmv_e2e_seed.sql` when empty.
 
 
 **Local E2E DB setup:**
 
 1. Ensure Docker is running.
-2. Run `docker compose up -d` to start the Postgres service (`wmv_local` is created by default).
+2. Run `docker compose up -d` to start the Postgres service (the local development database is `wmv_local` by default).
 3. Run `npm run test:e2e` to execute Playwright tests. The harness will migrate the E2E DB automatically.
 4. To reset the E2E DB, drop and recreate `wmv_e2e` (see scripts/ensure-e2e-db.sh for details).
 
-**No SQLite fallback:** All E2E and dev/test DBs are now Postgres. If you see DB errors, check your Docker and Postgres setup.
+**No Postgres fallback:** All E2E and dev/test DBs are now Postgres. If you see DB errors, check your Docker and Postgres setup.
 
 To refresh the committed Postgres E2E seed after intentionally updating baseline data, run `npm run test:e2e:refresh-seed`.
 

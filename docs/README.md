@@ -177,7 +177,7 @@ A: See [Roadmap](./ROADMAP.md) - webhooks, email, season archival, and more
 
 ### Scale
 - Designed for <100 participants
-- SQLite handles thousands of activities easily
+- Postgres handles thousands of activities easily
 - No scaling concerns for Western Mass Velo
 
 ---

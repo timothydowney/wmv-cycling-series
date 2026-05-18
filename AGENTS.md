@@ -47,37 +47,37 @@ npm run db:check     # Validate Drizzle migration metadata consistency
 
 Before merging or opening a substantive PR, run `npm run audit` locally alongside lint, typecheck, tests, and build so CI is not the first place dependency vulnerabilities are discovered.
 
-## Database Files & Environments
+## Database Environments
 
 ### Local Development
 
-- **File:** `server/data/wmv.db`
+- **Database name:** `wmv_local`
 - **Environment:** `.env`
 - **Purpose:** Local development database
-- **Setup:** Auto-created on first run
+- **Setup:** Auto-created on first run by the dev bootstrap scripts
 - **Usage:** Used by `npm run dev`, `npm test`, and other dev tasks
 
 ### E2E Testing
 
 - **Environment:** `e2e/.env.e2e`
 - **Purpose:** Dedicated backend/runtime wiring for deterministic browser tests
-- **Isolation model:** Uses the same local Postgres container/volume as dev, but a different database name (`wmv_e2e` vs `wmv_local`)
+- **Isolation model:** Uses the same local Postgres service as dev, but a different database name (`wmv_e2e` vs `wmv_local`)
 - **Current reality:** If the backend is started without `ENV_FILE=e2e/.env.e2e` or equivalent E2E wiring, config can still use the default `.env`, so do not assume isolation unless the harness explicitly verifies it
 - **Expected direction:** Use an explicit backend E2E mode plus explicit provider selection for outbound integrations, and fail fast when the intended E2E setup is absent
 - **Usage:** Used by `npm run test:e2e*` tasks
 
 ### Production
 
-- **File:** `server/data/wmv_prod.db`
+- **Database provider:** Railway Postgres
 - **Environment:** `.env.prod` (Railway)
 - **Purpose:** Live production database
-- **Location:** Railway persistent volume at `/data/wmv.db`
+- **Location:** managed Postgres service via `DATABASE_URL`
 
 ## When to Use Which Task
 
 | Scenario | Command | Database | Why |
 |----------|---------|----------|-----|
-| Local development | `npm run dev` | wmv.db | Interactive frontend + backend |
+| Local development | `npm run dev` | wmv_local | Interactive frontend + backend |
 | Running unit tests | `npm test` | frontend: none, backend: in-memory | Fast, isolated tests across frontend + backend |
 | Running E2E tests | `npm run test:e2e` | explicit E2E env | Test against deterministic, intentionally wired backend behavior |
 | Verifying prod build | `npm run build` | (doesn't use) | Ensure TypeScript compiles, Vite builds |
@@ -93,7 +93,7 @@ Before merging or opening a substantive PR, run `npm run audit` locally alongsid
    ```
 
 2. **Use correct environment files:**
-   - Dev tasks → `.env` (uses wmv.db)
+   - Dev tasks → `.env` (uses wmv_local)
    - E2E tasks → `e2e/.env.e2e` (must declare E2E wiring explicitly and should fail fast if missing)
    - Production → `.env.prod` (Railway secrets)
 
@@ -161,7 +161,7 @@ npm run dev:cleanup
 npm run dev
 ```
 
-### "Cannot find module better-sqlite3"
+### "Cannot find module pg"
 ```bash
 cd server && npm install
 cd ..
@@ -174,9 +174,9 @@ npm run dev
 - Run: `npm run dev:cleanup` then `npm run test:e2e`
 
 ### Wrong database being used
-- Verify environment file: `cat .env | grep DATABASE_PATH`
-- Dev: should be `./data/wmv.db`
-- E2E: verify the Playwright env file and backend mode you intended are actually loaded
+- Verify environment file: `cat .env | grep DATABASE_URL`
+- Dev: should target the local Postgres DB name `wmv_local`
+- E2E: verify the Playwright env file and backend mode you intended are actually loaded (typically DB name `wmv_e2e`)
 - If wrong, check which env file is loaded and whether the harness failed fast
 
 ## Documentation
@@ -205,4 +205,4 @@ All must pass before merge to main branch.
 
 **Last Updated:** January 2026  
 **Node Version:** 24.x  
-**Database:** SQLite (better-sqlite3)
+**Database:** Postgres (pg)

@@ -104,7 +104,7 @@ Status: merged as the portable baseline for later Explorer UI work.
 Scope:
 
 - Keep one explicit backend E2E mode for test-only auth, startup validation, and safe boot wiring
-- Replace accidental reliance on a contributor's local `wmv.db` with a deterministic E2E data source
+- Replace accidental reliance on a contributor's local `wmv_local` with a deterministic E2E data source
 - Prefer checked-in sanitized E2E fixture data or a committed generator over copying development data with live token rows
 - Move outbound Strava differences behind explicit provider selection rather than scattering `isE2EMode()` short-circuits through general feature logic
 - Keep existing Playwright coverage green while removing hard-coded localhost and seed-ID assumptions that prevent portability
@@ -358,9 +358,43 @@ Landed outcome:
 - athlete-specific pin state now persists for the active campaign
 - the Hub page now surfaces pinned remaining destinations first and explains the no-pins-yet state without changing completion math or default browse order
 
+### Slice 5D-0: Public Explorer Read Exposure
+
+Goal: expose the merged list-first Explorer athlete page to logged-in non-admin users before map work, while preserving the signed-out WMV join shell and admin-only Explorer management flows.
+
+Status: merged on `main` as the smallest post-5C rollout step.
+
+Scope:
+
+- keep the existing 5A through 5C Hub and Destinations experience intact
+- expose `/explorer` and Explorer navigation to logged-in non-admin athletes
+- keep `/explorer-admin` and all campaign-management mutations admin-only
+- remove admin-preview copy from the athlete Explorer page
+- preserve signed-out route behavior so non-authenticated users still see the WMV sign-in or join shell
+
+Out of scope:
+
+- map rendering, map-provider selection, geolocation prompts, or proximity search
+- social-feed behavior or broader athlete-to-athlete visibility
+- changes to completion math, campaign ordering semantics, or pin-priority rules
+- public access for signed-out users
+
+Validation:
+
+- frontend unit tests for non-admin logged-in Explorer nav visibility and Explorer page rendering
+- route-gating validation that signed-out users remain on the WMV sign-in or join shell
+- slice-normal `npm run lint`, `npm run typecheck`, and targeted build verification
+
+Landed outcome:
+
+- `/explorer` is now visible to logged-in non-admin athletes
+- Explorer management remains admin-only through `/explorer-admin`
+- the athlete Explorer page no longer presents itself as an admin-only preview
+- the signed-out WMV sign-in or join shell remains the default for unauthenticated users
+
 Ordering note:
 
-- No later Explorer athlete rollout slice is approved yet; now that the auth-access slice is merged, return to planning before naming the next implementation slice.
+- With 5D-0 merged, the next approved candidate slice is map discovery.
 
 ### Slice 5D: Map Discovery
 

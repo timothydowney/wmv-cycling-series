@@ -35,7 +35,7 @@ The Western Mass Velo Cycling Series application demonstrates strong security pr
 **Implementation:**
 - Algorithm: AES-256-GCM (military-grade)
 - Key Size: 256-bit (64 hex characters)
-- Storage: Encrypted tokens in SQLite database
+- Storage: Encrypted tokens in Postgres database
 - Key Management: Environment variable (`TOKEN_ENCRYPTION_KEY`)
 
 **Code Location:** `server/src/encryption.js`
@@ -83,7 +83,7 @@ cookie: {
 }
 ```
 
-- Server-side session storage (SQLite in production)
+- Server-side session storage (Postgres in production)
 - Proxy configuration: `trust proxy` and `proxy: true` for Railway
 - `rolling: true` ensures cookies survive redirects
 - No session fixation vulnerabilities
@@ -111,7 +111,7 @@ cookie: {
 
 #### 7. Database Security ✅
 
-- SQLite file-based (no network access)
+- Postgres service access restricted to trusted network paths
 - Parameterized queries prevent SQL injection
 - Transactions ensure consistency
 - Indexes on frequently queried columns
@@ -286,8 +286,8 @@ cors({
 - ✅ Network isolation
 
 **Database Location:**
-- Production: `/data/wmv.db` (persistent Railway volume)
-- Development: `server/data/wmv.db` (local file)
+- Production: Railway Postgres via `DATABASE_URL`
+- Development: `wmv_local` (local Postgres database)
 - Backups: Recommended (manual or automated)
 
 **Environment Variables:**
@@ -562,7 +562,7 @@ Deploy to Railway with the post-launch monitoring checklist in place.
 ```
 
 **Attack Scenarios:**
-1. **Database File Theft:** If `server/data/wmv.db` is stolen/backed up unencrypted, attacker gains all tokens
+1. **Database Snapshot Theft:** If `wmv_local` is stolen or backed up unencrypted, an attacker gains all tokens
 2. **Server Compromise:** Remote attacker gains database access via SQL injection → all tokens compromised
 3. **Unencrypted Backup:** Database backups are readable
 4. **Filesystem Access:** Any process on the server with filesystem read access can read tokens
@@ -676,17 +676,17 @@ Current development uses in-memory sessions (`express-session` with memory store
 **Replace with:**
 - **Redis:** Fast, distributed, automatic expiry
 - **PostgreSQL:** Persistent, integrated with deployment
-- **SQLite (current approach):** Store sessions in separate table from tokens
+- **Postgres (current approach):** Store sessions in separate table from tokens
 
-**Implementation for SQLite:**
+**Implementation for Postgres:**
 ```bash
-npm install connect-sqlite3
+npm install connect-psql
 ```
 
 ```javascript
-const SQLiteStore = require('connect-sqlite3')(session);
+const PostgresStore = require('connect-psql')(session);
 app.use(session({
-  store: new SQLiteStore({ db: 'sessions.db' }),
+  store: new PostgresStore({ db: 'sessions.db' }),
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
@@ -797,7 +797,7 @@ describe('Token Encryption', () => {
 
 ### Integration Tests
 - Test token storage/retrieval through API endpoints
-- Verify encrypted data in database file
+- Verify encrypted data in the database snapshot
 - Test that unencrypted tokens never appear in logs
 
 ---
@@ -870,7 +870,7 @@ describe('Token Encryption', () => {
 
 ## Questions Addressed
 
-**Q: Do we need encrypted SQLite (SQLCipher)?**
+**Q: Do we need encrypted Postgres (SQLCipher)?**
 A: Not necessarily. Application-level encryption (AES-256-GCM) is simpler, equally secure, and doesn't require native modules. SQLCipher adds complexity without proportional benefit for your use case.
 
 **Q: What if the encryption key is compromised?**

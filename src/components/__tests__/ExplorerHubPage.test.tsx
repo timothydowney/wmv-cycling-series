@@ -130,7 +130,7 @@ async function renderPage(overrides: Partial<ComponentProps<typeof ExplorerHubPa
   const root = createRoot(container);
 
   await act(async () => {
-    root.render(<ExplorerHubPage isAdmin isConnected {...overrides} />);
+    root.render(<ExplorerHubPage isConnected {...overrides} />);
   });
 
   renderResult = { container, root };
@@ -193,11 +193,10 @@ describe('ExplorerHubPage', () => {
     }
   });
 
-  it('shows an access denied state for non-admin users', async () => {
-    const { container } = await renderPage({ isAdmin: false });
+  it('loads active campaign data for any logged-in athlete view', async () => {
+    await renderPage();
 
-    expect(container.querySelector('[data-testid="explorer-hub-access-denied"]')?.textContent).toContain('Access Denied');
-    expect(trpcMocks.activeCampaignUseQuery).toHaveBeenCalledWith(undefined, expect.objectContaining({ enabled: false }));
+    expect(trpcMocks.activeCampaignUseQuery).toHaveBeenCalledWith(undefined, expect.objectContaining({ enabled: true }));
     expect(trpcMocks.progressUseQuery).toHaveBeenCalledWith({ campaignId: 0 }, expect.objectContaining({ enabled: false }));
   });
 
