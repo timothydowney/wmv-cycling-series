@@ -19,7 +19,6 @@ import './Card.css';
 import './ExplorerHubPage.css';
 
 interface ExplorerHubPageProps {
-  isAdmin: boolean;
   isConnected: boolean;
 }
 
@@ -216,7 +215,7 @@ function ExplorerDestinationCard({
   );
 }
 
-function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
+function ExplorerHubPage({ isConnected }: ExplorerHubPageProps) {
   const browseSearchId = useId();
   const utils = trpc.useUtils();
   const [activeTab, setActiveTab] = useState<ExplorerTab>('hub');
@@ -230,7 +229,7 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
   const deferredDestinationSearchQuery = useDeferredValue(destinationSearchQuery);
 
   const activeCampaignQuery = trpc.explorer.getActiveCampaign.useQuery(undefined, {
-    enabled: isAdmin,
+    enabled: true,
     refetchOnWindowFocus: false,
   });
 
@@ -238,7 +237,7 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
   const progressQuery = trpc.explorer.getCampaignProgress.useQuery(
     { campaignId: activeCampaignId ?? 0 },
     {
-      enabled: Boolean(isAdmin && isConnected && activeCampaignId),
+      enabled: Boolean(isConnected && activeCampaignId),
       refetchOnWindowFocus: false,
     }
   );
@@ -341,22 +340,11 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
     }
   }
 
-  if (!isAdmin) {
-    return (
-      <div className="explorer-hub-page" data-testid="explorer-hub-page">
-        <div className="explorer-hub-access-denied" data-testid="explorer-hub-access-denied">
-          <h2>Access Denied</h2>
-          <p>You do not have admin permissions to preview the Explorer hub yet.</p>
-        </div>
-      </div>
-    );
-  }
-
   if (activeCampaignQuery.isLoading) {
     return (
       <div className="explorer-hub-page" data-testid="explorer-hub-page">
         <section className="leaderboard-card explorer-hub-hero">
-          <p className="explorer-section-label">Explorer preview</p>
+          <p className="explorer-section-label">Explorer</p>
           <h2>Loading Explorer</h2>
           <p className="explorer-hub-secondary-copy">Preparing the active campaign view.</p>
         </section>
@@ -379,16 +367,16 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
     return (
       <div className="explorer-hub-page" data-testid="explorer-hub-page">
         <section className="leaderboard-card explorer-hub-hero">
-          <p className="explorer-section-label">Explorer preview</p>
+          <p className="explorer-section-label">Explorer</p>
           <h2>Explorer hub</h2>
           <p className="explorer-hub-secondary-copy">
-            This route is the future athlete-facing Explorer page. It stays admin-gated until the feature is ready for wider release.
+            Track campaign progress, check off completed destinations, and plan what to ride next.
           </p>
         </section>
 
         <section className="explorer-hub-empty-state" data-testid="explorer-hub-empty-state">
           <h3>No active campaign yet</h3>
-          <p>Create an Explorer campaign and add at least one destination before previewing the athlete page.</p>
+          <p>There is no active Explorer campaign right now. Check back soon.</p>
         </section>
       </div>
     );
@@ -399,10 +387,9 @@ function ExplorerHubPage({ isAdmin, isConnected }: ExplorerHubPageProps) {
       <section className="leaderboard-card explorer-hub-hero" data-testid="explorer-hub-hero">
         <div className="explorer-hub-hero-topline">
           <div>
-            <p className="explorer-section-label">Explorer preview</p>
+            <p className="explorer-section-label">Explorer campaign</p>
             <h2>{activeCampaign.name}</h2>
           </div>
-          <span className="explorer-hub-preview-pill">Admin-gated preview</span>
         </div>
 
         <div className="explorer-hub-chip-row">

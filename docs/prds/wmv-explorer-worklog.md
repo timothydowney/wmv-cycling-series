@@ -4,24 +4,22 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 
 ## Current Focus
 
-- Keep the merged 5A through 5C Explorer personalization baseline and the merged auth-access posture documented as the current starting point.
-- Leave later Explorer rollout work unapproved until planning resumes from updated `main`.
-- Keep any pre-release Explorer UI admin-gated until there is an explicit end-user release decision.
-- Keep the next planning handoff aligned with the merged campaign-first model, the shared segment metadata baseline, the merged 5A through 5C athlete page, and the tighter signed-out app posture.
+- Keep the merged 5A through 5D-0 Explorer baseline and the merged auth-access posture documented as the current starting point.
+- Treat map and social rollout as the next planning boundary after the newly landed logged-in public read surface.
+- Keep Explorer management workflows admin-only while the athlete read surface is available to all logged-in users.
+- Keep the next planning handoff aligned with the merged campaign-first model, shared segment metadata baseline, logged-in Explorer read exposure, and tighter signed-out app posture.
+- Keep Postgres runtime hardening and legacy SQLite-bridge cleanup as a separate non-Explorer operations slice so Explorer closeout and operational cleanup do not get mixed in one PR.
 
 ## Current Go State
 
-- **Readiness:** Phase 1 Complete; Campaign-First Explorer Correction Landed; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Phase 4B-3 Campaign Decoupling And Unified Admin Shell Merged; Phase 4B-4 Admin Workflow Hierarchy And Destination Management Merged; Phase 4B-5 Segment Metadata Fidelity And Freshness Merged; Phase 5A Athlete Hub Read Surface Merged; Phase 5B Checklist And Browse Refinement Merged; Phase 5C Pinned Destinations And Hub Prioritization Merged
-- **Immediate scope:** return to planning before approving any later Explorer rollout slice
-- **Not yet in scope:** public athlete-facing Explorer release, public navigation to Explorer, map rendering, location-based discovery, social-feed behavior, mini-campaigns, or explicit publish-status workflows
+- **Readiness:** Phase 1 Complete; Campaign-First Explorer Correction Landed; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Phase 4B-3 Campaign Decoupling And Unified Admin Shell Merged; Phase 4B-4 Admin Workflow Hierarchy And Destination Management Merged; Phase 4B-5 Segment Metadata Fidelity And Freshness Merged; Phase 5A Athlete Hub Read Surface Merged; Phase 5B Checklist And Browse Refinement Merged; Phase 5C Pinned Destinations And Hub Prioritization Merged; Phase 5D-0 Public Explorer Read Exposure Merged
+- **Immediate scope:** plan and approve the next post-5D-0 slice, with map discovery as the leading candidate
 
 ## Decisions Made
 
 - Explorer is the first pilot for a broader PRD-first workflow in this repository.
-- The current source of truth remains the Destinations planning set, not the older Seasons naming.
 - VS Code is the primary environment for planning and implementation work.
 - The existing `dev-agent` remains the default implementation agent for coding work.
-- Skills should carry the reusable workflow knowledge because they are portable across VS Code, Copilot CLI, and cloud agents.
 - GitHub issues remain secondary for now; local planning docs stay primary until slices are stable enough to externalize cleanly.
 - Phase 1 is approved only as a structural webhook slice: preserve current behavior first, add Explorer matching later.
 - Phase 1 is complete on `main`: the shared activity-ingestion context, sequential delegated handlers, explicit handler order, and preservation tests are in place.
@@ -30,7 +28,7 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 - MVP does not currently justify explicit Explorer `draft` / `active` / `archived` workflow complexity; campaign dates and destination presence should control visibility unless later implementation proves otherwise.
 - V1 athlete campaign summary is computed on read, with `ExplorerDestinationMatch` as the durable source of truth.
 - V1 destination metadata uses a hybrid strategy: reuse shared segment data when present, while storing Explorer-local cached display metadata and source URL values for stable setup and rendering.
-- If Explorer UI is touched before public release, it stays admin-only and does not add public navigation.
+- The first athlete-facing Explorer slices stayed admin-gated through 5C; 5D-0 now exposes the existing read-only athlete Explorer surface to all logged-in users while keeping Explorer management admin-only.
 - `Season` should remain competition-only for Explorer planning and implementation purposes.
 - V1 permits Explorer campaigns with their own date windows, but does not permit overlapping Explorer campaigns.
 - 4A destination authoring accepts validated Strava segment URLs, not raw segment IDs.
@@ -48,7 +46,7 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 - Shared segment-field expansion should benefit both competition and Explorer because the backend segment model is shared, even if Explorer admin is the first surface to display the extra detail.
 - The next metadata slice should not introduce bespoke Explorer refresh controls; any future refresh should continue to ride through the shared segment metadata service and broader resync paths.
 - Polyline or full geometry storage remains deferred; start and end coordinates are the minimum useful map-safe capture for now.
-- The first athlete-facing Explorer slice should stay admin-gated, centered on the active campaign plus the current athlete's own progress, and reuse the documented leaderboard design system rather than legacy admin styling.
+- The first athlete-facing Explorer slice launched as admin-gated in 5A, centered on the active campaign plus the current athlete's own progress, and reused the documented leaderboard design system rather than legacy admin styling.
 - The merged 5A athlete hub is the baseline for later athlete-facing Explorer work; follow-on slices should refine it rather than reopening the first-page route, access model, or progress summary contract without a new planning decision.
 - The next athlete-facing slice should focus on larger-list usability inside the existing Hub and Destinations views before adding any new top-level Explorer mode.
 - Lightweight browse aids are acceptable in 5B only if they improve list scanning without implying public release, full search, map discovery, or a shift toward leaderboard semantics.
@@ -70,7 +68,7 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 | How should webhook regression protection be documented for the delegated-handler refactor? | Closed For Phase 1 | No | The preservation target now lives in this worklog and the handler seam is covered by focused webhook tests. |
 | What is the exact E2E data strategy for Explorer flows? | Closed For 4B-1 | No | The baseline data source is the committed sanitized Postgres seed at `server/data/wmv_e2e_seed.sql`, with deterministic backend Strava reads selected through explicit providers. |
 | Should deleted source activities retract Explorer completions in v1? | Open | No | Safe to defer if behavior is documented. |
-| Should pre-release Explorer UI remain admin-gated until launch approval? | Closed | No | Yes. Do not expose Explorer UI to non-admin users before a viable release decision. |
+| Should pre-release Explorer UI remain admin-gated until launch approval? | Closed | No | Closed in favor of 5D-0: the Explorer read surface is now available to all logged-in users, while Explorer management remains admin-only and signed-out users still see the WMV join shell. |
 | Should Explorer depend on the competition `Season` model in v1? | Closed | Yes | No. `Season` returns to competition-only semantics and Explorer uses campaign-owned dates. |
 | Should overlapping Explorer campaigns be allowed in v1? | Closed | Yes | No. Disallow overlap so active-campaign lookup stays deterministic without adding a heavier publish-status model. |
 | Should 4A accept raw segment IDs as an admin authoring input? | Closed | No | No. Use validated Strava segment URLs only in the 4A backend contract. |
@@ -79,7 +77,7 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 | Should already-added Explorer destination cards support persisted inline editing in the first UX-refinement slice? | Closed For 4B-3 | No | No. Keep 4B-3 to preview-add flow plus richer read-only cards. |
 | Does Explorer need true map-ready coordinate storage now? | Closed For 4B-5 | No | No. The next slice should capture Strava start and end coordinates plus metadata freshness in the shared `segment` table, while deferring polylines, geometry, and map rendering. |
 | Should Explorer introduce its own Strava metadata refresh workflow? | Closed For 4B-5 | No | No. Keep metadata refresh tied to the shared segment metadata service and later broader resync flows rather than adding Explorer-only refresh behavior. |
-| What is the smallest useful first athlete-facing Explorer page after 4B-5? | Closed For 5A | No | A list-first, admin-gated athlete page showing the active campaign, personal progress, and completed versus remaining destinations. |
+| What is the smallest useful first athlete-facing Explorer page after 4B-5? | Closed For 5A | No | A list-first athlete page showing the active campaign, personal progress, and completed versus remaining destinations. |
 | What is the smallest useful follow-on slice after the merged 5A athlete page? | Closed For 5B | No | Refine checklist scanning for larger destination sets inside the existing Hub and Destinations structure before map or social work. |
 | Should logged-out athletes continue to see leaderboard or Explorer data by default? | Closed | No | No. The broader app should default to a sign-in or join shell for unauthenticated users, and that cross-product access change should land before more athlete-facing Explorer personalization. |
 | What is the smallest useful follow-on slice after the merged 5B athlete browse refinement? | Closed For 5C | No | Let logged-in athletes pin destinations from the Destinations tab and prioritize those pinned destinations on the Hub page before map or social work. |
@@ -100,12 +98,26 @@ Resolution:
 
 ### Should Resolve Before 4A And 4B Grow Broader
 
-1. Resolved for the next slice: Explorer backend tests should live under `server/src/__tests__` and use the existing in-memory SQLite pattern.
+1. Resolved for the next slice: Explorer backend tests should live under `server/src/__tests__` and use the existing in-memory pg-mem Postgres pattern.
 2. Resolved for the next slice: Explorer E2E scenarios should provision their own campaign data intentionally.
 	- Progress: the shared E2E baseline now comes from a sanitized committed fixture rather than copied local development state.
 3. Resolved for the next slice: Planning and implementation docs touched by the corrected slice should be listed explicitly before coding starts.
 
 ## Ready-Next Slices
+
+### Deferred Follow-up Slice: Postgres Runtime And Ops Cleanup (Non-Explorer)
+
+- Scope:
+	- remove or archive remaining SQLite bridge scripts and npm task entrypoints that are no longer required for active runtime operations
+	- normalize runtime env guidance to Postgres-only expectations centered on `DATABASE_URL`
+	- remove stale `DB_DIALECT` or `DATABASE_PATH` runtime guidance where it no longer affects behavior
+	- add a short Railway CLI production-debug safety protocol in shared instructions (`AGENTS.md` plus deployment docs)
+- Out of scope:
+	- Explorer feature behavior, Explorer route exposure, campaign model decisions, or map and social rollout planning
+	- reopening the merged 5A through 5D-0 functionality
+- Rationale:
+	- this cleanup is operational hardening with broader blast radius and should ship as its own reviewable change set
+	- keeping it separate lets the current Explorer closeout PR merge without coupling to env-script deletions
 
 ### Completed Slice A: Webhook Orchestrator And Handler Seam
 
@@ -232,7 +244,7 @@ The current preservation target is backed by:
 - Phase: 5A Athlete Hub Read Surface
 - Status: merged on `main`
 - Landed outcome:
-	- the first athlete-facing Explorer page now exists as an admin-gated route on top of the campaign-first Explorer model
+	- the first athlete-facing Explorer page now exists on top of the campaign-first Explorer model and served as the baseline for later logged-in exposure
 	- the active campaign, current-athlete progress summary, and list-first destination views now form the baseline athlete Explorer experience
 	- the leaderboard design system now explicitly governs the shared navigation and typography patterns reused by Explorer athlete surfaces
 
@@ -243,7 +255,7 @@ The current preservation target is backed by:
 - Landed outcome:
 	- the Destinations tab now supports local search and completion-state filtering on top of the merged athlete Explorer page
 	- filtered counts and a dedicated filtered empty state now make larger destination sets easier to scan without a new backend contract
-	- the athlete-facing Explorer browse surface remains list-first, admin-gated, and aligned with the existing progress-first model
+	- the athlete-facing Explorer browse surface remains list-first and aligned with the existing progress-first model
 
 ### 5C Outcome
 
@@ -253,7 +265,17 @@ The current preservation target is backed by:
 	- logged-in athletes can now pin and unpin destinations from the existing Destinations tab without changing browse ordering there
 	- pinned state is athlete-specific and persists for the active campaign
 	- the Hub page now surfaces pinned remaining destinations first and explains when no pins exist yet
-	- the browse and personalization surface remains list-first, progress-first, and admin-gated while leaving map and social work deferred
+	- the browse and personalization surface remains list-first and progress-first while leaving map and social work deferred
+
+### 5D-0 Outcome
+
+- Phase: 5D-0 Public Explorer Read Exposure
+- Status: merged on `main`
+- Landed outcome:
+	- the existing Explorer hub and destinations page is now visible to all logged-in users, not only admins
+	- Explorer management remains admin-only through the existing admin route and mutations
+	- signed-out users still see the WMV join shell and do not get Explorer access
+	- the next recommended planning handoff is map discovery rather than more access-model work
 
 ### 4B-4 Branch-Ready Task List
 

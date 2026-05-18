@@ -256,27 +256,25 @@ After sending webhook events, verify they were processed:
 
 ```bash
 # Check webhook events were received
-sqlite3 server/data/wmv.db "SELECT id, aspect_type, object_type, processed, error_message FROM webhook_event ORDER BY created_at DESC LIMIT 5;"
+psql "$DATABASE_URL" -c "SELECT id, aspect_type, object_type, processed, error_message FROM webhook_event ORDER BY created_at DESC LIMIT 5;"
 
 # Check activities were stored
-sqlite3 server/data/wmv.db "SELECT id, strava_activity_id, strava_athlete_id, validation_status FROM activity ORDER BY created_at DESC LIMIT 5;"
+psql "$DATABASE_URL" -c "SELECT id, strava_activity_id, strava_athlete_id, validation_status FROM activity ORDER BY created_at DESC LIMIT 5;"
 
 # Check results were calculated
-sqlite3 server/data/wmv.db "SELECT id, week_id, strava_athlete_id, total_time_seconds FROM result ORDER BY created_at DESC LIMIT 5;"
+psql "$DATABASE_URL" -c "SELECT id, week_id, strava_athlete_id, total_time_seconds FROM result ORDER BY created_at DESC LIMIT 5;"
 
 # Check segment efforts
-sqlite3 server/data/wmv.db "SELECT id, activity_id, elapsed_seconds, pr_achieved FROM segment_effort ORDER BY created_at DESC LIMIT 5;"
+psql "$DATABASE_URL" -c "SELECT id, activity_id, elapsed_seconds, pr_achieved FROM segment_effort ORDER BY created_at DESC LIMIT 5;"
 ```
 
-Or use a SQLite GUI:
+Or use a Postgres GUI:
 ```bash
-# Open SQLite browser
-sqlite3 server/data/wmv.db
+# Open Postgres client
+psql "$DATABASE_URL"
 
 # Then run SQL queries interactively
-.tables
-.headers on
-.mode column
+\dt
 SELECT * FROM webhook_event LIMIT 5;
 ```
 

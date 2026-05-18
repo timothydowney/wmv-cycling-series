@@ -149,7 +149,7 @@ This means the most complex and correctness-critical scoring logic is **not dupl
 - Recalculates scoring for every week the athlete participated in (could be 20+ calls)
 - Doesn't use `ProfileService` or `StandingsService` which already aggregate this data
 
-**Recommendation:** This is an acceptable tradeoff. The `ProfileService.getAthleteProfile()` doesn't return the week-by-week detail that `getParticipantHistory()` provides (individual week times, per-week PR status, etc.). A potential optimization would be to add a batch scoring method to `ScoringService` that scores multiple weeks in one pass, but the current N-call approach is fast enough with SQLite (each call is ~1ms).
+**Recommendation:** This is an acceptable tradeoff. The `ProfileService.getAthleteProfile()` doesn't return the week-by-week detail that `getParticipantHistory()` provides (individual week times, per-week PR status, etc.). A potential optimization would be to add a batch scoring method to `ScoringService` that scores multiple weeks in one pass, but the current N-call approach is fast enough with Postgres (each call is ~1ms).
 
 ### 4.2 Direct DB Queries
 
@@ -242,7 +242,7 @@ In-memory rate limiter with two windows:
 | Per minute | 10 requests | Sliding 60-second window |
 | Per day | 200 requests | Fixed 24-hour window |
 
-The rate limiter lives in `ChatRateLimiter.ts` as a singleton. Since the app runs as a single Node.js instance with SQLite, in-memory limiting is sufficient.
+The rate limiter lives in `ChatRateLimiter.ts` as a singleton. Since the app runs as a single Node.js instance with Postgres, in-memory limiting is sufficient.
 
 Rate limit status is exposed to the frontend via `chat.getRateLimitStatus` and shown in the chat header ("X remaining today").
 
@@ -414,7 +414,7 @@ Use Gemini's streaming API to progressively render responses. This would reduce 
 **Priority:** Low  
 **Effort:** Small (1-2 hours)
 
-`getParticipantHistory()` calls `ScoringService.calculateWeekScoring()` once per week. For athletes with 20+ weeks of history, this means 20+ scoring calculations. A batch method on `ScoringService` that scores multiple weeks in a single pass would reduce overhead. In practice, SQLite handles this quickly (~1ms per week), so the impact is negligible.
+`getParticipantHistory()` calls `ScoringService.calculateWeekScoring()` once per week. For athletes with 20+ weeks of history, this means 20+ scoring calculations. A batch method on `ScoringService` that scores multiple weeks in a single pass would reduce overhead. In practice, Postgres handles this quickly (~1ms per week), so the impact is negligible.
 
 ---
 
@@ -473,7 +473,7 @@ Cost is negligible for admin-only usage. If opened to all users, monitor via tok
 
 ### Unit Tests
 
-- [ChatToolRunner.test.ts](../server/src/__tests__/ChatToolRunner.test.ts) — tests each tool with in-memory SQLite
+- [ChatToolRunner.test.ts](../server/src/__tests__/ChatToolRunner.test.ts) — tests each tool with in-memory pg-mem Postgres
 - [ChatRateLimiter.test.ts](../server/src/__tests__/ChatRateLimiter.test.ts) — tests rate limiting logic
 
 ### Manual Testing

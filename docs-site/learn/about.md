@@ -145,7 +145,7 @@ WMV Cycling Series is built with modern, open-source tools:
 
 - **Frontend:** React + TypeScript (responsive, fast)
 - **Backend:** Node.js + Express (scalable, reliable)
-- **Database:** SQLite (simple, no extra services needed)
+- **Database:** Postgres (simple, no extra services needed)
 - **Authentication:** Strava OAuth (secure, familiar)
 - **Hosting:** Railway.app (fast deploys, automatic HTTPS)
 - **Infrastructure:** GitHub + Docker (open, transparent)

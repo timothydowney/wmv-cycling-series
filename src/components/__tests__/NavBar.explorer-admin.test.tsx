@@ -84,12 +84,13 @@ describe('NavBar Explorer admin link', () => {
     expect(explorerAdminLink?.textContent).toContain('Manage Explorer');
   });
 
-  it('hides Explorer links for non-admin users', async () => {
+  it('shows Explorer and hides Manage Explorer for non-admin users', async () => {
     const { container } = await renderNavBar({ isAdmin: false });
 
     await openMenu(container);
 
-    expect(container.querySelector('a[href="/explorer"]')).toBeNull();
+    const explorerLink = container.querySelector('a[href="/explorer"]');
+    expect(explorerLink?.textContent).toContain('Explorer');
     expect(container.querySelector('a[href="/explorer-admin"]')).toBeNull();
   });
 

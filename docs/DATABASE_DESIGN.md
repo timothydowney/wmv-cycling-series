@@ -1,9 +1,9 @@
 # Database Design
 
 ## Overview
-This document describes the SQLite database schema for tracking weekly cycling competition results and the campaign-first Explorer feature based on Strava activities.
+This document describes the Postgres database schema for tracking weekly cycling competition results and the campaign-first Explorer feature based on Strava activities.
 
-**Scale:** Designed for <100 participants. SQLite is perfect for this - simple, fast, no separate database server needed.
+**Scale:** Designed for <100 participants. Postgres is perfect for this - simple, fast, no separate database server needed.
 
 ## Schema Overview
 
