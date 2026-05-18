@@ -1,6 +1,6 @@
 # Postgres Migration Runbook
 
-Local-first migration from SQLite to Postgres.
+Local-first Postgres cutover runbook.
 
 This runbook is the source of truth for rehearsal and production cutover decisions.
 
@@ -70,7 +70,7 @@ Optional convenience startup using standard dev workflow:
 npm run dev:postgres
 ```
 
-Current branch status: backend runtime is Postgres-only. SQLite is retained only as an export/import bridge during migration and rollback rehearsal.
+Current branch status: backend runtime is Postgres-only. Bridge scripts and snapshot artifacts remain available only for migration rehearsal and rollback recovery.
 
 ## Phase 2: Prepare Postgres Schema
 

@@ -278,7 +278,7 @@ export function AppContent() {
             <ExplorerAdminPanel isAdmin={isAdmin} />
           } />
           <Route path="/explorer" element={
-            <ExplorerHubPage isAdmin={isAdmin} isConnected={isConnected} />
+            <ExplorerHubPage isConnected={isConnected} />
           } />
           <Route path="/roles" element={<AdminRoleManager />} />
           <Route path="/participants" element={<ParticipantStatus />} />

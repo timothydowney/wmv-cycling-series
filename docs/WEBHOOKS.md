@@ -457,13 +457,13 @@ npm run webhook:emit -- --event create --participant 12345678 --activity 9876543
 **In the database:**
 ```bash
 # Query webhook events
-sqlite3 server/data/wmv.db "SELECT id, object_type, aspect_type, processed, error_message FROM webhook_event LIMIT 10;"
+psql "$DATABASE_URL" -c "SELECT id, object_type, aspect_type, processed, error_message FROM webhook_event LIMIT 10;"
 
 # Query activities that were stored from webhooks
-sqlite3 server/data/wmv.db "SELECT week_id, participant_id, total_time_seconds, validation_status FROM activities WHERE validation_status = 'valid';"
+psql "$DATABASE_URL" -c "SELECT week_id, participant_id, total_time_seconds, validation_status FROM activities WHERE validation_status = 'valid';"
 
 # Check leaderboard for the week
-sqlite3 server/data/wmv.db "SELECT participant_id, rank, total_time_seconds, points FROM results WHERE week_id = 1 ORDER BY rank;"
+psql "$DATABASE_URL" -c "SELECT participant_id, rank, total_time_seconds, points FROM results WHERE week_id = 1 ORDER BY rank;"
 ```
 
 ### Troubleshooting

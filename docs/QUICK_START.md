@@ -4,7 +4,7 @@ Get the app running in 5 minutes.
 
 ## Prerequisites
 
-- **Node.js 24.x** (required for SQLite)
+- **Node.js 24.x** (required for Postgres)
   - Check your version: `node --version`
   - Install/switch with nvm: `nvm install 24 && nvm use 24`
 
@@ -109,7 +109,7 @@ npm run dev
 - Frontend: `src/App.tsx` → `src/components/` (TypeScript + React)
 - Backend: `server/src/index.ts` → `server/src/routes/` and `server/src/services/` (Pure TypeScript)
 - Tests: `server/src/__tests__/` (TypeScript test files with Jest + ts-jest)
-- Database: `server/data/wmv.db` (SQLite)
+- Database: `wmv_local` (Postgres)
 
 ### To Run Tests
 ```bash

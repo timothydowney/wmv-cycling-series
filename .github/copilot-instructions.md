@@ -1,6 +1,6 @@
 # GitHub Copilot Instructions
 
-WMV Cycling Series: React 19 + TypeScript frontend with Node.js 24 Express + tRPC backend. SQLite database via Drizzle ORM.
+WMV Cycling Series: React 19 + TypeScript frontend with Node.js 24 Express + tRPC backend. Postgres database via Drizzle ORM.
 
 ---
 
@@ -88,8 +88,7 @@ When a PR changes shipped behavior, an approved slice, a rollout boundary, or an
 ```
 /src                     # React frontend (TypeScript)
 /server/src              # Express + tRPC backend (TypeScript)
-/server/data/wmv.db      # Development database (SQLite)
-/server/data/wmv_e2e.db  # E2E test database (production copy)
+/server/data/wmv_e2e_seed.sql  # Committed sanitized E2E seed snapshot
 /e2e                     # Playwright end-to-end tests
 /docs                    # Documentation (not /docs-site)
 .github/workflows/       # CI/CD pipelines
@@ -107,13 +106,13 @@ When a PR changes shipped behavior, an approved slice, a rollout boundary, or an
 - **Express** on Node.js 24.x
 - **tRPC** for type-safe RPC procedures
 - **Drizzle ORM** for database queries
-- **SQLite** via better-sqlite3 (file-based)
+- **Postgres** via the `pg` driver
 - **TypeScript only** (no `.js` files in `/server/src`)
 
 ### Testing
 - **Vitest** for frontend tests
-- **Jest + ts-jest** for backend unit tests (in-memory SQLite)
-- **Playwright** for E2E tests (uses wmv_e2e.db)
+- **Jest + ts-jest** for backend unit tests (in-memory pg-mem Postgres)
+- **Playwright** for E2E tests (uses dedicated `wmv_e2e` Postgres database)
 
 ## Operational Reference
 
@@ -134,7 +133,7 @@ For GitHub operations such as pull request review, issue lookup, labels, search,
 ```typescript
 // Services receive drizzleDb in constructor
 class ActivityService {
-  constructor(private db: BetterSQLite3Database) {}
+  constructor(private db: AppDatabase) {}
   
   async getActivities(weekId: number) {
     return this.db.select().from(activity)
@@ -266,7 +265,7 @@ See [docs/STRAVA_INTEGRATION.md](./docs/STRAVA_INTEGRATION.md) for complete guid
 npm test              # All tests
 npm run test:watch    # Watch mode
 ```
-- In-memory SQLite via `setupTestDb` pattern
+- In-memory Postgres via `setupTestDb` pattern
 - Tests in `server/src/__tests__/`
 - Cover happy path + error cases
 - Aim for >85% coverage
@@ -277,7 +276,7 @@ npm run test:e2e           # Headless (CI-friendly)
 npm run test:e2e:headed    # Visible browser
 npm run test:e2e:ui        # Interactive debugging
 ```
-- Use separate `wmv_e2e.db` (production copy)
+- Use dedicated `wmv_e2e` database for Playwright E2E runs
 - Tests in `e2e/tests/`
 - Use `data-testid` for robust selectors
 - Run against http://localhost:3001 and :5173
@@ -326,7 +325,7 @@ All checks must pass before merge.
 
 **Key requirements:**
 - Node.js 24.x
-- Persistent volume at `/data` (SQLite database)
+- Railway managed Postgres service referenced by `DATABASE_URL`
 - Environment variables in Railway dashboard
 - HTTPS auto-configured
 - Auto-deploys on push to main branch
@@ -403,7 +402,7 @@ For detailed information:
 | Item | Value |
 |------|-------|
 | Node.js | 24.x (required) |
-| Database | SQLite (better-sqlite3) + Drizzle ORM |
+| Database | Postgres (pg) + Drizzle ORM |
 | Frontend | React 19 + TypeScript + Vite |
 | Backend | Express + tRPC + TypeScript |
 | Testing | Vitest (frontend) + Jest (backend) + Playwright (E2E) |
