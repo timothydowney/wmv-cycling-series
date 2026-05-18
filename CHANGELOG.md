@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Explorer public surface cleanup removed roadmap-only Hub copy and the disabled Map tab affordance, so logged-in athletes now only see currently available Explorer views.
 - Startup migration `0001_ensure_chain_wax_defaults.sql` now normalizes legacy timestamp columns from `bigint` Unix seconds and legacy `text` values into `timestamptz` before applying defaults, preventing production boot loops during runtime `migrate()`.
 - Startup Drizzle baseline stamping is now concurrency-safe and deterministic (locks on startup, selects baseline by `0000_postgres_baseline` tag, and only stamps when the migrations table is empty), and migration metadata now tracks `0001_ensure_chain_wax_defaults` so runtime `migrate()` can apply it.
 - Chain wax webhook writes now set `created_at` explicitly for periods, activities, and pucks. Added Postgres migration `0001_ensure_chain_wax_defaults.sql` to ensure `DEFAULT CURRENT_TIMESTAMP` exists on all chain_wax tables, fixing schema drift where production tables lacked the default after earlier migrations.
