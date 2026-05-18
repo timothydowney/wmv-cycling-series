@@ -1,11 +1,11 @@
 import React from 'react';
 import './BottomNav.css';
 
-export type ExplorerTabType = 'hub' | 'destinations' | 'map';
+export type ExplorerTabType = 'hub' | 'destinations';
 
 interface ExplorerBottomNavProps {
   activeTab: ExplorerTabType;
-  onSelect: (tab: Exclude<ExplorerTabType, 'map'>) => void;
+  onSelect: (tab: ExplorerTabType) => void;
 }
 
 const ExplorerBottomNav: React.FC<ExplorerBottomNavProps> = ({ activeTab, onSelect }) => {
@@ -39,21 +39,6 @@ const ExplorerBottomNav: React.FC<ExplorerBottomNavProps> = ({ activeTab, onSele
           <path d="m9 12 2 2 4-4"></path>
         </svg>
         <span>Destinations</span>
-      </button>
-
-      <button
-        type="button"
-        className="bottom-nav-item disabled"
-        data-testid="explorer-tab-map"
-        aria-disabled="true"
-        disabled
-      >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon>
-          <line x1="9" y1="3" x2="9" y2="18"></line>
-          <line x1="15" y1="6" x2="15" y2="21"></line>
-        </svg>
-        <span>Map</span>
       </button>
     </nav>
   );

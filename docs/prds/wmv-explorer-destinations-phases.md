@@ -396,6 +396,36 @@ Ordering note:
 
 - With 5D-0 merged, the next approved candidate slice is map discovery.
 
+### Slice 5D-0.1: Public Page Copy Cleanup
+
+Goal: remove developer-internal planning copy and roadmap scaffolding that was left on the public Explorer page when 5D-0 landed.
+
+Status: merged on `main` as a targeted copy cleanup following the 5D-0 public read exposure.
+
+Scope:
+
+- remove the "Later phases" roadmap follow-on card from the Hub tab (titled "Map and social work stay deferred")
+- remove the disabled Map tab from the Explorer bottom navigation bar
+- replace third-person admin-facing copy ("this athlete", "the athlete's") with first-person user copy ("you", "your") in progress-loading and completion empty states
+- remove now-unused `.explorer-hub-follow-on-card` and `.explorer-hub-preview-pill` CSS
+
+Out of scope:
+
+- map rendering, map-provider selection, geolocation prompts, or proximity search
+- changes to Explorer navigation structure or tab routing
+- any new feature additions
+
+Validation:
+
+- frontend unit tests updated to reflect removal of `explorer-tab-map` aria-disabled assertion
+- slice-normal `npm run lint`, `npm run typecheck`, and targeted frontend test verification
+
+Landed outcome:
+
+- the public Explorer hub no longer shows developer-internal roadmap planning copy
+- the bottom nav no longer shows a disabled Map placeholder tab
+- all user-facing copy in the hub is now written in first-person
+
 ### Slice 5D: Map Discovery
 
 Goal: add map-based discovery only after the list-first athlete page exists and the map product questions are explicitly answered.
