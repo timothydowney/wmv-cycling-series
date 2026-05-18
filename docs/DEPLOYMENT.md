@@ -260,7 +260,7 @@ After deployment:
 **What you'd need:**
 - Host frontend here
 - Host backend elsewhere (Railway/Render)
-- Use PostgreSQL instead of Postgres
+- Provision and manage a separate backend Postgres service
 - Massive over-complication
 
 **Verdict:** NOT recommended for this architecture
@@ -632,10 +632,10 @@ feature branch → PR → CI tests → merge to main → Railway deploys
 **For now:** This architecture handles <100 participants indefinitely.
 
 **If you ever need to scale:**
-- Migrate from Postgres to PostgreSQL
-- Use Railway's PostgreSQL addon (one click)
-- No code changes needed (same SQL)
-- Costs ~$15/month for managed PostgreSQL
+- Upgrade Railway Postgres resources (CPU/RAM/storage) first
+- Add read replicas for heavy read traffic
+- Keep app code and SQL unchanged while scaling infrastructure
+- Costs increase with higher Railway Postgres tiers
 
 ---
 
@@ -680,7 +680,7 @@ Before going live for the first time:
   - [ ] `STRAVA_CLIENT_ID` from Strava app
   - [ ] `STRAVA_CLIENT_SECRET` from Strava app
   - [ ] `STRAVA_REDIRECT_URI` matches production URL
-  - [ ] `DATABASE_URL=postgresql://wmv:wmv@localhost:5432/wmv_local`
+  - [ ] `DATABASE_URL=<railway postgres connection string>`
   - [ ] `SESSION_SECRET` generated and set
 - [ ] Strava OAuth app updated with production domain
 - [ ] GitHub Actions CI/CD working (tests passing)

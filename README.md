@@ -28,7 +28,7 @@ See [Quick Start Guide](./docs/QUICK_START.md) for developer setup details.
 
 ## Requirements
 
-- **Node.js 24.x** (required for pg)
+- **Node.js 24.x** (project runtime requirement)
 - npm (bundled with Node)
 
 **Install Node 24:**
@@ -104,7 +104,7 @@ npm run dev
 **Build errors?**
 ```bash
 npm install
-cd server && npm rebuild pg
+cd server && npm install
 ```
 
 See [Quick Start Guide](./docs/QUICK_START.md) for more troubleshooting.

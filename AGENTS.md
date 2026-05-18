@@ -161,7 +161,7 @@ npm run dev:cleanup
 npm run dev
 ```
 
-### "Cannot find module pg"
+### "Cannot find module <backend dependency>"
 ```bash
 cd server && npm install
 cd ..

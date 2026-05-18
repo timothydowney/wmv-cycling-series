@@ -335,7 +335,7 @@
 |---|---|---|
 | <100 | ✅ Current setup | No changes needed |
 | 100-500 | Webhooks + archives | Add webhooks, start archiving seasons |
-| 500-1000 | PostgreSQL migration | Switch from Postgres to PostgreSQL |
+| 500-1000 | Postgres capacity tuning | Increase managed Postgres resources as usage grows |
 | 1000+ | Read replica + cache | Add Redis, read replicas |
 
 **We are currently at <100. Enjoy the simplicity!**

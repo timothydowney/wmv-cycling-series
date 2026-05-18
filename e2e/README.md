@@ -62,7 +62,7 @@ Current reality: Playwright now boots dedicated frontend and backend E2E servers
 3. Run `npm run test:e2e` to execute Playwright tests. The harness will migrate the E2E DB automatically.
 4. To reset the E2E DB, drop and recreate `wmv_e2e` (see scripts/ensure-e2e-db.sh for details).
 
-**No Postgres fallback:** All E2E and dev/test DBs are now Postgres. If you see DB errors, check your Docker and Postgres setup.
+**Postgres only (no SQLite fallback):** All E2E and dev/test DBs are now Postgres. If you see DB errors, check your Docker and Postgres setup.
 
 To refresh the committed Postgres E2E seed after intentionally updating baseline data, run `npm run test:e2e:refresh-seed`.
 

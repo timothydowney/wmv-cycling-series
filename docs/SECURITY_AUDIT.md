@@ -111,7 +111,7 @@ cookie: {
 
 #### 7. Database Security ✅
 
-- Postgres service access restricted to trusted network paths
+- Managed Postgres is accessed via injected connection strings and is not publicly exposed for unauthenticated access
 - Parameterized queries prevent SQL injection
 - Transactions ensure consistency
 - Indexes on frequently queried columns
@@ -870,7 +870,7 @@ describe('Token Encryption', () => {
 
 ## Questions Addressed
 
-**Q: Do we need encrypted Postgres (SQLCipher)?**
+**Q: Do we need encrypted SQLite (SQLCipher)?**
 A: Not necessarily. Application-level encryption (AES-256-GCM) is simpler, equally secure, and doesn't require native modules. SQLCipher adds complexity without proportional benefit for your use case.
 
 **Q: What if the encryption key is compromised?**

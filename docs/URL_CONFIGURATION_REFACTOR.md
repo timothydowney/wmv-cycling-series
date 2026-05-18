@@ -182,7 +182,7 @@ npm run dev:all
 ```
 NODE_ENV=production
 APP_BASE_URL=https://wmv-cycling-series-production.up.railway.app
-DATABASE_URL=postgresql://wmv:wmv@localhost:5432/wmv_local
+DATABASE_URL=<railway postgres connection string>
 STRAVA_CLIENT_ID=...
 STRAVA_CLIENT_SECRET=...
 SESSION_SECRET=...
@@ -355,4 +355,3 @@ if (process.env.CUSTOM_DOMAIN) {
 | Lines of config code | Scattered | 90 | Centralized |
 
 **Status:** ✅ Ready for production deployment
-

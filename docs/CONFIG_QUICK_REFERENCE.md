@@ -149,7 +149,7 @@ Use when frontend and backend share the **same domain**.
 ### Environment Checklist
 
 - [ ] `APP_BASE_URL` set to production domain
-- [ ] `DATABASE_URL=postgresql://wmv:wmv@localhost:5432/wmv_local`
+- [ ] `DATABASE_URL=<railway postgres connection string>`
 - [ ] `STRAVA_CLIENT_ID` set
 - [ ] `STRAVA_CLIENT_SECRET` set
 - [ ] `SESSION_SECRET` set (unique for prod)
@@ -366,4 +366,3 @@ This helps debug configuration issues.
 - **Deployment guide:** `docs/DEPLOYMENT.md`
 - **Architecture overview:** `docs/ARCHITECTURE.md`
 - **OAuth flow:** `docs/STRAVA_INTEGRATION.md`
-
