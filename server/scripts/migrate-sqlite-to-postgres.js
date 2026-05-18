@@ -28,6 +28,24 @@ const TABLE_ORDER = [
   'chain_wax_puck',
 ];
 
+const IDENTITY_TABLES = [
+  'activity',
+  'chain_wax_activity',
+  'chain_wax_period',
+  'chain_wax_puck',
+  'deletion_request',
+  'explorer_campaign',
+  'explorer_destination',
+  'explorer_destination_match',
+  'explorer_destination_pin',
+  'result',
+  'season',
+  'segment_effort',
+  'webhook_event',
+  'webhook_subscription',
+  'week',
+];
+
 function parseArgs(argv) {
   const parsed = {};
 
@@ -178,6 +196,27 @@ async function ensureTargetSchemaReady(client) {
   }
 }
 
+async function syncIdentitySequences(client) {
+  for (const tableName of IDENTITY_TABLES) {
+    const regclass = `public.${tableName}`;
+    const seqResult = await client.query('SELECT pg_get_serial_sequence($1, $2) AS seq', [regclass, 'id']);
+    const sequenceName = seqResult.rows[0]?.seq;
+
+    if (!sequenceName) {
+      continue;
+    }
+
+    const maxResult = await client.query(`SELECT MAX(id)::bigint AS max_id FROM ${quoteIdentifier(tableName)}`);
+    const maxId = maxResult.rows[0]?.max_id;
+
+    if (maxId === null || maxId === undefined) {
+      await client.query('SELECT setval($1, 1, false)', [sequenceName]);
+    } else {
+      await client.query('SELECT setval($1, $2::bigint, true)', [sequenceName, maxId]);
+    }
+  }
+}
+
 function countSqliteRows(sqliteDb, tableName) {
   const row = sqliteDb
     .prepare(`SELECT COUNT(*) AS count FROM ${quoteIdentifier(tableName)}`)
@@ -308,6 +347,8 @@ async function run() {
     for (const tableName of TABLE_ORDER) {
       await migrateTable(sqliteDb, pgClient, tableName);
     }
+
+    await syncIdentitySequences(pgClient);
 
     await pgClient.query('COMMIT');
     console.log('[MIGRATE] Completed successfully');
