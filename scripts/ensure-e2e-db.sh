@@ -1,27 +1,12 @@
+
 #!/usr/bin/env bash
-set -euo pipefail
 
-ENV_PATH="${ENV_FILE:-e2e/.env.e2e}"
-
-if [[ -f "$ENV_PATH" ]]; then
-  # shellcheck disable=SC1090
-  set -a
-  . "$ENV_PATH"
-  set +a
-fi
-
-export DB_DIALECT="${DB_DIALECT:-postgres}"
-export DATABASE_URL="${DATABASE_URL:-postgresql://wmv:wmv@localhost:5432/wmv_e2e}"
-export WMV_AUTO_BOOTSTRAP_DB=false
-SEED_SQL_PATH="${WMV_E2E_SEED_SQL_PATH:-server/data/wmv_e2e_seed.sql}"
-
-bash scripts/ensure-dev-db.sh
-
+# Always ensure the E2E DB exists and schema is bootstrapped before seeding.
 echo "[e2e-db] Ensuring target Postgres database exists"
 node server/scripts/ensure-postgres-db.js --url "$DATABASE_URL"
 
-echo "[e2e-db] Ensuring schema exists"
-DATABASE_URL="$DATABASE_URL" npm --prefix server run db:pg:bootstrap:schema >/dev/null 2>&1 || true
+echo "[e2e-db] Bootstrapping schema (always, for E2E)"
+DATABASE_URL="$DATABASE_URL" npm --prefix server run db:pg:bootstrap:schema
 
 # Verify that the schema is actually in place after the migration attempt.
 DB_SCHEMA_OK=$(cd server && node -e "

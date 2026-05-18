@@ -15,6 +15,13 @@
       "when": 1778805900000,
       "tag": "0001_ensure_chain_wax_defaults",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779104100000,
+      "tag": "0002_resync_identity_sequences",
+      "breakpoints": true
     }
   ]
 }
