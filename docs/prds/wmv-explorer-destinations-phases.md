@@ -394,7 +394,43 @@ Landed outcome:
 
 Ordering note:
 
-- With 5D-0 merged, the next approved candidate slice is map discovery.
+- With 5D-0 merged, the next approved slice is a narrow public-surface cleanup before map discovery.
+
+### Slice 5D-1: Public Explorer Surface Cleanup
+
+Goal: remove pre-release and roadmap-oriented UI remnants from the logged-in public Explorer page so the shipped surface reflects the approved 5D-0 boundary.
+
+Status: merged on `main` as the cleanup pass between public read exposure and later map planning.
+
+Scope:
+
+- remove any remaining admin-gated or preview-oriented language from the athlete Explorer read surface
+- remove roadmap-style map and social teaser content from the Hub surface
+- remove disabled map tab affordances that imply map behavior is available now
+- keep the merged 5A through 5D-0 progress, browse, and pin behavior unchanged
+
+Out of scope:
+
+- map rendering, map-provider selection, geolocation prompts, or proximity search
+- social-feed behavior or broader athlete-to-athlete visibility
+- changes to completion math, campaign ordering semantics, or pin-priority rules
+- public access for signed-out users
+
+Validation:
+
+- frontend unit tests for Explorer Hub rendering and navigation affordances after cleanup
+- route-gating validation that signed-out users remain on the WMV sign-in or join shell
+- slice-normal `npm run lint`, `npm run typecheck`, and targeted build verification
+
+Landed outcome:
+
+- the public Explorer Hub no longer surfaces roadmap-style map or social teaser copy
+- Explorer bottom navigation now exposes only the shipped Hub and Destinations views
+- the existing progress, browse, and pin behavior remains unchanged while map work stays deferred
+
+Ordering note:
+
+- With 5D-1 merged, map discovery returns as the next candidate slice.
 
 ### Slice 5D: Map Discovery
 
