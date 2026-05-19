@@ -4,6 +4,7 @@ import {
   explorerCampaign,
   explorerDestination,
   explorerDestinationMatch,
+  participant,
 } from '../db/schema';
 import {
   getActivity,
@@ -153,6 +154,25 @@ export class ExplorerMatchingService {
     };
   }
 
+  private async isFirstCompleterForDestination(
+    explorerCampaignId: number,
+    explorerDestinationId: number
+  ): Promise<boolean> {
+    const existingMatch = await getOne<{ id: number }>(
+      this.db
+        .select({ id: explorerDestinationMatch.id })
+        .from(explorerDestinationMatch)
+        .where(
+          and(
+            eq(explorerDestinationMatch.explorer_campaign_id, explorerCampaignId),
+            eq(explorerDestinationMatch.explorer_destination_id, explorerDestinationId)
+          )
+        )
+        .limit(1)
+    );
+    return !existingMatch;
+  }
+
   private async matchActivityAgainstCampaigns(
     activityData: StravaActivity,
     athleteId: string,
@@ -219,6 +239,24 @@ export class ExplorerMatchingService {
           continue;
         }
 
+        // Check if this athlete is the first completer
+        const isFirstCompleter = await this.isFirstCompleterForDestination(
+          campaignRecord.id,
+          destination.id
+        );
+
+        // Get athlete name for first-completer badge
+        let athleteName: string | null = null;
+        if (isFirstCompleter) {
+          const athleteRecord = await getOne<{ name: string }>(
+            this.db
+              .select({ name: participant.name })
+              .from(participant)
+              .where(eq(participant.strava_athlete_id, athleteId))
+          );
+          athleteName = athleteRecord?.name || null;
+        }
+
         await exec(
           this.db
             .insert(explorerDestinationMatch)
@@ -228,6 +266,10 @@ export class ExplorerMatchingService {
               strava_athlete_id: athleteId,
               strava_activity_id: String(activityData.id),
               matched_at: activityTimestamp,
+              is_first_completer: isFirstCompleter,
+              first_completer_athlete_id: isFirstCompleter ? athleteId : null,
+              first_completer_athlete_name: athleteName,
+              first_completer_at: isFirstCompleter ? activityTimestamp : null,
             })
             .onConflictDoNothing({
               target: [
@@ -238,6 +280,16 @@ export class ExplorerMatchingService {
             })
             .returning({ id: explorerDestinationMatch.id })
         );
+
+        // Increment destination completion count if first completer
+        if (isFirstCompleter) {
+          await exec(
+            this.db
+              .update(explorerDestination)
+              .set({ completion_count: destination.completion_count + 1 })
+              .where(eq(explorerDestination.id, destination.id))
+          );
+        }
 
         newMatches += 1;
       }

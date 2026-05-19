@@ -194,6 +194,7 @@ export const explorerDestination = pgTable('explorer_destination', {
   display_order: bigint('display_order', { mode: 'number' }).default(0).notNull(),
   surface_type: text('surface_type'),
   category: text('category'),
+  completion_count: bigint('completion_count', { mode: 'number' }).default(0).notNull(),
   created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
   updated_at: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 },
@@ -210,6 +211,10 @@ export const explorerDestinationMatch = pgTable('explorer_destination_match', {
   strava_athlete_id: text('strava_athlete_id').notNull().references(() => participant.strava_athlete_id, { onDelete: 'cascade' }),
   strava_activity_id: text('strava_activity_id').notNull(),
   matched_at: bigint('matched_at', { mode: 'number' }).notNull(),
+  is_first_completer: boolean('is_first_completer').default(false).notNull(),
+  first_completer_athlete_id: text('first_completer_athlete_id'),
+  first_completer_athlete_name: text('first_completer_athlete_name'),
+  first_completer_at: bigint('first_completer_at', { mode: 'number' }),
   created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 },
 (t) => [

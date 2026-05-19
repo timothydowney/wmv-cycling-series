@@ -22,6 +22,13 @@
       "when": 1779104100000,
       "tag": "0002_resync_identity_sequences",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1779194602195,
+      "tag": "0003_glorious_darkhawk",
+      "breakpoints": true
     }
   ]
 }
