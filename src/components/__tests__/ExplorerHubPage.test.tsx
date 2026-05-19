@@ -304,6 +304,7 @@ describe('ExplorerHubPage', () => {
     expect(container.querySelector('[data-testid="explorer-remaining-section"]')?.textContent).toContain('North Road Climb');
     expect(container.querySelector('[data-testid="explorer-completed-section"]')?.textContent).toContain('River Valley Spin');
     expect(container.querySelector('[data-testid="explorer-remaining-note"]')?.textContent).toContain('Pinned destinations surface first');
+    expect(container.querySelector('[data-testid="explorer-follow-on-card"]')).toBeNull();
     expect(container.querySelector('[data-testid="explorer-destination-status-501"]')?.getAttribute('aria-label')).toBe('Remaining destination');
     expect(container.querySelector('[data-testid="explorer-destination-status-502"]')?.getAttribute('aria-label')).toBe('Completed destination');
     expect(container.querySelector('[data-testid="explorer-destination-pin-indicator-501"]')?.getAttribute('aria-label')).toBe('Flagged destination');
@@ -606,7 +607,7 @@ describe('ExplorerHubPage', () => {
     await clickElement(container.querySelector('[data-testid="explorer-tab-destinations"]'));
 
     expect(container.querySelector('[data-testid="explorer-tab-destinations"]')?.getAttribute('aria-pressed')).toBe('true');
-    expect(container.querySelector('[data-testid="explorer-tab-map"]')?.getAttribute('aria-disabled')).toBe('true');
+    expect(container.querySelector('[data-testid="explorer-tab-map"]')).toBeNull();
     expect(container.querySelector('[data-testid="explorer-destinations-view"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="explorer-search-card"]')).not.toBeNull();
 

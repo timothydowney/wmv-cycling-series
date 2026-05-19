@@ -8,7 +8,6 @@ import {
   ClockIcon,
   FlagIcon,
   MagnifyingGlassIcon,
-  MapPinIcon,
 } from '@heroicons/react/24/outline';
 import { trpc } from '../utils/trpc';
 import { formatUnixDate } from '../utils/dateUtils';
@@ -583,18 +582,6 @@ function ExplorerHubPage({ isConnected }: ExplorerHubPageProps) {
             </section>
           </div>
 
-          <section className="leaderboard-card explorer-hub-follow-on-card" data-testid="explorer-follow-on-card">
-            <div className="explorer-hub-follow-on-header">
-              <div>
-                <p className="explorer-section-label">Later phases</p>
-                <h3>Map and social work stay deferred</h3>
-              </div>
-              <MapPinIcon aria-hidden="true" />
-            </div>
-            <p className="explorer-hub-secondary-copy">
-              This first athlete page stays list-first on purpose. Map discovery and broader social visibility can layer onto this route later without turning the initial release into an overloaded surface.
-            </p>
-          </section>
         </>
       ) : (
         <section className="explorer-hub-destinations-view" data-testid="explorer-destinations-view">
