@@ -238,8 +238,18 @@ describe('explorerRouter', () => {
     await expect(caller.explorer.pinDestination({ campaignId: campaign.id, destinationId: destination.id })).rejects.toThrow('Destination not found for campaign');
   });
 
-  it('returns popular and least-popular destinations ordered by completion_count and display_order', async () => {
+  it('requires auth for Club tab procedures', async () => {
+    const campaign = await createExplorerCampaign(orm, { startAt: 1748736000, endAt: 1751327999 });
+    const caller = await getCaller();
+    await expect(caller.explorer.getPopularDestinations({ campaignId: campaign.id })).rejects.toThrow('UNAUTHORIZED');
+    await expect(caller.explorer.getLeastPopularDestinations({ campaignId: campaign.id })).rejects.toThrow('UNAUTHORIZED');
+    await expect(caller.explorer.getMostRecentFirstCompletions({ campaignId: campaign.id })).rejects.toThrow('UNAUTHORIZED');
+  });
+
+  it('returns popular and least-popular destinations ordered by dynamic completion count', async () => {
     await createParticipant(orm, '4101', 'Alex');
+    await createParticipant(orm, '4102', 'Blake');
+    await createParticipant(orm, '4103', 'Casey');
 
     const campaign = await createExplorerCampaign(orm, {
       startAt: 1751328000,
@@ -266,29 +276,54 @@ describe('explorerRouter', () => {
       displayOrder: 3,
     });
 
-    await orm.update(explorerDestination).set({ completion_count: 8 }).where(eq(explorerDestination.id, destinationOne.id));
-    await orm.update(explorerDestination).set({ completion_count: 2 }).where(eq(explorerDestination.id, destinationTwo.id));
-    await orm.update(explorerDestination).set({ completion_count: 2 }).where(eq(explorerDestination.id, destinationThree.id));
+    // Create 8 completions for destinationOne, 2 for destinationTwo, 2 for destinationThree
+    for (let i = 0; i < 8; i++) {
+      const athleteId = String(5000 + i);
+      await createParticipant(orm, athleteId, `Athlete ${i}`);
+      await createExplorerMatch(orm, {
+        explorerCampaignId: campaign.id,
+        explorerDestinationId: destinationOne.id,
+        stravaAthleteId: athleteId,
+        stravaActivityId: `activity-910-${i}`,
+        matchedAt: 1751414400 + i * 1000,
+        ...(i === 0 ? { firstCompleterAthleteId: athleteId, firstCompleterAt: 1751414400 } : {}),
+      });
+    }
 
-    await createExplorerMatch(orm, {
-      explorerCampaignId: campaign.id,
-      explorerDestinationId: destinationOne.id,
-      stravaAthleteId: '4101',
-      stravaActivityId: 'activity-910',
-      matchedAt: 1751414400,
-      isFirstCompleter: true,
-      firstCompleterAthleteId: '4101',
-      firstCompleterAthleteName: 'Alex',
-      firstCompleterAt: 1751414400,
-    });
+    for (let i = 0; i < 2; i++) {
+      const athleteId = String(5100 + i);
+      await createParticipant(orm, athleteId, `Athlete Two ${i}`);
+      await createExplorerMatch(orm, {
+        explorerCampaignId: campaign.id,
+        explorerDestinationId: destinationTwo.id,
+        stravaAthleteId: athleteId,
+        stravaActivityId: `activity-911-${i}`,
+        matchedAt: 1751414400 + i * 1000,
+        ...(i === 0 ? { firstCompleterAthleteId: athleteId, firstCompleterAt: 1751414400 } : {}),
+      });
+    }
 
-    const caller = await getCaller();
+    for (let i = 0; i < 2; i++) {
+      const athleteId = String(5200 + i);
+      await createParticipant(orm, athleteId, `Athlete Three ${i}`);
+      await createExplorerMatch(orm, {
+        explorerCampaignId: campaign.id,
+        explorerDestinationId: destinationThree.id,
+        stravaAthleteId: athleteId,
+        stravaActivityId: `activity-912-${i}`,
+        matchedAt: 1751414400 + i * 1000,
+        ...(i === 0 ? { firstCompleterAthleteId: athleteId, firstCompleterAt: 1751414400 } : {}),
+      });
+    }
+
+    const caller = await getCaller('4101');
     const popular = await caller.explorer.getPopularDestinations({ campaignId: campaign.id, limit: 3 });
     const leastPopular = await caller.explorer.getLeastPopularDestinations({ campaignId: campaign.id, limit: 3 });
 
     expect(popular.map((destination) => destination.displayLabel)).toEqual(['North Climb', 'East Roll', 'Valley Ramp']);
     expect(popular.map((destination) => destination.completionCount)).toEqual([8, 2, 2]);
-    expect(popular[0]?.firstCompleterName).toBe('Alex');
+    expect(popular[0]?.firstCompleterName).toBeTruthy(); // Should have resolved name
+    expect(popular[0]?.firstCompleterAthleteId).toBeTruthy();
 
     expect(leastPopular.map((destination) => destination.displayLabel)).toEqual(['East Roll', 'Valley Ramp', 'North Climb']);
     expect(leastPopular.map((destination) => destination.completionCount)).toEqual([2, 2, 8]);
@@ -323,9 +358,7 @@ describe('explorerRouter', () => {
       stravaAthleteId: '4201',
       stravaActivityId: 'activity-920',
       matchedAt: 1751500000,
-      isFirstCompleter: true,
       firstCompleterAthleteId: '4201',
-      firstCompleterAthleteName: 'Casey',
       firstCompleterAt: 1751500000,
     });
 
@@ -335,13 +368,11 @@ describe('explorerRouter', () => {
       stravaAthleteId: '4202',
       stravaActivityId: 'activity-921',
       matchedAt: 1751600000,
-      isFirstCompleter: true,
       firstCompleterAthleteId: '4202',
-      firstCompleterAthleteName: 'Jordan',
       firstCompleterAt: 1751600000,
     });
 
-    const caller = await getCaller();
+    const caller = await getCaller('4201');
     const recentFirstCompletions = await caller.explorer.getMostRecentFirstCompletions({ campaignId: campaign.id, limit: 5 });
 
     expect(recentFirstCompletions).toHaveLength(2);

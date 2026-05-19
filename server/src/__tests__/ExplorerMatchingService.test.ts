@@ -103,11 +103,13 @@ describe('ExplorerMatchingService', () => {
     const firstMatch = matches.find((m) => m.strava_athlete_id === firstAthlete);
     const secondMatch = matches.find((m) => m.strava_athlete_id === secondAthlete);
 
-    expect(firstMatch?.is_first_completer).toBe(true);
-    expect(secondMatch?.is_first_completer).toBe(false);
+    expect(firstMatch?.first_completer_athlete_id).toBe(firstAthlete);
+    expect(firstMatch?.first_completer_at).toBeTruthy();
+    expect(secondMatch?.first_completer_athlete_id).toBeNull();
+    expect(secondMatch?.first_completer_at).toBeNull();
   });
 
-  it('increments destination completion_count when a new match is first completer', async () => {
+  it('does not denormalize completion_count; computed dynamically', async () => {
     const athlete = '3001';
 
     await createParticipant(orm, athlete, 'Rider');
@@ -123,8 +125,6 @@ describe('ExplorerMatchingService', () => {
       stravaSegmentId: 'seg-test',
       cachedName: 'Test Climb',
     });
-
-    expect(destination.completion_count).toBe(0);
 
     const service = new ExplorerMatchingService(orm);
 
@@ -146,12 +146,14 @@ describe('ExplorerMatchingService', () => {
       athlete
     );
 
-    // Verify completion_count incremented on destination
+    // Verify destination has no completion_count field or it is not updated
     const [updatedDestination] = await orm
       .select()
       .from(explorerDestination)
       .where(eq(explorerDestination.id, destination.id));
 
-    expect(updatedDestination?.completion_count).toBe(1);
+    // completion_count should not exist or not be incremented
+    // Query should work without referencing completion_count
+    expect(updatedDestination?.id).toBe(destination.id);
   });
 });

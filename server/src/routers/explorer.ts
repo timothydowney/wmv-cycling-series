@@ -86,6 +86,9 @@ export const explorerRouter = router({
   getPopularDestinations: publicProcedure
     .input(z.object({ campaignId: z.number().int().positive(), limit: z.number().int().positive().optional() }))
     .query(async ({ ctx, input }) => {
+      if (!ctx.userId) {
+        throw new TRPCError({ code: 'UNAUTHORIZED' });
+      }
       const service = new ExplorerClubTabService(ctx.orm);
       return await service.getPopularDestinations(input.campaignId, input.limit);
     }),
@@ -93,6 +96,9 @@ export const explorerRouter = router({
   getLeastPopularDestinations: publicProcedure
     .input(z.object({ campaignId: z.number().int().positive(), limit: z.number().int().positive().optional() }))
     .query(async ({ ctx, input }) => {
+      if (!ctx.userId) {
+        throw new TRPCError({ code: 'UNAUTHORIZED' });
+      }
       const service = new ExplorerClubTabService(ctx.orm);
       return await service.getLeastPopularDestinations(input.campaignId, input.limit);
     }),
@@ -100,6 +106,9 @@ export const explorerRouter = router({
   getMostRecentFirstCompletions: publicProcedure
     .input(z.object({ campaignId: z.number().int().positive(), limit: z.number().int().positive().optional() }))
     .query(async ({ ctx, input }) => {
+      if (!ctx.userId) {
+        throw new TRPCError({ code: 'UNAUTHORIZED' });
+      }
       const service = new ExplorerClubTabService(ctx.orm);
       return await service.getMostRecentFirstCompletions(input.campaignId, input.limit);
     }),

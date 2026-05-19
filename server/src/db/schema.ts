@@ -194,7 +194,6 @@ export const explorerDestination = pgTable('explorer_destination', {
   display_order: bigint('display_order', { mode: 'number' }).default(0).notNull(),
   surface_type: text('surface_type'),
   category: text('category'),
-  completion_count: bigint('completion_count', { mode: 'number' }).default(0).notNull(),
   created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
   updated_at: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 },
@@ -211,9 +210,7 @@ export const explorerDestinationMatch = pgTable('explorer_destination_match', {
   strava_athlete_id: text('strava_athlete_id').notNull().references(() => participant.strava_athlete_id, { onDelete: 'cascade' }),
   strava_activity_id: text('strava_activity_id').notNull(),
   matched_at: bigint('matched_at', { mode: 'number' }).notNull(),
-  is_first_completer: boolean('is_first_completer').default(false).notNull(),
   first_completer_athlete_id: text('first_completer_athlete_id'),
-  first_completer_athlete_name: text('first_completer_athlete_name'),
   first_completer_at: bigint('first_completer_at', { mode: 'number' }),
   created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 },
@@ -221,6 +218,9 @@ export const explorerDestinationMatch = pgTable('explorer_destination_match', {
   index('idx_explorer_match_campaign_athlete').on(t.explorer_campaign_id, t.strava_athlete_id),
   index('idx_explorer_match_activity').on(t.strava_activity_id),
   uniqueIndex('idx_explorer_match_unique').on(t.explorer_campaign_id, t.explorer_destination_id, t.strava_athlete_id),
+  // Partial unique index to ensure only one first completer per (campaign, destination)
+  // Note: Using raw index() call since Drizzle doesn't support partial indexes directly;
+  // will be added in migration SQL
 ]);
 
 export const explorerDestinationPin = pgTable('explorer_destination_pin', {

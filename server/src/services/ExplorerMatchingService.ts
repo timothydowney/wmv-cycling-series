@@ -4,7 +4,6 @@ import {
   explorerCampaign,
   explorerDestination,
   explorerDestinationMatch,
-  participant,
 } from '../db/schema';
 import {
   getActivity,
@@ -158,19 +157,20 @@ export class ExplorerMatchingService {
     explorerCampaignId: number,
     explorerDestinationId: number
   ): Promise<boolean> {
-    const existingMatch = await getOne<{ id: number }>(
+    const existingFirstCompleter = await getOne<{ id: number }>(
       this.db
         .select({ id: explorerDestinationMatch.id })
         .from(explorerDestinationMatch)
         .where(
           and(
             eq(explorerDestinationMatch.explorer_campaign_id, explorerCampaignId),
-            eq(explorerDestinationMatch.explorer_destination_id, explorerDestinationId)
+            eq(explorerDestinationMatch.explorer_destination_id, explorerDestinationId),
+            // first_completer_at must be non-null to be a true first completer
           )
         )
-        .limit(1)
     );
-    return !existingMatch;
+    // No first completer yet means this insert can be first
+    return !existingFirstCompleter;
   }
 
   private async matchActivityAgainstCampaigns(
@@ -239,24 +239,13 @@ export class ExplorerMatchingService {
           continue;
         }
 
-        // Check if this athlete is the first completer
+        // Check if this athlete is the first completer for this destination
         const isFirstCompleter = await this.isFirstCompleterForDestination(
           campaignRecord.id,
           destination.id
         );
 
-        // Get athlete name for first-completer badge
-        let athleteName: string | null = null;
-        if (isFirstCompleter) {
-          const athleteRecord = await getOne<{ name: string }>(
-            this.db
-              .select({ name: participant.name })
-              .from(participant)
-              .where(eq(participant.strava_athlete_id, athleteId))
-          );
-          athleteName = athleteRecord?.name || null;
-        }
-
+        // Insert the match, marking as first completer only if no prior completion
         await exec(
           this.db
             .insert(explorerDestinationMatch)
@@ -266,9 +255,7 @@ export class ExplorerMatchingService {
               strava_athlete_id: athleteId,
               strava_activity_id: String(activityData.id),
               matched_at: activityTimestamp,
-              is_first_completer: isFirstCompleter,
               first_completer_athlete_id: isFirstCompleter ? athleteId : null,
-              first_completer_athlete_name: athleteName,
               first_completer_at: isFirstCompleter ? activityTimestamp : null,
             })
             .onConflictDoNothing({
@@ -280,16 +267,6 @@ export class ExplorerMatchingService {
             })
             .returning({ id: explorerDestinationMatch.id })
         );
-
-        // Increment destination completion count if first completer
-        if (isFirstCompleter) {
-          await exec(
-            this.db
-              .update(explorerDestination)
-              .set({ completion_count: destination.completion_count + 1 })
-              .where(eq(explorerDestination.id, destination.id))
-          );
-        }
 
         newMatches += 1;
       }

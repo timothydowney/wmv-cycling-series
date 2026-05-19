@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, lte } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNotNull, lte } from 'drizzle-orm';
 import type { AppDatabase } from '../db/types';
 import { getOne, getMany } from '../db/asyncQuery';
 import {
@@ -7,6 +7,7 @@ import {
   explorerDestinationMatch,
   explorerDestinationPin,
   segment,
+  participant,
 } from '../db/schema';
 
 interface ExplorerDestinationView {
@@ -348,13 +349,14 @@ export class ExplorerQueryService {
       this.db
         .select({
           explorer_destination_id: explorerDestinationMatch.explorer_destination_id,
-          first_completer_athlete_name: explorerDestinationMatch.first_completer_athlete_name,
+          first_completer_athlete_name: participant.name,
         })
         .from(explorerDestinationMatch)
+        .leftJoin(participant, eq(participant.strava_athlete_id, explorerDestinationMatch.first_completer_athlete_id))
         .where(
           and(
             eq(explorerDestinationMatch.explorer_campaign_id, explorerCampaignId),
-            eq(explorerDestinationMatch.is_first_completer, true)
+            isNotNull(explorerDestinationMatch.first_completer_at)
           )
         )
     );
