@@ -56,6 +56,7 @@ interface ExplorerProgressDestinationView extends ExplorerDestinationView {
   pinned: boolean;
   matchedAt: number | null;
   stravaActivityId: string | null;
+  firstCompleterName: string | null;
 }
 
 interface ExplorerCampaignProgressView {
@@ -340,6 +341,23 @@ export class ExplorerQueryService {
           )
         )
     );
+    const firstCompletions = await getMany<{
+      explorer_destination_id: number;
+      first_completer_athlete_name: string | null;
+    }>(
+      this.db
+        .select({
+          explorer_destination_id: explorerDestinationMatch.explorer_destination_id,
+          first_completer_athlete_name: explorerDestinationMatch.first_completer_athlete_name,
+        })
+        .from(explorerDestinationMatch)
+        .where(
+          and(
+            eq(explorerDestinationMatch.explorer_campaign_id, explorerCampaignId),
+            eq(explorerDestinationMatch.is_first_completer, true)
+          )
+        )
+    );
     const pins = await getMany<{
       explorer_destination_id: number;
     }>(
@@ -357,6 +375,9 @@ export class ExplorerQueryService {
     );
 
     const matchesByDestinationId = new Map(matches.map((match) => [match.explorer_destination_id, match]));
+    const firstCompletionsByDestinationId = new Map(
+      firstCompletions.map((match) => [match.explorer_destination_id, match.first_completer_athlete_name])
+    );
     const pinnedDestinationIds = new Set(pins.map((pin) => pin.explorer_destination_id));
     const progressDestinations = destinations.map((destination) => {
       const match = matchesByDestinationId.get(destination.id);
@@ -367,6 +388,7 @@ export class ExplorerQueryService {
         pinned: pinnedDestinationIds.has(destination.id),
         matchedAt: match?.matched_at ?? null,
         stravaActivityId: match?.strava_activity_id ?? null,
+        firstCompleterName: firstCompletionsByDestinationId.get(destination.id) ?? null,
       };
     });
 

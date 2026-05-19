@@ -3,7 +3,7 @@ import type { AppDatabase } from '../../db/types';
 import { eq } from 'drizzle-orm';
 import { appRouter } from '../../routers';
 import { createContext } from '../../trpc/context';
-import { participant } from '../../db/schema';
+import { explorerDestination, participant } from '../../db/schema';
 import {
   clearAllData,
   createExplorerCampaign,
@@ -236,5 +236,126 @@ describe('explorerRouter', () => {
     const caller = await getCaller(athleteId);
 
     await expect(caller.explorer.pinDestination({ campaignId: campaign.id, destinationId: destination.id })).rejects.toThrow('Destination not found for campaign');
+  });
+
+  it('returns popular and least-popular destinations ordered by completion_count and display_order', async () => {
+    await createParticipant(orm, '4101', 'Alex');
+
+    const campaign = await createExplorerCampaign(orm, {
+      startAt: 1751328000,
+      endAt: 1751932799,
+      displayName: 'Club Metrics',
+    });
+
+    const destinationOne = await createExplorerDestination(orm, {
+      explorerCampaignId: campaign.id,
+      stravaSegmentId: 'seg-910',
+      cachedName: 'North Climb',
+      displayOrder: 1,
+    });
+    const destinationTwo = await createExplorerDestination(orm, {
+      explorerCampaignId: campaign.id,
+      stravaSegmentId: 'seg-911',
+      cachedName: 'East Roll',
+      displayOrder: 2,
+    });
+    const destinationThree = await createExplorerDestination(orm, {
+      explorerCampaignId: campaign.id,
+      stravaSegmentId: 'seg-912',
+      cachedName: 'Valley Ramp',
+      displayOrder: 3,
+    });
+
+    await orm.update(explorerDestination).set({ completion_count: 8 }).where(eq(explorerDestination.id, destinationOne.id));
+    await orm.update(explorerDestination).set({ completion_count: 2 }).where(eq(explorerDestination.id, destinationTwo.id));
+    await orm.update(explorerDestination).set({ completion_count: 2 }).where(eq(explorerDestination.id, destinationThree.id));
+
+    await createExplorerMatch(orm, {
+      explorerCampaignId: campaign.id,
+      explorerDestinationId: destinationOne.id,
+      stravaAthleteId: '4101',
+      stravaActivityId: 'activity-910',
+      matchedAt: 1751414400,
+      isFirstCompleter: true,
+      firstCompleterAthleteId: '4101',
+      firstCompleterAthleteName: 'Alex',
+      firstCompleterAt: 1751414400,
+    });
+
+    const caller = await getCaller();
+    const popular = await caller.explorer.getPopularDestinations({ campaignId: campaign.id, limit: 3 });
+    const leastPopular = await caller.explorer.getLeastPopularDestinations({ campaignId: campaign.id, limit: 3 });
+
+    expect(popular.map((destination) => destination.displayLabel)).toEqual(['North Climb', 'East Roll', 'Valley Ramp']);
+    expect(popular.map((destination) => destination.completionCount)).toEqual([8, 2, 2]);
+    expect(popular[0]?.firstCompleterName).toBe('Alex');
+
+    expect(leastPopular.map((destination) => destination.displayLabel)).toEqual(['East Roll', 'Valley Ramp', 'North Climb']);
+    expect(leastPopular.map((destination) => destination.completionCount)).toEqual([2, 2, 8]);
+  });
+
+  it('returns most recent first completions in descending completion time order', async () => {
+    await createParticipant(orm, '4201', 'Casey');
+    await createParticipant(orm, '4202', 'Jordan');
+
+    const campaign = await createExplorerCampaign(orm, {
+      startAt: 1751328000,
+      endAt: 1751932799,
+      displayName: 'Recent Firsts',
+    });
+
+    const destinationOne = await createExplorerDestination(orm, {
+      explorerCampaignId: campaign.id,
+      stravaSegmentId: 'seg-920',
+      cachedName: 'Town Sprint',
+      displayOrder: 1,
+    });
+    const destinationTwo = await createExplorerDestination(orm, {
+      explorerCampaignId: campaign.id,
+      stravaSegmentId: 'seg-921',
+      cachedName: 'Forest Climb',
+      displayOrder: 2,
+    });
+
+    await createExplorerMatch(orm, {
+      explorerCampaignId: campaign.id,
+      explorerDestinationId: destinationOne.id,
+      stravaAthleteId: '4201',
+      stravaActivityId: 'activity-920',
+      matchedAt: 1751500000,
+      isFirstCompleter: true,
+      firstCompleterAthleteId: '4201',
+      firstCompleterAthleteName: 'Casey',
+      firstCompleterAt: 1751500000,
+    });
+
+    await createExplorerMatch(orm, {
+      explorerCampaignId: campaign.id,
+      explorerDestinationId: destinationTwo.id,
+      stravaAthleteId: '4202',
+      stravaActivityId: 'activity-921',
+      matchedAt: 1751600000,
+      isFirstCompleter: true,
+      firstCompleterAthleteId: '4202',
+      firstCompleterAthleteName: 'Jordan',
+      firstCompleterAt: 1751600000,
+    });
+
+    const caller = await getCaller();
+    const recentFirstCompletions = await caller.explorer.getMostRecentFirstCompletions({ campaignId: campaign.id, limit: 5 });
+
+    expect(recentFirstCompletions).toHaveLength(2);
+    expect(recentFirstCompletions[0]).toMatchObject({
+      destinationId: destinationTwo.id,
+      destinationLabel: 'Forest Climb',
+      athleteName: 'Jordan',
+      completedAt: 1751600000,
+    });
+    expect(recentFirstCompletions[1]).toMatchObject({
+      destinationId: destinationOne.id,
+      destinationLabel: 'Town Sprint',
+      athleteName: 'Casey',
+      completedAt: 1751500000,
+    });
   });
 });

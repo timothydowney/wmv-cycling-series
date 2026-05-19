@@ -5,7 +5,7 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 ## Current Focus
 
 - Keep the merged 5A through 5D-1 Explorer baseline and the merged auth-access posture documented as the current starting point.
-- Approve and implement Phase 5E (destination popularity and first-completer recognition) as the next athlete-facing enhancement.
+- Keep merged Phase 5E (destination popularity, first-completer recognition, and Club tab) recorded as the current athlete-facing baseline.
 - Defer map discovery and social expansion to Phase 5F and 5G pending later planning decisions.
 - Keep Explorer management workflows admin-only while the athlete read surface is available to all logged-in users.
 - Keep the next planning handoff aligned with the merged campaign-first model, shared segment metadata baseline, logged-in Explorer read exposure, and tighter signed-out app posture.
@@ -13,8 +13,8 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 
 ## Current Go State
 
-- **Readiness:** Phase 1 Complete; Campaign-First Explorer Correction Landed; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Phase 4B-3 Campaign Decoupling And Unified Admin Shell Merged; Phase 4B-4 Admin Workflow Hierarchy And Destination Management Merged; Phase 4B-5 Segment Metadata Fidelity And Freshness Merged; Phase 5A Athlete Hub Read Surface Merged; Phase 5B Checklist And Browse Refinement Merged; Phase 5C Pinned Destinations And Hub Prioritization Merged; Phase 5D-0 Public Explorer Read Exposure Merged; Phase 5D-1 Public Explorer Surface Cleanup Merged; Phase 5E Approved For Implementation
-- **Immediate scope:** Implement Phase 5E (destination popularity and first-completer recognition) with Club Activity panel on Hub and first-completer badges on destination cards
+- **Readiness:** Phase 1 Complete; Campaign-First Explorer Correction Landed; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Phase 4B-3 Campaign Decoupling And Unified Admin Shell Merged; Phase 4B-4 Admin Workflow Hierarchy And Destination Management Merged; Phase 4B-5 Segment Metadata Fidelity And Freshness Merged; Phase 5A Athlete Hub Read Surface Merged; Phase 5B Checklist And Browse Refinement Merged; Phase 5C Pinned Destinations And Hub Prioritization Merged; Phase 5D-0 Public Explorer Read Exposure Merged; Phase 5D-1 Public Explorer Surface Cleanup Merged; Phase 5E Destination Popularity, First-Completer Recognition, And Club Tab Merged
+- **Immediate scope:** Return to planning before 5F map discovery and 5G social-expansion rollout slices
 
 ## Decisions Made
 

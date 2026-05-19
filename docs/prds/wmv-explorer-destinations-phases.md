@@ -257,7 +257,7 @@ Ordering note:
 
 Goal: add lightweight social context to the athlete Explorer experience through a dedicated Club tab that surfaces destination popularity metrics, recognizes first completers, and provides space for club-wide engagement and motivation. Enable gentle gamification without overloading the list-first design.
 
-Status: Approved for Phase 5E implementation, with 5E-3 (stats and motivation) recorded as deferred follow-on.
+Status: merged on `main`, with 5E-3 (stats and motivation) still recorded as deferred follow-on.
 
 #### Phase 5E-1: Database Schema + First-Completer Tracking
 
@@ -271,7 +271,7 @@ Status: Approved for Phase 5E implementation, with 5E-3 (stats and motivation) r
 Scope:
 
 - Create new Club tab in Explorer bottom navigation alongside Hub and Destinations
-- Implement backend tRPC queries: `getPopularDestinations`, `getLeastPopularDestinations`, `getMostRecentFirstCompletion`
+- Implement backend tRPC queries: `getPopularDestinations`, `getLeastPopularDestinations`, `getMostRecentFirstCompletions`
 - Build ClubPage component with three sections:
   - Top 5 most-popular destinations (by completion count with first completer name)
   - Most recently completed for first time (latest first-completer milestone with time)
@@ -299,13 +299,13 @@ Validation:
 - E2E tests for Club tab flow, destination card rendering, and real-time updates
 - Cross-campaign isolation verified
 
-Landed outcome (target):
+Landed outcome:
 
-- Club tab displays in Explorer bottom navigation for logged-in athletes with active campaign
-- Club page shows top popular, least popular, and most-recent-first-completion destinations
-- Destination cards display "First: [Name]" badge consistently across Hub, Destinations, and Club tabs
-- Popularity metrics update in real-time when athletes complete destinations
-- All metrics remain scoped to the current active campaign
+- Club tab displays in Explorer bottom navigation for logged-in athletes with active campaign.
+- Club page shows top popular destinations, least popular destinations, and most-recent first-completion milestones.
+- Destination cards display "First: [Name]" badge consistently across Hub and Destinations, while Club cards include explicit first-completer text.
+- Backend popularity and milestone metrics are exposed through dedicated Explorer tRPC queries and remain scoped to the selected campaign.
+- Backend, frontend, and Playwright coverage now include Club tab flow and first-completer rendering paths.
 
 #### Phase 5E-3: Club Stats & Motivational Content (Deferred)
 

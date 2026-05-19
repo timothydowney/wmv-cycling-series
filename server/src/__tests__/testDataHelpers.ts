@@ -137,6 +137,10 @@ interface CreateExplorerMatchOptions {
   stravaAthleteId: string;
   stravaActivityId?: string;
   matchedAt?: number;
+  isFirstCompleter?: boolean;
+  firstCompleterAthleteId?: string | null;
+  firstCompleterAthleteName?: string | null;
+  firstCompleterAt?: number | null;
 }
 
 interface CreateExplorerPinOptions {
@@ -363,6 +367,10 @@ export async function createExplorerMatch(
     stravaAthleteId,
     stravaActivityId = String(Math.floor(Math.random() * 1000000000)),
     matchedAt = isoToUnix('2025-06-01T12:00:00Z') || 0,
+    isFirstCompleter = false,
+    firstCompleterAthleteId = null,
+    firstCompleterAthleteName = null,
+    firstCompleterAt = null,
   } = options;
 
   const newMatchData: InsertExplorerDestinationMatch = {
@@ -371,6 +379,10 @@ export async function createExplorerMatch(
     strava_athlete_id: stravaAthleteId,
     strava_activity_id: stravaActivityId,
     matched_at: matchedAt,
+    is_first_completer: isFirstCompleter,
+    first_completer_athlete_id: firstCompleterAthleteId,
+    first_completer_athlete_name: firstCompleterAthleteName,
+    first_completer_at: firstCompleterAt,
   };
 
   const [inserted] = await db.insert(explorerDestinationMatch).values(newMatchData).returning();
