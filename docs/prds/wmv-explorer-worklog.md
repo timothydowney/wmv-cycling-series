@@ -278,15 +278,15 @@ The current preservation target is backed by:
 	- signed-out users still see the WMV join shell and do not get Explorer access
 	- the next recommended planning handoff is a public-surface cleanup pass before map discovery
 
-	### 5D-1 Outcome
+### 5D-1 Outcome
 
-	- Phase: 5D-1 Public Explorer Surface Cleanup
-	- Status: merged on `main`
-	- Landed outcome:
-		- the public Explorer Hub no longer shows the roadmap-style follow-on card for deferred map or social work
-		- Explorer bottom navigation no longer shows a disabled Map tab before map discovery is approved
-		- Hub, Destinations, progress, filters, and pin behavior are unchanged by the cleanup
-		- the next recommended planning handoff is map discovery rather than more public-surface cleanup
+- Phase: 5D-1 Public Explorer Surface Cleanup
+- Status: merged on `main`
+- Landed outcome:
+	- the public Explorer Hub no longer shows the roadmap-style follow-on card for deferred map or social work
+	- Explorer bottom navigation no longer shows a disabled Map tab before map discovery is approved
+	- Hub, Destinations, progress, filters, and pin behavior are unchanged by the cleanup
+	- the next recommended planning handoff is map discovery rather than more public-surface cleanup
 
 ### 4B-4 Branch-Ready Task List
 
