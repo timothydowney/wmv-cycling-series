@@ -17,11 +17,13 @@ The ideas backlog is intentionally excluded from v1 implementation scope. It exi
 
 ## Current Go Decision
 
-**Status:** Phase 1 Complete; Campaign-First Explorer Correction Landed; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Phase 4B-3 Campaign Decoupling And Unified Admin Shell Merged; Phase 4B-4 Admin Workflow Hierarchy And Destination Management Merged; Phase 4B-5 Segment Metadata Fidelity And Freshness Merged; Phase 5A Athlete Hub Read Surface Merged; Phase 5B Checklist And Browse Refinement Merged; Phase 5C Pinned Destinations And Hub Prioritization Merged; Phase 5D-0 Public Explorer Read Exposure Merged; Phase 5D-1 Public Explorer Surface Cleanup Merged
+**Status:** Phase 1 Complete; Campaign-First Explorer Correction Landed; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Phase 4B-3 Campaign Decoupling And Unified Admin Shell Merged; Phase 4B-4 Admin Workflow Hierarchy And Destination Management Merged; Phase 4B-5 Segment Metadata Fidelity And Freshness Merged; Phase 5A Athlete Hub Read Surface Merged; Phase 5B Checklist And Browse Refinement Merged; Phase 5C Pinned Destinations And Hub Prioritization Merged; Phase 5D-0 Public Explorer Read Exposure Merged; Phase 5D-1 Public Explorer Surface Cleanup Merged; Phase 5E Destination Popularity, First-Completer Recognition, And Club Tab Merged
 
 Explorer has completed the narrow Phase 1 webhook-orchestration slice that preserves current competition behavior while introducing delegated in-process handlers. The planning set corrected Explorer to a campaign-first model with campaign-owned date boundaries, returned `Season` to competition-only semantics, deferred overlapping or nested campaign structures, and locked a no-overlap Explorer rule for v1. The shared segment metadata-fidelity slice, the first athlete hub read surface, lightweight browse refinement, athlete-specific pinned-destination prioritization, and logged-in non-admin read exposure are now merged on `main`. The broader auth-access tightening is also merged on `main`, so signed-out users now see one branded WMV sign-in or join shell instead of leaderboard or Explorer data by default.
 
-The current post-auth boundary is explicit: keep the merged admin flow, shared segment metadata baseline, the now-logged-in Explorer read surface, and tighter signed-out app posture intact; do not broaden into map-provider decisions, geolocation, or social-feed behavior until a later Explorer slice is explicitly re-approved through planning.
+Phase 5E (destination popularity and first-completer recognition) is now merged, including the new Explorer Club tab, first-completer badges on destination cards, and backend popularity/first-completion query coverage. Map discovery and social expansion remain deferred as Phase 5F and 5G work pending later re-approval.
+
+The current post-5E boundary is explicit: keep the merged admin flow, shared segment metadata baseline, the now-logged-in Explorer read surface, established social context via first-completer recognition, and tighter signed-out app posture intact; do not broaden into map-provider decisions or broader social-feed behavior until a later Explorer slice is explicitly re-approved through planning.
 
 Operational note: Postgres runtime hardening and legacy SQLite-bridge cleanup are intentionally tracked as a separate non-Explorer operations slice so this Explorer closeout boundary can merge independently.
 
@@ -29,13 +31,13 @@ Operational note: Postgres runtime hardening and legacy SQLite-bridge cleanup ar
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| Product framing | Ready | The PRD is now aligned to a campaign-first Explorer model with campaign-owned dates and competition-only `Season` semantics. |
-| Execution phasing | Phase 5D-0 Merged; 5D-1 Merged | The phases doc now records both public read exposure and the follow-on cleanup pass as merged, and keeps map and social follow-on slices in candidate status pending renewed approval. |
-| Architecture closure | Personalization Baseline Landed | The campaign-first correction, current admin hierarchy, shared segment metadata baseline, and merged athlete browse plus pinning surface are in place, so future Explorer work can build from a stable personalization baseline rather than reopening the admin shell or browse foundations. |
-| Open questions handling | Ready | The worklog now records the superseded season-attached decision and the locked no-overlap rule. |
-| Blocking research closure | Deferred Pending Re-approval | Public-release, map-provider, and social-feed questions remain explicitly deferred and should be re-evaluated only when Explorer planning resumes. |
-| Test planning | Auth Slice Merged | The merged auth-access slice covers locked signed-out entry behavior; the next test-planning work should wait for a newly approved Explorer slice. |
-| Documentation impact plan | Auth Closeout Recorded | The current documentation impact is the recorded auth-slice outcome plus the return-to-planning boundary for later Explorer work. |
+| Product framing | Ready | The PRD is now aligned to a campaign-first Explorer model with campaign-owned dates, competition-only `Season` semantics, and social-context first-completer recognition. |
+| Execution phasing | Phase 5E Merged | The phases doc now records public read exposure (5D-0), public surface cleanup (5D-1), and destination popularity & first-completer recognition (5E) as merged. Map discovery and social expansion move to 5F and 5G. |
+| Architecture closure | Personalization Baseline Landed | The campaign-first correction, current admin hierarchy, shared segment metadata baseline, merged athlete browse plus pinning surface, and social-context baseline via first-completer recognition are in place, so future Explorer work can build from a stable personalization foundation. |
+| Open questions handling | Ready | The worklog now records the superseded season-attached decision, the locked no-overlap rule, and the deferred map and social questions for Phase 5F+ planning. |
+| Blocking research closure | Deferred Pending 5F Re-approval | Map-provider and broader social-feed questions remain explicitly deferred and should be re-evaluated only when Phase 5F planning resumes. |
+| Test planning | Phase 5E Landed | Backend tests cover first-completer logic and completion-count queries; frontend tests cover Club tab and badge rendering; E2E now covers Club tab flow. |
+| Documentation impact plan | Phase 5E Closeout Recorded | Planning docs capture the landed 5E scope, Club tab and first-completer behavior, and the deferred 5F/5G map-social boundary. |
 | Operational hardening split | Recorded | Runtime env normalization, bridge-script retirement, and Railway CLI safety guidance are deferred to a separate follow-up operations slice. |
 
 ## Must Resolve Before Broad Implementation
@@ -179,6 +181,7 @@ If a slice is expected to change the approved next step, readiness wording, or p
 | Phase 5C Pinned Destinations And Hub Prioritization Merged | Yes |
 | Phase 5D-0 Public Explorer Read Exposure Merged | Yes |
 | Phase 5D-1 Public Explorer Surface Cleanup Merged | Yes |
+| Phase 5E Destination Popularity, First-Completer Recognition, And Club Tab Merged | Yes |
 | Ready For Broad Feature Implementation | No |
 
-If this file says anything stronger than **Phase 1 Complete; Campaign-First Explorer Correction Landed; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Phase 4B-3 Campaign Decoupling And Unified Admin Shell Merged; Phase 4B-4 Admin Workflow Hierarchy And Destination Management Merged; Phase 4B-5 Segment Metadata Fidelity And Freshness Merged; Phase 5A Athlete Hub Read Surface Merged; Phase 5B Checklist And Browse Refinement Merged; Phase 5C Pinned Destinations And Hub Prioritization Merged; Phase 5D-0 Public Explorer Read Exposure Merged; Phase 5D-1 Public Explorer Surface Cleanup Merged**, the linked worklog should show exactly what changed to justify that shift.
+If this file says anything stronger than **Phase 1 Complete; Campaign-First Explorer Correction Landed; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Phase 4B-3 Campaign Decoupling And Unified Admin Shell Merged; Phase 4B-4 Admin Workflow Hierarchy And Destination Management Merged; Phase 4B-5 Segment Metadata Fidelity And Freshness Merged; Phase 5A Athlete Hub Read Surface Merged; Phase 5B Checklist And Browse Refinement Merged; Phase 5C Pinned Destinations And Hub Prioritization Merged; Phase 5D-0 Public Explorer Read Exposure Merged; Phase 5D-1 Public Explorer Surface Cleanup Merged; Phase 5E Destination Popularity, First-Completer Recognition, And Club Tab Merged**, the linked worklog should show exactly what changed to justify that shift.

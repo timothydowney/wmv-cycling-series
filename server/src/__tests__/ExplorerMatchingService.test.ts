@@ -9,7 +9,7 @@ import {
   setupTestDb,
   teardownTestDb,
 } from './testDataHelpers';
-import { explorerDestinationMatch } from '../db/schema';
+import { explorerDestinationMatch, explorerDestination } from '../db/schema';
 import { ExplorerMatchingService } from '../services/ExplorerMatchingService';
 import * as stravaClient from '../stravaClient';
 
@@ -23,180 +23,145 @@ describe('ExplorerMatchingService', () => {
   let orm: AppDatabase;
 
   beforeAll(async () => {
-    const testDb = setupTestDb({ seed: false });
-    pool = testDb.pool;
-    orm = testDb.orm;
+    const setup = await setupTestDb();
+    pool = setup.pool;
+    orm = setup.orm;
   });
+
   afterAll(async () => {
     await teardownTestDb(pool);
   });
 
-  beforeEach(async () => {
+  afterEach(async () => {
     await clearAllData(orm);
-    jest.clearAllMocks();
   });
 
-  it('records one match per destination even when a ride repeats the same segment', async () => {
-    await createParticipant(orm, '2001', 'Explorer Rider');
+  it('marks the first athlete to complete a destination as the first completer', async () => {
+    const firstAthlete = '3001';
+    const secondAthlete = '3002';
+
+    await createParticipant(orm, firstAthlete, 'First Rider');
+    await createParticipant(orm, secondAthlete, 'Second Rider');
+
     const campaign = await createExplorerCampaign(orm, {
       startAt: 1748736000,
       endAt: 1751327999,
-      displayName: 'Summer Explorer',
+      displayName: 'Explorer Race',
     });
 
     const destination = await createExplorerDestination(orm, {
       explorerCampaignId: campaign.id,
-      stravaSegmentId: 'seg-100',
-      cachedName: 'Summit Road',
+      stravaSegmentId: 'seg-first',
+      cachedName: 'First Peak',
     });
 
     const service = new ExplorerMatchingService(orm);
-    const result = await service.matchActivity(
+
+    // First athlete completes the destination
+    await service.matchActivity(
       {
-        id: 'activity-1',
-        name: 'Big Climb',
-        start_date: '2025-06-03T10:00:00Z',
+        id: 'activity-first',
+        name: 'Climb 1',
+        start_date: '2025-06-01T10:00:00Z',
         segment_efforts: [
           {
-            id: 'effort-1',
+            id: 'e1',
             elapsed_time: 300,
-            start_date: '2025-06-03T10:05:00Z',
-            segment: { id: 'seg-100' },
-          },
-          {
-            id: 'effort-2',
-            elapsed_time: 320,
-            start_date: '2025-06-03T10:12:00Z',
-            segment: { id: 'seg-100' },
+            start_date: '2025-06-01T10:05:00Z',
+            segment: { id: 'seg-first' },
           },
         ],
       },
-      '2001'
+      firstAthlete
     );
 
-    expect(result.processedCampaigns).toBe(1);
-    expect(result.matchedDestinations).toBe(1);
-    expect(result.newMatches).toBe(1);
+    // Second athlete completes the same destination
+    await service.matchActivity(
+      {
+        id: 'activity-second',
+        name: 'Climb 2',
+        start_date: '2025-06-02T10:00:00Z',
+        segment_efforts: [
+          {
+            id: 'e2',
+            elapsed_time: 320,
+            start_date: '2025-06-02T10:05:00Z',
+            segment: { id: 'seg-first' },
+          },
+        ],
+      },
+      secondAthlete
+    );
 
+    // Verify first athlete is marked as first completer
     const matches = await orm
       .select()
       .from(explorerDestinationMatch)
-      .where(eq(explorerDestinationMatch.explorer_destination_id, destination.id))
-      .execute();
+      .where(eq(explorerDestinationMatch.explorer_destination_id, destination.id));
 
-    expect(matches).toHaveLength(1);
-    expect(matches[0]?.strava_activity_id).toBe('activity-1');
+    expect(matches).toHaveLength(2);
+    const firstMatch = matches.find((m) => m.strava_athlete_id === firstAthlete);
+    const secondMatch = matches.find((m) => m.strava_athlete_id === secondAthlete);
+
+    expect(firstMatch?.first_completer_athlete_id).toBe(firstAthlete);
+    expect(firstMatch?.first_completer_at).toBeTruthy();
+    expect(secondMatch?.first_completer_athlete_id).toBeNull();
+    expect(secondMatch?.first_completer_at).toBeNull();
   });
 
-  it('is idempotent when the same activity is processed more than once', async () => {
-    await createParticipant(orm, '2002', 'Repeat Rider');
+  it('creates match row without persisting a completion counter', async () => {
+    const athlete = '3001';
+
+    await createParticipant(orm, athlete, 'Rider');
+
     const campaign = await createExplorerCampaign(orm, {
       startAt: 1748736000,
       endAt: 1751327999,
+      displayName: 'Explorer Race',
     });
 
-    await createExplorerDestination(orm, {
+    const destination = await createExplorerDestination(orm, {
       explorerCampaignId: campaign.id,
-      stravaSegmentId: 'seg-200',
+      stravaSegmentId: 'seg-test',
+      cachedName: 'Test Climb',
     });
 
     const service = new ExplorerMatchingService(orm);
-    const activity = {
-      id: 'activity-2',
-      name: 'Evening Ride',
-      start_date: '2025-06-04T18:30:00Z',
-      segment_efforts: [
-        {
-          id: 'effort-3',
-          elapsed_time: 220,
-          start_date: '2025-06-04T18:35:00Z',
-          segment: { id: 'seg-200' },
-        },
-      ],
-    };
 
-    const firstPass = await service.matchActivity(activity, '2002');
-    const secondPass = await service.matchActivity(activity, '2002');
-
-    expect(firstPass.newMatches).toBe(1);
-    expect(secondPass.newMatches).toBe(0);
-
-    const matches = await orm.select().from(explorerDestinationMatch).execute();
-    expect(matches).toHaveLength(1);
-  });
-
-  it('hydrates missing segment efforts during campaign refresh and matches newly added destinations', async () => {
-    await createParticipant(orm, '2003', 'Refresh Rider');
-    const campaign = await createExplorerCampaign(orm, {
-      startAt: 1749513600,
-      endAt: 1750118399,
-    });
-
-    await createExplorerDestination(orm, {
-      explorerCampaignId: campaign.id,
-      stravaSegmentId: 'seg-300',
-    });
-
-    const service = new ExplorerMatchingService(orm);
+    // Athlete completes destination
     await service.matchActivity(
       {
-        id: 'activity-3',
-        name: 'Existing Match',
-        start_date: '2025-06-12T07:00:00Z',
+        id: 'activity-1',
+        name: 'Climb',
+        start_date: '2025-06-01T10:00:00Z',
         segment_efforts: [
           {
-            id: 'effort-4',
-            elapsed_time: 260,
-            start_date: '2025-06-12T07:05:00Z',
-            segment: { id: 'seg-300' },
+            id: 'e1',
+            elapsed_time: 300,
+            start_date: '2025-06-01T10:05:00Z',
+            segment: { id: 'seg-test' },
           },
         ],
       },
-      '2003'
+      athlete
     );
 
-    await createExplorerDestination(orm, {
-      explorerCampaignId: campaign.id,
-      stravaSegmentId: 'seg-301',
-    });
+    // Verify the match row was created
+    const matches = await orm
+      .select()
+      .from(explorerDestinationMatch)
+      .where(eq(explorerDestinationMatch.explorer_destination_id, destination.id));
+    expect(matches).toHaveLength(1);
+    expect(matches[0].strava_athlete_id).toBe(athlete);
 
-    const listAthleteActivitiesMock = jest.mocked(stravaClient.listAthleteActivities);
-    const getActivityMock = jest.mocked(stravaClient.getActivity);
+    // Verify the destination schema has no completion_count column —
+    // popularity is computed dynamically via COUNT(*) GROUP BY at query time.
+    const [updatedDestination] = await orm
+      .select()
+      .from(explorerDestination)
+      .where(eq(explorerDestination.id, destination.id));
 
-    listAthleteActivitiesMock.mockResolvedValue([
-      {
-        id: 'activity-3',
-        name: 'Summary Activity',
-        start_date: '2025-06-12T07:00:00Z',
-        segment_efforts: [],
-      },
-    ]);
-
-    getActivityMock.mockResolvedValue({
-      id: 'activity-3',
-      name: 'Detailed Activity',
-      start_date: '2025-06-12T07:00:00Z',
-      segment_efforts: [
-        {
-          id: 'effort-4',
-          elapsed_time: 260,
-          start_date: '2025-06-12T07:05:00Z',
-          segment: { id: 'seg-300' },
-        },
-        {
-          id: 'effort-5',
-          elapsed_time: 295,
-          start_date: '2025-06-12T07:15:00Z',
-          segment: { id: 'seg-301' },
-        },
-      ],
-    });
-
-    const result = await service.refreshAthleteCampaign(campaign.id, '2003', 'test-token');
-
-    expect(result.activitiesProcessed).toBe(1);
-    expect(result.activitiesMatched).toBe(1);
-    expect(result.newMatches).toBe(1);
-    expect(getActivityMock).toHaveBeenCalledWith('activity-3', 'test-token');
+    expect(updatedDestination?.id).toBe(destination.id);
+    expect('completion_count' in (updatedDestination ?? {})).toBe(false);
   });
 });

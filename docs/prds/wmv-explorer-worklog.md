@@ -5,15 +5,16 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 ## Current Focus
 
 - Keep the merged 5A through 5D-1 Explorer baseline and the merged auth-access posture documented as the current starting point.
-- Treat map and social rollout as the next planning boundary after the cleanup pass on the logged-in public Explorer surface.
+- Keep merged Phase 5E (destination popularity, first-completer recognition, and Club tab) recorded as the current athlete-facing baseline.
+- Defer map discovery and social expansion to Phase 5F and 5G pending later planning decisions.
 - Keep Explorer management workflows admin-only while the athlete read surface is available to all logged-in users.
 - Keep the next planning handoff aligned with the merged campaign-first model, shared segment metadata baseline, logged-in Explorer read exposure, and tighter signed-out app posture.
 - Keep Postgres runtime hardening and legacy SQLite-bridge cleanup as a separate non-Explorer operations slice so Explorer closeout and operational cleanup do not get mixed in one PR.
 
 ## Current Go State
 
-- **Readiness:** Phase 1 Complete; Campaign-First Explorer Correction Landed; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Phase 4B-3 Campaign Decoupling And Unified Admin Shell Merged; Phase 4B-4 Admin Workflow Hierarchy And Destination Management Merged; Phase 4B-5 Segment Metadata Fidelity And Freshness Merged; Phase 5A Athlete Hub Read Surface Merged; Phase 5B Checklist And Browse Refinement Merged; Phase 5C Pinned Destinations And Hub Prioritization Merged; Phase 5D-0 Public Explorer Read Exposure Merged; Phase 5D-1 Public Explorer Surface Cleanup Merged
-- **Immediate scope:** plan and approve the next post-5D-1 slice, with map discovery as the leading candidate
+- **Readiness:** Phase 1 Complete; Campaign-First Explorer Correction Landed; Phase 4A Admin Backend Complete; Phase 4B-1 E2E Harness Hardening Merged; Phase 4B-2 Minimal Admin UI Merged; Phase 4B-3 Campaign Decoupling And Unified Admin Shell Merged; Phase 4B-4 Admin Workflow Hierarchy And Destination Management Merged; Phase 4B-5 Segment Metadata Fidelity And Freshness Merged; Phase 5A Athlete Hub Read Surface Merged; Phase 5B Checklist And Browse Refinement Merged; Phase 5C Pinned Destinations And Hub Prioritization Merged; Phase 5D-0 Public Explorer Read Exposure Merged; Phase 5D-1 Public Explorer Surface Cleanup Merged; Phase 5E Destination Popularity, First-Completer Recognition, And Club Tab Merged
+- **Immediate scope:** Return to planning before 5F map discovery and 5G social-expansion rollout slices
 
 ## Decisions Made
 
@@ -54,8 +55,9 @@ This worklog is the active operating log for Explorer. The readiness checklist i
 - The merged auth-access work now enforces that signed-out users see one WMV join shell instead of leaderboard or About routes, while preserving the logged-in app shell.
 - The 5C slice now lets a logged-in athlete pin destinations from the Destinations tab and uses that preference state to prioritize remaining destinations on the Hub page without changing campaign order or completion semantics elsewhere.
 - The 5D-1 cleanup slice removed public-facing roadmap and preview remnants from Explorer without changing the shipped Hub or Destinations behavior.
-- Map-based discovery is important follow-on work, but it should start only after the list-first athlete page exists and the map product questions are answered explicitly.
-- Social visibility can grow later, but a social feed is not the smallest useful first athlete-facing Explorer surface.
+- Phase 5E introduces destination popularity metrics and first-completer recognition before map discovery, adding lightweight social context with a "Club Activity" panel on the Hub and first-completer badges on destination cards.
+- Map-based discovery is important follow-on work (Phase 5F), but it should start only after the list-first athlete page exists, social context is established, and the map product questions are answered explicitly.
+- Social visibility expansion (Phase 5G) can grow later, but a social feed is not the smallest useful first athlete-facing Explorer surface.
 
 ## Open Questions
 

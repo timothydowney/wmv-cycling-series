@@ -13,6 +13,9 @@ const unitMocks = vi.hoisted(() => ({
 const trpcMocks = vi.hoisted(() => ({
   activeCampaignUseQuery: vi.fn(),
   progressUseQuery: vi.fn(),
+  popularDestinationsUseQuery: vi.fn(),
+  leastPopularDestinationsUseQuery: vi.fn(),
+  mostRecentFirstCompletionsUseQuery: vi.fn(),
   pinMutateAsync: vi.fn(),
   unpinMutateAsync: vi.fn(),
   invalidateCampaignProgress: vi.fn(),
@@ -69,8 +72,36 @@ const trpcMocks = vi.hoisted(() => ({
         pinned: boolean;
         matchedAt: number | null;
         stravaActivityId: string | null;
+        firstCompleterName?: string | null;
       }>;
     },
+    isLoading: false,
+  },
+  popularDestinationsQuery: {
+    data: [] as Array<{
+      id: number;
+      displayLabel: string;
+      completionCount: number;
+      firstCompleterName: string | null;
+    }> | null,
+    isLoading: false,
+  },
+  leastPopularDestinationsQuery: {
+    data: [] as Array<{
+      id: number;
+      displayLabel: string;
+      completionCount: number;
+      firstCompleterName: string | null;
+    }> | null,
+    isLoading: false,
+  },
+  mostRecentFirstCompletionsQuery: {
+    data: [] as Array<{
+      destinationId: number;
+      destinationLabel: string;
+      athleteName: string;
+      completedAt: number;
+    }> | null,
     isLoading: false,
   },
 }));
@@ -95,6 +126,24 @@ vi.mock('../../utils/trpc', () => ({
         useQuery: (...args: unknown[]) => {
           trpcMocks.progressUseQuery(...args);
           return trpcMocks.progressQuery;
+        },
+      },
+      getPopularDestinations: {
+        useQuery: (...args: unknown[]) => {
+          trpcMocks.popularDestinationsUseQuery(...args);
+          return trpcMocks.popularDestinationsQuery;
+        },
+      },
+      getLeastPopularDestinations: {
+        useQuery: (...args: unknown[]) => {
+          trpcMocks.leastPopularDestinationsUseQuery(...args);
+          return trpcMocks.leastPopularDestinationsQuery;
+        },
+      },
+      getMostRecentFirstCompletions: {
+        useQuery: (...args: unknown[]) => {
+          trpcMocks.mostRecentFirstCompletionsUseQuery(...args);
+          return trpcMocks.mostRecentFirstCompletionsQuery;
         },
       },
       pinDestination: {
@@ -168,11 +217,20 @@ describe('ExplorerHubPage', () => {
   beforeEach(() => {
     trpcMocks.activeCampaignUseQuery.mockReset();
     trpcMocks.progressUseQuery.mockReset();
+    trpcMocks.popularDestinationsUseQuery.mockReset();
+    trpcMocks.leastPopularDestinationsUseQuery.mockReset();
+    trpcMocks.mostRecentFirstCompletionsUseQuery.mockReset();
     trpcMocks.activeCampaignQuery.data = null;
     trpcMocks.activeCampaignQuery.error = null;
     trpcMocks.activeCampaignQuery.isLoading = false;
     trpcMocks.progressQuery.data = null;
     trpcMocks.progressQuery.isLoading = false;
+    trpcMocks.popularDestinationsQuery.data = [];
+    trpcMocks.popularDestinationsQuery.isLoading = false;
+    trpcMocks.leastPopularDestinationsQuery.data = [];
+    trpcMocks.leastPopularDestinationsQuery.isLoading = false;
+    trpcMocks.mostRecentFirstCompletionsQuery.data = [];
+    trpcMocks.mostRecentFirstCompletionsQuery.isLoading = false;
     trpcMocks.pinMutateAsync.mockReset();
     trpcMocks.pinMutateAsync.mockResolvedValue({ success: true });
     trpcMocks.unpinMutateAsync.mockReset();
@@ -198,6 +256,9 @@ describe('ExplorerHubPage', () => {
 
     expect(trpcMocks.activeCampaignUseQuery).toHaveBeenCalledWith(undefined, expect.objectContaining({ enabled: true }));
     expect(trpcMocks.progressUseQuery).toHaveBeenCalledWith({ campaignId: 0 }, expect.objectContaining({ enabled: false }));
+    expect(trpcMocks.popularDestinationsUseQuery).toHaveBeenCalledWith({ campaignId: 0, limit: 5 }, expect.objectContaining({ enabled: false }));
+    expect(trpcMocks.leastPopularDestinationsUseQuery).toHaveBeenCalledWith({ campaignId: 0, limit: 5 }, expect.objectContaining({ enabled: false }));
+    expect(trpcMocks.mostRecentFirstCompletionsUseQuery).toHaveBeenCalledWith({ campaignId: 0, limit: 5 }, expect.objectContaining({ enabled: false }));
   });
 
   it('shows an empty state when there is no active campaign', async () => {
@@ -273,6 +334,7 @@ describe('ExplorerHubPage', () => {
           pinned: true,
           matchedAt: null,
           stravaActivityId: null,
+          firstCompleterName: 'First Rider',
         },
         {
           id: 502,
@@ -291,6 +353,7 @@ describe('ExplorerHubPage', () => {
           pinned: false,
           matchedAt: 1751673600,
           stravaActivityId: 'activity-502',
+          firstCompleterName: 'River Rider',
         },
       ],
     };
@@ -307,9 +370,87 @@ describe('ExplorerHubPage', () => {
     expect(container.querySelector('[data-testid="explorer-follow-on-card"]')).toBeNull();
     expect(container.querySelector('[data-testid="explorer-destination-status-501"]')?.getAttribute('aria-label')).toBe('Remaining destination');
     expect(container.querySelector('[data-testid="explorer-destination-status-502"]')?.getAttribute('aria-label')).toBe('Completed destination');
+    expect(container.querySelector('[data-testid="explorer-first-completer-badge-501"]')?.textContent).toContain('First: First Rider');
     expect(container.querySelector('[data-testid="explorer-destination-pin-indicator-501"]')?.getAttribute('aria-label')).toBe('Flagged destination');
     expect(container.querySelector('[data-testid="explorer-destination-pin-indicator-502"]')).toBeNull();
     expect(container.querySelector('[data-testid="explorer-search-card"]')).toBeNull();
+  });
+
+  it('renders club tab sections with popularity and first-completion data', async () => {
+    trpcMocks.activeCampaignQuery.data = {
+      id: 55,
+      name: 'Club Explorer',
+      startAt: 1751328000,
+      endAt: 1753919999,
+      rulesBlurb: 'Ride each destination once.',
+      destinations: [
+        {
+          id: 901,
+          stravaSegmentId: 'seg-901',
+          displayOrder: 1,
+          displayLabel: 'Highland Loop',
+          customLabel: null,
+          segmentName: 'Highland Loop',
+          sourceUrl: 'https://www.strava.com/segments/901',
+          distance: 4300,
+          averageGrade: 3.6,
+          city: 'North Adams',
+          state: 'MA',
+          country: 'USA',
+        },
+      ],
+    };
+    trpcMocks.progressQuery.data = {
+      campaign: {
+        id: 55,
+        name: 'Club Explorer',
+        startAt: 1751328000,
+        endAt: 1753919999,
+        rulesBlurb: 'Ride each destination once.',
+      },
+      completedDestinations: 0,
+      totalDestinations: 1,
+      destinations: [
+        {
+          id: 901,
+          stravaSegmentId: 'seg-901',
+          displayOrder: 1,
+          displayLabel: 'Highland Loop',
+          customLabel: null,
+          segmentName: 'Highland Loop',
+          sourceUrl: 'https://www.strava.com/segments/901',
+          distance: 4300,
+          averageGrade: 3.6,
+          city: 'North Adams',
+          state: 'MA',
+          country: 'USA',
+          completed: false,
+          pinned: false,
+          matchedAt: null,
+          stravaActivityId: null,
+          firstCompleterName: null,
+        },
+      ],
+    };
+    trpcMocks.popularDestinationsQuery.data = [
+      { id: 901, displayLabel: 'Highland Loop', completionCount: 4, firstCompleterName: 'Ana' },
+    ];
+    trpcMocks.leastPopularDestinationsQuery.data = [
+      { id: 902, displayLabel: 'Valley Spin', completionCount: 1, firstCompleterName: 'Ben' },
+    ];
+    trpcMocks.mostRecentFirstCompletionsQuery.data = [
+      { destinationId: 901, destinationLabel: 'Highland Loop', athleteName: 'Ana', completedAt: 1751673600 },
+    ];
+
+    const { container } = await renderPage();
+
+    await clickElement(container.querySelector('[data-testid="explorer-tab-club"]'));
+
+    expect(container.querySelector('[data-testid="explorer-club-view"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="explorer-club-popular-card-901"]')?.textContent).toContain('Highland Loop');
+    expect(container.querySelector('[data-testid="explorer-club-popular-card-901"]')?.textContent).toContain('First completer: Ana');
+    expect(container.querySelector('[data-testid="explorer-club-recent-first-card-901"]')?.textContent).toContain('Ana completed first');
+    expect(container.querySelector('[data-testid="explorer-club-least-card-902"]')?.textContent).toContain('Valley Spin');
   });
 
   it('shows Hub summary lists with a 10-item default cap', async () => {

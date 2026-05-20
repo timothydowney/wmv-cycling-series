@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, lte } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNotNull, lte } from 'drizzle-orm';
 import type { AppDatabase } from '../db/types';
 import { getOne, getMany } from '../db/asyncQuery';
 import {
@@ -7,6 +7,7 @@ import {
   explorerDestinationMatch,
   explorerDestinationPin,
   segment,
+  participant,
 } from '../db/schema';
 
 interface ExplorerDestinationView {
@@ -56,6 +57,7 @@ interface ExplorerProgressDestinationView extends ExplorerDestinationView {
   pinned: boolean;
   matchedAt: number | null;
   stravaActivityId: string | null;
+  firstCompleterName: string | null;
 }
 
 interface ExplorerCampaignProgressView {
@@ -340,6 +342,24 @@ export class ExplorerQueryService {
           )
         )
     );
+    const firstCompletions = await getMany<{
+      explorer_destination_id: number;
+      first_completer_athlete_name: string | null;
+    }>(
+      this.db
+        .select({
+          explorer_destination_id: explorerDestinationMatch.explorer_destination_id,
+          first_completer_athlete_name: participant.name,
+        })
+        .from(explorerDestinationMatch)
+        .leftJoin(participant, eq(participant.strava_athlete_id, explorerDestinationMatch.first_completer_athlete_id))
+        .where(
+          and(
+            eq(explorerDestinationMatch.explorer_campaign_id, explorerCampaignId),
+            isNotNull(explorerDestinationMatch.first_completer_at)
+          )
+        )
+    );
     const pins = await getMany<{
       explorer_destination_id: number;
     }>(
@@ -357,6 +377,9 @@ export class ExplorerQueryService {
     );
 
     const matchesByDestinationId = new Map(matches.map((match) => [match.explorer_destination_id, match]));
+    const firstCompletionsByDestinationId = new Map(
+      firstCompletions.map((match) => [match.explorer_destination_id, match.first_completer_athlete_name])
+    );
     const pinnedDestinationIds = new Set(pins.map((pin) => pin.explorer_destination_id));
     const progressDestinations = destinations.map((destination) => {
       const match = matchesByDestinationId.get(destination.id);
@@ -367,6 +390,7 @@ export class ExplorerQueryService {
         pinned: pinnedDestinationIds.has(destination.id),
         matchedAt: match?.matched_at ?? null,
         stravaActivityId: match?.strava_activity_id ?? null,
+        firstCompleterName: firstCompletionsByDestinationId.get(destination.id) ?? null,
       };
     });
 

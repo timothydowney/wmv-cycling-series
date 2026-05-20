@@ -1,7 +1,7 @@
 import React from 'react';
 import './BottomNav.css';
 
-export type ExplorerTabType = 'hub' | 'destinations';
+export type ExplorerTabType = 'hub' | 'club' | 'destinations';
 
 interface ExplorerBottomNavProps {
   activeTab: ExplorerTabType;
@@ -25,6 +25,22 @@ const ExplorerBottomNav: React.FC<ExplorerBottomNavProps> = ({ activeTab, onSele
           <line x1="3" y1="10" x2="21" y2="10"></line>
         </svg>
         <span>Hub</span>
+      </button>
+
+      <button
+        type="button"
+        className={`bottom-nav-item ${activeTab === 'club' ? 'active' : ''}`}
+        data-testid="explorer-tab-club"
+        aria-pressed={activeTab === 'club'}
+        onClick={() => onSelect('club')}
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M3 20h18"></path>
+          <path d="M6 16V8"></path>
+          <path d="M12 16V4"></path>
+          <path d="M18 16v-6"></path>
+        </svg>
+        <span>Club</span>
       </button>
 
       <button

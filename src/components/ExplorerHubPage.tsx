@@ -41,9 +41,10 @@ interface ExplorerProgressDestinationSummary extends ExplorerDestinationSummary 
   pinned: boolean;
   matchedAt: number | null;
   stravaActivityId: string | null;
+  firstCompleterName?: string | null;
 }
 
-type ExplorerTab = 'hub' | 'destinations';
+type ExplorerTab = 'hub' | 'club' | 'destinations';
 type DestinationFilter = 'all' | 'remaining' | 'completed';
 
 const DEFAULT_REMAINING_VISIBLE = 10;
@@ -107,6 +108,7 @@ function ExplorerDestinationCard({
   completed,
   pinned,
   matchedAt,
+  firstCompleterName,
   showPinAction = false,
   pinDisabled = false,
   onTogglePin,
@@ -115,6 +117,7 @@ function ExplorerDestinationCard({
   completed: boolean;
   pinned: boolean;
   matchedAt: number | null;
+  firstCompleterName?: string | null;
   showPinAction?: boolean;
   pinDisabled?: boolean;
   onTogglePin?: (destinationId: number, pinned: boolean) => void | Promise<void>;
@@ -199,6 +202,17 @@ function ExplorerDestinationCard({
           {chips.map((chip) => (
             <span key={`${destination.id}-${chip}`} className="week-header-chip">{chip}</span>
           ))}
+          {firstCompleterName ? (
+            <span className="week-header-chip explorer-hub-first-completer-badge" data-testid={`explorer-first-completer-badge-${destination.id}`}>
+              First: {firstCompleterName}
+            </span>
+          ) : null}
+        </div>
+      ) : firstCompleterName ? (
+        <div className="explorer-hub-chip-row">
+          <span className="week-header-chip explorer-hub-first-completer-badge" data-testid={`explorer-first-completer-badge-${destination.id}`}>
+            First: {firstCompleterName}
+          </span>
         </div>
       ) : null}
 
@@ -240,6 +254,27 @@ function ExplorerHubPage({ isConnected }: ExplorerHubPageProps) {
       refetchOnWindowFocus: false,
     }
   );
+  const popularDestinationsQuery = trpc.explorer.getPopularDestinations.useQuery(
+    { campaignId: activeCampaignId ?? 0, limit: 5 },
+    {
+      enabled: Boolean(activeCampaignId && activeTab === 'club'),
+      refetchOnWindowFocus: false,
+    }
+  );
+  const leastPopularDestinationsQuery = trpc.explorer.getLeastPopularDestinations.useQuery(
+    { campaignId: activeCampaignId ?? 0, limit: 5 },
+    {
+      enabled: Boolean(activeCampaignId && activeTab === 'club'),
+      refetchOnWindowFocus: false,
+    }
+  );
+  const recentFirstCompletionsQuery = trpc.explorer.getMostRecentFirstCompletions.useQuery(
+    { campaignId: activeCampaignId ?? 0, limit: 5 },
+    {
+      enabled: Boolean(activeCampaignId && activeTab === 'club'),
+      refetchOnWindowFocus: false,
+    }
+  );
 
   const activeCampaign = activeCampaignQuery.data;
   const progress = progressQuery.data;
@@ -253,9 +288,13 @@ function ExplorerHubPage({ isConnected }: ExplorerHubPageProps) {
       pinned: false,
       matchedAt: null,
       stravaActivityId: null,
+      firstCompleterName: null,
     })),
     [activeCampaignDestinations, progress?.destinations]
   );
+  const popularDestinations = popularDestinationsQuery.data ?? [];
+  const leastPopularDestinations = leastPopularDestinationsQuery.data ?? [];
+  const recentFirstCompletions = recentFirstCompletionsQuery.data ?? [];
   const completedDestinations = progress?.completedDestinations ?? 0;
   const totalDestinations = progress?.totalDestinations ?? activeCampaignDestinations.length;
   const remainingDestinations = useMemo(
@@ -488,6 +527,7 @@ function ExplorerHubPage({ isConnected }: ExplorerHubPageProps) {
                         completed={false}
                         pinned={destination.pinned}
                         matchedAt={null}
+                        firstCompleterName={destination.firstCompleterName}
                       />
                     ))}
 
@@ -514,6 +554,7 @@ function ExplorerHubPage({ isConnected }: ExplorerHubPageProps) {
                       completed={false}
                       pinned={destination.pinned}
                       matchedAt={null}
+                      firstCompleterName={destination.firstCompleterName}
                     />
                   ))}
 
@@ -562,6 +603,7 @@ function ExplorerHubPage({ isConnected }: ExplorerHubPageProps) {
                       completed
                       pinned={destination.pinned}
                       matchedAt={destination.matchedAt}
+                      firstCompleterName={destination.firstCompleterName}
                     />
                   ))}
 
@@ -583,6 +625,129 @@ function ExplorerHubPage({ isConnected }: ExplorerHubPageProps) {
           </div>
 
         </>
+      ) : activeTab === 'club' ? (
+        <section className="explorer-hub-club-view" data-testid="explorer-club-view">
+          <section className="leaderboard-card explorer-hub-search-card" data-testid="explorer-club-summary-card">
+            <div className="explorer-hub-section-header">
+              <div>
+                <p className="explorer-section-label">Club pulse</p>
+                <h3>Destination momentum</h3>
+              </div>
+            </div>
+            <p className="explorer-hub-secondary-copy">
+              Compare the busiest routes, the quietest segments, and the latest first-time completions.
+            </p>
+          </section>
+
+          <div className="explorer-hub-section-grid">
+            <section className="explorer-hub-section" data-testid="explorer-club-popular-section">
+              <div className="explorer-hub-section-header">
+                <div>
+                  <p className="explorer-section-label">Most ridden</p>
+                  <h3>Top 5 popular destinations</h3>
+                </div>
+                <span className="explorer-hub-section-count">{popularDestinations.length}</span>
+              </div>
+
+              {popularDestinationsQuery.isLoading ? (
+                <div className="explorer-hub-empty-state compact" data-testid="explorer-club-popular-loading">
+                  <h4>Loading popularity</h4>
+                  <p>Gathering completion totals for this campaign.</p>
+                </div>
+              ) : popularDestinations.length === 0 ? (
+                <div className="explorer-hub-empty-state compact" data-testid="explorer-club-popular-empty">
+                  <h4>No destination activity yet</h4>
+                  <p>Popular destinations will appear once riders begin completing the campaign.</p>
+                </div>
+              ) : (
+                <div className="explorer-hub-destination-list">
+                  {popularDestinations.map((destination) => (
+                    <article key={`popular-${destination.id}`} className="leaderboard-card explorer-hub-destination-card" data-testid={`explorer-club-popular-card-${destination.id}`}>
+                      <div className="explorer-hub-section-header">
+                        <h3>{destination.displayLabel}</h3>
+                        <span className="explorer-hub-section-count">{destination.completionCount}</span>
+                      </div>
+                      {destination.firstCompleterName ? (
+                        <p className="explorer-hub-secondary-copy">First completer: {destination.firstCompleterName}</p>
+                      ) : (
+                        <p className="explorer-hub-secondary-copy">No recorded first completer yet.</p>
+                      )}
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="explorer-hub-section" data-testid="explorer-club-recent-firsts-section">
+              <div className="explorer-hub-section-header">
+                <div>
+                  <p className="explorer-section-label">Milestones</p>
+                  <h3>Most recent first completions</h3>
+                </div>
+                <span className="explorer-hub-section-count">{recentFirstCompletions.length}</span>
+              </div>
+
+              {recentFirstCompletionsQuery.isLoading ? (
+                <div className="explorer-hub-empty-state compact" data-testid="explorer-club-recent-firsts-loading">
+                  <h4>Loading milestones</h4>
+                  <p>Finding the latest first-time destination completions.</p>
+                </div>
+              ) : recentFirstCompletions.length === 0 ? (
+                <div className="explorer-hub-empty-state compact" data-testid="explorer-club-recent-firsts-empty">
+                  <h4>No first-completer milestones yet</h4>
+                  <p>First-completion records will show here as riders unlock destinations.</p>
+                </div>
+              ) : (
+                <div className="explorer-hub-destination-list">
+                  {recentFirstCompletions.map((completion) => (
+                    <article key={`recent-first-${completion.destinationId}`} className="leaderboard-card explorer-hub-destination-card" data-testid={`explorer-club-recent-first-card-${completion.destinationId}`}>
+                      <h3>{completion.destinationLabel}</h3>
+                      <p className="explorer-hub-secondary-copy">{completion.athleteName} completed first on {formatUnixDate(completion.completedAt, { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+
+          <section className="explorer-hub-section" data-testid="explorer-club-least-popular-section">
+            <div className="explorer-hub-section-header">
+              <div>
+                <p className="explorer-section-label">Needs attention</p>
+                <h3>Bottom 5 least-popular destinations</h3>
+              </div>
+              <span className="explorer-hub-section-count">{leastPopularDestinations.length}</span>
+            </div>
+
+            {leastPopularDestinationsQuery.isLoading ? (
+              <div className="explorer-hub-empty-state compact" data-testid="explorer-club-least-loading">
+                <h4>Loading low-traffic routes</h4>
+                <p>Calculating destinations with the fewest completions.</p>
+              </div>
+            ) : leastPopularDestinations.length === 0 ? (
+              <div className="explorer-hub-empty-state compact" data-testid="explorer-club-least-empty">
+                <h4>No low-traffic destinations yet</h4>
+                <p>As destination completions accumulate, the least-ridden list will appear here.</p>
+              </div>
+            ) : (
+              <div className="explorer-hub-destination-list">
+                {leastPopularDestinations.map((destination) => (
+                  <article key={`least-${destination.id}`} className="leaderboard-card explorer-hub-destination-card" data-testid={`explorer-club-least-card-${destination.id}`}>
+                    <div className="explorer-hub-section-header">
+                      <h3>{destination.displayLabel}</h3>
+                      <span className="explorer-hub-section-count">{destination.completionCount}</span>
+                    </div>
+                    {destination.firstCompleterName ? (
+                      <p className="explorer-hub-secondary-copy">First completer: {destination.firstCompleterName}</p>
+                    ) : (
+                      <p className="explorer-hub-secondary-copy">No recorded first completer yet.</p>
+                    )}
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        </section>
       ) : (
         <section className="explorer-hub-destinations-view" data-testid="explorer-destinations-view">
           <section className="leaderboard-card explorer-hub-search-card" data-testid="explorer-search-card">
@@ -674,6 +839,7 @@ function ExplorerHubPage({ isConnected }: ExplorerHubPageProps) {
                     completed={destination.completed}
                     pinned={destination.pinned}
                     matchedAt={destination.matchedAt}
+                    firstCompleterName={destination.firstCompleterName}
                     showPinAction={isConnected}
                     pinDisabled={pendingPinDestinationIds.includes(destination.id)}
                     onTogglePin={handleTogglePin}
