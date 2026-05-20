@@ -109,7 +109,7 @@ describe('ExplorerMatchingService', () => {
     expect(secondMatch?.first_completer_at).toBeNull();
   });
 
-  it('does not denormalize completion_count; computed dynamically', async () => {
+  it('creates match row without persisting a completion counter', async () => {
     const athlete = '3001';
 
     await createParticipant(orm, athlete, 'Rider');
@@ -146,14 +146,22 @@ describe('ExplorerMatchingService', () => {
       athlete
     );
 
-    // Verify destination has no completion_count field or it is not updated
+    // Verify the match row was created
+    const matches = await orm
+      .select()
+      .from(explorerDestinationMatch)
+      .where(eq(explorerDestinationMatch.explorer_destination_id, destination.id));
+    expect(matches).toHaveLength(1);
+    expect(matches[0].strava_athlete_id).toBe(athlete);
+
+    // Verify the destination schema has no completion_count column —
+    // popularity is computed dynamically via COUNT(*) GROUP BY at query time.
     const [updatedDestination] = await orm
       .select()
       .from(explorerDestination)
       .where(eq(explorerDestination.id, destination.id));
 
-    // completion_count should not exist or not be incremented
-    // Query should work without referencing completion_count
     expect(updatedDestination?.id).toBe(destination.id);
+    expect('completion_count' in (updatedDestination ?? {})).toBe(false);
   });
 });

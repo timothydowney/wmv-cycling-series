@@ -609,13 +609,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "completion_count": {
-          "name": "completion_count",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -756,21 +749,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "is_first_completer": {
-          "name": "is_first_completer",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
         "first_completer_athlete_id": {
           "name": "first_completer_athlete_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "first_completer_athlete_name": {
-          "name": "first_completer_athlete_name",
           "type": "text",
           "primaryKey": false,
           "notNull": false

@@ -1,4 +1,4 @@
-import { and, eq, gte, lte } from 'drizzle-orm';
+import { and, eq, gte, isNotNull, lte } from 'drizzle-orm';
 import type { AppDatabase } from '../db/types';
 import {
   explorerCampaign,
@@ -165,11 +165,11 @@ export class ExplorerMatchingService {
           and(
             eq(explorerDestinationMatch.explorer_campaign_id, explorerCampaignId),
             eq(explorerDestinationMatch.explorer_destination_id, explorerDestinationId),
-            // first_completer_at must be non-null to be a true first completer
+            isNotNull(explorerDestinationMatch.first_completer_at)
           )
         )
     );
-    // No first completer yet means this insert can be first
+    // No first-completer row yet means this insert can claim it
     return !existingFirstCompleter;
   }
 
@@ -245,28 +245,49 @@ export class ExplorerMatchingService {
           destination.id
         );
 
-        // Insert the match, marking as first completer only if no prior completion
-        await exec(
-          this.db
-            .insert(explorerDestinationMatch)
-            .values({
-              explorer_campaign_id: campaignRecord.id,
-              explorer_destination_id: destination.id,
-              strava_athlete_id: athleteId,
-              strava_activity_id: String(activityData.id),
-              matched_at: activityTimestamp,
-              first_completer_athlete_id: isFirstCompleter ? athleteId : null,
-              first_completer_at: isFirstCompleter ? activityTimestamp : null,
-            })
-            .onConflictDoNothing({
-              target: [
-                explorerDestinationMatch.explorer_campaign_id,
-                explorerDestinationMatch.explorer_destination_id,
-                explorerDestinationMatch.strava_athlete_id,
-              ],
-            })
-            .returning({ id: explorerDestinationMatch.id })
-        );
+        const matchBase = {
+          explorer_campaign_id: campaignRecord.id,
+          explorer_destination_id: destination.id,
+          strava_athlete_id: athleteId,
+          strava_activity_id: String(activityData.id),
+          matched_at: activityTimestamp,
+          first_completer_athlete_id: null as string | null,
+          first_completer_at: null as number | null,
+        };
+
+        const perAthleteConflictTarget = [
+          explorerDestinationMatch.explorer_campaign_id,
+          explorerDestinationMatch.explorer_destination_id,
+          explorerDestinationMatch.strava_athlete_id,
+        ];
+
+        // Insert the match, marking as first completer only if no prior completion.
+        // Wrap in try/catch: if two workers race to claim first-completer and both
+        // pass isFirstCompleterForDestination(), the second will violate the partial
+        // unique index. Fall back to inserting without first-completer fields.
+        try {
+          await exec(
+            this.db
+              .insert(explorerDestinationMatch)
+              .values(
+                isFirstCompleter
+                  ? { ...matchBase, first_completer_athlete_id: athleteId, first_completer_at: activityTimestamp }
+                  : matchBase
+              )
+              .onConflictDoNothing({ target: perAthleteConflictTarget })
+              .returning({ id: explorerDestinationMatch.id })
+          );
+        } catch (err) {
+          if (!isFirstCompleter) throw err;
+          // Partial unique index race: retry without first-completer fields
+          await exec(
+            this.db
+              .insert(explorerDestinationMatch)
+              .values(matchBase)
+              .onConflictDoNothing({ target: perAthleteConflictTarget })
+              .returning({ id: explorerDestinationMatch.id })
+          );
+        }
 
         newMatches += 1;
       }
