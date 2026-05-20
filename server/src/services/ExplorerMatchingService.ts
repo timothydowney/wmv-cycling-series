@@ -1,4 +1,4 @@
-import { and, eq, gte, lte } from 'drizzle-orm';
+import { and, eq, gte, isNotNull, lte } from 'drizzle-orm';
 import type { AppDatabase } from '../db/types';
 import {
   explorerCampaign,
@@ -153,6 +153,26 @@ export class ExplorerMatchingService {
     };
   }
 
+  private async isFirstCompleterForDestination(
+    explorerCampaignId: number,
+    explorerDestinationId: number
+  ): Promise<boolean> {
+    const existingFirstCompleter = await getOne<{ id: number }>(
+      this.db
+        .select({ id: explorerDestinationMatch.id })
+        .from(explorerDestinationMatch)
+        .where(
+          and(
+            eq(explorerDestinationMatch.explorer_campaign_id, explorerCampaignId),
+            eq(explorerDestinationMatch.explorer_destination_id, explorerDestinationId),
+            isNotNull(explorerDestinationMatch.first_completer_at)
+          )
+        )
+    );
+    // No first-completer row yet means this insert can claim it
+    return !existingFirstCompleter;
+  }
+
   private async matchActivityAgainstCampaigns(
     activityData: StravaActivity,
     athleteId: string,
@@ -219,25 +239,55 @@ export class ExplorerMatchingService {
           continue;
         }
 
-        await exec(
-          this.db
-            .insert(explorerDestinationMatch)
-            .values({
-              explorer_campaign_id: campaignRecord.id,
-              explorer_destination_id: destination.id,
-              strava_athlete_id: athleteId,
-              strava_activity_id: String(activityData.id),
-              matched_at: activityTimestamp,
-            })
-            .onConflictDoNothing({
-              target: [
-                explorerDestinationMatch.explorer_campaign_id,
-                explorerDestinationMatch.explorer_destination_id,
-                explorerDestinationMatch.strava_athlete_id,
-              ],
-            })
-            .returning({ id: explorerDestinationMatch.id })
+        // Check if this athlete is the first completer for this destination
+        const isFirstCompleter = await this.isFirstCompleterForDestination(
+          campaignRecord.id,
+          destination.id
         );
+
+        const matchBase = {
+          explorer_campaign_id: campaignRecord.id,
+          explorer_destination_id: destination.id,
+          strava_athlete_id: athleteId,
+          strava_activity_id: String(activityData.id),
+          matched_at: activityTimestamp,
+          first_completer_athlete_id: null as string | null,
+          first_completer_at: null as number | null,
+        };
+
+        const perAthleteConflictTarget = [
+          explorerDestinationMatch.explorer_campaign_id,
+          explorerDestinationMatch.explorer_destination_id,
+          explorerDestinationMatch.strava_athlete_id,
+        ];
+
+        // Insert the match, marking as first completer only if no prior completion.
+        // Wrap in try/catch: if two workers race to claim first-completer and both
+        // pass isFirstCompleterForDestination(), the second will violate the partial
+        // unique index. Fall back to inserting without first-completer fields.
+        try {
+          await exec(
+            this.db
+              .insert(explorerDestinationMatch)
+              .values(
+                isFirstCompleter
+                  ? { ...matchBase, first_completer_athlete_id: athleteId, first_completer_at: activityTimestamp }
+                  : matchBase
+              )
+              .onConflictDoNothing({ target: perAthleteConflictTarget })
+              .returning({ id: explorerDestinationMatch.id })
+          );
+        } catch (err) {
+          if (!isFirstCompleter) throw err;
+          // Partial unique index race: retry without first-completer fields
+          await exec(
+            this.db
+              .insert(explorerDestinationMatch)
+              .values(matchBase)
+              .onConflictDoNothing({ target: perAthleteConflictTarget })
+              .returning({ id: explorerDestinationMatch.id })
+          );
+        }
 
         newMatches += 1;
       }

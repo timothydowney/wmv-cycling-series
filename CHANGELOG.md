@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Explorer now includes a Club tab for logged-in athletes, showing top popular destinations, least-popular destinations, and recent first-completer milestones for the active campaign.
+
+### Changed
+- Explorer destination cards now surface first-completer recognition with a "First: [Athlete Name]" badge where available, and Explorer metrics are exposed through dedicated campaign-scoped tRPC queries used by the Club tab.
+
 ### Fixed
 - Explorer public surface cleanup removed roadmap-only Hub copy and the disabled Map tab affordance, so logged-in athletes now only see currently available Explorer views.
 - Startup migration `0001_ensure_chain_wax_defaults.sql` now normalizes legacy timestamp columns from `bigint` Unix seconds and legacy `text` values into `timestamptz` before applying defaults, preventing production boot loops during runtime `migrate()`.

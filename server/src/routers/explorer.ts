@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { and, eq } from 'drizzle-orm';
 import { router, publicProcedure } from '../trpc/init';
 import { ExplorerQueryService } from '../services/ExplorerQueryService';
+import { ExplorerClubTabService } from '../services/ExplorerClubTabService';
 import { explorerDestination, explorerDestinationPin } from '../db/schema';
 import { getOne, exec } from '../db/asyncQuery';
 
@@ -80,5 +81,35 @@ export const explorerRouter = router({
       );
 
       return { success: true };
+    }),
+
+  getPopularDestinations: publicProcedure
+    .input(z.object({ campaignId: z.number().int().positive(), limit: z.number().int().positive().optional() }))
+    .query(async ({ ctx, input }) => {
+      if (!ctx.userId) {
+        throw new TRPCError({ code: 'UNAUTHORIZED' });
+      }
+      const service = new ExplorerClubTabService(ctx.orm);
+      return await service.getPopularDestinations(input.campaignId, input.limit);
+    }),
+
+  getLeastPopularDestinations: publicProcedure
+    .input(z.object({ campaignId: z.number().int().positive(), limit: z.number().int().positive().optional() }))
+    .query(async ({ ctx, input }) => {
+      if (!ctx.userId) {
+        throw new TRPCError({ code: 'UNAUTHORIZED' });
+      }
+      const service = new ExplorerClubTabService(ctx.orm);
+      return await service.getLeastPopularDestinations(input.campaignId, input.limit);
+    }),
+
+  getMostRecentFirstCompletions: publicProcedure
+    .input(z.object({ campaignId: z.number().int().positive(), limit: z.number().int().positive().optional() }))
+    .query(async ({ ctx, input }) => {
+      if (!ctx.userId) {
+        throw new TRPCError({ code: 'UNAUTHORIZED' });
+      }
+      const service = new ExplorerClubTabService(ctx.orm);
+      return await service.getMostRecentFirstCompletions(input.campaignId, input.limit);
     }),
 });

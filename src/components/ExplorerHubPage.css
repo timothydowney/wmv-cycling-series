@@ -161,6 +161,12 @@
   gap: 1.25rem;
 }
 
+.explorer-hub-club-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
 .explorer-hub-progress-card {
   display: flex;
   flex-direction: column;
@@ -365,6 +371,11 @@
   background: rgba(245, 96, 4, 0.12);
   border-color: rgba(245, 96, 4, 0.22);
   color: var(--wmv-orange);
+}
+
+.explorer-hub-first-completer-badge {
+  background: rgba(16, 185, 129, 0.14);
+  color: #047857;
 }
 
 .explorer-hub-completion-copy {
