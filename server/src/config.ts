@@ -163,11 +163,9 @@ function getConfig(): Config {
     databaseDialect: 'postgres',
     databaseUrl:
       process.env.DATABASE_URL ||
-      (runtimeMode === 'e2e'
-        ? 'postgresql://wmv:wmv@localhost:5432/wmv_e2e'
-        : nodeEnv === 'production'
-          ? undefined
-          : 'postgresql://wmv:wmv@localhost:5432/wmv_local'),
+      (nodeEnv === 'production' || runtimeMode === 'e2e'
+        ? undefined
+        : 'postgresql://wmv:wmv@localhost:5432/wmv_local'),
     databasePath: process.env.DATABASE_PATH || path.join(__dirname, '..', 'data', 'wmv.db'),
     e2eSourceDatabasePath: process.env.WMV_E2E_SOURCE_DATABASE_PATH,
     e2eResetDatabaseOnStartup: process.env.WMV_E2E_RESET_DB_ON_BOOT === 'true',

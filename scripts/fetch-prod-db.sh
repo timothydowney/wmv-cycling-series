@@ -83,7 +83,7 @@ reset_local_database() {
     local quoted_name
     quoted_name=$(quote_pg_ident "$target_name")
 
-    psql "$admin_url" -v ON_ERROR_STOP=1 <<SQL
+    PSQL_RUN "$admin_url" -v ON_ERROR_STOP=1 <<SQL
 SELECT pg_terminate_backend(pid)
 FROM pg_stat_activity
 WHERE datname = '$target_name' AND pid <> pg_backend_pid();
@@ -95,21 +95,21 @@ SQL
 require_cmd railway
 require_cmd jq
 require_cmd sha256sum
-require_cmd psql
-require_cmd pg_dump
-require_cmd pg_restore
+require_cmd docker
 require_cmd node
 
-PG_DUMP_BIN="$(find_pg_binary pg_dump)"
-PG_RESTORE_BIN="$(find_pg_binary pg_restore)"
+PG_DUMP_RUN() {
+    docker run --rm -i postgres:18 pg_dump "$@"
+}
 
-if [[ -z "$PG_DUMP_BIN" ]]; then
-    PG_DUMP_BIN="$(command -v pg_dump)"
-fi
+PG_RESTORE_RUN() {
+    docker run --rm -i --net=host postgres:18 pg_restore "$@"
+}
 
-if [[ -z "$PG_RESTORE_BIN" ]]; then
-    PG_RESTORE_BIN="$(command -v pg_restore)"
-fi
+PSQL_RUN() {
+    docker run --rm -i --net=host postgres:18 psql "$@"
+}
+
 
 BASE_RAILWAY_ARGS=()
 if [[ -n "$RAILWAY_PROJECT" ]]; then
@@ -150,18 +150,6 @@ find_postgres_service_with_public_url() {
     done <<< "$candidates"
 
     return 1
-}
-
-dump_with_docker_pg18() {
-    local source_url="$1"
-    local output_path="$2"
-
-    if ! command -v docker >/dev/null 2>&1; then
-        return 1
-    fi
-
-    docker run --rm postgres:18 \
-        pg_dump --format=custom --no-owner --no-privileges "$source_url" > "$output_path"
 }
 
 # Ensure output directory exists
@@ -225,23 +213,8 @@ if [[ -z "$SOURCE_DATABASE_URL" ]]; then
     exit 1
 fi
 
-LOCAL_DUMP_ERROR_PATH=$(mktemp)
-if ! "$PG_DUMP_BIN" --format=custom --no-owner --no-privileges "$SOURCE_DATABASE_URL" > "$TMP_DUMP_PATH" 2>"$LOCAL_DUMP_ERROR_PATH"; then
-    echo "   Local pg_dump failed; attempting Docker postgres:18 pg_dump fallback..."
-    if ! dump_with_docker_pg18 "$SOURCE_DATABASE_URL" "$TMP_DUMP_PATH"; then
-        echo "❌ Failed to create Postgres dump from resolved URL and Docker fallback."
-        echo "   Tried Postgres service: $RESOLVED_POSTGRES_SERVICE"
-        echo "   Local pg_dump error:"
-        sed 's/^/   /' "$LOCAL_DUMP_ERROR_PATH"
-        echo "   Tip: install local pg_dump v18+ or install Docker to enable automatic fallback."
-        rm -f "$LOCAL_DUMP_ERROR_PATH"
-        exit 1
-    fi
-fi
-rm -f "$LOCAL_DUMP_ERROR_PATH"
-
-if [[ ! -s "$TMP_DUMP_PATH" ]]; then
-    echo "❌ Dump produced an empty file."
+if ! PG_DUMP_RUN --format=custom --no-owner --no-privileges "$SOURCE_DATABASE_URL" > "$TMP_DUMP_PATH"; then
+    echo "❌ Failed to create Postgres dump from resolved URL."
     exit 1
 fi
 
@@ -262,9 +235,9 @@ echo "   Target: $LOCAL_SNAPSHOT_DATABASE_URL"
 
 ensure_local_postgres_ready "$LOCAL_SNAPSHOT_DATABASE_URL"
 reset_local_database "$LOCAL_SNAPSHOT_DATABASE_URL" "$SNAPSHOT_DB_NAME" "$SNAPSHOT_ADMIN_URL"
-"$PG_RESTORE_BIN" --no-owner --no-privileges --clean --if-exists -d "$LOCAL_SNAPSHOT_DATABASE_URL" "$DUMP_OUTPUT_PATH"
+PG_RESTORE_RUN --no-owner --no-privileges --clean --if-exists -d "$LOCAL_SNAPSHOT_DATABASE_URL" < "$DUMP_OUTPUT_PATH"
 
-TABLE_COUNT=$(psql "$LOCAL_SNAPSHOT_DATABASE_URL" -Atc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public';" 2>/dev/null || echo "0")
+TABLE_COUNT=$(PSQL_RUN "$LOCAL_SNAPSHOT_DATABASE_URL" -Atc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public';" 2>/dev/null || echo "0")
 if [[ "${TABLE_COUNT:-0}" == "0" ]]; then
     echo "❌ Restore validation failed: no tables found in local snapshot database."
     exit 1
@@ -281,7 +254,7 @@ if bool_true "$IMPORT_TO_DEV"; then
 
     ensure_local_postgres_ready "$LOCAL_DEV_DATABASE_URL"
     reset_local_database "$LOCAL_DEV_DATABASE_URL" "$DEV_DB_NAME" "$DEV_ADMIN_URL"
-    "$PG_RESTORE_BIN" --no-owner --no-privileges --clean --if-exists -d "$LOCAL_DEV_DATABASE_URL" "$DUMP_OUTPUT_PATH"
+    PG_RESTORE_RUN --no-owner --no-privileges --clean --if-exists -d "$LOCAL_DEV_DATABASE_URL" < "$DUMP_OUTPUT_PATH"
 fi
 
 echo "----------------------------------------------------------"

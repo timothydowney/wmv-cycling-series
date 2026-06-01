@@ -47,7 +47,15 @@ echo "🚦 Preflight checks"
 require_cmd railway
 require_cmd jq
 require_cmd npm
-require_cmd pg_restore
+require_cmd docker
+
+PG_RESTORE_RUN() {
+  docker run --rm -i postgres:18 pg_restore "$@"
+}
+
+PSQL_RUN() {
+  docker run --rm -i postgres:18 psql "$@"
+}
 
 if ! railway whoami >/dev/null 2>&1; then
   echo "❌ Railway CLI is not authenticated. Run: railway login"
@@ -154,11 +162,11 @@ echo "   Rehearsal env: $REHEARSAL_ENV"
 
 echo "----------------------------------------------------------"
 echo "🏗️ Restoring production dump into rehearsal Postgres"
-pg_restore --no-owner --no-privileges --clean --if-exists -d "$RAILWAY_PG_URL" "$PROD_DUMP_PATH"
+PG_RESTORE_RUN --no-owner --no-privileges --clean --if-exists -d "$RAILWAY_PG_URL" < "$PROD_DUMP_PATH"
 
 echo "----------------------------------------------------------"
 echo "🧪 Verifying restore"
-TABLE_COUNT=$(psql "$RAILWAY_PG_URL" -Atc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public';" 2>/dev/null || echo "0")
+TABLE_COUNT=$(PSQL_RUN "$RAILWAY_PG_URL" -Atc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public';" 2>/dev/null || echo "0")
 if [[ "${TABLE_COUNT:-0}" == "0" ]]; then
   echo "❌ Restore verification failed: no public tables found in rehearsal Postgres"
   exit 1
