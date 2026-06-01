@@ -434,7 +434,8 @@ async function startServer(): Promise<void> {
     await seedSeasonIfNeeded();
   }
 
-  app.listen(PORT, '0.0.0.0', async () => {
+  const HOST = process.env.HOST || '::';
+  app.listen(PORT, HOST, async () => {
     console.log(`WMV backend listening on port ${PORT}`);
     
     // Setup webhook subscription if enabled

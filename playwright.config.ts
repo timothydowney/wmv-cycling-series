@@ -20,13 +20,13 @@ export default defineConfig({
   webServer: [
     {
       command: 'npm --prefix server run dev',
-      url: 'http://10.255.255.254:3002/auth/status',
+      url: 'http://[::1]:3002/auth/status',
       reuseExistingServer: false,
       timeout: 120000,
     },
     {
-      command: 'vite --host 0.0.0.0',
-      url: 'http://10.255.255.254:5174',
+      command: 'vite --host ::',
+      url: 'http://[::1]:5174',
       reuseExistingServer: false,
       timeout: 120000,
     },
