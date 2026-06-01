@@ -38,7 +38,7 @@ npm run db:fetch-prod
 npm run dev:prod-data
 ```
 
-This refreshes a local copy of the production database, writes `.env.prod`, and starts the app against that snapshot on the normal local ports.
+This fetches a production Postgres dump from Railway, restores a local snapshot database, writes `.env.prod`, and starts the app against that snapshot on the normal local ports.
 
 **If you hit orphaned processes:**
 ```bash
@@ -68,7 +68,7 @@ Use these presets instead of memorizing individual env vars:
 | Goal | Command | Env file | What changes |
 |------|---------|----------|--------------|
 | Normal local development | `npm run dev` | `.env` | Standard local app behavior on `:5173` and `:3001` |
-| Review webhook admin UI with production-like data | `npm run db:fetch-prod` then `npm run dev:prod-data` | `.env.prod` | Uses a refreshed local production DB copy and production secrets for realistic admin UI review |
+| Review webhook admin UI with production-like data | `npm run db:fetch-prod` then `npm run dev:prod-data` | `.env.prod` | Uses a refreshed local Postgres snapshot and production secrets for realistic admin UI review |
 | Playwright E2E | `npm run test:e2e` | `e2e/.env.e2e` | Uses dedicated E2E ports, fixture-backed Strava, E2E auth, and E2E DB reset |
 
 The important rule is simple:
@@ -133,8 +133,8 @@ npm run build
 
 ```bash
 npm run dev              # Start frontend + backend interactively
-npm run db:fetch-prod    # Refresh local production DB copy and .env.prod
-npm run dev:prod-data    # Start app against the production DB copy
+npm run db:fetch-prod    # Refresh local Postgres snapshot and .env.prod
+npm run dev:prod-data    # Start app against the restored local snapshot DB
 npm run dev:cleanup      # Clean up local servers
 npm test                 # Run frontend + backend unit tests
 npm run test:e2e         # Run Playwright E2E tests

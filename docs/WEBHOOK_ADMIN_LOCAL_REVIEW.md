@@ -13,7 +13,7 @@ The event-history card design is intentionally optimized for two different revie
 - real webhook event-history rows from production data
 - realistic event volume, statuses, and enrichment shape
 - the normal local app shell on `http://localhost:5173`
-- backend access to the production-copy database at `server/data/wmv_prod.db`
+- backend access to the restored local Postgres snapshot database (default: `wmv_prod_snapshot`)
 
 ## What This Workflow Is Not For
 
@@ -36,9 +36,15 @@ npm run db:fetch-prod
 ```
 
 That script:
-- downloads the production data snapshot from Railway into `server/data/wmv_prod.db`
-- verifies the checksum
-- generates `.env.prod` with the production secrets needed to read and decrypt that database locally
+- creates a production Postgres dump via Railway CLI
+- restores that dump into your local Postgres snapshot database
+- generates `.env.prod` with production secrets and local `DATABASE_URL` for that snapshot
+
+Optional: replace your local dev DB with the fetched snapshot:
+
+```bash
+IMPORT_TO_DEV=true npm run db:fetch-prod
+```
 
 If the command fails, confirm you are logged in to Railway first.
 

@@ -91,6 +91,11 @@ test.describe('Explorer Club Tab', () => {
     await expect(page.getByTestId('explorer-club-recent-firsts-section')).toContainText('Most recent first completions');
     await expect(page.getByTestId('explorer-club-least-popular-section')).toContainText('Bottom 5 least-popular destinations');
 
+    // Wait for async queries to finish loading
+    await expect(page.getByTestId('explorer-club-popular-loading')).not.toBeVisible();
+    await expect(page.getByTestId('explorer-club-recent-firsts-loading')).not.toBeVisible();
+    await expect(page.getByTestId('explorer-club-least-loading')).not.toBeVisible();
+
     const popularCards = page.locator('[data-testid^="explorer-club-popular-card-"]');
     const leastCards = page.locator('[data-testid^="explorer-club-least-card-"]');
     const recentFirstCards = page.locator('[data-testid^="explorer-club-recent-first-card-"]');

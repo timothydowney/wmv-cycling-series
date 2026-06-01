@@ -143,7 +143,7 @@ Before merging or opening a substantive PR, run `npm run audit` locally alongsid
 |------|---------|-------------|
 | `npm run mock:strava` | Mock Strava API server (port 8002) | Testing OAuth without real Strava |
 | `npm run mock:strava:kill` | Stop mock Strava server | After testing OAuth locally |
-| `npm run db:fetch-prod` | Download production database | To test against real data locally |
+| `npm run db:fetch-prod` | Fetch production Postgres dump and restore local snapshot DB | To review realistic production-like data locally |
 | `npm run webhook:emit` | Emit test webhook events | Testing webhook handler logic |
 | `npm run test:e2e:report` | View test report | After E2E test failures |
 
