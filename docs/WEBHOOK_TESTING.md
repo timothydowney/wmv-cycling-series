@@ -2,7 +2,7 @@
 
 **UPDATED: April 23, 2026**
 
-This guide covers webhook-path testing in local development now that the Local Harness admin panel has been removed. Use this doc for raw webhook processing checks. Use [WEBHOOK_ADMIN_LOCAL_REVIEW.md](./WEBHOOK_ADMIN_LOCAL_REVIEW.md) when your goal is to inspect the webhook admin UI against a refreshed production DB copy.
+This guide covers webhook-path testing in local development now that the Local Harness admin panel has been removed. Use this doc for raw webhook processing checks. Use [WEBHOOK_ADMIN_LOCAL_REVIEW.md](./WEBHOOK_ADMIN_LOCAL_REVIEW.md) when your goal is to inspect the webhook admin UI against a refreshed local Postgres snapshot of production data.
 
 ## Choose The Right Workflow
 

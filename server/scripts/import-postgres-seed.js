@@ -68,7 +68,9 @@ async function syncIdentitySequences(client) {
       continue;
     }
 
-    const maxResult = await client.query(`SELECT MAX(id)::bigint AS max_id FROM ${quoteIdentifier(tableName)}`);
+    const maxResult = await client.query(
+      `SELECT MAX(id)::bigint AS max_id FROM public.${quoteIdentifier(tableName)}`
+    );
     const maxId = maxResult.rows[0]?.max_id;
 
     if (maxId === null || maxId === undefined) {
@@ -101,6 +103,8 @@ async function run() {
     await client.connect();
     await client.query('BEGIN');
     await client.query(sql);
+    // pg_dump SQL can clear search_path; restore it for follow-up sequence sync queries.
+    await client.query('SET search_path TO public');
     await syncIdentitySequences(client);
     await client.query('COMMIT');
     console.log(`[SEED] Imported Postgres seed from ${sqlPath}`);

@@ -137,13 +137,17 @@ Before merging or opening a substantive PR, run `npm run audit` locally alongsid
    - Do not use legacy admin CSS as the default source of truth for public Explorer UI
    - If the leaderboard does not define a needed pattern, record that gap explicitly instead of freehanding a new local style system
 
+11. **WSL Command Execution on Windows Hosts:**
+    - If the workspace is located on a WSL mount (e.g., `\\wsl$\...`) and the host operating system is Windows, AI agents MUST execute all terminal commands (such as node, npm, git, docker, etc.) inside the WSL container (using `wsl bash -c "..."`) rather than directly on the Windows PowerShell/CMD host.
+    - If Windows-side pre-commit hooks fail due to UNC pathing limitations during git commits inside WSL, bypass the hooks safely using the `--no-verify` flag (provided typecheck and lint have already been verified inside WSL).
+
 ## Special Tasks
 
 | Task | Purpose | When to Use |
 |------|---------|-------------|
 | `npm run mock:strava` | Mock Strava API server (port 8002) | Testing OAuth without real Strava |
 | `npm run mock:strava:kill` | Stop mock Strava server | After testing OAuth locally |
-| `npm run db:fetch-prod` | Download production database | To test against real data locally |
+| `npm run db:fetch-prod` | Fetch production Postgres dump and restore local snapshot DB | To review realistic production-like data locally |
 | `npm run webhook:emit` | Emit test webhook events | Testing webhook handler logic |
 | `npm run test:e2e:report` | View test report | After E2E test failures |
 

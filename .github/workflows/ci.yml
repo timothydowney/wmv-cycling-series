@@ -67,8 +67,8 @@ jobs:
         run: |
           # Bootstrap E2E schema/data using Postgres-only harness scripts.
           bash scripts/ensure-e2e-db.sh
-          # Install Playwright Chromium and required OS dependencies
-          npx playwright install --with-deps chromium
+          # Install Playwright Chromium
+          npx playwright install chromium
           # Run E2E tests (Playwright webServer boots the backend + frontend)
           npm run test:e2e
 
