@@ -8,6 +8,10 @@ import { test, expect } from '@playwright/test';
 import { loginAsE2EUser } from '../fixtures/test-helpers';
 
 async function selectSeasonWithCurrentUserCard(page: import('@playwright/test').Page, athleteId: string) {
+  // First, switch to the Season tab so that activeTab becomes 'season'
+  await page.getByRole('link', { name: 'Season' }).click();
+  await page.waitForLoadState('networkidle');
+
   const seasonSelect = page.getByTestId('season-select');
   await expect(seasonSelect).toBeVisible();
 
@@ -18,16 +22,16 @@ async function selectSeasonWithCurrentUserCard(page: import('@playwright/test').
   );
 
   for (const seasonValue of optionValues) {
+    // Selecting the option will trigger handleSeasonChange and navigate to /leaderboard/${seasonValue}/season
     await seasonSelect.selectOption(seasonValue);
-    await page.getByRole('link', { name: 'Season' }).click();
     await page.waitForLoadState('networkidle');
+
+    // Wait for season cards to load
+    await page.waitForSelector('[data-testid^="season-card-"]', { timeout: 5000 }).catch(() => {});
 
     if (await page.getByTestId(`season-card-${athleteId}`).count()) {
       return;
     }
-
-    await page.goto('/leaderboard');
-    await expect(seasonSelect).toBeVisible();
   }
 
   throw new Error(`No season leaderboard contained athlete ${athleteId}`);
