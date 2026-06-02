@@ -147,6 +147,15 @@ export const MOCK_STRAVA_ATHLETES = {
  *   });
  */
 export async function setupStravaInterception(page: Page) {
+  // Mock VeloViewer requests to prevent external network traffic and timeouts
+  await page.route(/.*veloviewer\.com.*/, async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/html',
+      body: '<html><body>Mock VeloViewer Embed</body></html>',
+    });
+  });
+
   // Mock Strava segment API calls
   await page.route('**/api.strava.com/api/v3/segments/**', async route => {
     const url = new URL(route.request().url());
@@ -248,6 +257,15 @@ export async function setAuthCookie(
  * Establish a real app session for Playwright without manual OAuth.
  */
 export async function loginAsE2EUser(page: Page, athleteId = '366880') {
+  // Mock VeloViewer requests to prevent external network traffic and timeouts
+  await page.route(/.*veloviewer\.com.*/, async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/html',
+      body: '<html><body>Mock VeloViewer Embed</body></html>',
+    });
+  });
+
   const response = await page.context().request.post(`${E2E_BACKEND_URL}/auth/e2e-login`, {
     data: { athleteId },
   });
