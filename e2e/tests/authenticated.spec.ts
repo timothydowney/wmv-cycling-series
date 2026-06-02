@@ -128,42 +128,44 @@ test.describe('Authenticated User Features', () => {
     const timeFilter = page.locator('#time-filter');
     await expect(timeFilter).toBeVisible();
 
+    // 1. Test "All Time" (999999999)
     const allTimeRequest = page.waitForRequest((request) => {
       if (!request.url().includes('webhookAdmin.getEvents')) {
         return false;
       }
-
       return extractSinceFromWebhookRequest(request.url()) === 0;
     });
-
     await timeFilter.selectOption('999999999');
     await allTimeRequest;
 
-    await page.goto('/webhooks');
-    await expect(page).toHaveURL(/\/webhooks/);
-    await page.getByRole('tab', { name: 'Event History' }).click();
+    // 2. Test "7 Days" (604800)
+    const expectedSince7Days = Math.floor(Date.now() / 1000) - 604800;
+    const sevenDayRequest = page.waitForRequest((request) => {
+      if (!request.url().includes('webhookAdmin.getEvents')) {
+        return false;
+      }
+      const since = extractSinceFromWebhookRequest(request.url());
+      return since !== null && since >= expectedSince7Days - 30 && since <= expectedSince7Days + 30;
+    });
+    await timeFilter.selectOption('604800');
+    await sevenDayRequest;
 
-    const refreshedTimeFilter = page.locator('#time-filter');
-    await expect(refreshedTimeFilter).toBeVisible();
-
-    const expectedSince = Math.floor(Date.now() / 1000) - 2592000;
+    // 3. Test "30 Days" (2592000)
+    const expectedSince30Days = Math.floor(Date.now() / 1000) - 2592000;
     const thirtyDayRequest = page.waitForRequest((request) => {
       if (!request.url().includes('webhookAdmin.getEvents')) {
         return false;
       }
-
       const since = extractSinceFromWebhookRequest(request.url());
-      return since !== null && since >= expectedSince - 30 && since <= expectedSince + 30;
+      return since !== null && since >= expectedSince30Days - 30 && since <= expectedSince30Days + 30;
     });
-
-    await refreshedTimeFilter.selectOption('2592000');
+    await timeFilter.selectOption('2592000');
     const request = await thirtyDayRequest;
     const since = extractSinceFromWebhookRequest(request.url());
 
     expect(since).not.toBeNull();
-    expect(since).not.toBe(604800);
-    expect(since).toBeGreaterThanOrEqual(expectedSince - 30);
-    expect(since).toBeLessThanOrEqual(expectedSince + 30);
+    expect(since).toBeGreaterThanOrEqual(expectedSince30Days - 30);
+    expect(since).toBeLessThanOrEqual(expectedSince30Days + 30);
   });
 
   test('menu shows unit toggle', async ({ page }) => {
