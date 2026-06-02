@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { loginAsE2EUser } from '../fixtures/test-helpers';
 
-const appBaseUrl = process.env.E2E_FRONTEND_URL || 'http://localhost:5174';
+const appBaseUrl = process.env.FRONTEND_URL || 'http://127.0.0.1:5174';
 
 test.describe('LeaderboardCard Component', () => {
   test.beforeEach(async ({ page }) => {

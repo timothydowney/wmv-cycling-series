@@ -13,9 +13,8 @@ PRODUCTION_APP_SERVICE="${PRODUCTION_APP_SERVICE:-wmv-cycling-series}"
 RAILWAY_PROJECT="${RAILWAY_PROJECT:-}"
 
 # Snapshot behavior
-SQLITE_SNAPSHOT_PATH="${SQLITE_SNAPSHOT_PATH:-server/data/wmv_prod.db}"
+PROD_DUMP_PATH="${PROD_DUMP_PATH:-server/data/wmv_prod.dump}"
 REFRESH_PROD_SNAPSHOT="${REFRESH_PROD_SNAPSHOT:-true}"
-SQLITE_SNAPSHOT_PATH_ABS=""
 
 if [[ "$REHEARSAL_ENV" == "$PRODUCTION_ENV" ]]; then
   echo "❌ REHEARSAL_ENV and PRODUCTION_ENV cannot be the same value: $REHEARSAL_ENV"
@@ -48,6 +47,15 @@ echo "🚦 Preflight checks"
 require_cmd railway
 require_cmd jq
 require_cmd npm
+require_cmd docker
+
+PG_RESTORE_RUN() {
+  docker run --rm -i postgres:18 pg_restore "$@"
+}
+
+PSQL_RUN() {
+  docker run --rm -i postgres:18 psql "$@"
+}
 
 if ! railway whoami >/dev/null 2>&1; then
   echo "❌ Railway CLI is not authenticated. Run: railway login"
@@ -101,19 +109,22 @@ else
 fi
 
 echo "----------------------------------------------------------"
-echo "📦 Ensuring latest production snapshot is available"
+echo "📦 Ensuring latest production Postgres dump is available"
 if [[ "$REFRESH_PROD_SNAPSHOT" == "true" ]]; then
-  RAILWAY_SERVICE="$PRODUCTION_APP_SERVICE" RAILWAY_ENVIRONMENT="$PRODUCTION_ENV" RAILWAY_PROJECT="$RAILWAY_PROJECT" bash scripts/fetch-prod-db.sh
+  RAILWAY_SERVICE="$PRODUCTION_APP_SERVICE" \
+  RAILWAY_ENVIRONMENT="$PRODUCTION_ENV" \
+  RAILWAY_PROJECT="$RAILWAY_PROJECT" \
+  IMPORT_TO_DEV=false \
+  DUMP_OUTPUT_PATH="$PROD_DUMP_PATH" \
+  bash scripts/fetch-prod-db.sh
 else
   echo "   Skipping fetch (REFRESH_PROD_SNAPSHOT=false)"
 fi
 
-if [[ ! -s "$SQLITE_SNAPSHOT_PATH" ]]; then
-  echo "❌ SQLite snapshot not found or empty: $SQLITE_SNAPSHOT_PATH"
+if [[ ! -s "$PROD_DUMP_PATH" ]]; then
+  echo "❌ Production dump not found or empty: $PROD_DUMP_PATH"
   exit 1
 fi
-
-SQLITE_SNAPSHOT_PATH_ABS=$(cd "$(dirname "$SQLITE_SNAPSHOT_PATH")" && pwd)/"$(basename "$SQLITE_SNAPSHOT_PATH")"
 
 echo "----------------------------------------------------------"
 echo "🔌 Resolving rehearsal DATABASE_URL from Railway"
@@ -150,21 +161,20 @@ echo "   Rehearsal DB service: $SELECTED_DB_SERVICE"
 echo "   Rehearsal env: $REHEARSAL_ENV"
 
 echo "----------------------------------------------------------"
-echo "🏗️ Bootstrapping schema + importing snapshot"
-DATABASE_URL="$RAILWAY_PG_URL" npm --prefix server run db:pg:bootstrap:schema
-DATABASE_URL="$RAILWAY_PG_URL" npm --prefix server run db:pg:migrate:from-sqlite -- \
-  --sqlite "$SQLITE_SNAPSHOT_PATH_ABS" \
-  --source-env "$PRODUCTION_ENV" \
-  --target-env "$REHEARSAL_ENV" \
-  --confirm-destructive
+echo "🏗️ Restoring production dump into rehearsal Postgres"
+PG_RESTORE_RUN --no-owner --no-privileges --clean --if-exists -d "$RAILWAY_PG_URL" < "$PROD_DUMP_PATH"
 
 echo "----------------------------------------------------------"
-echo "🧪 Verifying parity"
-DATABASE_URL="$RAILWAY_PG_URL" npm --prefix server run db:pg:verify:parity -- --sqlite "$SQLITE_SNAPSHOT_PATH_ABS"
+echo "🧪 Verifying restore"
+TABLE_COUNT=$(PSQL_RUN "$RAILWAY_PG_URL" -Atc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public';" 2>/dev/null || echo "0")
+if [[ "${TABLE_COUNT:-0}" == "0" ]]; then
+  echo "❌ Restore verification failed: no public tables found in rehearsal Postgres"
+  exit 1
+fi
 
 echo "----------------------------------------------------------"
 echo "✅ Rehearsal import completed successfully"
 echo "   Environment: $REHEARSAL_ENV"
 echo "   Postgres service: $SELECTED_DB_SERVICE"
-echo "   Snapshot: $SQLITE_SNAPSHOT_PATH"
+echo "   Dump: $PROD_DUMP_PATH"
 echo "   Optional SQL shell: railway connect -e $REHEARSAL_ENV $SELECTED_DB_SERVICE"

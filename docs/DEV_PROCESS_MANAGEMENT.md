@@ -38,7 +38,7 @@ Use this if a previous dev or Playwright run left orphaned frontend/backend proc
 This repo now uses explicit presets instead of one-off shell variables:
 
 - `npm run dev` uses `.env` for the normal local app on `5173` and `3001`.
-- `npm run dev:prod-data` uses generated `.env.prod` for local production-copy review on the same ports.
+- `npm run dev:prod-data` uses generated `.env.prod` for local production-snapshot review on the same ports.
 - `npm run test:e2e` uses `e2e/.env.e2e` for Playwright on `5174` and `3002`.
 
 If processes are not shut down properly, you get:
@@ -52,7 +52,7 @@ If processes are not shut down properly, you get:
 | Goal | Command | Notes |
 |------|---------|-------|
 | Normal local development | `npm run dev` | Standard frontend + backend workflow |
-| Review production-like admin data | `npm run db:fetch-prod` then `npm run dev:prod-data` | Same local ports, refreshed production DB copy and `.env.prod` |
+| Review production-like admin data | `npm run db:fetch-prod` then `npm run dev:prod-data` | Same local ports, refreshed local Postgres snapshot and `.env.prod` |
 | Dedicated Playwright E2E | `npm run test:e2e` | Uses `e2e/.env.e2e` and separate ports |
 | Cleanup orphaned local servers | `npm run dev:cleanup` | Safe cleanup for stuck local processes |
 
@@ -70,14 +70,14 @@ This:
 - Keeps hot reload active for both sides
 - Both servers ready on http://localhost:3001 (backend) and http://localhost:5173 (frontend)
 
-### Starting Against a Refreshed Production DB Copy
+### Starting Against a Refreshed Production Snapshot
 
 ```bash
 npm run db:fetch-prod
 npm run dev:prod-data
 ```
 
-This keeps the normal local ports and loads generated `.env.prod`, which points the backend at `server/data/wmv_prod.db` and the production secrets fetched from Railway.
+This keeps the normal local ports and loads generated `.env.prod`, which points the backend at your restored local Postgres snapshot `DATABASE_URL` and includes the production secrets fetched from Railway.
 
 ### Cleaning Up Orphaned Processes
 
@@ -95,7 +95,7 @@ This:
 ### File Structure
 
 - **`scripts/dev-server.cjs`** - Process manager (CommonJS because project uses ES modules)
-- **`.env.prod`** - Generated local production-copy review preset
+- **`.env.prod`** - Generated local production-snapshot review preset
 - **`e2e/.env.e2e`** - Dedicated Playwright preset
 
 ### How Signals Work

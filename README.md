@@ -40,8 +40,8 @@ nvm install 24 && nvm use 24
 
 ```bash
 npm run dev             # Start frontend + backend for normal local development
-npm run db:fetch-prod   # Refresh a local production DB copy and generate .env.prod
-npm run dev:prod-data   # Start frontend + backend against the refreshed production DB copy
+npm run db:fetch-prod   # Fetch production Postgres dump, restore local snapshot DB, generate .env.prod
+npm run dev:prod-data   # Start frontend + backend against the restored local snapshot DB
 npm run dev:cleanup     # Stop orphaned local servers
 npm test                # Run tests
 npm run test:e2e        # Run Playwright against the dedicated E2E preset

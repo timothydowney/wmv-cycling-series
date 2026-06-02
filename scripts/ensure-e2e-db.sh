@@ -1,5 +1,20 @@
-
 #!/usr/bin/env bash
+set -euo pipefail
+
+ENV_PATH="${ENV_FILE:-e2e/.env.e2e}"
+
+if [[ -f "$ENV_PATH" ]]; then
+  # shellcheck disable=SC1090
+  set -a
+  . "$ENV_PATH"
+  set +a
+fi
+
+DATABASE_URL="${DATABASE_URL:-postgresql://wmv:wmv@localhost:5432/wmv_e2e}"
+SEED_SQL_PATH="${SEED_SQL_PATH:-server/data/wmv_e2e_seed.sql}"
+
+# Ensure local Postgres runtime is reachable for localhost targets.
+DB_DIALECT=postgres DATABASE_URL="$DATABASE_URL" WMV_AUTO_BOOTSTRAP_DB=false bash scripts/ensure-dev-db.sh
 
 # Always ensure the E2E DB exists and schema is bootstrapped before seeding.
 echo "[e2e-db] Ensuring target Postgres database exists"

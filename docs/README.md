@@ -21,7 +21,7 @@ Welcome to the WMV Cycling Series documentation. Start with **Getting Started**,
 
 - **[Scoring Rules](./SCORING.md)** - Scoring formula, edge cases, and architectural details
 - **[Admin Guide](../ADMIN_GUIDE.md)** - Week management, batch fetch, participant operations
-- **[Webhook Admin Local Review](./WEBHOOK_ADMIN_LOCAL_REVIEW.md)** - How to inspect the webhook admin UI against a refreshed production DB copy
+- **[Webhook Admin Local Review](./WEBHOOK_ADMIN_LOCAL_REVIEW.md)** - How to inspect the webhook admin UI against a refreshed local Postgres snapshot of production data
 
 ### Security & Deployment
 
@@ -84,7 +84,7 @@ Welcome to the WMV Cycling Series documentation. Start with **Getting Started**,
 ├── DATABASE_DESIGN.md          # Schema and queries
 ├── STRAVA_INTEGRATION.md       # OAuth and activity flow
 ├── WEBHOOKS.md                 # Real-time webhook processing
-├── WEBHOOK_ADMIN_LOCAL_REVIEW.md # Review webhook admin UI against a refreshed production DB copy
+├── WEBHOOK_ADMIN_LOCAL_REVIEW.md # Review webhook admin UI against a refreshed local Postgres snapshot of production data
 ├── SCORING.md                  # Scoring formula and architecture
 ├── SECURITY_AUDIT.md           # Security review & compliance
 ├── DEPLOYMENT.md               # Production deployment

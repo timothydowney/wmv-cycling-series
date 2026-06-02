@@ -161,7 +161,11 @@ function getConfig(): Config {
     stravaClubId: process.env.STRAVA_CLUB_ID || '1495648',
     // Database
     databaseDialect: 'postgres',
-    databaseUrl: process.env.DATABASE_URL,
+    databaseUrl:
+      process.env.DATABASE_URL ||
+      (nodeEnv === 'production' || runtimeMode === 'e2e'
+        ? undefined
+        : 'postgresql://wmv:wmv@localhost:5432/wmv_local'),
     databasePath: process.env.DATABASE_PATH || path.join(__dirname, '..', 'data', 'wmv.db'),
     e2eSourceDatabasePath: process.env.WMV_E2E_SOURCE_DATABASE_PATH,
     e2eResetDatabaseOnStartup: process.env.WMV_E2E_RESET_DB_ON_BOOT === 'true',
