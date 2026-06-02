@@ -164,7 +164,6 @@ test.describe('Authenticated User Features', () => {
     const since = extractSinceFromWebhookRequest(request.url());
 
     expect(since).not.toBeNull();
-    expect(since).not.toBe(604800);
     expect(since).toBeGreaterThanOrEqual(expectedSince30Days - 30);
     expect(since).toBeLessThanOrEqual(expectedSince30Days + 30);
   });

@@ -136,25 +136,38 @@ export const MOCK_STRAVA_ATHLETES = {
 };
 
 /**
- * Setup Strava API interception for tests
- * Intercepts HTTP calls to api.strava.com and returns mock data
- *
- * Usage:
- *   test('segment displays metadata', async ({ page }) => {
- *     await setupStravaInterception(page);
- *     await page.goto('/leaderboard/1/weekly/1');
- *     // Strava API calls are now mocked
- *   });
+ * Setup VeloViewer request mocking to prevent external network traffic and timeouts.
+ * Made idempotent using unroute first to avoid stacked handlers.
  */
-export async function setupStravaInterception(page: Page) {
-  // Mock VeloViewer requests to prevent external network traffic and timeouts
-  await page.route(/.*veloviewer\.com.*/, async route => {
+export async function setupVeloViewerInterception(page: Page) {
+  const veloViewerPattern = /.*veloviewer\.com.*/;
+  // Remove existing route if any, to ensure idempotency and avoid stacked handlers
+  await page.unroute(veloViewerPattern);
+  
+  await page.route(veloViewerPattern, async route => {
     await route.fulfill({
       status: 200,
       contentType: 'text/html',
       body: '<html><body>Mock VeloViewer Embed</body></html>',
     });
   });
+}
+
+/**
+ * Setup Strava API interception and VeloViewer request mocking for tests.
+ * Intercepts HTTP calls to api.strava.com and returns mock data, and mocks
+ * VeloViewer embeds to avoid external network dependencies.
+ *
+ * Usage:
+ *   test('segment displays metadata', async ({ page }) => {
+ *     await setupStravaInterception(page);
+ *     await page.goto('/leaderboard/1/weekly/1');
+ *     // API/VeloViewer calls are now mocked
+ *   });
+ */
+export async function setupStravaInterception(page: Page) {
+  // Mock VeloViewer requests to prevent external network traffic and timeouts
+  await setupVeloViewerInterception(page);
 
   // Mock Strava segment API calls
   await page.route('**/api.strava.com/api/v3/segments/**', async route => {
@@ -255,16 +268,11 @@ export async function setAuthCookie(
 
 /**
  * Establish a real app session for Playwright without manual OAuth.
+ * Also configures VeloViewer request mocking to avoid external network dependencies.
  */
 export async function loginAsE2EUser(page: Page, athleteId = '366880') {
   // Mock VeloViewer requests to prevent external network traffic and timeouts
-  await page.route(/.*veloviewer\.com.*/, async route => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'text/html',
-      body: '<html><body>Mock VeloViewer Embed</body></html>',
-    });
-  });
+  await setupVeloViewerInterception(page);
 
   const response = await page.context().request.post(`${E2E_BACKEND_URL}/auth/e2e-login`, {
     data: { athleteId },
