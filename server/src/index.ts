@@ -20,7 +20,7 @@ import connectPgSimple from 'connect-pg-simple';
 import strava from 'strava-v3';
 import * as stravaClient from './stravaClient';
 import { getValidAccessToken } from './tokenManager';
-import { season } from './db/schema';
+import { activity, participant, result, season, segment, week } from './db/schema';
 import LoginService from './services/LoginService';
 import BatchFetchService from './services/BatchFetchService';
 import WeekService from './services/WeekService';
@@ -36,6 +36,7 @@ import { createWebhookRouter } from './routes/webhooks';
 import { WebhookLogger } from './webhooks/logger';
 import { setupWebhookSubscription } from './webhooks/subscriptionManager';
 import { WebhookRenewalService } from './services/WebhookRenewalService';
+import { sql } from 'drizzle-orm';
 
 // Route modules (lazily loaded to avoid circular dependencies)
 const routes = {
@@ -289,11 +290,36 @@ async function verifyDatabaseReady(): Promise<void> {
 
   console.log(`[DB] ✓ Database has ${tableNames.length} tables: ${tableNames.join(', ')}`);
 
-  const tablesToCheck = ['participant', 'week', 'season', 'activity', 'result', 'segment'];
+  const tableRowCountChecks = [
+    {
+      tableName: 'participant',
+      table: participant
+    },
+    {
+      tableName: 'week',
+      table: week
+    },
+    {
+      tableName: 'season',
+      table: season
+    },
+    {
+      tableName: 'activity',
+      table: activity
+    },
+    {
+      tableName: 'result',
+      table: result
+    },
+    {
+      tableName: 'segment',
+      table: segment
+    }
+  ] as const;
   console.log('[DB] Row counts:');
-  for (const tableName of tablesToCheck) {
-    const countResult = await db.query<{ cnt: number }>(`SELECT COUNT(*)::int AS cnt FROM ${tableName}`);
-    console.log(`[DB]   ${tableName}: ${countResult.rows[0]?.cnt ?? 0} rows`);
+  for (const { tableName, table } of tableRowCountChecks) {
+    const countResult = await drizzleDb.select({ cnt: sql<number>`count(*)::int`.as('cnt') }).from(table).execute();
+    console.log(`[DB]   ${tableName}: ${countResult[0]?.cnt ?? 0} rows`);
   }
 }
 
