@@ -70,13 +70,11 @@ test.describe('Schedule Tab', () => {
       await page.getByRole('button', { name: 'Menu' }).click();
       await page.getByTestId('unit-toggle').click();
       
-      // Close menu and wait for iframe to reload
+      // Close menu
       await page.keyboard.press('Escape');
-      await page.waitForLoadState('networkidle');
       
-      // Check units changed to metric
-      iframeSrc = await veloviewerEmbed.getAttribute('src');
-      expect(iframeSrc).toContain('units=m'); // metric
+      // Check units changed to metric using auto-retrying assertion
+      await expect(veloviewerEmbed).toHaveAttribute('src', /units=m/);
     });
   });
 });
