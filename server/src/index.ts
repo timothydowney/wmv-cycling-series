@@ -434,7 +434,7 @@ async function startServer(): Promise<void> {
     await seedSeasonIfNeeded();
   }
 
-  const HOST = process.env.HOST || '::';
+  const HOST = process.env.HOST || (process.env.CI ? '127.0.0.1' : '::');
   app.listen(PORT, HOST, async () => {
     console.log(`WMV backend listening on port ${PORT}`);
     
