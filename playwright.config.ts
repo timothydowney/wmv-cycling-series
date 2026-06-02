@@ -12,7 +12,7 @@ const probeHost = isCI ? '127.0.0.1' : '[::1]';
 
 export default defineConfig({
   testDir: './e2e/tests',
-  testIgnore: '**/auth.setup.ts',
+  testIgnore: process.env.PLAYWRIGHT_RUN_SETUP === 'true' ? undefined : '**/auth.setup.ts',
   globalSetup: './e2e/global-setup.ts',
   fullyParallel: false,
   forbidOnly: isCI,
