@@ -15,13 +15,13 @@ const mockStravaClient = stravaClientModule as jest.Mocked<typeof stravaClientMo
 
 describe('ClubService - Minimal Tests', () => {
   let service: ClubService;
-  let drizzleDb: any;
+  let orm: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
     const testDb = setupTestDb();
-    drizzleDb = testDb.drizzleDb;
-    service = new ClubService(drizzleDb);
+    orm = testDb.orm;
+    service = new ClubService(orm);
   });
 
   it('should create a new instance', () => {
