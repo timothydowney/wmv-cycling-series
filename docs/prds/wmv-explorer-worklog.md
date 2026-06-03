@@ -425,8 +425,6 @@ When a real implementation slice lands, review whether it changes:
 - `ADMIN_GUIDE.md`
 - `docs/API.md`
 - `docs/DATABASE_DESIGN.md`
-- `docs-site/admin/*`
-- `docs-site/athlete/*`
 
 Only in the final pre-commit pass for a user-facing implementation commit, also update:
 
