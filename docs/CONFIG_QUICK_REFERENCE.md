@@ -362,7 +362,7 @@ This helps debug configuration issues.
 
 ## See Also
 
-- **Full technical details:** `docs/URL_CONFIGURATION_REFACTOR.md`
 - **Deployment guide:** `docs/DEPLOYMENT.md`
 - **Architecture overview:** `docs/ARCHITECTURE.md`
 - **OAuth flow:** `docs/STRAVA_INTEGRATION.md`
+

@@ -78,17 +78,22 @@ Welcome to the WMV Cycling Series documentation. Start with **Getting Started**,
 ├── README.md                   # This file - your entry point
 ├── prds/                       # Product and implementation planning docs
 ├── QUICK_START.md              # Get running in 5 minutes
+├── CONFIG_QUICK_REFERENCE.md   # URL config system and environment presets
 ├── ARCHITECTURE.md             # System design overview
 ├── API.md                      # Endpoint reference
 ├── LEADERBOARD_DESIGN_SYSTEM.md # Weekly/Season/Schedule UI source of truth
 ├── DATABASE_DESIGN.md          # Schema and queries
 ├── STRAVA_INTEGRATION.md       # OAuth and activity flow
 ├── WEBHOOKS.md                 # Real-time webhook processing
+├── WEBHOOK_TESTING.md          # Webhook local testing guide and CLI tools
 ├── WEBHOOK_ADMIN_LOCAL_REVIEW.md # Review webhook admin UI against a refreshed local Postgres snapshot of production data
 ├── SCORING.md                  # Scoring formula and architecture
 ├── SECURITY_AUDIT.md           # Security review & compliance
 ├── DEPLOYMENT.md               # Production deployment
+├── DOCKER_BUILD_VALIDATION.md  # CI/CD Docker build validation script details
+├── DOCKER_REHEARSAL.md         # Local Docker rehearsal guide
 └── ROADMAP.md                  # Future features & enhancements
+
 
 /
 ├── README.md                   # Project overview

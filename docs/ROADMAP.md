@@ -5,26 +5,7 @@
 
 ---
 
-## Completed / Shipped
 
-### Authenticated-Only App Access
-
-**Description:** Require login before showing any in-app content, and make the signed-out experience a richer WMV sign-in or join shell instead of a nearly empty page.
-
-**Why:**
-- Keep participant data behind authentication by default
-- Align the entire app around one clear logged-out posture before more athlete-facing personalization lands
-- Improve the signed-out entry experience with clearer onboarding instead of a sparse prompt
-
-**Status:** ✅ Landed on `main` as the signed-out default posture.
-
-**Implementation Notes:**
-- Reused the existing signed-out banner pattern with generic WMV invitation copy
-- Added supporting signed-out body content and WMV branding so the page is not visually bare
-- Made the signed-out shell the only available experience before login, with no About page or alternate public routes
-- Logged-in behavior unchanged
-
----
 
 ## Priority: High (Season 2+)
 
@@ -48,29 +29,7 @@
 
 ---
 
-### 2. Strava Webhook Integration
 
-**Description:** Replace manual "Fetch Results" button with real-time webhooks from Strava.
-
-**Current State:** Admin manually clicks "Fetch Results" after event day  
-**Future State:** New activities auto-detected and leaderboard updates immediately
-
-**Why:**
-- No manual step for admins
-- Real-time results
-- Faster user experience
-
-**Implementation Notes:**
-- Strava provides webhook events when activities are created
-- Store webhook subscription in database
-- Verify webhook signatures (security)
-- Handle retries and deduplication
-
-**Effort:** 4-6 hours  
-**Breaking Changes:** None (additive)  
-**Strava API:** Standard webhooks (no special approval needed)
-
----
 
 ### 3. Email Notifications
 
@@ -229,6 +188,26 @@
 **Breaking Changes:** None  
 **Strava API:** Special review may be required
 
+### 12. Explorer Destinations Enhancements
+
+**Description:** Enhancements and future features for the offseason Explorer Destinations campaign feature.
+
+**Why:**
+- Increase offseason athlete engagement and motivation.
+- Add social and editorial context.
+
+**Ideas Backlog:**
+- Season-wide Explorer accumulation across stored weekly completion history.
+- Weekly or season badge system for full completions, streaks, and themed destination sets.
+- Virtual-only or mixed virtual or outdoor destination series using Strava segments.
+- Completers celebration treatment for athletes who hit every destination in a week.
+- Shared-segment mini-races that auto-surface when multiple riders hit the same segment.
+- Destination categories such as scenic, climb, event, gravel, or coffee stop.
+- Profile accomplishments tied to Explorer completions and target history.
+- Club-wide completion metrics such as percent of riders who hit at least one destination in a week.
+- Bonus rules beyond 1 point per destination, such as first completion of the week, full-set completion, or rarity bonuses.
+- Admin-curated recurring challenge templates for monthly or seasonal Explorer campaigns.
+
 ---
 
 ## Maintenance & Stability
@@ -318,8 +297,7 @@
 
 ### Current
 - **Postgres only:** Scales to ~100 participants. Migrate to PostgreSQL if bigger.
-- **Manual admin trigger:** Results require "Fetch Results" button click
-- **No webhooks:** Can't detect new activities in real-time
+- **Manual admin trigger:** Results require "Fetch Results" button click (Note: Webhooks handle live activity detection, but manual fetch is kept as admin backup)
 - **Email:** No notification system
 
 ### Acceptable at Current Scale

@@ -50,7 +50,7 @@ npm run build           # Build for production
 
 For the env-mode matrix and what each variable actually means, see [URL Configuration Quick Reference](./docs/CONFIG_QUICK_REFERENCE.md).
 
-**→ See [Dev Process Management](./docs/DEV_PROCESS_MANAGEMENT.md) for detailed guidance on when to use each.**
+**→ See [Quick Start Guide](./docs/QUICK_START.md) for detailed guidance on when to use each preset.**
 
 ## What's Included
 
@@ -81,7 +81,7 @@ Start with one of these:
 | First time? | [Quick Start](./docs/QUICK_START.md) - 5 min setup |
 | Understanding the system? | [Architecture](./docs/ARCHITECTURE.md) |
 | Building features? | [API Reference](./docs/API.md) |
-| Security & encryption? | [Security Audit](./docs/SECURITY_AUDIT.md) & [Encryption Guide](./docs/TOKEN_ENCRYPTION_GUIDE.md) |
+| Security & encryption? | [Security Audit](./docs/SECURITY_AUDIT.md) (includes token encryption details) |
 | Deploying? | [Deployment Guide](./docs/DEPLOYMENT.md) |
 | Running admin tasks? | [Admin Guide](./ADMIN_GUIDE.md) |
 | Need everything? | [Documentation Index](./docs/README.md) |
