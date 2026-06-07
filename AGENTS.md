@@ -141,6 +141,10 @@ Before merging or opening a substantive PR, run `npm run audit` locally alongsid
     - If the workspace is located on a WSL mount (e.g., `\\wsl$\...`) and the host operating system is Windows, AI agents MUST execute all terminal commands (such as node, npm, git, docker, etc.) inside the WSL container (using `wsl bash -c "..."`) rather than directly on the Windows PowerShell/CMD host.
     - If Windows-side pre-commit hooks fail due to UNC pathing limitations during git commits inside WSL, bypass the hooks safely using the `--no-verify` flag (provided typecheck and lint have already been verified inside WSL).
 
+12. **Railway CLI Safety Protocol:**
+    - Before running any CLI commands, imports, or backups using the `railway` tool, agents MUST verify the active linked environment using `railway status` to avoid targeting the live production environment.
+    - NEVER run modifying or destructive commands directly against the `production` Railway environment. Rehearse all migrations or data operations first on a sandbox or rehearsal environment.
+
 ## Special Tasks
 
 | Task | Purpose | When to Use |

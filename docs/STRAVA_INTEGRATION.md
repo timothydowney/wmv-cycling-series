@@ -481,7 +481,7 @@ This allows full development and testing without real Strava accounts.
 ## Implementation Checklist
 
 ### Phase 1: OAuth Setup ✅ COMPLETE
-- [x] Environment variables (`STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `STRAVA_REDIRECT_URI`)
+- [x] Environment variables (`STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, `APP_BASE_URL`)
 - [x] `participant_tokens` table created
 - [x] `GET /auth/strava` route
 - [x] `GET /auth/strava/callback` route
@@ -523,7 +523,7 @@ When deploying to production via GitHub Actions, the following environment varia
 
 1. **`STRAVA_CLIENT_ID`** - Your Strava app's client ID (from https://www.strava.com/settings/api)
 2. **`STRAVA_CLIENT_SECRET`** - Your Strava app's client secret (keep this private!)
-3. **`STRAVA_REDIRECT_URI`** - Production OAuth redirect URL (e.g., `https://yourdomain.com/auth/strava/callback`)
+3. **`APP_BASE_URL`** - Production app base URL (e.g., `https://yourdomain.com`)
 4. **`SESSION_SECRET`** - Random secret for session encryption (generate with: `openssl rand -base64 32`)
 
 ### GitHub Actions Workflow Setup
@@ -534,7 +534,7 @@ Add to your `.github/workflows/deploy.yml`:
 env:
   STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
   STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
-  STRAVA_REDIRECT_URI: ${{ secrets.STRAVA_REDIRECT_URI }}
+  APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
   SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
   NODE_ENV: production
 ```

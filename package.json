@@ -10,11 +10,11 @@
   "scripts": {
     "preinstall": "node check-node.js",
     "predev": "node check-node.js",
-    "predev:server": "DB_DIALECT=${DB_DIALECT:-postgres} bash scripts/ensure-dev-db.sh",
-    "dev:server": "DB_DIALECT=${DB_DIALECT:-postgres} npm --prefix server run dev",
+    "predev:server": "bash scripts/ensure-dev-db.sh",
+    "dev:server": "npm --prefix server run dev",
     "dev:frontend": "vite",
     "dev": "concurrently -n \"backend,frontend\" -c \"blue,green\" \"npm:dev:server\" \"npm:dev:frontend\"",
-    "dev:postgres": "DB_DIALECT=postgres DATABASE_URL=${DATABASE_URL:-postgresql://wmv:wmv@localhost:5432/wmv_local} npm run dev",
+    "dev:postgres": "DATABASE_URL=${DATABASE_URL:-postgresql://wmv:wmv@localhost:5432/wmv_local} npm run dev",
     "dev:prod-data": "test -f .env.prod && ENV_FILE=.env.prod npm run dev",
     "dev:cleanup": "node scripts/dev-server.cjs cleanup",
     "clean": "rm -rf dist server/dist",
@@ -54,7 +54,6 @@
     "db:check": "npm --prefix server run db:check",
     "db:migrate": "npm --prefix server run db:migrate",
     "db:postgres:bootstrap-schema": "npm --prefix server run db:pg:bootstrap:schema",
-    "db:postgres:verify-rollback-tag": "bash scripts/verify-postgres-rollback-tag.sh",
     "postinstall": "cd server && npm install",
     "prepare": "node scripts/install-hooks.cjs"
   },

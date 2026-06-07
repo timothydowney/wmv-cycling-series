@@ -78,7 +78,6 @@ jq -r 'to_entries[] | select(.value != null) | "\(.key)=\(.value|tostring)"' <<<
 cat >> "$OUTPUT" <<EOF
 
 # --- Rehearsal overrides ---
-DB_DIALECT=postgres
 DATABASE_URL=$REHEARSAL_DB_URL
 PORT=$LOCAL_PORT
 APP_BASE_URL=http://localhost:$LOCAL_PORT

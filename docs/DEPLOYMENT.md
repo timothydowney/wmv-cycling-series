@@ -17,10 +17,9 @@ Complete information for deploying WMV Cycling Series to production.
 4. Set environment variables in Railway dashboard:
    - `NODE_ENV=production`
    - `PORT=3001`
-   - `CLIENT_BASE_URL=https://yourapp.railway.app` (use your Railway URL)
+   - `APP_BASE_URL=https://yourapp.railway.app` (use your Railway URL)
    - `STRAVA_CLIENT_ID` (from [strava.com/settings/api](https://www.strava.com/settings/api))
    - `STRAVA_CLIENT_SECRET` (from [strava.com/settings/api](https://www.strava.com/settings/api))
-   - `STRAVA_REDIRECT_URI=https://yourapp.railway.app/auth/strava/callback`
    - `DATABASE_URL=<railway postgres connection string>` (CRITICAL: Must point at the managed Postgres service)
    - `RAILWAY_RUN_UID=0` only if some other mounted path still requires elevated write access
    - `SESSION_SECRET` (generate: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`)
@@ -334,10 +333,9 @@ Set these on Railway dashboard:
 ```bash
 NODE_ENV=production
 PORT=3001
-CLIENT_BASE_URL=https://yourdomain.com
+APP_BASE_URL=https://yourdomain.com
 STRAVA_CLIENT_ID=170916
 STRAVA_CLIENT_SECRET=8b6e881a410ba3f4313c85b88796d982f38a59a9
-STRAVA_REDIRECT_URI=https://yourdomain.com/auth/strava/callback
 DATABASE_URL=<railway postgres connection string>
 RAILWAY_RUN_UID=0
 SESSION_SECRET=<generate-random-string>
@@ -367,6 +365,19 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 - Go to https://www.strava.com/settings/api
 - Update "Authorization Callback Domain" to your production domain
 - Update redirect URIs to use https://yourdomain.com
+
+---
+
+## Railway CLI Production Safety Protocol
+
+> [!WARNING]
+> Before running any deployment commands, database migrations, or database dumps using the Railway CLI (`railway`), developers and agents must always verify their linked environment:
+> 
+> ```bash
+> railway status
+> ```
+> 
+> Verify that the active linked environment matches your intended target. Never execute modifying or destructive database actions directly against the `production` environment via the Railway CLI. Use the dedicated sandbox environment (`postgres-rehearsal`) to test all database schema changes or data migrations.
 
 ---
 
@@ -615,7 +626,7 @@ feature branch → PR → CI tests → merge to main → Railway deploys
    - Add custom domain
    - Follow DNS setup instructions
 3. Configure Strava OAuth with custom domain
-4. Update `CLIENT_BASE_URL` environment variable
+4. Update `APP_BASE_URL` environment variable
 
 **Cost:** Domain registration only (~$10/year)
 **Benefit:** Professional look, easier to remember
@@ -676,10 +687,9 @@ Before going live for the first time:
 - [ ] All environment variables set in Railway dashboard:
   - [ ] `NODE_ENV=production`
   - [ ] `PORT=3001`
-  - [ ] `CLIENT_BASE_URL` points to production Railway URL
+  - [ ] `APP_BASE_URL` points to production Railway URL
   - [ ] `STRAVA_CLIENT_ID` from Strava app
   - [ ] `STRAVA_CLIENT_SECRET` from Strava app
-  - [ ] `STRAVA_REDIRECT_URI` matches production URL
   - [ ] `DATABASE_URL=<railway postgres connection string>`
   - [ ] `SESSION_SECRET` generated and set
 - [ ] Strava OAuth app updated with production domain
@@ -852,7 +862,7 @@ After deployment, verify it's working:
 ### OAuth Connection Failing
 
 1. Verify Strava app credentials are correct
-2. Check `STRAVA_REDIRECT_URI` matches Strava app settings
+2. Check that the domain of `APP_BASE_URL` matches the Authorization Callback Domain in your Strava app settings
 3. Check participant tokens in database
 4. Try disconnecting/reconnecting manually
 
