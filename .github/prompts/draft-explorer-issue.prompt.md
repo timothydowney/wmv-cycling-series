@@ -2,7 +2,6 @@
 name: Draft Explorer Issue
 description: Draft a GitHub issue from a stable Explorer worklog item or approved implementation slice.
 agent: agent
-tools: [read, search]
 model: GPT-5 (copilot)
 argument-hint: Provide the worklog item or approved Explorer slice to convert into an issue draft.
 ---

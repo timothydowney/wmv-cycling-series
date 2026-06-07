@@ -334,7 +334,7 @@ Set these on Railway dashboard:
 NODE_ENV=production
 PORT=3001
 APP_BASE_URL=https://yourdomain.com
-STRAVA_CLIENT_ID=170916
+STRAVA_CLIENT_ID=<your-strava-client-id>
 STRAVA_CLIENT_SECRET=<your-strava-client-secret>
 DATABASE_URL=<railway postgres connection string>
 RAILWAY_RUN_UID=0
