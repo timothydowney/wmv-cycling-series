@@ -255,7 +255,6 @@ STRAVA_WEBHOOK_API_URL=https://www.strava.com
 # Strava OAuth credentials (needed for activity fetching via API)
 STRAVA_CLIENT_ID=your-client-id
 STRAVA_CLIENT_SECRET=your-client-secret
-STRAVA_REDIRECT_URI=https://your-domain.com/auth/strava/callback
 ```
 
 ### Production Setup Checklist

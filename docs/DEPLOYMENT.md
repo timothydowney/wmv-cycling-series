@@ -17,10 +17,9 @@ Complete information for deploying WMV Cycling Series to production.
 4. Set environment variables in Railway dashboard:
    - `NODE_ENV=production`
    - `PORT=3001`
-   - `CLIENT_BASE_URL=https://yourapp.railway.app` (use your Railway URL)
+   - `APP_BASE_URL=https://yourapp.railway.app` (use your Railway URL)
    - `STRAVA_CLIENT_ID` (from [strava.com/settings/api](https://www.strava.com/settings/api))
    - `STRAVA_CLIENT_SECRET` (from [strava.com/settings/api](https://www.strava.com/settings/api))
-   - `STRAVA_REDIRECT_URI=https://yourapp.railway.app/auth/strava/callback`
    - `DATABASE_URL=<railway postgres connection string>` (CRITICAL: Must point at the managed Postgres service)
    - `RAILWAY_RUN_UID=0` only if some other mounted path still requires elevated write access
    - `SESSION_SECRET` (generate: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`)
@@ -627,7 +626,7 @@ feature branch → PR → CI tests → merge to main → Railway deploys
    - Add custom domain
    - Follow DNS setup instructions
 3. Configure Strava OAuth with custom domain
-4. Update `CLIENT_BASE_URL` environment variable
+4. Update `APP_BASE_URL` environment variable
 
 **Cost:** Domain registration only (~$10/year)
 **Benefit:** Professional look, easier to remember
@@ -688,10 +687,9 @@ Before going live for the first time:
 - [ ] All environment variables set in Railway dashboard:
   - [ ] `NODE_ENV=production`
   - [ ] `PORT=3001`
-  - [ ] `CLIENT_BASE_URL` points to production Railway URL
+  - [ ] `APP_BASE_URL` points to production Railway URL
   - [ ] `STRAVA_CLIENT_ID` from Strava app
   - [ ] `STRAVA_CLIENT_SECRET` from Strava app
-  - [ ] `STRAVA_REDIRECT_URI` matches production URL
   - [ ] `DATABASE_URL=<railway postgres connection string>`
   - [ ] `SESSION_SECRET` generated and set
 - [ ] Strava OAuth app updated with production domain
@@ -864,7 +862,7 @@ After deployment, verify it's working:
 ### OAuth Connection Failing
 
 1. Verify Strava app credentials are correct
-2. Check `STRAVA_REDIRECT_URI` matches Strava app settings
+2. Check that the domain of `APP_BASE_URL` matches the Authorization Callback Domain in your Strava app settings
 3. Check participant tokens in database
 4. Try disconnecting/reconnecting manually
 
