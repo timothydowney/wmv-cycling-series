@@ -150,6 +150,6 @@ If you see module errors during validation:
 ## Related Documentation
 
 - [Deployment Guide](../docs/DEPLOYMENT.md) - Railway setup details
-- [DEV_PROCESS_MANAGEMENT.md](../docs/DEV_PROCESS_MANAGEMENT.md) - Local development process
+- [Quick Start Guide](../docs/QUICK_START.md) - Local development guide and presets
 - [Dockerfile](../Dockerfile) - Production build definition
 - [.dockerignore](../.dockerignore) - Files excluded from production image

@@ -45,7 +45,7 @@ This fetches a production Postgres dump from Railway, restores a local snapshot 
 npm run dev:cleanup
 ```
 
-See `docs/DEV_PROCESS_MANAGEMENT.md` for detailed process management guide.
+See [CONFIG_QUICK_REFERENCE.md](./CONFIG_QUICK_REFERENCE.md) for the full matrix.
 
 ## Verify (1 minute)
 

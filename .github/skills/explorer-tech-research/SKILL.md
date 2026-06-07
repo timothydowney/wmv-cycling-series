@@ -19,8 +19,6 @@ Before researching externally, check the Explorer planning docs so the research 
 
 - [Explorer PRD](../../../docs/prds/wmv-explorer-destinations-prd.md)
 - [Explorer technical spec](../../../docs/prds/wmv-explorer-destinations-tech-spec.md)
-- [Explorer readiness checklist](../../../docs/prds/wmv-explorer-readiness-checklist.md)
-- [Explorer worklog](../../../docs/prds/wmv-explorer-worklog.md)
 
 ## Procedure
 

@@ -337,7 +337,7 @@ This checklist ensures our implementation remains compliant with all API Agreeme
 
 #### Data Security (Section 2.8)
 - [x] **Encrypt in transit** - All API calls use HTTPS (✅ implemented)
-- [ ] **Encrypt at rest** - Production must encrypt tokens with AES-256-GCM (⏳ [see TOKEN_ENCRYPTION_GUIDE.md](./TOKEN_ENCRYPTION_GUIDE.md))
+- [x] **Encrypt at rest** - Production must encrypt tokens with AES-256-GCM (✅ [see SECURITY_AUDIT.md](./SECURITY_AUDIT.md))
 - [ ] **Security measures** - Commerc reasonable security practices (⏳ add to privacy policy)
 - [ ] **Breach notification** - Notify Strava within 24 hours of any breach (⏳ process needed)
 
@@ -396,8 +396,8 @@ This checklist ensures our implementation remains compliant with all API Agreeme
    - Implement 48-hour deadline
 
 3. **Token Encryption**
-   - Implement AES-256-GCM encryption for production tokens
-   - See [TOKEN_ENCRYPTION_GUIDE.md](./TOKEN_ENCRYPTION_GUIDE.md)
+   - Ensure AES-256-GCM encryption is active for production tokens
+   - See [SECURITY_AUDIT.md](./SECURITY_AUDIT.md)
 
 4. **Security Audit**
    - Verify no tokens logged or exposed
@@ -449,8 +449,7 @@ This checklist ensures our implementation remains compliant with all API Agreeme
 
 ### Related Documentation
 
-- **[TOKEN_ENCRYPTION_GUIDE.md](./TOKEN_ENCRYPTION_GUIDE.md)** - How to encrypt tokens at rest
-- **[SECURITY_AUDIT.md](./SECURITY_AUDIT.md)** - Complete security review of the app
+- **[SECURITY_AUDIT.md](./SECURITY_AUDIT.md)** - Complete security review and token encryption details
 - **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Production security requirements
 - **[Official Strava API Agreement](https://www.strava.com/legal/api)** - Full legal text (last updated October 9, 2025)
 - **[Strava Brand Guidelines](https://developers.strava.com/guidelines)** - Logo and attribution rules

@@ -18,10 +18,6 @@ argument-hint: 'Describe the Explorer planning task or ask for the next implemen
 
 - [Explorer PRD](../../../docs/prds/wmv-explorer-destinations-prd.md)
 - [Explorer technical spec](../../../docs/prds/wmv-explorer-destinations-tech-spec.md)
-- [Explorer phases](../../../docs/prds/wmv-explorer-destinations-phases.md)
-- [Explorer readiness checklist](../../../docs/prds/wmv-explorer-readiness-checklist.md)
-- [Explorer worklog](../../../docs/prds/wmv-explorer-worklog.md)
-- [Explorer execution briefing](../../../docs/prds/wmv-explorer-execution-briefing.md)
 
 ## Procedure
 

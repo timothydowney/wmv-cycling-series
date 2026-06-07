@@ -598,37 +598,7 @@ Expected Results:
   - No race conditions or conflicts
 ```
 
----
 
-## Implementation Plan for Next Chat
-
-**Deliverables:**
-
-1. **Seeding Script** (`scripts/seed-webhook-test-data.ts`)
-   - Creates test participants with valid token records
-   - Creates test weeks
-   - Seeds initial activities if needed
-   - Idempotent (can run multiple times)
-
-2. **Enhanced Webhook Emitter** (update `scripts/webhook-emitter.ts`)
-   - Add scenario/profile flags: `--scenario=scoring-baseline`, `--scenario=multiple-activities`, etc.
-   - Auto-fetch test participant IDs from database
-   - Auto-adjust event_time to match test week windows
-   - Option to create activities with specific elapsed_time values
-   - Better output summary comparing leaderboard before/after
-
-3. **Test Checklist** (markdown file)
-   - Step-by-step for each test case
-   - SQL queries to verify database state
-   - Screenshots/expected UI state
-   - Checkboxes for manual verification
-
-4. **Monitoring Tool** (optional)
-   - Script to continuously watch webhook_event table
-   - Display new events and their processing status in real-time
-   - Helpful for tracking batch operations
-
----
 
 
 

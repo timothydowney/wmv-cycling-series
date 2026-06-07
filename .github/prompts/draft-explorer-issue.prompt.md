@@ -11,11 +11,8 @@ Draft a GitHub issue for WMV Explorer Destinations.
 
 Use these sources when relevant:
 
-- [Explorer readiness checklist](../../docs/prds/wmv-explorer-readiness-checklist.md)
-- [Explorer worklog](../../docs/prds/wmv-explorer-worklog.md)
 - [Explorer PRD](../../docs/prds/wmv-explorer-destinations-prd.md)
 - [Explorer technical spec](../../docs/prds/wmv-explorer-destinations-tech-spec.md)
-- [Explorer phases](../../docs/prds/wmv-explorer-destinations-phases.md)
 
 Output a compact issue draft with:
 
