@@ -60,7 +60,7 @@ For the env-mode matrix and what each variable actually means, see [URL Configur
 - ✅ OAuth token encryption (AES-256-GCM at rest in database)
 - ✅ Postgres database with test data
 - ✅ 450+ backend tests (including encryption security tests)
-- ✅ Complete documentation (including security audit and encryption guide)
+- ✅ Complete documentation (including security audit with encryption details)
 
 ## Architecture
 

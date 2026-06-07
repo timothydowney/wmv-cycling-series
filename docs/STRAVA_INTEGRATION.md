@@ -396,7 +396,7 @@ This checklist ensures our implementation remains compliant with all API Agreeme
    - Implement 48-hour deadline
 
 3. **Token Encryption**
-   - Implement AES-256-GCM encryption for production tokens
+   - Ensure AES-256-GCM encryption is active for production tokens
    - See [SECURITY_AUDIT.md](./SECURITY_AUDIT.md)
 
 4. **Security Audit**

@@ -31,7 +31,7 @@
 
 
 
-### 3. Email Notifications
+### 2. Email Notifications
 
 **Description:** Send weekly notifications to participants (optional opt-in).
 
@@ -55,7 +55,7 @@
 
 ---
 
-### 4. Admin UI for Week Creation
+### 3. Admin UI for Week Creation
 
 **Description:** Web form instead of curl commands for creating weeks.
 
@@ -80,7 +80,7 @@
 
 ## Priority: Medium (Season 3+)
 
-### 6. Activity Audit & Manual Overrides
+### 4. Activity Audit & Manual Overrides
 
 **Description:** Admin can view activity details and manually adjust/exclude activities if needed.
 
@@ -100,7 +100,7 @@
 
 ---
 
-### 7. Leaderboard Filters & Search
+### 5. Leaderboard Filters & Search
 
 **Description:** Filter leaderboards by week, season, participant name.
 
@@ -118,7 +118,7 @@
 
 ---
 
-### 8. Activity Description Enhancement
+### 6. Activity Description Enhancement
 
 **Description:** Show more details on leaderboards (route, weather, etc. from Strava).
 
@@ -137,7 +137,7 @@
 
 ## Priority: Low (Future)
 
-### 9. Mobile App
+### 7. Mobile App
 
 **Description:** Native iOS/Android app for viewing leaderboards.
 
@@ -153,7 +153,7 @@
 
 ---
 
-### 10. Analytics Dashboard
+### 8. Analytics Dashboard
 
 **Description:** Admin view of participation trends, speed trends, etc.
 
@@ -171,7 +171,7 @@
 
 ---
 
-### 11. Integration with Strava Clubs
+### 9. Integration with Strava Clubs
 
 **Description:** List WMV as a "club" on Strava, auto-sync members.
 
@@ -188,7 +188,7 @@
 **Breaking Changes:** None  
 **Strava API:** Special review may be required
 
-### 12. Explorer Destinations Enhancements
+### 10. Explorer Destinations Enhancements
 
 **Description:** Enhancements and future features for the offseason Explorer Destinations campaign feature.
 
@@ -312,7 +312,7 @@
 | Participants | Recommendation | Action |
 |---|---|---|
 | <100 | ✅ Current setup | No changes needed |
-| 100-500 | Webhooks + archives | Add webhooks, start archiving seasons |
+| 100-500 | Webhook scaling + archives | Harden/scale webhooks, start archiving seasons |
 | 500-1000 | Postgres capacity tuning | Increase managed Postgres resources as usage grows |
 | 1000+ | Read replica + cache | Add Redis, read replicas |
 
