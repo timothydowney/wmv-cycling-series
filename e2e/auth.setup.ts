@@ -21,7 +21,7 @@
 import { test as setup, expect } from '@playwright/test';
 
 const authFile = 'e2e/.auth/user.json';
-const frontendBaseUrl = process.env.E2E_FRONTEND_URL || 'http://localhost:5174';
+const frontendBaseUrl = process.env.FRONTEND_URL || 'http://localhost:5174';
 const frontendHostPattern = new URL(frontendBaseUrl).host.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 setup('authenticate with Strava', async ({ page }) => {

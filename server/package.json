@@ -10,7 +10,7 @@
     "start": "node dist/index.js",
     "build": "tsc",
     "predev": "node check-node.js",
-    "dev": "NODE_ENV=development DB_DIALECT=${DB_DIALECT:-postgres} nodemon --exec tsx src/index.ts",
+    "dev": "NODE_ENV=development nodemon --exec tsx src/index.ts",
     "test": "NODE_ENV=test jest --coverage --runInBand",
     "test:watch": "NODE_ENV=test jest --watch",
     "lint": "eslint src",
@@ -23,9 +23,7 @@
     "db:generate": "drizzle-kit generate",
     "db:check": "drizzle-kit check",
     "db:migrate": "drizzle-kit migrate",
-    "db:pg:bootstrap:schema": "npm run db:migrate",
-    "db:pg:migrate:from-sqlite": "node scripts/migrate-sqlite-to-postgres.js",
-    "db:pg:verify:parity": "node scripts/verify-sqlite-postgres-parity.js"
+    "db:pg:bootstrap:schema": "npm run db:migrate"
   },
   "engines": {
     "node": ">=24 <25"
@@ -67,7 +65,6 @@
     "globals": "^17.4.0",
     "jest": "^30.3.0",
     "nodemon": "^3.1.14",
-    "better-sqlite3": "^12.8.0",
     "pg-mem": "^2.9.1",
     "supertest": "^7.2.2",
     "ts-jest": "^29.4.9",

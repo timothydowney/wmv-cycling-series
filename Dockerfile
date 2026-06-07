@@ -5,11 +5,6 @@ FROM node:24-slim AS builder
 
 WORKDIR /app
 
-# Install build dependencies for better-sqlite3
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    python3 \
-    && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
 COPY package*.json ./
@@ -56,8 +51,7 @@ COPY --from=builder --chown=nodejs:nodejs /app/package*.json ./
 ## Copy already-installed node_modules (frontend deps)
 COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 
-## Copy server code + its node_modules (contains better-sqlite3 compiled in builder)
-## Also copy compiled TypeScript output (dist folder)
+## Copy server code, compiled TypeScript output, and node_modules
 COPY --from=builder --chown=nodejs:nodejs /app/server/dist ./server/dist
 COPY --from=builder --chown=nodejs:nodejs /app/server/node_modules ./server/node_modules
 COPY --from=builder --chown=nodejs:nodejs /app/server/package*.json ./server/
@@ -74,10 +68,6 @@ COPY --from=builder --chown=nodejs:nodejs /app/scripts ./scripts
 ## Copy railway.toml configuration (CRITICAL for Railway to recognize volume mounts)
 COPY --from=builder /app/railway.toml ./railway.toml
 
-## Dedicated persistent volume mount point for SQLite databases
-## Both wmv.db (main) and sessions.db (sessions) should be stored here
-## In Railway: mount a persistent volume at /data
-RUN mkdir -p /data && chown nodejs:nodejs /data
 
 # Switch to non-root user
 USER nodejs

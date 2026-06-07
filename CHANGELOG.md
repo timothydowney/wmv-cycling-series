@@ -10,6 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Normalized development, E2E, and production environment templates to focus exclusively on Postgres (`DATABASE_URL`), updating frontend URLs to use native `VITE_` configuration.
+- Standardized E2E scripts to use shared `FRONTEND_URL` and `BACKEND_URL` environment variables.
+
+### Removed
+- Removed legacy SQLite compatibility, configuration options (`DB_DIALECT`, `DATABASE_PATH`), migration/parity verification scripts, and `better-sqlite3` build-time dependencies.
+- Pruned build-essential runtime libraries and SQLite data directory persistence from the Docker and Railway configurations.
+
 ### Added
 - Explorer now includes a Club tab for logged-in athletes, showing top popular destinations, least-popular destinations, and recent first-completer milestones for the active campaign.
 

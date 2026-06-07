@@ -20,12 +20,7 @@ async function testChatDirect() {
   const path = await import('path');
   dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
-  // Ensure DATABASE_PATH resolves correctly relative to server/
-  // The .env says "./data/wmv.db" which is relative to server/, not project root
   const serverDir = path.resolve(__dirname, '..');
-  if (process.env.DATABASE_PATH && !path.isAbsolute(process.env.DATABASE_PATH)) {
-    process.env.DATABASE_PATH = path.resolve(serverDir, process.env.DATABASE_PATH);
-  }
 
   const { drizzleDb } = await import('../src/db');
   const { ChatService } = await import('../src/services/ChatService');

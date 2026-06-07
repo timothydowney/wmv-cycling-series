@@ -70,7 +70,6 @@ console.log(admin.toString());
 ensure_local_postgres_ready() {
     local target_url="$1"
 
-    DB_DIALECT=postgres \
     DATABASE_URL="$target_url" \
     WMV_AUTO_BOOTSTRAP_DB=false \
     bash scripts/ensure-dev-db.sh
@@ -268,8 +267,6 @@ NODE_ENV=development
 FRONTEND_URL=http://localhost:5173
 BACKEND_URL=http://localhost:3001
 
-# Runtime database dialect
-DB_DIALECT=postgres
 
 # Database (local Postgres snapshot restored from Railway production)
 DATABASE_URL=$LOCAL_SNAPSHOT_DATABASE_URL

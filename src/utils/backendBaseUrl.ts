@@ -1,6 +1,6 @@
 export function getBackendBaseUrl(): string {
-  if (import.meta.env.REACT_APP_BACKEND_URL) {
-    return import.meta.env.REACT_APP_BACKEND_URL;
+  if (import.meta.env.VITE_BACKEND_URL) {
+    return import.meta.env.VITE_BACKEND_URL;
   }
 
   if (typeof window !== 'undefined') {

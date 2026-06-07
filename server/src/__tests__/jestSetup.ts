@@ -4,7 +4,6 @@
 // The real DATABASE_URL is never actually dialled in tests because setupTestDb()
 // overrides the database connection via dbOverride / ormOverride in createContext.
 
-process.env.DB_DIALECT = 'postgres';
 process.env.DATABASE_URL = 'postgres://test:test@localhost:5432/testdb_pgmem';
 // Provide other required env vars with safe test defaults if not already set.
 if (!process.env.NODE_ENV) process.env.NODE_ENV = 'test';

@@ -334,10 +334,9 @@ Set these on Railway dashboard:
 ```bash
 NODE_ENV=production
 PORT=3001
-CLIENT_BASE_URL=https://yourdomain.com
+APP_BASE_URL=https://yourdomain.com
 STRAVA_CLIENT_ID=170916
 STRAVA_CLIENT_SECRET=8b6e881a410ba3f4313c85b88796d982f38a59a9
-STRAVA_REDIRECT_URI=https://yourdomain.com/auth/strava/callback
 DATABASE_URL=<railway postgres connection string>
 RAILWAY_RUN_UID=0
 SESSION_SECRET=<generate-random-string>
@@ -367,6 +366,19 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 - Go to https://www.strava.com/settings/api
 - Update "Authorization Callback Domain" to your production domain
 - Update redirect URIs to use https://yourdomain.com
+
+---
+
+## Railway CLI Production Safety Protocol
+
+> [!WARNING]
+> Before running any deployment commands, database migrations, or database dumps using the Railway CLI (`railway`), developers and agents must always verify their linked environment:
+> 
+> ```bash
+> railway status
+> ```
+> 
+> Verify that the active linked environment matches your intended target. Never execute modifying or destructive database actions directly against the `production` environment via the Railway CLI. Use the dedicated sandbox environment (`postgres-rehearsal`) to test all database schema changes or data migrations.
 
 ---
 
