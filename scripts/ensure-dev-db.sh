@@ -10,21 +10,14 @@ if [[ -f "$ENV_PATH" ]]; then
   set +a
 fi
 
-DB_DIALECT_VALUE="${DB_DIALECT:-postgres}"
 DATABASE_URL_VALUE="${DATABASE_URL:-postgresql://wmv:wmv@localhost:5432/wmv_local}"
 AUTO_BOOTSTRAP_VALUE="${WMV_AUTO_BOOTSTRAP_DB:-true}"
 SEED_SQL_PATH_VALUE="${WMV_DEV_SEED_SQL_PATH:-server/data/wmv_e2e_seed.sql}"
 SKIP_DEV_SEED_RAW_VALUE="${WMV_SKIP_DEV_SEED:-}"
 ALLOW_DEV_LOCAL_SEED_VALUE="${WMV_ALLOW_DEV_LOCAL_SEED:-false}"
 
-if [[ "$DB_DIALECT_VALUE" != "postgres" ]]; then
-  echo "[dev-db] ERROR: runtime is Postgres-only in this branch, but DB_DIALECT=${DB_DIALECT_VALUE}"
-  echo "[dev-db] Set DB_DIALECT=postgres and DATABASE_URL (or use defaults for localhost)."
-  exit 1
-fi
-
 if [[ -z "$DATABASE_URL_VALUE" ]]; then
-  echo "[dev-db] ERROR: DB_DIALECT=postgres requires DATABASE_URL"
+  echo "[dev-db] ERROR: DATABASE_URL must be set"
   exit 1
 fi
 

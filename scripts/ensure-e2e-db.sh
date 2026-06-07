@@ -14,7 +14,7 @@ DATABASE_URL="${DATABASE_URL:-postgresql://wmv:wmv@localhost:5432/wmv_e2e}"
 SEED_SQL_PATH="${SEED_SQL_PATH:-server/data/wmv_e2e_seed.sql}"
 
 # Ensure local Postgres runtime is reachable for localhost targets.
-DB_DIALECT=postgres DATABASE_URL="$DATABASE_URL" WMV_AUTO_BOOTSTRAP_DB=false bash scripts/ensure-dev-db.sh
+DATABASE_URL="$DATABASE_URL" WMV_AUTO_BOOTSTRAP_DB=false bash scripts/ensure-dev-db.sh
 
 # Always ensure the E2E DB exists and schema is bootstrapped before seeding.
 echo "[e2e-db] Ensuring target Postgres database exists"
@@ -63,11 +63,6 @@ else
   echo "[e2e-db] E2E database already has data (${PARTICIPANT_COUNT} participants), skipping seed"
 fi
 
-if [[ "${WMV_E2E_RESET_DB_ON_BOOT:-false}" == "true" ]]; then
-  echo "[e2e-db] ERROR: WMV_E2E_RESET_DB_ON_BOOT=true is no longer supported by scripts/ensure-e2e-db.sh."
-  echo "[e2e-db] Automatic reset-on-boot is not supported. Drop and recreate the Postgres database, then rerun this script."
-  echo "[e2e-db] Supported reset workflow: drop and recreate the Postgres database referenced by DATABASE_URL (for local E2E this is usually wmv_e2e), then rerun this script to recreate the schema."
-  exit 1
-fi
+
 
 echo "[e2e-db] E2E Postgres database is ready"
