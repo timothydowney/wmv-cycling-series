@@ -2,7 +2,7 @@ import { desc } from 'drizzle-orm';
 import type { AppDatabase } from '../db/types';
 import { getStravaApiMode } from '../config';
 import { participantToken } from '../db/schema';
-import { getActivity, getAthleteProfile, getLoggedInAthlete } from '../stravaClient';
+import { getActivity, getAthleteProfile } from '../stravaClient';
 import * as stravaClientModule from '../stravaClient';
 import { getValidAccessToken } from '../tokenManager';
 import { fetchWebhookActivity, hasWebhookActivityFixture } from './webhookActivityProvider';
@@ -11,13 +11,6 @@ import { getOne } from '../db/asyncQuery';
 interface CachedProfile {
   profile: string | null;
   timestamp: number;
-}
-
-interface AthleteClub {
-  id: number;
-  resource_state?: number;
-  name?: string;
-  [key: string]: unknown;
 }
 
 interface WebhookActivityDetails {
@@ -278,30 +271,6 @@ async function getAthleteProfilePictures(
   return results;
 }
 
-async function checkClubMembership(
-  db: AppDatabase,
-  athleteId: string,
-  clubId: string
-): Promise<boolean> {
-  if (usesDeterministicStravaReads()) {
-    return false;
-  }
-
-  try {
-    const accessToken = await getValidAccessToken(db, stravaClientModule, athleteId);
-    const athlete = await getLoggedInAthlete(accessToken);
-
-    if (!athlete || !Array.isArray(athlete.clubs)) {
-      return false;
-    }
-
-    const clubIdNum = Number(clubId);
-    return athlete.clubs.some((club: AthleteClub) => Number(club.id) === clubIdNum);
-  } catch (error) {
-    console.error(`[Club] Error checking membership for athlete ${athleteId}:`, error);
-    return false;
-  }
-}
 
 async function getWebhookActivityDetails(
   db: AppDatabase,
@@ -392,7 +361,6 @@ function clearWebhookActivityDetailsCache(): void {
 }
 
 export {
-  checkClubMembership,
   clearProfileCache,
   clearWebhookActivityDetailsCache,
   getAthleteProfilePictures,

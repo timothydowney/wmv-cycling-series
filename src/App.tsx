@@ -16,7 +16,6 @@ import WebhookManagementPanel from './components/WebhookManagementPanel';
 import ExplorerAdminPanel from './components/ExplorerAdminPanel';
 import ExplorerHubPage from './components/ExplorerHubPage';
 import StravaConnectInfoBox from './components/StravaConnectInfoBox';
-import StravaClubJoinPrompt from './components/StravaClubJoinPrompt';
 import AboutPage from './components/AboutPage';
 import SignedOutHomePage from './components/SignedOutHomePage';
 import MyProfilePage from './components/MyProfilePage';
@@ -24,7 +23,6 @@ import ChatPanel from './components/ChatPanel';
 import ChainChecker from './components/ChainChecker';
 import { UnitProvider } from './context/UnitContext';
 import { getDefaultSeason, getDefaultWeek } from './utils/defaultSelection';
-import { useClubMembership } from './hooks/useClubMembership';
 import { getBackendBaseUrl } from './utils/backendBaseUrl';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -47,8 +45,6 @@ const LeaderboardView: React.FC<LeaderboardViewProps> = ({ seasons, userAthleteI
   const activeTab = useMemo(() => (paramTab as TabType) || 'weekly', [paramTab]);
   const selectedWeekId = useMemo(() => paramWeekId ? parseInt(paramWeekId) : null, [paramWeekId]);
 
-  // Club membership hook
-  const clubMembership = useClubMembership({ athleteId: userAthleteId || undefined });
 
   // tRPC Queries
   const weeksQuery = trpc.week.getAll.useQuery(
@@ -103,11 +99,6 @@ const LeaderboardView: React.FC<LeaderboardViewProps> = ({ seasons, userAthleteI
   return (
     <>
       <StravaConnectInfoBox show={userAthleteId === null} />
-      <StravaClubJoinPrompt
-        show={clubMembership.shouldShow}
-        onNotInterested={clubMembership.notInterested}
-        onRemindLater={clubMembership.remindMeLater}
-      />
       <SeasonWeekSelectors
         seasons={seasons}
         selectedSeasonId={selectedSeasonId}

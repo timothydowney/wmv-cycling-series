@@ -58,7 +58,7 @@ interface Config {
   stravaClientSecret: string | undefined;
   stravaWebhookApiUrl: string; // Only used for webhook subscription endpoints
   stravaApiMode: StravaApiMode;
-  stravaClubId: string; // Strava club to track membership for
+  stravaApiBaseUrl: string;
   // Database
   databaseUrl: string | undefined;
   maxDatabaseSize: number; // Maximum database size in MB (default: 256)
@@ -153,7 +153,9 @@ function getConfig(): Config {
     stravaClientSecret: process.env.STRAVA_CLIENT_SECRET,
     stravaWebhookApiUrl: process.env.STRAVA_WEBHOOK_API_URL || 'https://www.strava.com',
     stravaApiMode,
-    stravaClubId: process.env.STRAVA_CLUB_ID || '1495648',
+    // TODO: Migrate to 'https://www.api-v3.strava.com/' by June 1, 2027 per Strava API policy updates.
+    // Reverted to 'https://www.strava.com/api/v3' in the meantime since the new base URL is not yet online.
+    stravaApiBaseUrl: process.env.STRAVA_API_BASE_URL || 'https://www.strava.com/api/v3',
     // Database
     databaseUrl:
       process.env.DATABASE_URL ||
