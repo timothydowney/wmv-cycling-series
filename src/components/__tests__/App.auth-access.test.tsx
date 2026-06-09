@@ -40,7 +40,6 @@ vi.mock('../../components/WebhookManagementPanel', () => ({ default: () => <div>
 vi.mock('../../components/ExplorerAdminPanel', () => ({ default: () => <div>Explorer Admin</div> }));
 vi.mock('../../components/ExplorerHubPage', () => ({ default: () => <div>Explorer Hub</div> }));
 vi.mock('../../components/StravaConnectInfoBox', () => ({ default: () => <div>Legacy Banner</div> }));
-vi.mock('../../components/StravaClubJoinPrompt', () => ({ default: () => <div>Join Prompt</div> }));
 vi.mock('../../components/AboutPage', () => ({ default: () => <div>About Page Content</div> }));
 vi.mock('../../components/MyProfilePage', () => ({ default: () => <div>Profile</div> }));
 vi.mock('../../components/ChatPanel', () => ({ default: () => <div>Chat</div> }));

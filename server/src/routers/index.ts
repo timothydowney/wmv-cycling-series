@@ -5,7 +5,6 @@ import { segmentRouter } from './segment';
 import { participantRouter } from './participant';
 import { leaderboardRouter } from '../trpc/leaderboardRouter'; // Import the new leaderboardRouter
 import { webhookAdminRouter } from '../trpc/routers/webhookAdminRouter'; // Import the new webhookAdminRouter
-import { clubRouter } from './club';
 import { profileRouter } from './profile';
 import { chatRouter } from './chat';
 import { chainWaxRouter } from './chainWax';
@@ -20,7 +19,6 @@ export const appRouter = router({
   participant: participantRouter,
   leaderboard: leaderboardRouter, // Add the leaderboardRouter to the appRouter
   webhookAdmin: webhookAdminRouter, // Add the webhookAdminRouter
-  club: clubRouter,
   profile: profileRouter,
   chat: chatRouter,
   chainWax: chainWaxRouter,

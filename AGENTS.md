@@ -187,6 +187,37 @@ npm run dev
 - E2E: verify the Playwright env file and backend mode you intended are actually loaded (typically DB name `wmv_e2e`)
 - If wrong, check which env file is loaded and whether the harness failed fast
 
+
+## Code Patterns & Standards
+
+### Technology Stack
+- **Frontend:** React 19 + TypeScript + Vite, tRPC Client, TanStack React Query (v5), Tailwind CSS
+- **Backend:** Express on Node.js 24.x, tRPC, Drizzle ORM, Postgres (pg)
+- **Testing:** Vitest (frontend), Jest + ts-jest (backend with pg-mem), Playwright (E2E with `wmv_e2e` DB)
+
+### Backend & Frontend Standards
+- **Dependency Injection:** Services receive `drizzleDb` (AppDatabase) in the constructor. tRPC procedure context contains `drizzleDb`.
+- **Database Queries:** Always use Drizzle ORM (no raw SQL unless unavoidable). Use parameterized queries and transactions for consistency.
+- **TypeScript:** Never use `any`. Always use explicit, specific types.
+- **UI Design System:** Treat `docs/LEADERBOARD_DESIGN_SYSTEM.md` as the canonical reference for the Weekly, Season, and Schedule design language. Do not use legacy admin CSS as the default source of truth for public Explorer UI.
+
+### Timestamps & Timezones
+- **Golden Rule:** Strava ISO (UTC) → Unix seconds (storage) → Browser timezone (display)
+1. **Input:** Always use Strava `start_date` (UTC with Z: `"2025-10-28T14:30:00Z"`). **Never** use `start_date_local`.
+2. **Storage:** Store as INTEGER Unix seconds (UTC-based), e.g., `1730126400`.
+3. **API Responses:** Return Unix seconds (numbers), not ISO strings.
+4. **Display:** Convert Unix to browser's local timezone using formatters in `src/utils/dateUtils.ts`.
+
+### Strava API Integration
+- **OAuth Flow:** Redirect to `/auth/strava` → Exchange code for tokens → Store encrypted in `participant_token` table. Tokens auto-refresh before expiry (6-hour lifecycle).
+- **Activity Collection:** Fetches activities for all connected participants for the time window, filters to required segment + best qualifying activity, and saves to database.
+
+### Security Best Practices
+- Use Drizzle ORM parameterized queries to prevent SQL Injection.
+- Encrypt sensitive data (like tokens) at rest using AES-256-GCM.
+- Never commit secrets or API keys to git (use `.env` and `.gitignore`).
+- Handle errors gracefully without exposing sensitive information in logs or messages.
+
 ## Documentation
 
 For detailed information, see:
@@ -211,6 +242,7 @@ All must pass before merge to main branch.
 
 ---
 
-**Last Updated:** January 2026  
+**Last Updated:** June 2026  
 **Node Version:** 24.x  
 **Database:** Postgres (pg)
+
