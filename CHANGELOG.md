@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Added native Antigravity developer configuration including repository root rule link (`GEMINI.md -> AGENTS.md`), compatibility link (`.agent -> .agents`), design system audit skill (`leaderboard-design-audit`), full-stack dev agent persona (`dev-agent`), and discovery manifests (`skills.json`, `agents.json`).
+
 ### Changed
 - Normalized development, E2E, and production environment templates to focus exclusively on Postgres (`DATABASE_URL`), updating frontend URLs to use native `VITE_` configuration.
 - Standardized E2E scripts to use shared `FRONTEND_URL` and `BACKEND_URL` environment variables.
