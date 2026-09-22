@@ -12,7 +12,7 @@ Most local confusion came from treating all env vars like they do the same job. 
 |------|------------------|----------------|-----------------|
 | `ENV_FILE` | Which preset file is loaded by `server/src/config.ts` | `.env`, `.env.prod`, `e2e/.env.e2e` | Anyone starting the app or tests |
 | `WMV_RUNTIME_MODE` | Extra runtime behavior for the app itself | `default`, `e2e` | Mostly E2E bootstrapping |
-| `STRAVA_API_MODE` | Whether backend Strava-dependent reads run live or deterministic | `live`, `fixture`, `mock-server` | Webhook, Explorer, and Strava-dependent local work |
+| `STRAVA_API_MODE` | Whether backend Strava-dependent reads run live or deterministic | `live`, `fixture`, `mock-server` | Webhook and Strava-dependent local work |
 
 Keep the model simple:
 - Start from a preset env file instead of setting one-off shell vars.

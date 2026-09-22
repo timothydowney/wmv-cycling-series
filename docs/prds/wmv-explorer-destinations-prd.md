@@ -9,6 +9,11 @@
 | Author | GitHub Copilot |
 | Date | 2026-04-12 |
 | Status | Draft |
+| Status | Retired |
+
+> [!NOTE]
+> **Feature Retired (September 2026)**
+> This feature did not pan out as expected and was removed from the codebase and production database. This document is retained for historical context only.
 
 ## 1. Executive Summary
 

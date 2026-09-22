@@ -244,28 +244,6 @@ INSERT INTO public.chain_wax_period (id, started_at, ended_at, total_distance_me
 INSERT INTO public.chain_wax_puck (id, started_at, wax_count, is_current, created_at) VALUES (1, 1773583200, 4, true, '2026-03-15 14:00:00+00');
 
 
---
--- Data for Name: explorer_campaign; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: explorer_destination; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: explorer_destination_match; Type: TABLE DATA; Schema: public; Owner: -
---
-
-
-
---
--- Data for Name: explorer_destination_pin; Type: TABLE DATA; Schema: public; Owner: -
---
-
 
 
 --
@@ -1626,33 +1604,6 @@ SELECT pg_catalog.setval('public.chain_wax_period_id_seq', 1, false);
 
 SELECT pg_catalog.setval('public.chain_wax_puck_id_seq', 1, false);
 
-
---
--- Name: explorer_campaign_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
-
-SELECT pg_catalog.setval('public.explorer_campaign_id_seq', 1, false);
-
-
---
--- Name: explorer_destination_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
-
-SELECT pg_catalog.setval('public.explorer_destination_id_seq', 1, false);
-
-
---
--- Name: explorer_destination_match_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
-
-SELECT pg_catalog.setval('public.explorer_destination_match_id_seq', 1, false);
-
-
---
--- Name: explorer_destination_pin_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
-
-SELECT pg_catalog.setval('public.explorer_destination_pin_id_seq', 1, false);
 
 
 --

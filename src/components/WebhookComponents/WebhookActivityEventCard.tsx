@@ -72,7 +72,7 @@ const WebhookActivityEventCard: React.FC<Props> = ({ event }) => {
 
 
   const getSummaryBadges = () => {
-    const badges: Array<{ label: string; tone: 'competition' | 'explorer' | 'both' | 'none' | 'pending' | 'failed' | 'create' | 'update' | 'delete' | 'detail' }> = [
+    const badges: Array<{ label: string; tone: 'competition' | 'none' | 'pending' | 'failed' | 'create' | 'update' | 'delete' | 'detail' }> = [
       {
         label: event.payload.aspect_type.charAt(0).toUpperCase() + event.payload.aspect_type.slice(1),
         tone: event.payload.aspect_type,
@@ -85,8 +85,6 @@ const WebhookActivityEventCard: React.FC<Props> = ({ event }) => {
 
     const outcomeLabelMap = {
       competition: 'Competition',
-      explorer: 'Explorer',
-      both: 'Competition + Explorer',
       none: 'No match',
       pending: 'Pending',
       failed: 'Failed',
@@ -108,18 +106,6 @@ const WebhookActivityEventCard: React.FC<Props> = ({ event }) => {
           `${event.activity_summary.competition_week_count} week${event.activity_summary.competition_week_count === 1 ? '' : 's'}`
         ),
         tone: 'competition',
-      });
-    }
-
-    if (event.activity_summary.explorer_destination_count > 0) {
-      badges.push({
-        label: formatSpecificMatchLabel(
-          'Destination',
-          event.activity_summary.explorer_destination_names,
-          event.activity_summary.explorer_destination_count,
-          `${event.activity_summary.explorer_destination_count} destination${event.activity_summary.explorer_destination_count === 1 ? '' : 's'}`
-        ),
-        tone: 'explorer',
       });
     }
 

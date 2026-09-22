@@ -1,7 +1,7 @@
 # API reference
 
 **NOTE: The project is migrating to tRPC. The REST endpoints below are legacy or specific to Auth/Webhooks.**
-**For all data fetching (Week, Season, Leaderboard, Segments, Participants, Webhook Admin, Explorer), refer to the tRPC routers in `server/src/routers`.**
+**For all data fetching (Week, Season, Leaderboard, Segments, Participants, Webhook Admin), refer to the tRPC routers in `server/src/routers`.**
 
 Base URL (dev): http://localhost:3001
 
@@ -186,37 +186,8 @@ GET /admin/segments/{strava_segment_id}/validate
 The `webhookAdminRouter` provides procedures for monitoring and managing Strava webhooks. These are only available to admins.
 
 - `trpc.webhookAdmin.getStatus` — Returns current webhook subscription status and statistics.
-- `trpc.webhookAdmin.getEvents` — Returns a paginated list of recently logged webhook events. Activity events include a collapsed `activity_summary` that carries competition and Explorer outcome counts plus specific matched week and destination names when available.
+- `trpc.webhookAdmin.getEvents` — Returns a paginated list of recently logged webhook events. Activity events include a collapsed `activity_summary` that carries competition outcome counts plus specific matched week names when available.
 - `trpc.webhookAdmin.getEnrichedEventDetails` — Returns detailed metadata for a specific activity mentioned in a webhook event, including opportunistically fetched Strava detail, detail-availability status, and event-context metadata for the expanded admin card.
-
-## Explorer (tRPC)
-
-The `explorerRouter` provides the read paths for the campaign-first Explorer MVP.
-
-- `trpc.explorer.getActiveCampaign` — Returns the currently active Explorer campaign by campaign-owned date window, including ordered destinations. Campaigns without destinations are hidden from the athlete-facing surface.
-- `trpc.explorer.getCampaignProgress` — Returns the authenticated athlete's completion state for a campaign, including completed destinations and the source Strava activity IDs for recorded matches.
-
-## Explorer Admin (tRPC)
-
-The `explorerAdminRouter` provides the admin-only campaign management paths for Explorer setup.
-
-Relationship model:
-
-- Explorer campaigns own their own `startAt` and `endAt` window in v1.
-- Explorer campaigns must not overlap in v1.
-- One Explorer campaign can contain many destinations.
-- A given Strava segment can appear only once within the same campaign.
-
-- `trpc.explorerAdmin.getCampaigns` — Returns all Explorer campaigns for admin editing, ordered by campaign start date with nested destinations.
-- `trpc.explorerAdmin.createCampaign` — Creates a new Explorer campaign from a date window plus optional display copy. Rejects overlapping campaign windows.
-- `trpc.explorerAdmin.updateCampaign` — Updates an Explorer campaign's date window and display copy while enforcing the no-overlap rule.
-- `trpc.explorerAdmin.addDestination` — Adds a destination to an Explorer campaign from a validated Strava segment URL, persists the source URL plus Explorer-local cached display metadata, and appends the destination at the next display order.
-
-Current 4A contract notes:
-
-- Raw segment IDs are not accepted as an admin authoring input.
-- Destination creation can still succeed when URL parsing succeeds but live segment metadata enrichment is unavailable.
-- Duplicate segment IDs within the same campaign are rejected.
 
 ## Error responses
 

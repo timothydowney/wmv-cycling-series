@@ -10,6 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-09-21
+
+### Removed
+- Retired the Explorer destinations feature, removing all associated UI views (`ExplorerHubPage`, `ExplorerAdminPanel`, `ExplorerBottomNav`), navigation links, routes (`/explorer`, `/explorer-admin`), and styles.
+- Removed Explorer backend services (`ExplorerMatchingService`, `ExplorerAdminService`, `ExplorerQueryService`, `ExplorerClubTabService`), webhook activity handler, tRPC routers, tests, and agent planning prompts.
+- Dropped Explorer database tables (`explorer_campaign`, `explorer_destination`, `explorer_destination_match`, `explorer_destination_pin`) via Postgres Drizzle migration `0004_elite_ser_duncan.sql`. Historical production data from the 2026 campaign is preserved in `server/data/retired_explorer_archive_2026.sql`.
+- Pre-retirement state on `main` is tagged as `pre-explorer-retirement` on GitHub.
+
 ### Added
 - Added native Antigravity developer configuration including repository root rule link (`GEMINI.md -> AGENTS.md`), compatibility link (`.agent -> .agents`), design system audit skill (`leaderboard-design-audit`), full-stack dev agent persona (`dev-agent`), and discovery manifests (`skills.json`, `agents.json`).
 

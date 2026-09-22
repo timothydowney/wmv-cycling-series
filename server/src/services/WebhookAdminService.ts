@@ -5,9 +5,9 @@
  * Orchestrates WebhookSubscriptionService and WebhookLogger.
  */
 
-import type { AppDatabase } from '../db/types';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
-import { activity, explorerDestination, explorerDestinationMatch, participant, season, week, webhookEvent } from '../db/schema';
+import type { AppDatabase } from '../db/types';
+import { activity, participant, season, week, webhookEvent } from '../db/schema';
 import { WebhookSubscriptionService } from './WebhookSubscriptionService';
 import ParticipantService from './ParticipantService';
 import { ActivityService } from './ActivityService';
@@ -186,22 +186,16 @@ export class WebhookAdminService {
       outcome,
       competition_week_count: 0,
       competition_season_count: 0,
-      explorer_destination_count: 0,
-      explorer_campaign_count: 0,
       competition_week_names: [] as string[],
-      explorer_destination_names: [] as string[],
       message,
     };
   }
 
   private buildMatchedActivitySummary(
-    competitionMatches: Array<{ season_id: number; week_name: string | null }>,
-    explorerMatches: Array<{ explorer_campaign_id: number; destination_name: string | null; destination_cached_name: string | null }>
+    competitionMatches: Array<{ season_id: number; week_name: string | null }>
   ) {
     const competitionWeekCount = competitionMatches.length;
     const competitionSeasonCount = new Set(competitionMatches.map(match => match.season_id)).size;
-    const explorerDestinationCount = explorerMatches.length;
-    const explorerCampaignCount = new Set(explorerMatches.map(match => match.explorer_campaign_id)).size;
     const competitionWeekNames = Array.from(
       new Set(
         competitionMatches
@@ -209,39 +203,23 @@ export class WebhookAdminService {
           .filter((name): name is string => Boolean(name))
       )
     );
-    const explorerDestinationNames = Array.from(
-      new Set(
-        explorerMatches
-          .map(match => match.destination_name || match.destination_cached_name)
-          .filter((name): name is string => Boolean(name))
-      )
-    );
 
-    let outcome: 'competition' | 'explorer' | 'both' | 'none';
+    let outcome: 'competition' | 'none';
     let message: string;
 
-    if (competitionWeekCount > 0 && explorerDestinationCount > 0) {
-      outcome = 'both';
-      message = `Matched ${competitionWeekCount} competition week(s) and ${explorerDestinationCount} Explorer destination(s)`;
-    } else if (competitionWeekCount > 0) {
+    if (competitionWeekCount > 0) {
       outcome = 'competition';
       message = `Matched ${competitionWeekCount} competition week(s)`;
-    } else if (explorerDestinationCount > 0) {
-      outcome = 'explorer';
-      message = `Matched ${explorerDestinationCount} Explorer destination(s)`;
     } else {
       outcome = 'none';
-      message = 'Processed with no competition or Explorer matches';
+      message = 'Processed with no competition matches';
     }
 
     return {
       outcome,
       competition_week_count: competitionWeekCount,
       competition_season_count: competitionSeasonCount,
-      explorer_destination_count: explorerDestinationCount,
-      explorer_campaign_count: explorerCampaignCount,
       competition_week_names: competitionWeekNames,
-      explorer_destination_names: explorerDestinationNames,
       message,
     };
   }
@@ -278,33 +256,6 @@ export class WebhookAdminService {
           .groupBy(activity.strava_activity_id, week.id, week.week_name, season.id)
       );
 
-      const explorerMatches = await getMany<{
-        strava_activity_id: string;
-        explorer_campaign_id: number;
-        destination_name: string | null;
-        destination_cached_name: string | null;
-      }>(
-        this.db
-          .select({
-            strava_activity_id: explorerDestinationMatch.strava_activity_id,
-            explorer_campaign_id: explorerDestinationMatch.explorer_campaign_id,
-            destination_name: explorerDestination.display_label,
-            destination_cached_name: explorerDestination.cached_name,
-          })
-          .from(explorerDestinationMatch)
-          .leftJoin(
-            explorerDestination,
-            eq(explorerDestinationMatch.explorer_destination_id, explorerDestination.id)
-          )
-          .where(inArray(explorerDestinationMatch.strava_activity_id, matchedActivityIds))
-          .groupBy(
-            explorerDestinationMatch.strava_activity_id,
-            explorerDestinationMatch.explorer_campaign_id,
-            explorerDestination.display_label,
-            explorerDestination.cached_name
-          )
-      );
-
       const competitionByActivityId = new Map<string, Array<{ season_id: number; week_name: string | null }>>();
       for (const match of competitionMatches) {
         const existing = competitionByActivityId.get(match.strava_activity_id) ?? [];
@@ -312,23 +263,11 @@ export class WebhookAdminService {
         competitionByActivityId.set(match.strava_activity_id, existing);
       }
 
-      const explorerByActivityId = new Map<string, Array<{ explorer_campaign_id: number; destination_name: string | null; destination_cached_name: string | null }>>();
-      for (const match of explorerMatches) {
-        const existing = explorerByActivityId.get(match.strava_activity_id) ?? [];
-        existing.push({
-          explorer_campaign_id: match.explorer_campaign_id,
-          destination_name: match.destination_name,
-          destination_cached_name: match.destination_cached_name,
-        });
-        explorerByActivityId.set(match.strava_activity_id, existing);
-      }
-
       for (const activityId of matchedActivityIds) {
         summaries.set(
           activityId,
           this.buildMatchedActivitySummary(
-            competitionByActivityId.get(activityId) ?? [],
-            explorerByActivityId.get(activityId) ?? []
+            competitionByActivityId.get(activityId) ?? []
           )
         );
       }
@@ -342,6 +281,14 @@ export class WebhookAdminService {
 
       if (event.errorMessage) {
         summaries.set(event.objectId, this.buildEmptyActivitySummary('failed', event.errorMessage));
+        continue;
+      }
+
+      if (!summaries.has(event.objectId)) {
+        summaries.set(
+          event.objectId,
+          this.buildMatchedActivitySummary([])
+        );
       }
     }
 

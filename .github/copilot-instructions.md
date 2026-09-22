@@ -171,7 +171,7 @@ try {
 
 ### Frontend (React + TypeScript)
 
-For end-user leaderboard-inspired UI work, including future public Explorer surfaces, use [docs/LEADERBOARD_DESIGN_SYSTEM.md](./docs/LEADERBOARD_DESIGN_SYSTEM.md) as the canonical design reference before copying patterns from older admin screens.
+For end-user leaderboard-inspired UI work, including modern public and admin surfaces, use [docs/LEADERBOARD_DESIGN_SYSTEM.md](./docs/LEADERBOARD_DESIGN_SYSTEM.md) as the canonical design reference before copying patterns from older admin screens.
 
 **tRPC Hooks:**
 ```typescript

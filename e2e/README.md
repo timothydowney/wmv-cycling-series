@@ -52,7 +52,7 @@ These principles describe the intended direction for the E2E harness as it becom
 - Fail fast if the intended E2E env file or backend mode is missing instead of silently falling back to the normal development environment.
 
 
-Current reality: Playwright now boots dedicated frontend and backend E2E servers for `npm run test:e2e`, the backend uses an explicit E2E runtime mode for harness boot concerns, and deterministic backend Strava behavior is selected through explicit providers for the current Explorer and read-side flows. The E2E database is Postgres-only. The suite uses the `wmv_e2e` Postgres database, which is created and migrated automatically by the harness scripts, then seeded from the committed Postgres SQL snapshot at `server/data/wmv_e2e_seed.sql` when empty.
+Current reality: Playwright now boots dedicated frontend and backend E2E servers for `npm run test:e2e`, the backend uses an explicit E2E runtime mode for harness boot concerns, and deterministic backend Strava behavior is selected through explicit providers for read-side flows. The E2E database is Postgres-only. The suite uses the `wmv_e2e` Postgres database, which is created and migrated automatically by the harness scripts, then seeded from the committed Postgres SQL snapshot at `server/data/wmv_e2e_seed.sql` when empty.
 
 
 **Local E2E DB setup:**
@@ -88,7 +88,6 @@ See [docs/PLAYWRIGHT_TESTING_PLAN.md](../docs/PLAYWRIGHT_TESTING_PLAN.md) for co
 
 - Existing UI-focused Playwright tests can keep using browser-side Strava route interception for client-rendered metadata and display checks.
 - Existing authenticated tests can keep using the backend e2e-login helper.
-- The main change for new Explorer admin E2E coverage is that server-side Strava-dependent behavior must run through an explicit backend provider mode rather than relying on browser interception.
 - Existing tests should not need a broad rewrite, but the harness should become stricter about env setup and fixture data so it cannot silently run against unintended local state.
 
 ## Troubleshooting

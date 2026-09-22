@@ -4,7 +4,6 @@ import {
   bigint,
   index,
   doublePrecision,
-  uniqueIndex,
   boolean,
   jsonb,
   timestamp,
@@ -171,70 +170,6 @@ export const webhookSubscription = pgTable('webhook_subscription', {
   last_refreshed_at: timestamp('last_refreshed_at', { withTimezone: true, mode: 'string' }),
 });
 
-export const explorerCampaign = pgTable('explorer_campaign', {
-  id: bigint('id', { mode: 'number' }).generatedByDefaultAsIdentity().primaryKey(),
-  start_at: bigint('start_at', { mode: 'number' }).notNull(),
-  end_at: bigint('end_at', { mode: 'number' }).notNull(),
-  display_name: text('display_name'),
-  rules_blurb: text('rules_blurb'),
-  created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
-  updated_at: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow(),
-},
-(t) => [
-  index('idx_explorer_campaign_window').on(t.start_at, t.end_at),
-]);
-
-export const explorerDestination = pgTable('explorer_destination', {
-  id: bigint('id', { mode: 'number' }).generatedByDefaultAsIdentity().primaryKey(),
-  explorer_campaign_id: bigint('explorer_campaign_id', { mode: 'number' }).notNull().references(() => explorerCampaign.id, { onDelete: 'cascade' }),
-  strava_segment_id: text('strava_segment_id').notNull(),
-  source_url: text('source_url'),
-  cached_name: text('cached_name'),
-  display_label: text('display_label'),
-  display_order: bigint('display_order', { mode: 'number' }).default(0).notNull(),
-  surface_type: text('surface_type'),
-  category: text('category'),
-  created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
-  updated_at: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow(),
-},
-(t) => [
-  index('idx_explorer_destination_campaign').on(t.explorer_campaign_id),
-  index('idx_explorer_destination_segment').on(t.strava_segment_id),
-  uniqueIndex('idx_explorer_destination_campaign_segment').on(t.explorer_campaign_id, t.strava_segment_id),
-]);
-
-export const explorerDestinationMatch = pgTable('explorer_destination_match', {
-  id: bigint('id', { mode: 'number' }).generatedByDefaultAsIdentity().primaryKey(),
-  explorer_campaign_id: bigint('explorer_campaign_id', { mode: 'number' }).notNull().references(() => explorerCampaign.id, { onDelete: 'cascade' }),
-  explorer_destination_id: bigint('explorer_destination_id', { mode: 'number' }).notNull().references(() => explorerDestination.id, { onDelete: 'cascade' }),
-  strava_athlete_id: text('strava_athlete_id').notNull().references(() => participant.strava_athlete_id, { onDelete: 'cascade' }),
-  strava_activity_id: text('strava_activity_id').notNull(),
-  matched_at: bigint('matched_at', { mode: 'number' }).notNull(),
-  first_completer_athlete_id: text('first_completer_athlete_id'),
-  first_completer_at: bigint('first_completer_at', { mode: 'number' }),
-  created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
-},
-(t) => [
-  index('idx_explorer_match_campaign_athlete').on(t.explorer_campaign_id, t.strava_athlete_id),
-  index('idx_explorer_match_activity').on(t.strava_activity_id),
-  uniqueIndex('idx_explorer_match_unique').on(t.explorer_campaign_id, t.explorer_destination_id, t.strava_athlete_id),
-  // Partial unique index to ensure only one first completer per (campaign, destination)
-  // Note: Using raw index() call since Drizzle doesn't support partial indexes directly;
-  // will be added in migration SQL
-]);
-
-export const explorerDestinationPin = pgTable('explorer_destination_pin', {
-  id: bigint('id', { mode: 'number' }).generatedByDefaultAsIdentity().primaryKey(),
-  explorer_campaign_id: bigint('explorer_campaign_id', { mode: 'number' }).notNull().references(() => explorerCampaign.id, { onDelete: 'cascade' }),
-  explorer_destination_id: bigint('explorer_destination_id', { mode: 'number' }).notNull().references(() => explorerDestination.id, { onDelete: 'cascade' }),
-  strava_athlete_id: text('strava_athlete_id').notNull().references(() => participant.strava_athlete_id, { onDelete: 'cascade' }),
-  created_at: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
-},
-(t) => [
-  index('idx_explorer_pin_campaign_athlete').on(t.explorer_campaign_id, t.strava_athlete_id),
-  uniqueIndex('idx_explorer_pin_unique').on(t.explorer_campaign_id, t.explorer_destination_id, t.strava_athlete_id),
-]);
-
 // Chain Wax Tracking tables
 export const chainWaxPeriod = pgTable('chain_wax_period', {
   id: bigint('id', { mode: 'number' }).generatedByDefaultAsIdentity().primaryKey(),
@@ -284,17 +219,6 @@ export type NewWeek = typeof week.$inferInsert;
 
 export type Segment = typeof segment.$inferSelect;
 export type NewSegment = typeof segment.$inferInsert;
-
-export type ExplorerCampaign = typeof explorerCampaign.$inferSelect;
-export type NewExplorerCampaign = typeof explorerCampaign.$inferInsert;
-export type ExplorerDestinationPin = typeof explorerDestinationPin.$inferSelect;
-export type NewExplorerDestinationPin = typeof explorerDestinationPin.$inferInsert;
-
-export type ExplorerDestination = typeof explorerDestination.$inferSelect;
-export type NewExplorerDestination = typeof explorerDestination.$inferInsert;
-
-export type ExplorerDestinationMatch = typeof explorerDestinationMatch.$inferSelect;
-export type NewExplorerDestinationMatch = typeof explorerDestinationMatch.$inferInsert;
 
 export type Participant = typeof participant.$inferSelect;
 export type NewParticipant = typeof participant.$inferInsert;

@@ -21,20 +21,17 @@ export interface WebhookEvent {
   error_message: string | null;
   athlete_name?: string | null;
   activity_summary?: {
-    outcome: 'competition' | 'explorer' | 'both' | 'none' | 'pending' | 'failed';
+    outcome: 'competition' | 'none' | 'pending' | 'failed';
     competition_week_count: number;
     competition_season_count: number;
-    explorer_destination_count: number;
-    explorer_campaign_count: number;
     competition_week_names?: string[];
-    explorer_destination_names?: string[];
     message: string;
   };
 }
 
 interface SummaryBadge {
   label: string;
-  tone: 'competition' | 'explorer' | 'both' | 'none' | 'pending' | 'failed' | 'create' | 'update' | 'delete' | 'detail';
+  tone: 'competition' | 'none' | 'pending' | 'failed' | 'create' | 'update' | 'delete' | 'detail';
 }
 
 interface WebhookEventCardProps {

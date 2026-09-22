@@ -134,7 +134,7 @@ Before merging or opening a substantive PR, run `npm run audit` locally alongsid
    - When falling back to `gh`, keep the usage targeted and explain the blocker or gap that required the fallback
 10. **Leaderboard-inspired UI work:**
    - Treat `docs/LEADERBOARD_DESIGN_SYSTEM.md` as the canonical reference for the end-user Weekly, Season, and Schedule design language
-   - Do not use legacy admin CSS as the default source of truth for public Explorer UI
+   - Do not use legacy admin CSS as the default source of truth for public UI
    - If the leaderboard does not define a needed pattern, record that gap explicitly instead of freehanding a new local style system
 
 11. **WSL Command Execution on Windows Hosts:**
@@ -199,7 +199,7 @@ npm run dev
 - **Dependency Injection:** Services receive `drizzleDb` (AppDatabase) in the constructor. tRPC procedure context contains `drizzleDb`.
 - **Database Queries:** Always use Drizzle ORM (no raw SQL unless unavoidable). Use parameterized queries and transactions for consistency.
 - **TypeScript:** Never use `any`. Always use explicit, specific types.
-- **UI Design System:** Treat `docs/LEADERBOARD_DESIGN_SYSTEM.md` as the canonical reference for the Weekly, Season, and Schedule design language. Do not use legacy admin CSS as the default source of truth for public Explorer UI.
+- **UI Design System:** Treat `docs/LEADERBOARD_DESIGN_SYSTEM.md` as the canonical reference for the Weekly, Season, and Schedule design language. Do not use legacy admin CSS as the default source of truth for modern UI.
 
 ### Timestamps & Timezones
 - **Golden Rule:** Strava ISO (UTC) → Unix seconds (storage) → Browser timezone (display)

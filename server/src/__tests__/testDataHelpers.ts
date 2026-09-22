@@ -1,6 +1,6 @@
 import type { AppDatabase } from '../db/types';
 import { isoToUnix } from '../dateUtils';
-import { season, activity, participant, participantToken, result, segment, segmentEffort, week, deletionRequest, explorerCampaign, explorerDestination, explorerDestinationMatch, explorerDestinationPin, webhookEvent, webhookSubscription, chainWaxActivity, chainWaxPeriod, chainWaxPuck, sessions } from '../db/schema';
+import { season, activity, participant, participantToken, result, segment, segmentEffort, week, deletionRequest, webhookEvent, webhookSubscription, chainWaxActivity, chainWaxPeriod, chainWaxPuck, sessions } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 
@@ -13,14 +13,6 @@ export type InsertSegment = InferInsertModel<typeof segment>;     // Exported
 export type SelectSegment = InferSelectModel<typeof segment>;
 export type InsertWeek = InferInsertModel<typeof week>;           // Exported
 export type SelectWeek = InferSelectModel<typeof week>;
-export type InsertExplorerCampaign = InferInsertModel<typeof explorerCampaign>;
-export type SelectExplorerCampaign = InferSelectModel<typeof explorerCampaign>;
-export type InsertExplorerDestination = InferInsertModel<typeof explorerDestination>;
-export type SelectExplorerDestination = InferSelectModel<typeof explorerDestination>;
-export type InsertExplorerDestinationMatch = InferInsertModel<typeof explorerDestinationMatch>;
-export type SelectExplorerDestinationMatch = InferSelectModel<typeof explorerDestinationMatch>;
-export type InsertExplorerDestinationPin = InferInsertModel<typeof explorerDestinationPin>;
-export type SelectExplorerDestinationPin = InferSelectModel<typeof explorerDestinationPin>;
 export type InsertActivity = InferInsertModel<typeof activity>;   // Exported
 export type SelectActivity = InferSelectModel<typeof activity>;
 export type InsertResult = InferInsertModel<typeof result>;       // Exported
@@ -103,24 +95,6 @@ interface CreateWeekWithResultsOptions {
   times?: number[];
 }
 
-interface CreateExplorerCampaignOptions {
-  startAt?: number;
-  endAt?: number;
-  displayName?: string | null;
-  rulesBlurb?: string | null;
-}
-
-interface CreateExplorerDestinationOptions {
-  explorerCampaignId: number;
-  stravaSegmentId?: string;
-  sourceUrl?: string | null;
-  cachedName?: string | null;
-  displayLabel?: string | null;
-  displayOrder?: number;
-  surfaceType?: string | null;
-  category?: string | null;
-}
-
 /**
  * Parse DB timestamp strings into epoch milliseconds.
  * pg-mem can return timestamptz as a timezone-less string, so treat that as UTC.
@@ -129,22 +103,6 @@ export function timestampStringToEpochMs(value: string): number {
   const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value);
   const normalized = hasTimezone ? value : `${value}Z`;
   return new Date(normalized).getTime();
-}
-
-interface CreateExplorerMatchOptions {
-  explorerCampaignId: number;
-  explorerDestinationId: number;
-  stravaAthleteId: string;
-  stravaActivityId?: string;
-  matchedAt?: number;
-  firstCompleterAthleteId?: string | null;
-  firstCompleterAt?: number | null;
-}
-
-interface CreateExplorerPinOptions {
-  explorerCampaignId: number;
-  explorerDestinationId: number;
-  stravaAthleteId: string;
 }
 
 /**
@@ -292,109 +250,6 @@ export async function createWeek(db: TestDb, options: CreateWeekOptions = {}): P
   const [newWeek] = await db.insert(week).values(newWeekData).returning();
   console.log(`[TEST_HELPER] Created Week: id=${newWeek.id}, name=${newWeek.week_name}, seasonId=${newWeek.season_id}, segmentId=${newWeek.strava_segment_id}`);
   return newWeek;
-}
-
-export async function createExplorerCampaign(
-  db: TestDb,
-  options: CreateExplorerCampaignOptions = {}
-): Promise<SelectExplorerCampaign> {
-  const {
-    startAt = isoToUnix('2025-06-01T00:00:00Z') || 0,
-    endAt = isoToUnix('2025-06-30T23:59:59Z') || 0,
-    displayName = 'Explorer Campaign',
-    rulesBlurb = null,
-  } = options;
-
-  const newCampaignData: InsertExplorerCampaign = {
-    start_at: startAt,
-    end_at: endAt,
-    display_name: displayName,
-    rules_blurb: rulesBlurb,
-  };
-
-  const [inserted] = await db.insert(explorerCampaign).values(newCampaignData).returning();
-  return inserted;
-}
-
-export async function createExplorerDestination(
-  db: TestDb,
-  options: CreateExplorerDestinationOptions
-): Promise<SelectExplorerDestination> {
-  const {
-    explorerCampaignId,
-    stravaSegmentId = 'explorer-segment-1',
-    sourceUrl = null,
-    cachedName = null,
-    displayLabel = null,
-    displayOrder = 0,
-    surfaceType = null,
-    category = null,
-  } = options;
-
-  const [existingSegment] = await db
-    .select()
-    .from(segment)
-    .where(eq(segment.strava_segment_id, stravaSegmentId));
-
-  if (!existingSegment && cachedName) {
-    await createSegment(db, stravaSegmentId, cachedName);
-  }
-
-  const newDestinationData: InsertExplorerDestination = {
-    explorer_campaign_id: explorerCampaignId,
-    strava_segment_id: stravaSegmentId,
-    source_url: sourceUrl,
-    cached_name: cachedName,
-    display_label: displayLabel,
-    display_order: displayOrder,
-    surface_type: surfaceType,
-    category,
-  };
-
-  const [inserted] = await db.insert(explorerDestination).values(newDestinationData).returning();
-  return inserted;
-}
-
-export async function createExplorerMatch(
-  db: TestDb,
-  options: CreateExplorerMatchOptions
-): Promise<SelectExplorerDestinationMatch> {
-  const {
-    explorerCampaignId,
-    explorerDestinationId,
-    stravaAthleteId,
-    stravaActivityId = String(Math.floor(Math.random() * 1000000000)),
-    matchedAt = isoToUnix('2025-06-01T12:00:00Z') || 0,
-    firstCompleterAthleteId = null,
-    firstCompleterAt = null,
-  } = options;
-
-  const newMatchData: InsertExplorerDestinationMatch = {
-    explorer_campaign_id: explorerCampaignId,
-    explorer_destination_id: explorerDestinationId,
-    strava_athlete_id: stravaAthleteId,
-    strava_activity_id: stravaActivityId,
-    matched_at: matchedAt,
-    first_completer_athlete_id: firstCompleterAthleteId,
-    first_completer_at: firstCompleterAt,
-  };
-
-  const [inserted] = await db.insert(explorerDestinationMatch).values(newMatchData).returning();
-  return inserted;
-}
-
-export async function createExplorerPin(
-  db: TestDb,
-  options: CreateExplorerPinOptions
-): Promise<SelectExplorerDestinationPin> {
-  const newPinData: InsertExplorerDestinationPin = {
-    explorer_campaign_id: options.explorerCampaignId,
-    explorer_destination_id: options.explorerDestinationId,
-    strava_athlete_id: options.stravaAthleteId,
-  };
-
-  const [inserted] = await db.insert(explorerDestinationPin).values(newPinData).returning();
-  return inserted;
 }
 
 /**
@@ -587,10 +442,6 @@ export async function createFullUserWithActivity(db: TestDb, options: CreateFull
  */
 export async function clearAllData(db: TestDb) {
   // Delete in dependency order (most-dependent tables first).
-  await db.delete(explorerDestinationPin);
-  await db.delete(explorerDestinationMatch);
-  await db.delete(explorerDestination);
-  await db.delete(explorerCampaign);
   await db.delete(chainWaxActivity);
   await db.delete(chainWaxPuck);
   await db.delete(chainWaxPeriod);
