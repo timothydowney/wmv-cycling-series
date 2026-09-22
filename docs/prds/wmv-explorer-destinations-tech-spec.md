@@ -1,4 +1,9 @@
 # WMV Explorer Destinations Technical Specification
+# WMV Explorer Destinations Technical Specification (Retired)
+
+> [!NOTE]
+> **Feature Retired (September 2026)**
+> This feature did not pan out as expected and was removed from the codebase and production database. This document is retained for historical context only.
 
 ## 1. Purpose
 

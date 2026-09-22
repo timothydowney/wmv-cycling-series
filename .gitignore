@@ -32,6 +32,7 @@ server/data/
 !server/data/
 server/data/*
 !server/data/wmv_e2e_seed.sql
+!server/data/retired_explorer_archive_2026.sql
 
 # Test coverage
 coverage/

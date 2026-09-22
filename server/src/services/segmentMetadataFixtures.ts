@@ -46,7 +46,7 @@ const SEGMENT_METADATA_FIXTURES: Record<string, SegmentMetadataPayload> = {
     country: 'France',
   },
   '12744502': {
-    name: 'WMV Explorer Test Climb',
+    name: 'WMV Test Climb',
     distance: 1832.4,
     total_elevation_gain: 84.6,
     average_grade: 4.1,

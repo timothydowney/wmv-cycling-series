@@ -60,14 +60,11 @@ const baseEvent = {
     subscription_id: 1,
   },
   activity_summary: {
-    outcome: 'both' as const,
+    outcome: 'competition' as const,
     competition_week_count: 1,
     competition_season_count: 1,
-    explorer_destination_count: 2,
-    explorer_campaign_count: 1,
     competition_week_names: ['Week 4 Time Trial'],
-    explorer_destination_names: ['Summit Road', 'River Loop'],
-    message: 'Matched 1 competition week(s) and 2 Explorer destination(s)',
+    message: 'Matched 1 competition week(s)',
   },
 };
 
@@ -123,10 +120,9 @@ describe('WebhookActivityEventCard', () => {
     const { container } = await renderCard();
 
     expect(container.textContent).toContain('Create');
-    expect(container.textContent).toContain('Competition + Explorer');
+    expect(container.textContent).toContain('Competition');
     expect(container.textContent).toContain('Week: Week 4 Time Trial');
-    expect(container.textContent).toContain('Destination: Summit Road +1');
-    expect(container.textContent).toContain('Matched 1 competition week(s) and 2 Explorer destination(s)');
+    expect(container.textContent).toContain('Matched 1 competition week(s)');
     expect(container.textContent).toContain('Private or unavailable');
 
     const initialCall = getEnrichedEventDetailsUseQuery.mock.calls.at(-1);

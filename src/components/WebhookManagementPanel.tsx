@@ -35,7 +35,7 @@ export const WebhookManagementPanel: React.FC = () => {
           <p className="webhook-panel-eyebrow">Admin observability</p>
           <h2 className="webhook-panel-title">Manage Webhooks</h2>
           <p className="webhook-panel-subtitle">
-            Track Strava event flow, confirm competition and Explorer matches, and inspect stored processing outcomes.
+            Track Strava event flow, confirm competition matches, and inspect stored processing outcomes.
           </p>
         </div>
       </div>

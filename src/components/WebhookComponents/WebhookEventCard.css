@@ -113,15 +113,6 @@
   color: var(--wmv-orange-hover);
 }
 
-.summary-badge-explorer {
-  background-color: color-mix(in srgb, var(--wmv-purple) 12%, var(--wmv-white));
-  color: var(--wmv-purple-dark);
-}
-
-.summary-badge-both {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--wmv-orange) 14%, var(--wmv-white)) 0%, color-mix(in srgb, var(--wmv-purple) 10%, var(--wmv-white)) 100%);
-  color: var(--wmv-text-dark);
-}
 
 .summary-badge-none,
 .summary-badge-pending,

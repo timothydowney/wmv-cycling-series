@@ -29,6 +29,13 @@
       "when": 1779194602195,
       "tag": "0003_glorious_darkhawk",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789998513567,
+      "tag": "0004_elite_ser_duncan",
+      "breakpoints": true
     }
   ]
 }

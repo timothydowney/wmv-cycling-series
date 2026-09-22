@@ -23,7 +23,6 @@ Use the shared repo instructions rather than restating them here:
 
 ## WMV-Specific Priorities
 
-- Keep Explorer additive to the current competition flows.
 - Use dependency injection and Drizzle ORM for new backend work.
 - Use `setupTestDb` for backend tests unless there is a strong reason not to.
 - Under WSL, prefer the Linux Node 24 toolchain over Windows Node/npm paths.
@@ -42,7 +41,5 @@ Use the shared repo instructions rather than restating them here:
 3. For pull requests, issue lookups, labels, and repository metadata, prefer GitHub MCP and workspace-integrated GitHub tools first. For pull request review comments and review-thread triage, default to `gh` first, preferably via `gh api graphql`, because the active-PR and MCP paths have been unreliable at returning the full thread state in this repo.
 4. Implement with minimal, focused changes that match the existing architecture.
 5. If the approved slice changes planning state, roadmap state, rollout boundaries, operator guidance, or any documented behavior already represented in repo docs, include the narrow doc closeout updates in the same PR rather than leaving them for a later cleanup.
-6. For Explorer specifically, if the approved slice changes phase completion, the recommended next slice, or readiness wording, update the linked planning docs in that same branch before treating the slice as done.
-7. Hand back to `explorer-planner` only if closing the slice requires new product decisions, broader readiness re-evaluation, or reshaping later slice boundaries rather than straightforward planning-state maintenance.
-8. Validate with `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build` before calling the work complete.
-9. Stage files explicitly with `git add <file>` rather than broad staging.
+6. Validate with `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build` before calling the work complete.
+7. Stage files explicitly with `git add <file>` rather than broad staging.
